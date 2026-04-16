@@ -1,0 +1,18 @@
+id: PHX-0013
+category: vision
+priority: high
+status: open
+generation_target: 2
+title: "Chronese Canonical Semantic Layer"
+filed_by: hesiod
+created_at: 2026-04-15
+description: |
+  The Chronik should converge on a canonical semantic language that sits
+  between source text and all graph/vector projections. This language,
+  tentatively called Chronese, should be language-neutral, event-centric,
+  provenance-bound, and epistemically explicit.
+
+  Generation 1 can represent Chronese as strict JSON/Pydantic schemas, but
+  future generations may require a richer compiler, versioning system, and
+  projection toolchain.
+resolution: null

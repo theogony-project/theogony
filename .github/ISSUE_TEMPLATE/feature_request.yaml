@@ -1,0 +1,44 @@
+name: Feature Request
+description: Suggest an improvement or new capability
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests are welcome. For deep architectural changes, consider filing a Phoenix Backlog ticket instead (see CONTRIBUTING.md).
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the problem or limitation you are facing.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like to see?
+      description: Describe the feature or improvement you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the system does this concern?
+      options:
+        - Core data model
+        - KnowledgeStore / graph+vector layer
+        - Extraction pipeline
+        - Acquisition adapters
+        - Retrieval / multi-hop search
+        - Agent system (Pantheon)
+        - API
+        - Documentation
+        - Other
+    validations:
+      required: true

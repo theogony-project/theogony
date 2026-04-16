@@ -1,0 +1,17 @@
+id: PHX-0014
+category: vision
+priority: high
+status: open
+generation_target: 2
+title: "Metis Advisory Runtime"
+filed_by: hesiod
+created_at: 2026-04-15
+description: |
+  The Chronik should support a dedicated advisory agent, Metis, that operates
+  across Akasha, Lethe, and an explicit Norm Space. Metis must separate facts,
+  analogies, options, risks, and value assumptions rather than collapsing them
+  into a single recommendation.
+
+  Future work includes defining advisory packets, audit traces, norm handling,
+  and ethical constraints for personal and institutional guidance.
+resolution: null

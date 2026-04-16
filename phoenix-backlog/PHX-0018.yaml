@@ -1,0 +1,18 @@
+id: PHX-0018
+category: vision
+priority: low
+status: open
+generation_target: 3
+title: "Chronik-to-Model Distillation and Hardware Co-Design"
+filed_by: hesiod
+created_at: 2026-04-15
+description: |
+  Use the Chronik as a source for training datasets, distilling small
+  expert modules, LoRAs, and specialized reasoning models. Move from
+  monolithic LLMs toward composable, Chronik-fed modular intelligence.
+
+  Long-term: explore hardware co-design where AI-designed chips optimize
+  for Chronik-native operations (graph activation, signed edge propagation,
+  temporal neighborhood search, hyperedge evaluation) rather than only
+  transformer-style matrix multiplication.
+resolution: null

@@ -1,0 +1,17 @@
+id: PHX-0016
+category: vision
+priority: medium
+status: open
+generation_target: 2
+title: "Non-Chronological Knowledge Topologies"
+filed_by: hesiod
+created_at: 2026-04-15
+description: |
+  The Chronik must represent knowledge forms that are not anchored to
+  time, place, or events: structural knowledge (math, logic, physics),
+  mechanistic knowledge (causality, processes), and normative knowledge
+  (law, ethics, values).
+
+  These require different clustering strategies, embedding spaces, and
+  retrieval modes than chronological/narrative knowledge.
+resolution: null

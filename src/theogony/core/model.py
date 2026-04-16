@@ -1,0 +1,258 @@
+"""
+Core data models for the Chronik.
+
+These models represent the fundamental knowledge atoms of the system:
+nodes (entities, events, concepts, claims), edges (typed weighted relations),
+source references (provenance anchors), and lifecycle scores.
+
+In the long view, nodes and edges are operational projections from richer
+Chronese assertion frames. They remain the practical unit for retrieval,
+indexing, and agent access.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any
+from uuid import uuid4
+
+from pydantic import BaseModel, Field
+
+
+class Layer(str, Enum):
+    """Memory layer within the Chronik."""
+    EPHEMERA = "ephemera"   # raw, unverified, fresh
+    MNEME = "mneme"         # verified, connected, permanent
+
+
+class NodeType(str, Enum):
+    """Semantic type of a knowledge node."""
+    PERSON = "person"
+    PLACE = "place"
+    CONCEPT = "concept"
+    EVENT = "event"
+    CLAIM = "claim"
+    WORK = "work"           # book, paper, article, film, ...
+    ORGANIZATION = "organization"
+    TIME = "time"
+    QUANTITY = "quantity"
+    SOURCE = "source"
+    OTHER = "other"
+
+
+class KnowledgeForm(str, Enum):
+    """The epistemic form of knowledge — what kind of structure it belongs to."""
+    CHRONOLOGICAL = "chronological"   # events, biographies, history
+    STRUCTURAL = "structural"         # math, logic, formal systems
+    MECHANISTIC = "mechanistic"       # causal processes, how things work
+    NORMATIVE = "normative"           # law, ethics, values, rules
+
+
+class EpistemicStatus(str, Enum):
+    """How the system holds this knowledge."""
+    OBSERVED = "observed"             # directly stated in a source
+    REPORTED = "reported"             # stated by a source about another source
+    INFERRED = "inferred"             # derived from existing knowledge
+    HYPOTHESIZED = "hypothesized"     # proposed, not yet supported
+    DISPUTED = "disputed"             # contradicted by at least one source
+    DEPRECATED = "deprecated"         # superseded or retracted
+
+
+class EdgeType(str, Enum):
+    """Epistemic type of a relation — how the edge was created."""
+    EXTRACTION = "extraction"
+    INFERENCE = "inference"
+    WIKIDATA = "wikidata"
+    QUERY_COOCCURRENCE = "query_cooccurrence"
+    AGENT = "agent"
+    USER = "user"
+
+
+class SourceRef(BaseModel):
+    """
+    Provenance anchor for a knowledge atom.
+
+    Every node must trace back to its origin. This is not optional —
+    it is enforced by the data model itself.
+    """
+    source_type: str                    # gutenberg | web | wikidata | arxiv | library | user | ...
+    url: str | None = None              # link to original
+    identifier: str | None = None       # book ID, DOI, ISBN, call number
+    location: str | None = None         # page, chapter, paragraph, char offset
+    snippet: str | None = None          # short verbatim quote (1-3 sentences)
+    language: str | None = None         # ISO 639-1 language code
+    accessed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class NodeScores(BaseModel):
+    """
+    Lifecycle scores for a knowledge node.
+
+    Vitality is computed from these scores and determines whether a node
+    is promoted (Ephemera → Mneme), retained, or degraded.
+    """
+    confidence: float = Field(
+        default=0.5, ge=0.0, le=1.0,
+        description="How well-verified is this knowledge?"
+    )
+    relevance: float = Field(
+        default=0.5, ge=0.0, le=1.0,
+        description="How often is this node accessed or linked?"
+    )
+    connectivity: float = Field(
+        default=0.0, ge=0.0, le=1.0,
+        description="How well-connected is this node in the graph?"
+    )
+    freshness: float = Field(
+        default=1.0, ge=0.0, le=1.0,
+        description="How recent is this knowledge? Decays over time."
+    )
+
+    def vitality(
+        self,
+        w_confidence: float = 0.4,
+        w_relevance: float = 0.25,
+        w_connectivity: float = 0.2,
+        w_freshness: float = 0.15,
+    ) -> float:
+        """Compute the vitality score as a weighted sum of component scores."""
+        return (
+            w_confidence * self.confidence
+            + w_relevance * self.relevance
+            + w_connectivity * self.connectivity
+            + w_freshness * self.freshness
+        )
+
+
+class KnowledgeNode(BaseModel):
+    """
+    A knowledge atom in the Chronik.
+
+    Scope is unbounded: a node may represent a macro-concept (Quantum Mechanics),
+    a historical event (The Lisbon Earthquake, 1755), a specific person
+    (Heinrich Harrer), a place (Uttarkashi), a claim, or a digital twin of
+    a living individual.
+
+    In the long view, nodes are projections from richer Chronese assertion frames.
+    """
+    id: str = Field(
+        default_factory=lambda: f"AKA-{uuid4().hex[:12]}",
+        description="AKA-{uuid} or Q-{wikidata_id}"
+    )
+    embedding: list[float] = Field(
+        default_factory=list,
+        description="Primary semantic vector. Multiple embeddings (for different spaces) are stored externally."
+    )
+    node_type: NodeType = NodeType.OTHER
+    knowledge_form: KnowledgeForm = KnowledgeForm.CHRONOLOGICAL
+    epistemic_status: EpistemicStatus = EpistemicStatus.OBSERVED
+
+    label: str = Field(
+        description="Short human-readable label, e.g. 'Uttarkashi, temple city in Uttarakhand'"
+    )
+    description: str | None = None
+
+    layer: Layer = Layer.EPHEMERA
+    cluster_id: str | None = None      # knowledge region membership
+
+    external_ids: dict[str, str] = Field(
+        default_factory=dict,
+        description="e.g. {'wikidata': 'Q806463', 'gutenberg': '12345'}"
+    )
+    source_ref: SourceRef
+    scores: NodeScores = Field(default_factory=NodeScores)
+
+    properties: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Flexible additional properties for this node type."
+    )
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_accessed: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_verified: datetime | None = None
+
+    @property
+    def vitality(self) -> float:
+        return self.scores.vitality()
+
+    @property
+    def wikidata_id(self) -> str | None:
+        return self.external_ids.get("wikidata")
+
+    def is_in_mneme(self) -> bool:
+        return self.layer == Layer.MNEME
+
+    def can_be_promoted(
+        self,
+        confidence_threshold: float = 0.65,
+        connectivity_threshold: float = 0.2,
+    ) -> bool:
+        """A node can be promoted to Mneme when it is sufficiently verified and connected."""
+        return (
+            self.scores.confidence >= confidence_threshold
+            and self.scores.connectivity >= connectivity_threshold
+        )
+
+
+class KnowledgeEdge(BaseModel):
+    """
+    A typed, weighted, provenance-anchored relation between two knowledge nodes.
+
+    Relation types follow Wikidata P-ID conventions where applicable
+    (e.g. P131 = located in, P31 = instance of) and use custom types
+    for relations not in Wikidata.
+    """
+    id: str = Field(default_factory=lambda: f"EDGE-{uuid4().hex[:12]}")
+    source_id: str
+    target_id: str
+
+    relation_type: str = Field(
+        description="P-ID style (e.g. 'P131', 'P31') or custom (e.g. 'REACHED', 'DESCRIBED_BY')"
+    )
+    weight: float = Field(
+        default=0.5, ge=0.0, le=1.0,
+        description="Edge weight, strengthened or weakened over time."
+    )
+    confidence: float = Field(
+        default=0.5, ge=0.0, le=1.0,
+        description="How certain is this relation?"
+    )
+    bidirectional: bool = False
+    epistemic_type: EdgeType = EdgeType.EXTRACTION
+    source_ref: SourceRef | None = None
+
+    properties: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Constellation(BaseModel):
+    """
+    A structured, query-relevant working set returned by the Chronik to an agent.
+
+    This is not a list of text chunks. It is a subgraph of knowledge:
+    relevant nodes, relations between them, source anchors for citation,
+    and identified gaps where knowledge is missing or weak.
+
+    The LLM interprets a Constellation into human-readable output.
+    Every entity mentioned in the answer can reference its node here —
+    this is the foundation of the Hover-Lupe.
+    """
+    query: str
+    nodes: list[KnowledgeNode] = Field(default_factory=list)
+    edges: list[KnowledgeEdge] = Field(default_factory=list)
+    suggested_sources: list[SourceRef] = Field(default_factory=list)
+    gaps: list[str] = Field(
+        default_factory=list,
+        description="Identified knowledge gaps relevant to this query."
+    )
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    path: str = Field(
+        default="fast",
+        description="'fast' (heuristic retrieval) or 'slow' (reasoning + opposition protocol)"
+    )
+
+    @property
+    def is_sufficient(self) -> bool:
+        """Rough heuristic: is there enough to synthesize a useful answer?"""
+        return len(self.nodes) >= 3 and len(self.edges) >= 1

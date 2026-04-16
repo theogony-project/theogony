@@ -1,0 +1,17 @@
+id: PHX-0017
+category: vision
+priority: medium
+status: open
+generation_target: 2
+title: "Sensorium: Multimodal Acquisition Adapters"
+filed_by: hesiod
+created_at: 2026-04-15
+description: |
+  Expand acquisition adapters beyond text: PDF parsing, image interpretation,
+  handwriting recognition, voice-to-text, video analysis, forensic writing
+  style analysis, and eventually physical library access.
+
+  Every modality must produce provenance-anchored output. Ethical constraints
+  around surveillance capabilities must be enforced through the digital twin
+  classification system (observed, given, inferred, speculative, forbidden).
+resolution: null

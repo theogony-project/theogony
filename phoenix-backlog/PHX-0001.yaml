@@ -1,0 +1,17 @@
+id: PHX-0001
+category: vision
+priority: high
+status: open
+generation_target: 2
+title: "Custom Knowledge Store Engine"
+filed_by: hesiod
+created_at: 2026-04-15
+description: |
+  Neo4j is adequate for Gen 1 but not designed for the Chronik's specific access
+  pattern: combined vector similarity + graph traversal as a single native operation.
+  A custom engine that treats vector proximity and graph edges as aspects of the same
+  navigational structure could be fundamentally more efficient at scale.
+
+  This should be explored once real-world query patterns from Gen 1 provide data on
+  what the ideal engine needs to optimize for.
+resolution: null

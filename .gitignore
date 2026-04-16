@@ -1,52 +1,44 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+# Private / local files
+genesis_conversation_log.md
+cursor_theogony_project_introduction.md
 
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
+# OS
+.DS_Store
+Thumbs.db
 
-# IDE / OS
+# Editor
+.cursor/
 .idea/
 .vscode/
-*.swp
-.DS_Store
 
-# Environment and secrets
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment
 .env
 .env.*
-!.env.example
 
-# Testing / coverage
+# Testing
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Type checking
 .mypy_cache/
 .ruff_cache/
 
 # Jupyter
 .ipynb_checkpoints/
 
-# Local data (large / private)
-data/local/
-*.sqlite3
+# Neo4j local data
+neo4j_data/

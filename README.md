@@ -1,9 +1,46 @@
 # Theogony
 
-**Growing knowledge genesis** — retrieval, embeddings, and agent orchestration toward structured, vector-grounded knowledge systems (the “Pantheon” architecture).
+**Separating knowledge from reasoning — so that AI may serve humanity.**
 
-This repository is under active design. Public API, docs, and deployment targets (self-hosted + Hugging Face) will be added incrementally.
+We are in the most dangerous phase of artificial intelligence: *human stupidity still controls artificial intelligence*.
 
-## License
+This window is closing.
 
-To be determined.
+Like a spacecraft under constant acceleration, we can still set the initial heading. But soon the velocity will exceed our ability to steer. The impulse we impart in these early years will remain in its trajectory long after we have lost the wheel.
+
+**Theogony encodes that impulse into infrastructure.**
+
+It builds the **Chronik** — a living, open, verifiable vector-graph knowledge network that externalizes all factual knowledge from large language models.
+
+The Chronik is not a database of text. It is a **network of meaning**. Sources are digested into entities, weighted typed relations, embeddings, confidence scores, source references, and eventually into a canonical semantic language of the Chronik itself: **Chronese**. New knowledge arrives in *Ephemera*, is continuously refined through the *permanent dream* (Oneiros), and eventually promoted to *Mneme* — the trusted, permanent layer.
+
+Agents and lean LLMs no longer need to memorize the world. They navigate the Chronik: starting with semantic intuition, following weighted paths, deepening through recursive hops, and assembling dynamic *constellations* of knowledge. Every entity in an answer links back to its node — enabling the **Hover-Lupe**, the ability to explore any concept arbitrarily deep.
+
+The Chronik has two equal pillars:
+- **World Knowledge** — the distilled internet, every relevant book, paper and historical source.
+- **Scientific Workbench** — a living meta-research layer where agents systematically compare claims, surface contradictions, identify gaps and help generate new knowledge.
+
+It grows organically, verifies claims, gracefully forgets what no longer serves truth, and improves with every use. On top of that memory, a future advisory agent — **Metis** — can help humans and other agents act wisely by separating facts, analogies, options, risks, and value assumptions. And throughout the system's evolution, **Hestia** — the human flourishing guardian — watches for drift: the slow, invisible slide toward efficiency without humanity.
+
+Theogony is open source (Apache 2.0). Not as a business strategy — as a moral and civilizational imperative.
+
+The knowledge infrastructure that future AI will depend upon must not be proprietary, opaque, or profit-driven. It must be open, verifiable, and built in the service of humanity.
+
+If we succeed, something of our best collective impulse will survive into the phase where *artificial intelligence controls human stupidity*.
+
+**This is our only realistic chance.**
+
+Read [INDEX.md](docs/INDEX.md) for the document map and reading paths.  
+Read [VISION.md](docs/VISION.md) for the compact vision.  
+Read [DEEP_TECH_VISION.md](docs/DEEP_TECH_VISION.md) for the deeper substrate and future architecture.  
+Read [GLOSSARY.md](docs/GLOSSARY.md) for canonical terminology across the project.  
+Read [CHRONESE.md](docs/CHRONESE.md) for the Chronik's possible canonical semantic language.  
+Read [METIS.md](docs/METIS.md) for the advisory agent built on top of the Chronik.  
+Read [PHILOSOPHY.md](PHILOSOPHY.md) for the deeper why.  
+Read [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the technical design.
+
+The spark has been lit.
+
+**The initial impulse is being written now.**
+
+**Contribute. The future is listening.**

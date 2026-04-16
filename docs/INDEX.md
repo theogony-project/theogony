@@ -1,0 +1,104 @@
+# Documentation Index
+
+This file is the reading map for the Theogony documents.
+
+If you are new to the project, do not start everywhere at once.
+The documents were written for different depths and different kinds of readers.
+
+## Recommended Reading Paths
+
+### 1. Fast Orientation
+
+For someone who wants to understand the project quickly:
+
+1. [`README.md`](../README.md)
+2. [`VISION.md`](VISION.md)
+3. [`GLOSSARY.md`](GLOSSARY.md)
+
+This path explains what Theogony is, why it exists, and the core language used to describe it.
+
+### 2. Philosophical Foundation
+
+For someone who wants to understand the civilizational argument:
+
+1. [`README.md`](../README.md)
+2. [`PHILOSOPHY.md`](../PHILOSOPHY.md)
+3. [`VISION.md`](VISION.md)
+
+This path explains the spacecraft analogy, the initial impulse, and why open knowledge infrastructure matters.
+
+### 3. Technical Vision
+
+For someone who wants the system concept before code:
+
+1. [`VISION.md`](VISION.md)
+2. [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md)
+3. [`ARCHITECTURE.md`](ARCHITECTURE.md)
+4. [`GLOSSARY.md`](GLOSSARY.md)
+
+This path moves from the compact vision into the deeper substrate and then into the current architectural blueprint.
+
+### 4. Semantic Core
+
+For someone focused on representation and knowledge form:
+
+1. [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md)
+2. [`CHRONESE.md`](CHRONESE.md)
+3. [`ARCHITECTURE.md`](ARCHITECTURE.md)
+
+This path focuses on how knowledge itself may be represented beneath graph and vector projections.
+
+### 5. Advisory Layer
+
+For someone interested in guidance, decision support, and human/agent counsel:
+
+1. [`VISION.md`](VISION.md)
+2. [`METIS.md`](METIS.md)
+3. [`ARCHITECTURE.md`](ARCHITECTURE.md)
+4. [`GLOSSARY.md`](GLOSSARY.md)
+
+This path explains the advisory layer, Norm Space, Lethe context, and the separation of facts, options, risks, and values.
+
+### 6. Evolution and Open Questions
+
+For someone working on future generations:
+
+1. [`PHOENIX_BACKLOG.md`](PHOENIX_BACKLOG.md)
+2. [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md)
+3. [`genesis_conversation_log.md`](../genesis_conversation_log.md)
+
+This path is about open problems, future directions, and the original conceptual formation of the project.
+
+## Document Roles
+
+### Core Vision Documents
+
+- [`README.md`](../README.md): the manifesto
+- [`VISION.md`](VISION.md): the compact vision
+- [`PHILOSOPHY.md`](../PHILOSOPHY.md): the civilizational and ethical foundation
+
+### Deep Concept Documents
+
+- [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md): the deeper substrate and future shape of the system
+- [`CHRONESE.md`](CHRONESE.md): the proposed canonical semantic language of the Chronik
+- [`METIS.md`](METIS.md): the advisory agent and situational wisdom layer
+- [`COGNITIVE_ARCHITECTURE.md`](COGNITIVE_ARCHITECTURE.md): fast/slow thinking, opposition protocol, knowledge forms beyond chronology
+- [`HIVE.md`](HIVE.md): the production model — from raw material to distilled intelligence
+- [`HESTIA.md`](HESTIA.md): the human flourishing guardian — drift monitoring, escalation, and the regulatory dial
+
+### System Design Documents
+
+- [`ARCHITECTURE.md`](ARCHITECTURE.md): the current system blueprint
+- [`GLOSSARY.md`](GLOSSARY.md): canonical terminology
+
+### Evolution Documents
+
+- [`PHOENIX_BACKLOG.md`](PHOENIX_BACKLOG.md): future generations, open problems, and improvement tickets
+- [`genesis_conversation_log.md`](../genesis_conversation_log.md): local, non-repo genesis record of the project's conceptual development
+
+## Suggested Use
+
+- When writing new documents, align your terminology with [`GLOSSARY.md`](GLOSSARY.md).
+- When proposing new architectural ideas, cross-check them against [`VISION.md`](VISION.md), [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md), and [`ARCHITECTURE.md`](ARCHITECTURE.md).
+- When an idea belongs to a future generation rather than the current one, add it to the Phoenix backlog.
+- When in doubt about the spirit of the project, return to [`README.md`](../README.md) and [`PHILOSOPHY.md`](../PHILOSOPHY.md).

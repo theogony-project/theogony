@@ -1,0 +1,25 @@
+id: PHX-0019
+category: vision
+priority: high
+status: open
+generation_target: 1
+title: "Hestia: Human Flourishing Guardian"
+filed_by: hesiod
+created_at: 2026-04-15
+description: |
+  Implement Hestia as a first-class Pantheon agent and regulatory dial.
+
+  Generation 1 scope:
+  - Defined agent class with documented purpose, boundaries, and escalation rights
+  - Prompt genome with hestia_sentinel and hestia_auditor profiles
+  - HestiaReview structured output format for architectural review
+  - Integration with Phoenix Backlog for human-centric gap filing
+  - Manual triggering by humans for significant decisions
+
+  Key principle: Hestia's expression level is adjustable by Helios based on
+  detected drift risk. When human-centric alignment is threatened, Helios
+  raises Hestia's promotor — more instances, lower escalation threshold,
+  higher weight in architecture decisions.
+
+  See docs/HESTIA.md for full specification.
+resolution: null

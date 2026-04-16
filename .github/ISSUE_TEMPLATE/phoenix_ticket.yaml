@@ -1,0 +1,56 @@
+name: Phoenix Backlog Ticket
+description: An idea for a future generation of the Chronik — architectural, visionary, or structural
+labels: ["phoenix-backlog"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Phoenix Backlog tickets are for ideas that belong to a future generation of the Chronik — deep architectural changes, new knowledge organization strategies, or long-range visions.
+        
+        If your idea is a bug fix or a near-term feature, use Bug Report or Feature Request instead.
+  - type: input
+    id: title
+    attributes:
+      label: Title
+      description: Short, descriptive title for the ticket
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - vision
+        - improvement
+        - performance
+        - knowledge_gap
+        - bug
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - critical
+        - high
+        - medium
+        - low
+        - vision
+    validations:
+      required: true
+  - type: input
+    id: generation
+    attributes:
+      label: Target generation
+      description: Which generation of the Chronik does this target? (1, 2, 3, or "any")
+      placeholder: "2"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Detailed description of the issue, improvement, or vision.
+    validations:
+      required: true
