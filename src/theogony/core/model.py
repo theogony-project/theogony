@@ -12,21 +12,21 @@ indexing, and agent access.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
 
-class Layer(str, Enum):
+class Layer(StrEnum):
     """Memory layer within the Chronik."""
     EPHEMERA = "ephemera"   # raw, unverified, fresh
     MNEME = "mneme"         # verified, connected, permanent
 
 
-class NodeType(str, Enum):
+class NodeType(StrEnum):
     """Semantic type of a knowledge node."""
     PERSON = "person"
     PLACE = "place"
@@ -41,7 +41,7 @@ class NodeType(str, Enum):
     OTHER = "other"
 
 
-class KnowledgeForm(str, Enum):
+class KnowledgeForm(StrEnum):
     """The epistemic form of knowledge — what kind of structure it belongs to."""
     CHRONOLOGICAL = "chronological"   # events, biographies, history
     STRUCTURAL = "structural"         # math, logic, formal systems
@@ -49,7 +49,7 @@ class KnowledgeForm(str, Enum):
     NORMATIVE = "normative"           # law, ethics, values, rules
 
 
-class EpistemicStatus(str, Enum):
+class EpistemicStatus(StrEnum):
     """How the system holds this knowledge."""
     OBSERVED = "observed"             # directly stated in a source
     REPORTED = "reported"             # stated by a source about another source
@@ -59,7 +59,7 @@ class EpistemicStatus(str, Enum):
     DEPRECATED = "deprecated"         # superseded or retracted
 
 
-class EdgeType(str, Enum):
+class EdgeType(StrEnum):
     """Epistemic type of a relation — how the edge was created."""
     EXTRACTION = "extraction"
     INFERENCE = "inference"
@@ -82,7 +82,7 @@ class SourceRef(BaseModel):
     location: str | None = None         # page, chapter, paragraph, char offset
     snippet: str | None = None          # short verbatim quote (1-3 sentences)
     language: str | None = None         # ISO 639-1 language code
-    accessed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    accessed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class NodeScores(BaseModel):
@@ -142,7 +142,10 @@ class KnowledgeNode(BaseModel):
     )
     embedding: list[float] = Field(
         default_factory=list,
-        description="Primary semantic vector. Multiple embeddings (for different spaces) are stored externally."
+        description=(
+            "Primary semantic vector. Multiple embeddings (for different spaces) "
+            "are stored externally."
+        )
     )
     node_type: NodeType = NodeType.OTHER
     knowledge_form: KnowledgeForm = KnowledgeForm.CHRONOLOGICAL
@@ -168,8 +171,8 @@ class KnowledgeNode(BaseModel):
         description="Flexible additional properties for this node type."
     )
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    last_accessed: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_accessed: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_verified: datetime | None = None
 
     @property
@@ -223,7 +226,7 @@ class KnowledgeEdge(BaseModel):
     source_ref: SourceRef | None = None
 
     properties: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Constellation(BaseModel):
@@ -246,7 +249,7 @@ class Constellation(BaseModel):
         default_factory=list,
         description="Identified knowledge gaps relevant to this query."
     )
-    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     path: str = Field(
         default="fast",
         description="'fast' (heuristic retrieval) or 'slow' (reasoning + opposition protocol)"

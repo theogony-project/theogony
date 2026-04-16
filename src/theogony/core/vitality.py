@@ -9,7 +9,7 @@ adjusted by storage pressure, query latency, and knowledge density.
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def compute_freshness(
@@ -26,11 +26,11 @@ def compute_freshness(
     Recent access resets the decay clock.
     """
     reference = last_accessed or created_at
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
 
     # Ensure timezone-aware comparison
     if reference.tzinfo is None:
-        reference = reference.replace(tzinfo=timezone.utc)
+        reference = reference.replace(tzinfo=UTC)
 
     age_days = (now - reference).total_seconds() / 86400
     return math.exp(-math.log(2) * age_days / half_life_days)

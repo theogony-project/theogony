@@ -1,15 +1,13 @@
 """Tests for core data models."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from theogony.core.model import (
     Constellation,
-    EpistemicStatus,
     KnowledgeEdge,
     KnowledgeNode,
-    KnowledgeForm,
     Layer,
     NodeScores,
     NodeType,
@@ -140,13 +138,13 @@ class TestConstellation:
 
 class TestVitality:
     def test_freshness_starts_at_one_for_new_node(self) -> None:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         score = compute_freshness(created_at=now)
         assert score > 0.99
 
     def test_freshness_decays_over_time(self) -> None:
         from datetime import timedelta
-        old = datetime.now(tz=timezone.utc) - timedelta(days=365)
+        old = datetime.now(tz=UTC) - timedelta(days=365)
         score = compute_freshness(created_at=old, half_life_days=365.0)
         assert abs(score - 0.5) < 0.01
 
