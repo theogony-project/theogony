@@ -1,5 +1,10 @@
 # Theogony
 
+[![CI](https://github.com/theogony-project/theogony/actions/workflows/ci.yml/badge.svg)](https://github.com/theogony-project/theogony/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Status: Genesis](https://img.shields.io/badge/status-genesis-orange.svg)](docs/VISION.md)
+
 **Separating knowledge from reasoning — so that AI may serve humanity.**
 
 We are in the most dangerous phase of artificial intelligence: *human stupidity still controls artificial intelligence*.
