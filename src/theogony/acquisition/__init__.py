@@ -12,9 +12,11 @@ from theogony.acquisition.base import (
     RawContent,
     SourceCandidate,
 )
+from theogony.acquisition.gutenberg import GutenbergAdapter
 
 __all__ = [
     "AcquisitionAdapter",
+    "GutenbergAdapter",
     "RawContent",
     "SourceCandidate",
 ]
