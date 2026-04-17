@@ -9,10 +9,17 @@ import pytest
 from pydantic import SecretStr
 
 from theogony.config.settings import (
+    AnomalyThresholds,
     EmbeddingSettings,
+    IngestStageBaselines,
+    IngestVerdictThresholds,
     LLMSettings,
     Neo4jSettings,
+    OneirosVerdictThresholds,
+    QueryVerdictThresholds,
+    ReportSettings,
     Settings,
+    VerdictThresholds,
 )
 
 
@@ -206,3 +213,83 @@ class TestSettingsValidation:
     def test_zero_dim_rejected(self) -> None:
         with pytest.raises(ValueError):
             EmbeddingSettings(dim=0)
+
+
+class TestReportSettings:
+    def test_defaults_match_plan_2_11_2(self) -> None:
+        rs = ReportSettings()
+        assert rs.thresholds.ingest.poor_parse_error_rate == 0.20
+        assert rs.thresholds.ingest.partial_parse_error_rate == 0.05
+        assert rs.thresholds.ingest.poor_low_tier_ratio == 0.60
+        assert rs.thresholds.ingest.partial_low_tier_ratio == 0.30
+        assert rs.thresholds.ingest.poor_anomaly_count == 3
+        assert rs.thresholds.query.poor_latency_ms == 10_000
+        assert rs.thresholds.query.partial_latency_ms == 5_000
+        assert rs.thresholds.query.good_high_conf_ratio == 0.5
+        assert rs.thresholds.query.partial_gaps_count == 3
+        assert rs.thresholds.oneiros.poor_median_vitality_shift == -0.05
+
+    def test_anomaly_defaults_match_plan(self) -> None:
+        a = ReportSettings().anomaly
+        assert a.stage_slow_multiplier == 2.0
+        assert a.cost_spike_multiplier == 1.5
+        assert a.cost_spike_min_history == 5
+        assert a.wikidata_failure_rate == 0.10
+        assert a.embedding_skew_stddev_multiplier == 3.0
+
+    def test_stage_baselines_match_plan_4_1(self) -> None:
+        b = ReportSettings().stage_baselines
+        assert b.acquired == 2.0
+        assert b.relations_extracted == 180.0  # ~2.5 min from §4.1
+        assert b.mentions_resolved == 90.0  # 60-90s from §4.1 v3
+
+    def test_oneiros_tick_retention_default(self) -> None:
+        assert ReportSettings().oneiros_tick_retention == 100
+
+    def test_thresholds_overridable_via_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("THEOGONY_REPORT__THRESHOLDS__INGEST__POOR_PARSE_ERROR_RATE", "0.50")
+        monkeypatch.setenv("THEOGONY_REPORT__ANOMALY__STAGE_SLOW_MULTIPLIER", "3.0")
+        s = Settings()
+        assert s.report.thresholds.ingest.poor_parse_error_rate == 0.50
+        assert s.report.anomaly.stage_slow_multiplier == 3.0
+
+    def test_invalid_threshold_rejected(self) -> None:
+        with pytest.raises(ValueError):
+            IngestVerdictThresholds(poor_parse_error_rate=1.5)
+        with pytest.raises(ValueError):
+            QueryVerdictThresholds(poor_latency_ms=-1)
+        with pytest.raises(ValueError):
+            AnomalyThresholds(stage_slow_multiplier=0.0)
+        with pytest.raises(ValueError):
+            IngestStageBaselines(acquired=0.0)
+
+
+class TestRunReportsDir:
+    def test_default_run_reports_dir(self) -> None:
+        s = Settings()
+        assert s.run_reports_dir == s.data_dir / "run_reports"
+
+    def test_run_reports_dir_follows_data_dir_override(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from pathlib import Path
+
+        monkeypatch.setenv("THEOGONY_DATA_DIR", "/tmp/theogony-test")
+        s = Settings()
+        assert s.run_reports_dir == Path("/tmp/theogony-test/run_reports")
+
+
+class TestThresholdsRoundTrip:
+    """The full thresholds tree must survive model_dump → model_validate."""
+
+    def test_round_trip_preserves_all_values(self) -> None:
+        original = ReportSettings(
+            thresholds=VerdictThresholds(
+                ingest=IngestVerdictThresholds(poor_parse_error_rate=0.42),
+                oneiros=OneirosVerdictThresholds(poor_median_vitality_shift=-0.10),
+            ),
+        )
+        dumped = original.model_dump()
+        restored = ReportSettings.model_validate(dumped)
+        assert restored.thresholds.ingest.poor_parse_error_rate == 0.42
+        assert restored.thresholds.oneiros.poor_median_vitality_shift == -0.10
