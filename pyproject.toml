@@ -39,11 +39,23 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "respx>=0.21.0",
     "ruff>=0.4.0",
     "mypy>=1.9.0",
+    # google-genai is mirrored from `gemini` so the test suite for
+    # GeminiLLMProvider can `from google.genai import types` even
+    # when the user has not installed the gemini extra. Cheap; the
+    # SDK is small.
+    "google-genai>=1.0.0",
+]
+gemini = [
+    "google-genai>=1.0.0",
 ]
 openai = [
     "openai>=1.0.0",
+]
+anthropic = [
+    "anthropic>=0.30.0",
 ]
 
 [project.scripts]
