@@ -12,12 +12,12 @@ indexing, and agent access.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
-from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class Layer(StrEnum):
@@ -85,6 +85,68 @@ class SourceRef(BaseModel):
     accessed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+# ---------------------------------------------------------------------------
+# Deterministic ID helpers (Plan §9.2, §9.5, §9.5a)
+# ---------------------------------------------------------------------------
+
+_ID_HASH_LEN = 12  # 12 hex chars = 48 bits = ~281 trillion IDs per (source, label) bucket
+
+
+def _normalise_label(label: str) -> str:
+    """Lower-case + whitespace-collapse a label for ID hashing.
+
+    Mirrors the alias-matching normalisation used by EntityResolver
+    (Plan §3.4 Stage 2). Two mentions that differ only in case or
+    whitespace produce the same ID — the correct, idempotent answer.
+    """
+    return " ".join(label.lower().split())
+
+
+def compute_node_id(source_ref: SourceRef, label: str) -> str:
+    """Compute the deterministic AKA-id for a node (Plan §9.5).
+
+    Hash inputs: ``source_type:source_identifier:location:normalised_label``.
+    Two nodes with the same source-anchor and label collide on purpose —
+    that is the property OQ-7 (resumable ingest) needs from
+    ``KnowledgeStore.upsert_node`` to be a true no-op on retry.
+    """
+    digest = hashlib.sha256(
+        ":".join(
+            (
+                source_ref.source_type,
+                source_ref.identifier or "",
+                source_ref.location or "",
+                _normalise_label(label),
+            )
+        ).encode()
+    ).hexdigest()
+    return f"AKA-{digest[:_ID_HASH_LEN]}"
+
+
+def compute_edge_id(
+    source_id: str,
+    target_id: str,
+    relation_type: str,
+    evidence_span: str | None,
+) -> str:
+    """Compute the deterministic edge id (Plan §9.5, §9.5a).
+
+    Disambiguator is ``(source_id, relation_type, target_id, sha256(evidence_span))``.
+    The model id and prompt template id are explicitly NOT in the hash —
+    re-extracting the same evidence span with a different model produces
+    the same edge (idempotent), and provenance of which models touched
+    the edge lives in ``properties["extracted_by"]`` and the
+    ExtractionAuditLog (Plan §9.5a). When `evidence_span` is None the
+    span hash is computed over the empty string, so two no-evidence
+    edges with the same triple correctly collide.
+    """
+    span_hash = hashlib.sha256((evidence_span or "").encode()).hexdigest()
+    digest = hashlib.sha256(
+        f"{source_id}:{relation_type}:{target_id}:{span_hash}".encode()
+    ).hexdigest()
+    return f"EDGE-{digest[:_ID_HASH_LEN]}"
+
+
 class NodeScores(BaseModel):
     """
     Lifecycle scores for a knowledge node.
@@ -137,8 +199,16 @@ class KnowledgeNode(BaseModel):
     In the long view, nodes are projections from richer Chronese assertion frames.
     """
     id: str = Field(
-        default_factory=lambda: f"AKA-{uuid4().hex[:12]}",
-        description="AKA-{uuid} or Q-{wikidata_id}"
+        default="",
+        description=(
+            "Always 'AKA-<12 hex>'. Wikidata identifiers live in "
+            "external_ids['wikidata'], never in this field (Plan §9.2). "
+            "When left blank, a deterministic id is computed from "
+            "(source_type, source_identifier, location, normalised_label) "
+            "via compute_node_id (Plan §9.5). Pass an explicit id to "
+            "override — e.g. for agent-minted nodes that have no source "
+            "anchor and need a UUID-based id."
+        ),
     )
     embedding: list[float] = Field(
         default_factory=list,
@@ -193,6 +263,12 @@ class KnowledgeNode(BaseModel):
     last_accessed: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_verified: datetime | None = None
 
+    @model_validator(mode="after")
+    def _populate_default_id(self) -> KnowledgeNode:
+        if not self.id:
+            self.id = compute_node_id(self.source_ref, self.label)
+        return self
+
     @property
     def vitality(self) -> float:
         return self.scores.vitality()
@@ -224,7 +300,17 @@ class KnowledgeEdge(BaseModel):
     (e.g. P131 = located in, P31 = instance of) and use custom types
     for relations not in Wikidata.
     """
-    id: str = Field(default_factory=lambda: f"EDGE-{uuid4().hex[:12]}")
+    id: str = Field(
+        default="",
+        description=(
+            "Always 'EDGE-<12 hex>'. When left blank, a deterministic id "
+            "is computed from (source_id, relation_type, target_id, "
+            "sha256(evidence_span)) via compute_edge_id (Plan §9.5/§9.5a). "
+            "The model id and prompt id are intentionally NOT part of the "
+            "hash — re-extraction of the same evidence with a different "
+            "model is the same edge with stronger provenance, not a new one."
+        ),
+    )
     source_id: str
     target_id: str
 
@@ -257,6 +343,17 @@ class KnowledgeEdge(BaseModel):
 
     properties: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @model_validator(mode="after")
+    def _populate_default_id(self) -> KnowledgeEdge:
+        if not self.id:
+            self.id = compute_edge_id(
+                source_id=self.source_id,
+                target_id=self.target_id,
+                relation_type=self.relation_type,
+                evidence_span=self.evidence_span,
+            )
+        return self
 
 
 class ConstellationNode(BaseModel):

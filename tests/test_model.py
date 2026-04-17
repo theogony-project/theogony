@@ -14,6 +14,8 @@ from theogony.core.model import (
     NodeScores,
     NodeType,
     SourceRef,
+    compute_edge_id,
+    compute_node_id,
 )
 from theogony.core.vitality import (
     compute_freshness,
@@ -143,6 +145,148 @@ class TestKnowledgeEdge:
         )
         assert edge.evidence_span is not None
         assert edge.evidence_span in sentence
+
+
+class TestDeterministicNodeIds:
+    def test_id_format(self) -> None:
+        node = make_node()
+        assert node.id.startswith("AKA-")
+        assert len(node.id) == len("AKA-") + 12
+
+    def test_same_source_and_label_produce_same_id(self) -> None:
+        a = KnowledgeNode(label="Uttarkashi", source_ref=make_source_ref())
+        b = KnowledgeNode(label="Uttarkashi", source_ref=make_source_ref())
+        assert a.id == b.id
+
+    def test_different_labels_produce_different_ids(self) -> None:
+        a = KnowledgeNode(label="Uttarkashi", source_ref=make_source_ref())
+        b = KnowledgeNode(label="Harrer", source_ref=make_source_ref())
+        assert a.id != b.id
+
+    def test_label_normalisation_collapses_case_and_whitespace(self) -> None:
+        a = KnowledgeNode(label="Uttar Kashi", source_ref=make_source_ref())
+        b = KnowledgeNode(label="uttar  kashi", source_ref=make_source_ref())
+        assert a.id == b.id
+
+    def test_different_sources_produce_different_ids(self) -> None:
+        ref_a = SourceRef(
+            source_type="gutenberg",
+            identifier="Gutenberg:944",
+            location="chapter_03:offset_18433",
+        )
+        ref_b = SourceRef(
+            source_type="gutenberg",
+            identifier="Gutenberg:944",
+            location="chapter_07:offset_42100",
+        )
+        a = KnowledgeNode(label="Uttarkashi", source_ref=ref_a)
+        b = KnowledgeNode(label="Uttarkashi", source_ref=ref_b)
+        assert a.id != b.id
+
+    def test_explicit_id_overrides_default(self) -> None:
+        node = KnowledgeNode(
+            id="AKA-explicit-uuid",
+            label="agent_minted_concept",
+            source_ref=make_source_ref(),
+        )
+        assert node.id == "AKA-explicit-uuid"
+
+    def test_compute_node_id_helper_matches_validator(self) -> None:
+        ref = make_source_ref()
+        expected = compute_node_id(ref, "Heinrich Harrer")
+        node = KnowledgeNode(label="Heinrich Harrer", source_ref=ref)
+        assert node.id == expected
+
+
+class TestDeterministicEdgeIds:
+    def test_id_format(self) -> None:
+        edge = KnowledgeEdge(
+            source_id="AKA-a",
+            target_id="AKA-b",
+            relation_type="MET",
+        )
+        assert edge.id.startswith("EDGE-")
+        assert len(edge.id) == len("EDGE-") + 12
+
+    def test_same_triple_no_evidence_collides(self) -> None:
+        a = KnowledgeEdge(source_id="AKA-a", target_id="AKA-b", relation_type="MET")
+        b = KnowledgeEdge(source_id="AKA-a", target_id="AKA-b", relation_type="MET")
+        assert a.id == b.id
+
+    def test_different_evidence_spans_produce_different_ids(self) -> None:
+        a = KnowledgeEdge(
+            source_id="AKA-harrer",
+            target_id="AKA-marchese",
+            relation_type="MET",
+            evidence_span="Harrer met the Marchese in Bombay.",
+        )
+        b = KnowledgeEdge(
+            source_id="AKA-harrer",
+            target_id="AKA-marchese",
+            relation_type="MET",
+            evidence_span="Later they met again in Lhasa.",
+        )
+        assert a.id != b.id
+
+    def test_same_evidence_span_collides(self) -> None:
+        span = "Harrer reached Uttarkashi at midnight."
+        a = KnowledgeEdge(
+            source_id="AKA-harrer",
+            target_id="AKA-uttarkashi",
+            relation_type="REACHED",
+            evidence_span=span,
+        )
+        b = KnowledgeEdge(
+            source_id="AKA-harrer",
+            target_id="AKA-uttarkashi",
+            relation_type="REACHED",
+            evidence_span=span,
+        )
+        assert a.id == b.id
+
+    def test_explicit_id_overrides_default(self) -> None:
+        edge = KnowledgeEdge(
+            id="EDGE-explicit-uuid",
+            source_id="AKA-a",
+            target_id="AKA-b",
+            relation_type="MET",
+        )
+        assert edge.id == "EDGE-explicit-uuid"
+
+    def test_compute_edge_id_helper_matches_validator(self) -> None:
+        expected = compute_edge_id(
+            source_id="AKA-a",
+            target_id="AKA-b",
+            relation_type="MET",
+            evidence_span="some span",
+        )
+        edge = KnowledgeEdge(
+            source_id="AKA-a",
+            target_id="AKA-b",
+            relation_type="MET",
+            evidence_span="some span",
+        )
+        assert edge.id == expected
+
+    def test_model_id_is_not_in_edge_id_disambiguator(self) -> None:
+        """Plan §9.5a: re-extraction with a different model is the same edge."""
+        # Two edges with same evidence; different `properties["extracted_by"]`
+        # entries simulate two different model providers extracting the same fact.
+        a = KnowledgeEdge(
+            source_id="AKA-a",
+            target_id="AKA-b",
+            relation_type="MET",
+            evidence_span="They met.",
+            properties={"extracted_by": [{"model_id": "gemini-2.5-flash-lite"}]},
+        )
+        b = KnowledgeEdge(
+            source_id="AKA-a",
+            target_id="AKA-b",
+            relation_type="MET",
+            evidence_span="They met.",
+            properties={"extracted_by": [{"model_id": "gpt-4o-mini"}]},
+        )
+        assert a.id == b.id
 
 
 class TestNodeScores:
