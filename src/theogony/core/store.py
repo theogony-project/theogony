@@ -176,6 +176,29 @@ class KnowledgeStore(Protocol):
         ...
 
     # -------------------------------------------------------------------------
+    # Resolution-honesty queries (Plan §9.6)
+    # -------------------------------------------------------------------------
+
+    async def list_pending_resolution(
+        self,
+        layer: Layer | None = None,
+        limit: int = 100,
+    ) -> list[KnowledgeNode]:
+        """
+        Nodes with ``manual_resolution_needed=True``.
+
+        Backs ``theogony resolve --list``: the human-in-the-loop surface
+        for the §3.4 honest-failure path. Implementations MUST NOT
+        return tier-1+ nodes — the model invariant guarantees those
+        cannot have ``manual_resolution_needed=True``, but stores SHOULD
+        filter explicitly rather than rely on the invariant.
+
+        Ordering: most-recently created first, so newly-failed mentions
+        bubble up for review.
+        """
+        ...
+
+    # -------------------------------------------------------------------------
     # Diagnostics
     # -------------------------------------------------------------------------
 
