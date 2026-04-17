@@ -229,6 +229,66 @@ class KnowledgeEdge(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class ConstellationNode(BaseModel):
+    """
+    Slim, citation-ready projection of a :class:`KnowledgeNode`.
+
+    Plan §9.1: full ``KnowledgeNode`` records carry a 384–1536-dim
+    ``embedding`` and other fields that have no business reaching the
+    answer-synthesis prompt. A naive constellation serialisation would
+    leak ~75 KB of float32 per response into the LLM context window.
+    The synthesizer should only ever see the slim form. The full record
+    is fetched separately via ``KnowledgeStore.get_node`` when the user
+    drills into a citation (the Hover-Lupe).
+    """
+
+    id: str
+    label: str
+    node_type: NodeType
+    layer: Layer
+    confidence: float = Field(ge=0.0, le=1.0)
+    source_ref: SourceRef
+
+    @classmethod
+    def from_knowledge_node(cls, node: KnowledgeNode) -> ConstellationNode:
+        """Project a full :class:`KnowledgeNode` into its slim form."""
+        return cls(
+            id=node.id,
+            label=node.label,
+            node_type=node.node_type,
+            layer=node.layer,
+            confidence=node.scores.confidence,
+            source_ref=node.source_ref,
+        )
+
+
+class ConstellationEdge(BaseModel):
+    """
+    Slim, citation-ready projection of a :class:`KnowledgeEdge`.
+
+    Carries only the fields the answer synthesizer needs to reason
+    about a relation. The full edge — with provenance, properties, and
+    timestamps — stays in the store.
+    """
+
+    source_id: str
+    target_id: str
+    relation_type: str
+    weight: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+
+    @classmethod
+    def from_knowledge_edge(cls, edge: KnowledgeEdge) -> ConstellationEdge:
+        """Project a full :class:`KnowledgeEdge` into its slim form."""
+        return cls(
+            source_id=edge.source_id,
+            target_id=edge.target_id,
+            relation_type=edge.relation_type,
+            weight=edge.weight,
+            confidence=edge.confidence,
+        )
+
+
 class Constellation(BaseModel):
     """
     A structured, query-relevant working set returned by the Chronik to an agent.
@@ -240,10 +300,14 @@ class Constellation(BaseModel):
     The LLM interprets a Constellation into human-readable output.
     Every entity mentioned in the answer can reference its node here —
     this is the foundation of the Hover-Lupe.
+
+    Per Plan §9.1, ``nodes`` and ``edges`` use slim DTOs rather than
+    full :class:`KnowledgeNode` / :class:`KnowledgeEdge` records to
+    keep embeddings out of the synthesizer's context window.
     """
     query: str
-    nodes: list[KnowledgeNode] = Field(default_factory=list)
-    edges: list[KnowledgeEdge] = Field(default_factory=list)
+    nodes: list[ConstellationNode] = Field(default_factory=list)
+    edges: list[ConstellationEdge] = Field(default_factory=list)
     suggested_sources: list[SourceRef] = Field(default_factory=list)
     gaps: list[str] = Field(
         default_factory=list,

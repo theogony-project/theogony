@@ -6,6 +6,8 @@ import pytest
 
 from theogony.core.model import (
     Constellation,
+    ConstellationEdge,
+    ConstellationNode,
     KnowledgeEdge,
     KnowledgeNode,
     Layer,
@@ -126,14 +128,71 @@ class TestConstellation:
         assert not c.is_sufficient
 
     def test_constellation_with_nodes_and_edges_may_be_sufficient(self) -> None:
-        nodes = [make_node(f"Node {i}") for i in range(3)]
+        full_nodes = [make_node(f"Node {i}") for i in range(3)]
+        full_edge = KnowledgeEdge(
+            source_id=full_nodes[0].id,
+            target_id=full_nodes[1].id,
+            relation_type="RELATED_TO",
+        )
+        c = Constellation(
+            query="test",
+            nodes=[ConstellationNode.from_knowledge_node(n) for n in full_nodes],
+            edges=[ConstellationEdge.from_knowledge_edge(full_edge)],
+        )
+        assert c.is_sufficient
+
+
+class TestConstellationDTOs:
+    def test_constellation_node_omits_embedding(self) -> None:
+        node = make_node("Heinrich Harrer")
+        node.embedding = [0.1, 0.2, 0.3]
+        ConstellationNode.from_knowledge_node(node)  # constructs OK
+        assert "embedding" not in ConstellationNode.model_fields
+
+    def test_constellation_node_carries_label_and_source_ref(self) -> None:
+        node = make_node("Uttarkashi")
+        slim = ConstellationNode.from_knowledge_node(node)
+        assert slim.id == node.id
+        assert slim.label == "Uttarkashi"
+        assert slim.node_type == NodeType.PLACE
+        assert slim.layer == Layer.EPHEMERA
+        assert slim.confidence == node.scores.confidence
+        assert slim.source_ref.source_type == "gutenberg"
+
+    def test_constellation_edge_strips_provenance(self) -> None:
         edge = KnowledgeEdge(
+            source_id="AKA-a",
+            target_id="AKA-b",
+            relation_type="MET",
+            weight=0.7,
+            confidence=0.6,
+        )
+        slim = ConstellationEdge.from_knowledge_edge(edge)
+        assert slim.source_id == "AKA-a"
+        assert slim.target_id == "AKA-b"
+        assert slim.relation_type == "MET"
+        assert slim.weight == 0.7
+        assert slim.confidence == 0.6
+        assert "source_ref" not in ConstellationEdge.model_fields
+        assert "properties" not in ConstellationEdge.model_fields
+
+    def test_serialised_constellation_does_not_leak_embeddings(self) -> None:
+        nodes = [make_node(f"Node {i}") for i in range(3)]
+        for n in nodes:
+            n.embedding = [0.42] * 384
+        full_edge = KnowledgeEdge(
             source_id=nodes[0].id,
             target_id=nodes[1].id,
             relation_type="RELATED_TO",
         )
-        c = Constellation(query="test", nodes=nodes, edges=[edge])
-        assert c.is_sufficient
+        c = Constellation(
+            query="test",
+            nodes=[ConstellationNode.from_knowledge_node(n) for n in nodes],
+            edges=[ConstellationEdge.from_knowledge_edge(full_edge)],
+        )
+        dumped = c.model_dump_json()
+        assert "0.42" not in dumped
+        assert "embedding" not in dumped
 
 
 class TestVitality:
