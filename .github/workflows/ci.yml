@@ -45,5 +45,8 @@ jobs:
       - name: Install ruff
         run: pip install ruff
 
-      - name: Run ruff
+      - name: ruff check
         run: ruff check src/ tests/
+
+      - name: ruff format --check
+        run: ruff format --check src/ tests/
