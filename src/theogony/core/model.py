@@ -259,6 +259,31 @@ class KnowledgeNode(BaseModel):
         description="Flexible additional properties for this node type."
     )
 
+    manual_resolution_needed: bool = Field(
+        default=False,
+        description=(
+            "True ↔ this node failed automatic Wikidata alignment and "
+            "is awaiting human review (Plan §9.6, §3.4 honest-failure path). "
+            "Surfaced via `theogony resolve --list`. Implies "
+            "resolution_tier=0 and external_ids=={}."
+        ),
+    )
+    resolution_tier: int | None = Field(
+        default=None,
+        ge=0,
+        le=4,
+        description=(
+            "Five-tier confidence model from Plan §3.4 / §9.6: "
+            "4=alias-match across ≥2 languages with unique candidate, "
+            "3=alias+frequency disambiguation without LLM, "
+            "2=LLM with biographical facts and book context, "
+            "1=LLM with sentence context only, "
+            "0=no Wikidata match (AKA-only). "
+            "None for nodes not produced by EntityResolver "
+            "(events, claims, agent-created)."
+        ),
+    )
+
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_accessed: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_verified: datetime | None = None
@@ -267,6 +292,18 @@ class KnowledgeNode(BaseModel):
     def _populate_default_id(self) -> KnowledgeNode:
         if not self.id:
             self.id = compute_node_id(self.source_ref, self.label)
+        return self
+
+    @model_validator(mode="after")
+    def _validate_resolution_consistency(self) -> KnowledgeNode:
+        # Plan §9.6: manual_resolution_needed=True is consistent only with
+        # tier 0 (no Wikidata match) — pretending tier 1+ nodes need
+        # manual review collapses two distinct epistemic states.
+        if self.manual_resolution_needed and self.resolution_tier not in (None, 0):
+            raise ValueError(
+                "manual_resolution_needed=True requires resolution_tier in "
+                f"(None, 0); got {self.resolution_tier}"
+            )
         return self
 
     @property

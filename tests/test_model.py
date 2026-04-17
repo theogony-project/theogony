@@ -109,6 +109,54 @@ class TestKnowledgeNode:
             )
 
 
+class TestResolutionFields:
+    def test_defaults_imply_no_resolution_attempted(self) -> None:
+        node = make_node()
+        assert node.manual_resolution_needed is False
+        assert node.resolution_tier is None
+
+    def test_tier_0_can_carry_manual_resolution_needed(self) -> None:
+        node = KnowledgeNode(
+            label="Aufschnaiter",
+            source_ref=make_source_ref(),
+            manual_resolution_needed=True,
+            resolution_tier=0,
+        )
+        assert node.manual_resolution_needed is True
+        assert node.resolution_tier == 0
+
+    def test_high_tier_resolved_node(self) -> None:
+        node = KnowledgeNode(
+            label="Uttarkashi",
+            source_ref=make_source_ref(),
+            external_ids={"wikidata": "Q806463"},
+            resolution_tier=4,
+        )
+        assert node.resolution_tier == 4
+        assert node.manual_resolution_needed is False
+
+    @pytest.mark.parametrize("illegal_tier", [1, 2, 3, 4])
+    def test_manual_resolution_with_high_tier_is_rejected(
+        self, illegal_tier: int
+    ) -> None:
+        with pytest.raises(ValueError, match="manual_resolution_needed"):
+            KnowledgeNode(
+                label="x",
+                source_ref=make_source_ref(),
+                manual_resolution_needed=True,
+                resolution_tier=illegal_tier,
+            )
+
+    def test_tier_must_be_in_range(self) -> None:
+        for bad in (-1, 5, 99):
+            with pytest.raises(ValueError):
+                KnowledgeNode(
+                    label="x",
+                    source_ref=make_source_ref(),
+                    resolution_tier=bad,
+                )
+
+
 class TestKnowledgeEdge:
     def test_id_is_generated(self) -> None:
         edge = KnowledgeEdge(
