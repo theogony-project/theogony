@@ -86,6 +86,101 @@ class Neo4jSettings(BaseModel):
     database: str = "neo4j"
 
 
+class IngestVerdictThresholds(BaseModel):
+    """Cut-points for ``IngestRunReport.verdict`` per Plan §2.11.2.
+
+    Tuneable via env vars (e.g. ``THEOGONY_REPORT__THRESHOLDS__INGEST__POOR_PARSE_ERROR_RATE``)
+    so a future Reviewer agent can adjust them empirically without
+    code changes. The defaults match the plan exactly.
+    """
+
+    poor_parse_error_rate: float = Field(default=0.20, ge=0.0, le=1.0)
+    partial_parse_error_rate: float = Field(default=0.05, ge=0.0, le=1.0)
+    poor_low_tier_ratio: float = Field(default=0.60, ge=0.0, le=1.0)
+    partial_low_tier_ratio: float = Field(default=0.30, ge=0.0, le=1.0)
+    poor_anomaly_count: int = Field(default=3, ge=0)
+
+
+class QueryVerdictThresholds(BaseModel):
+    """Cut-points for ``QueryRunReport.verdict`` per Plan §2.11.2."""
+
+    poor_latency_ms: int = Field(default=10_000, ge=0)
+    partial_latency_ms: int = Field(default=5_000, ge=0)
+    good_high_conf_ratio: float = Field(default=0.5, ge=0.0, le=1.0)
+    partial_gaps_count: int = Field(default=3, ge=0)
+
+
+class OneirosVerdictThresholds(BaseModel):
+    """Cut-points for ``OneirosTickReport.verdict`` per Plan §2.11.2."""
+
+    poor_median_vitality_shift: float = Field(default=-0.05)
+
+
+class AnomalyThresholds(BaseModel):
+    """Cut-points for the four named anomaly rules per Plan §2.11.2.
+
+    The plan lists ``stage_slow``, ``cost_spike``, ``wikidata_failure_burst``,
+    ``embedding_skew``. Per-stage baseline durations live alongside, so
+    a new contributor can adjust them when measured behaviour drifts.
+    """
+
+    stage_slow_multiplier: float = Field(default=2.0, gt=0.0)
+    cost_spike_multiplier: float = Field(default=1.5, gt=0.0)
+    cost_spike_min_history: int = Field(default=5, ge=0)
+    wikidata_failure_rate: float = Field(default=0.10, ge=0.0, le=1.0)
+    embedding_skew_stddev_multiplier: float = Field(default=3.0, gt=0.0)
+
+
+class IngestStageBaselines(BaseModel):
+    """Baseline per-stage durations (seconds) used by the ``stage_slow`` rule.
+
+    Defaults match Plan §4.1 v3 figures for the "Seven Years in Tibet"
+    workload. They are deliberately high enough that ordinary variance
+    does not trigger anomalies; the rule fires only on genuinely slow
+    stages.
+    """
+
+    acquired: float = Field(default=2.0, gt=0.0)
+    cleaned: float = Field(default=5.0, gt=0.0)
+    sentencized: float = Field(default=5.0, gt=0.0)
+    mentions_extracted: float = Field(default=30.0, gt=0.0)
+    mentions_resolved: float = Field(default=90.0, gt=0.0)
+    relations_extracted: float = Field(default=180.0, gt=0.0)
+    embedded: float = Field(default=30.0, gt=0.0)
+    stored: float = Field(default=10.0, gt=0.0)
+
+
+class VerdictThresholds(BaseModel):
+    """Verdict thresholds for all three RunReport types (Plan §2.11.2)."""
+
+    ingest: IngestVerdictThresholds = Field(default_factory=IngestVerdictThresholds)
+    query: QueryVerdictThresholds = Field(default_factory=QueryVerdictThresholds)
+    oneiros: OneirosVerdictThresholds = Field(default_factory=OneirosVerdictThresholds)
+
+
+class ReportSettings(BaseModel):
+    """Reporting configuration (Plan §2.11).
+
+    The ``thresholds`` group is referenced by every ``_finalize_report``
+    hook and by ``reporting/anomaly.py``. Centralising them here means
+    there is one place a future Reviewer agent (PHX-0035) can write to
+    when it discovers the heuristic anchors are mis-calibrated.
+    """
+
+    thresholds: VerdictThresholds = Field(default_factory=VerdictThresholds)
+    anomaly: AnomalyThresholds = Field(default_factory=AnomalyThresholds)
+    stage_baselines: IngestStageBaselines = Field(default_factory=IngestStageBaselines)
+    oneiros_tick_retention: int = Field(
+        default=100,
+        ge=1,
+        description=(
+            "Maximum number of OneirosTickReport JSON files to keep on disk. "
+            "Plan §5 Week 3: cap retention at 100 most recent ticks to "
+            "prevent disk bloat — the audit log is the long-term record."
+        ),
+    )
+
+
 class Settings(BaseSettings):
     """Top-level Theogony settings.
 
@@ -123,6 +218,7 @@ class Settings(BaseSettings):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     neo4j: Neo4jSettings = Field(default_factory=Neo4jSettings)
+    report: ReportSettings = Field(default_factory=ReportSettings)
 
     data_dir: Path = Field(
         default=Path("data"),
@@ -135,6 +231,14 @@ class Settings(BaseSettings):
         default="INFO",
         description="Python logging level name; consumed by config.logging.setup_logging.",
     )
+
+    @property
+    def run_reports_dir(self) -> Path:
+        """Where :class:`~theogony.reporting.writer.RunReportWriter` writes JSON.
+
+        Layout (Plan §2.11.3): ``{data_dir}/run_reports/{ingest|query|oneiros}/{run_id}.json``.
+        """
+        return self.data_dir / "run_reports"
 
     model_config = SettingsConfigDict(
         env_file=".env",
