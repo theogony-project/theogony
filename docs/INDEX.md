@@ -97,6 +97,10 @@ This path is about open problems, future directions, and the original conceptual
 - [`PHOENIX_BACKLOG.md`](PHOENIX_BACKLOG.md): future generations, open problems, and improvement tickets
 - [`genesis_conversation_log.md`](../genesis_conversation_log.md): local, non-repo genesis record of the project's conceptual development
 
+### Builder Agent Prompts
+
+The [`prompts/`](../prompts/) directory holds the constitutional prompts for builder agents — the mortal craftsmen who design and implement Theogony, distinct from the Pantheon agents documented above. See [`GLOSSARY.md`](GLOSSARY.md#builder-agents) for the list.
+
 ## Suggested Use
 
 - When writing new documents, align your terminology with [`GLOSSARY.md`](GLOSSARY.md).

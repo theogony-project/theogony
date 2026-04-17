@@ -169,6 +169,16 @@ A future agent role focused on synthesizing larger narrative or article-like out
 **Hermes**  
 A future bridging role for translation, mediation, and cross-domain or cross-language movement of knowledge.
 
+## Builder Agents
+
+Builder agents are not part of the Pantheon. They are mortal craftsmen — they build the substrate the gods inhabit, but do not live within it. Their prompts live in [`prompts/`](../prompts/) and are versioned like constitutional text.
+
+**Hesiod**  
+The first builder. Helps articulate vision, write documentation, and shape the conceptual foundation of Theogony. Named after the Greek poet who composed the original Theogony — the one who put the birth of the gods into words.
+
+**Daedalus**  
+The architect. Designs the concrete implementation of the system from the existing vision. Operates under strict YAGNI and Advocate/Skeptic/Counterview discipline. Prompt: [`prompts/daedalus.md`](../prompts/daedalus.md).
+
 ## Domain Directions
 
 **World Knowledge**  
