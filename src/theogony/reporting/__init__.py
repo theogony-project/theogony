@@ -29,6 +29,12 @@ from theogony.reporting.models import (
     VitalityShift,
     new_run_id,
 )
+from theogony.reporting.verdict import (
+    Verdict,
+    ingest_verdict,
+    oneiros_verdict,
+    query_verdict,
+)
 
 __all__ = [
     "CitationQuality",
@@ -45,6 +51,10 @@ __all__ = [
     "RunReportBase",
     "StoreSummary",
     "SynthesisBreakdown",
+    "Verdict",
     "VitalityShift",
+    "ingest_verdict",
     "new_run_id",
+    "oneiros_verdict",
+    "query_verdict",
 ]
