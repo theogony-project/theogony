@@ -96,9 +96,7 @@ class TestGetLogger:
         log = get_logger("theogony.extraction.pipeline")
         assert log.name == "theogony.extraction.pipeline"
 
-    def test_child_logger_propagates_to_parent_handler(
-        self, capsys: pytest.CaptureFixture
-    ) -> None:
+    def test_child_logger_propagates_to_parent_handler(self, capsys: pytest.CaptureFixture) -> None:
         setup_logging(Settings(log_level="INFO"), force=True)
         child = get_logger("retrieval.multi_hop")
         child.info("constellation_assembled nodes=37")

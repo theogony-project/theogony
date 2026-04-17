@@ -84,9 +84,7 @@ class TestSettingsFromKwargs:
 
 
 class TestSettingsFromEnv:
-    def test_api_keys_load_from_unprefixed_env_vars(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_api_keys_load_from_unprefixed_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-openai")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-anthropic")
         monkeypatch.setenv("GEMINI_API_KEY", "g-gemini")
@@ -101,9 +99,7 @@ class TestSettingsFromEnv:
         assert s.google_api_key is not None
         assert s.google_api_key.get_secret_value() == "g-google"
 
-    def test_nested_settings_use_double_underscore(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_nested_settings_use_double_underscore(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("THEOGONY_LLM__PROVIDER", "anthropic")
         monkeypatch.setenv("THEOGONY_LLM__MODEL_ID", "claude-3-5-haiku")
         monkeypatch.setenv("THEOGONY_NEO4J__PASSWORD", "from-env")
@@ -114,13 +110,10 @@ class TestSettingsFromEnv:
         assert s.neo4j.password.get_secret_value() == "from-env"
         assert s.log_level == "DEBUG"
 
-    def test_dotenv_file_is_loaded(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_dotenv_file_is_loaded(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.chdir(tmp_path)
         (tmp_path / ".env").write_text(
-            "OPENAI_API_KEY=from-dotenv\n"
-            "THEOGONY_LOG_LEVEL=WARNING\n",
+            "OPENAI_API_KEY=from-dotenv\nTHEOGONY_LOG_LEVEL=WARNING\n",
             encoding="utf-8",
         )
         s = Settings()

@@ -136,9 +136,7 @@ class TestResolutionFields:
         assert node.manual_resolution_needed is False
 
     @pytest.mark.parametrize("illegal_tier", [1, 2, 3, 4])
-    def test_manual_resolution_with_high_tier_is_rejected(
-        self, illegal_tier: int
-    ) -> None:
+    def test_manual_resolution_with_high_tier_is_rejected(self, illegal_tier: int) -> None:
         with pytest.raises(ValueError, match="manual_resolution_needed"):
             KnowledgeNode(
                 label="x",
@@ -438,6 +436,7 @@ class TestVitality:
 
     def test_freshness_decays_over_time(self) -> None:
         from datetime import timedelta
+
         old = datetime.now(tz=UTC) - timedelta(days=365)
         score = compute_freshness(created_at=old, half_life_days=365.0)
         assert abs(score - 0.5) < 0.01

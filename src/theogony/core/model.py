@@ -22,18 +22,20 @@ from pydantic import BaseModel, Field, model_validator
 
 class Layer(StrEnum):
     """Memory layer within the Chronik."""
-    EPHEMERA = "ephemera"   # raw, unverified, fresh
-    MNEME = "mneme"         # verified, connected, permanent
+
+    EPHEMERA = "ephemera"  # raw, unverified, fresh
+    MNEME = "mneme"  # verified, connected, permanent
 
 
 class NodeType(StrEnum):
     """Semantic type of a knowledge node."""
+
     PERSON = "person"
     PLACE = "place"
     CONCEPT = "concept"
     EVENT = "event"
     CLAIM = "claim"
-    WORK = "work"           # book, paper, article, film, ...
+    WORK = "work"  # book, paper, article, film, ...
     ORGANIZATION = "organization"
     TIME = "time"
     QUANTITY = "quantity"
@@ -43,24 +45,27 @@ class NodeType(StrEnum):
 
 class KnowledgeForm(StrEnum):
     """The epistemic form of knowledge — what kind of structure it belongs to."""
-    CHRONOLOGICAL = "chronological"   # events, biographies, history
-    STRUCTURAL = "structural"         # math, logic, formal systems
-    MECHANISTIC = "mechanistic"       # causal processes, how things work
-    NORMATIVE = "normative"           # law, ethics, values, rules
+
+    CHRONOLOGICAL = "chronological"  # events, biographies, history
+    STRUCTURAL = "structural"  # math, logic, formal systems
+    MECHANISTIC = "mechanistic"  # causal processes, how things work
+    NORMATIVE = "normative"  # law, ethics, values, rules
 
 
 class EpistemicStatus(StrEnum):
     """How the system holds this knowledge."""
-    OBSERVED = "observed"             # directly stated in a source
-    REPORTED = "reported"             # stated by a source about another source
-    INFERRED = "inferred"             # derived from existing knowledge
-    HYPOTHESIZED = "hypothesized"     # proposed, not yet supported
-    DISPUTED = "disputed"             # contradicted by at least one source
-    DEPRECATED = "deprecated"         # superseded or retracted
+
+    OBSERVED = "observed"  # directly stated in a source
+    REPORTED = "reported"  # stated by a source about another source
+    INFERRED = "inferred"  # derived from existing knowledge
+    HYPOTHESIZED = "hypothesized"  # proposed, not yet supported
+    DISPUTED = "disputed"  # contradicted by at least one source
+    DEPRECATED = "deprecated"  # superseded or retracted
 
 
 class EdgeType(StrEnum):
     """Epistemic type of a relation — how the edge was created."""
+
     EXTRACTION = "extraction"
     INFERENCE = "inference"
     WIKIDATA = "wikidata"
@@ -76,12 +81,13 @@ class SourceRef(BaseModel):
     Every node must trace back to its origin. This is not optional —
     it is enforced by the data model itself.
     """
-    source_type: str                    # gutenberg | web | wikidata | arxiv | library | user | ...
-    url: str | None = None              # link to original
-    identifier: str | None = None       # book ID, DOI, ISBN, call number
-    location: str | None = None         # page, chapter, paragraph, char offset
-    snippet: str | None = None          # short verbatim quote (1-3 sentences)
-    language: str | None = None         # ISO 639-1 language code
+
+    source_type: str  # gutenberg | web | wikidata | arxiv | library | user | ...
+    url: str | None = None  # link to original
+    identifier: str | None = None  # book ID, DOI, ISBN, call number
+    location: str | None = None  # page, chapter, paragraph, char offset
+    snippet: str | None = None  # short verbatim quote (1-3 sentences)
+    language: str | None = None  # ISO 639-1 language code
     accessed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -154,21 +160,18 @@ class NodeScores(BaseModel):
     Vitality is computed from these scores and determines whether a node
     is promoted (Ephemera → Mneme), retained, or degraded.
     """
+
     confidence: float = Field(
-        default=0.5, ge=0.0, le=1.0,
-        description="How well-verified is this knowledge?"
+        default=0.5, ge=0.0, le=1.0, description="How well-verified is this knowledge?"
     )
     relevance: float = Field(
-        default=0.5, ge=0.0, le=1.0,
-        description="How often is this node accessed or linked?"
+        default=0.5, ge=0.0, le=1.0, description="How often is this node accessed or linked?"
     )
     connectivity: float = Field(
-        default=0.0, ge=0.0, le=1.0,
-        description="How well-connected is this node in the graph?"
+        default=0.0, ge=0.0, le=1.0, description="How well-connected is this node in the graph?"
     )
     freshness: float = Field(
-        default=1.0, ge=0.0, le=1.0,
-        description="How recent is this knowledge? Decays over time."
+        default=1.0, ge=0.0, le=1.0, description="How recent is this knowledge? Decays over time."
     )
 
     def vitality(
@@ -198,6 +201,7 @@ class KnowledgeNode(BaseModel):
 
     In the long view, nodes are projections from richer Chronese assertion frames.
     """
+
     id: str = Field(
         default="",
         description=(
@@ -215,7 +219,7 @@ class KnowledgeNode(BaseModel):
         description=(
             "Primary semantic vector. Multiple embeddings (for different spaces) "
             "are stored externally."
-        )
+        ),
     )
     embedding_model_id: str | None = Field(
         default=None,
@@ -245,18 +249,16 @@ class KnowledgeNode(BaseModel):
     description: str | None = None
 
     layer: Layer = Layer.EPHEMERA
-    cluster_id: str | None = None      # knowledge region membership
+    cluster_id: str | None = None  # knowledge region membership
 
     external_ids: dict[str, str] = Field(
-        default_factory=dict,
-        description="e.g. {'wikidata': 'Q806463', 'gutenberg': '12345'}"
+        default_factory=dict, description="e.g. {'wikidata': 'Q806463', 'gutenberg': '12345'}"
     )
     source_ref: SourceRef
     scores: NodeScores = Field(default_factory=NodeScores)
 
     properties: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Flexible additional properties for this node type."
+        default_factory=dict, description="Flexible additional properties for this node type."
     )
 
     manual_resolution_needed: bool = Field(
@@ -337,6 +339,7 @@ class KnowledgeEdge(BaseModel):
     (e.g. P131 = located in, P31 = instance of) and use custom types
     for relations not in Wikidata.
     """
+
     id: str = Field(
         default="",
         description=(
@@ -355,12 +358,10 @@ class KnowledgeEdge(BaseModel):
         description="P-ID style (e.g. 'P131', 'P31') or custom (e.g. 'REACHED', 'DESCRIBED_BY')"
     )
     weight: float = Field(
-        default=0.5, ge=0.0, le=1.0,
-        description="Edge weight, strengthened or weakened over time."
+        default=0.5, ge=0.0, le=1.0, description="Edge weight, strengthened or weakened over time."
     )
     confidence: float = Field(
-        default=0.5, ge=0.0, le=1.0,
-        description="How certain is this relation?"
+        default=0.5, ge=0.0, le=1.0, description="How certain is this relation?"
     )
     bidirectional: bool = False
     epistemic_type: EdgeType = EdgeType.EXTRACTION
@@ -469,18 +470,18 @@ class Constellation(BaseModel):
     full :class:`KnowledgeNode` / :class:`KnowledgeEdge` records to
     keep embeddings out of the synthesizer's context window.
     """
+
     query: str
     nodes: list[ConstellationNode] = Field(default_factory=list)
     edges: list[ConstellationEdge] = Field(default_factory=list)
     suggested_sources: list[SourceRef] = Field(default_factory=list)
     gaps: list[str] = Field(
-        default_factory=list,
-        description="Identified knowledge gaps relevant to this query."
+        default_factory=list, description="Identified knowledge gaps relevant to this query."
     )
     retrieved_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     path: str = Field(
         default="fast",
-        description="'fast' (heuristic retrieval) or 'slow' (reasoning + opposition protocol)"
+        description="'fast' (heuristic retrieval) or 'slow' (reasoning + opposition protocol)",
     )
 
     @property

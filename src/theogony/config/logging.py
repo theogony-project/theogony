@@ -59,9 +59,7 @@ def setup_logging(settings: Settings | None = None, *, force: bool = False) -> l
 
     logger = logging.getLogger(THEOGONY_LOGGER_NAME)
 
-    existing_rich = [
-        h for h in logger.handlers if isinstance(h, RichHandler)
-    ]
+    existing_rich = [h for h in logger.handlers if isinstance(h, RichHandler)]
     if existing_rich and not force:
         logger.setLevel(level)
         return logger
