@@ -13,6 +13,8 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Protocol, runtime_checkable
 
+from pydantic import BaseModel, Field
+
 from theogony.core.model import (
     Constellation,
     KnowledgeEdge,
@@ -21,15 +23,31 @@ from theogony.core.model import (
 )
 
 
-class ScoredNode(Protocol):
+class ScoredNode(BaseModel):
+    """Result of a similarity search: a node plus its (normalised) score.
+
+    Concrete pydantic class rather than a typing.Protocol — every store
+    implementation returns the same shape, so a single value type is
+    simpler to reason about than a structural promise. Tests assert
+    structure here once, not per-backend.
+    """
+
     node: KnowledgeNode
-    score: float
+    score: float = Field(ge=-1.0, le=1.0)
 
 
-class Path(Protocol):
+class Path(BaseModel):
+    """A single path through the graph, returned by :meth:`KnowledgeStore.traverse`.
+
+    ``nodes[0]`` is the start node. ``nodes[i+1]`` is reached from
+    ``nodes[i]`` via ``edges[i]``. ``total_weight`` is the product of
+    the edges' weights — paths whose product falls below
+    ``min_weight^len(edges)`` should not be returned by traversal.
+    """
+
     nodes: list[KnowledgeNode]
     edges: list[KnowledgeEdge]
-    total_weight: float
+    total_weight: float = Field(ge=0.0, le=1.0)
 
 
 @runtime_checkable
