@@ -147,6 +147,24 @@ class KnowledgeNode(BaseModel):
             "are stored externally."
         )
     )
+    embedding_model_id: str | None = Field(
+        default=None,
+        description=(
+            "Identifier of the model that produced `embedding`, "
+            "e.g. 'BAAI/bge-small-en-v1.5@v1'. Required by PHX-0005 "
+            "(Embedding Model Independence) so future re-embedding "
+            "passes can target only nodes from a stale model."
+        ),
+    )
+    embedding_dim: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Dimensionality of `embedding`. Recorded explicitly so "
+            "consumers do not have to call len() on a list field that "
+            "may legitimately be empty for nodes still awaiting embedding."
+        ),
+    )
     node_type: NodeType = NodeType.OTHER
     knowledge_form: KnowledgeForm = KnowledgeForm.CHRONOLOGICAL
     epistemic_status: EpistemicStatus = EpistemicStatus.OBSERVED
@@ -224,6 +242,18 @@ class KnowledgeEdge(BaseModel):
     bidirectional: bool = False
     epistemic_type: EdgeType = EdgeType.EXTRACTION
     source_ref: SourceRef | None = None
+    evidence_span: str | None = Field(
+        default=None,
+        description=(
+            "The substring of source text the LLM cited as justification "
+            "for this relation. Required for the relation-extraction "
+            "discipline in Plan §3.3 (every extracted edge must point at "
+            "a verbatim span). Also part of the deterministic edge-ID "
+            "disambiguator (Plan §9.5/§9.5a): two extractions of the same "
+            "(source, relation, target) from different sentences are two "
+            "edges, not one."
+        ),
+    )
 
     properties: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

@@ -82,6 +82,30 @@ class TestKnowledgeNode:
         node = make_node()
         assert node.wikidata_id is None
 
+    def test_embedding_model_id_default_is_none(self) -> None:
+        node = make_node()
+        assert node.embedding_model_id is None
+        assert node.embedding_dim is None
+
+    def test_embedding_model_id_can_be_set(self) -> None:
+        node = KnowledgeNode(
+            label="Uttarkashi",
+            source_ref=make_source_ref(),
+            embedding=[0.1] * 384,
+            embedding_model_id="BAAI/bge-small-en-v1.5@v1",
+            embedding_dim=384,
+        )
+        assert node.embedding_model_id == "BAAI/bge-small-en-v1.5@v1"
+        assert node.embedding_dim == 384
+
+    def test_embedding_dim_must_be_positive(self) -> None:
+        with pytest.raises(ValueError):
+            KnowledgeNode(
+                label="x",
+                source_ref=make_source_ref(),
+                embedding_dim=0,
+            )
+
 
 class TestKnowledgeEdge:
     def test_id_is_generated(self) -> None:
@@ -100,6 +124,25 @@ class TestKnowledgeEdge:
             weight=0.72,
         )
         assert 0.0 <= edge.weight <= 1.0
+
+    def test_evidence_span_default_is_none(self) -> None:
+        edge = KnowledgeEdge(
+            source_id="AKA-abc",
+            target_id="AKA-def",
+            relation_type="MET",
+        )
+        assert edge.evidence_span is None
+
+    def test_evidence_span_carries_verbatim_substring(self) -> None:
+        sentence = "Harrer reached Uttarkashi at midnight."
+        edge = KnowledgeEdge(
+            source_id="AKA-harrer",
+            target_id="AKA-uttarkashi",
+            relation_type="REACHED",
+            evidence_span="reached Uttarkashi",
+        )
+        assert edge.evidence_span is not None
+        assert edge.evidence_span in sentence
 
 
 class TestNodeScores:
