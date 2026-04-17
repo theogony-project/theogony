@@ -139,6 +139,14 @@ The Chronik should converge on a canonical semantic language that sits between s
 
 The Chronik should support a dedicated advisory agent, Metis, that operates across Akasha, Lethe, and an explicit Norm Space. Metis must separate facts, analogies, options, risks, and value assumptions rather than collapsing them into a single recommendation. Future work includes defining advisory packets, audit traces, norm handling, and ethical constraints for personal and institutional guidance.
 
+### PHX-0020: Operative Knowledge — The Fifth Form
+
+- **Category**: vision
+- **Priority**: low
+- **Generation Target**: 3
+
+The Chronik must eventually represent operative knowledge: the knowledge that runs the world rather than describes it. Schedules, logistics, machine control, supply forecasts. Implies a new class of operative agents (Atlas, Hephaistos, Demeter) that act on the world. Long-horizon dimension; not part of Generation 1 or 2. The architecture should remain general enough to accommodate it. See [`OPERATIVE_KNOWLEDGE.md`](OPERATIVE_KNOWLEDGE.md).
+
 ---
 
 ## Open Architectural Questions

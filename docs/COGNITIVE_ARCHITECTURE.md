@@ -86,6 +86,12 @@ Law, ethics, values, goals, rules, obligations, prohibitions.
 
 Organized by scope, jurisdiction, hierarchy, and conflict resolution.
 
+### 5. Operative Knowledge
+
+How things are run. Shift schedules, logistics chains, machine control sequences, supply forecasts, maintenance protocols, emergency procedures.
+
+Unlike the other four forms, operative knowledge is not merely descriptive. It is enacted — read, executed, observed, corrected, and re-planned in continuous cycles. See [`OPERATIVE_KNOWLEDGE.md`](OPERATIVE_KNOWLEDGE.md) for the full treatment. This form is a long-horizon dimension of the Chronik, not part of Generation 1 or 2.
+
 The Chronik must not force all knowledge into a single temporal narrative. These forms require different clustering strategies, different embedding spaces, and different retrieval modes.
 
 ## Implications for Design

@@ -176,3 +176,9 @@ The Chronik's role as a distilled, navigable memory of global public knowledge.
 
 **Scientific Workbench**  
 The Chronik's role as an active meta-research substrate: comparing claims, exposing contradictions, identifying gaps, and supporting the production of new scientific knowledge.
+
+**Operative Knowledge**  
+The fifth knowledge form: knowledge that runs the world rather than describes it. Schedules, logistics, machine control, supply forecasts, maintenance protocols. Unlike descriptive knowledge, operative knowledge is enacted in continuous plan-execute-document-learn cycles. Long-horizon dimension; not part of Generation 1 or 2. See [`OPERATIVE_KNOWLEDGE.md`](OPERATIVE_KNOWLEDGE.md).
+
+**Operative Agents**  
+A future class of agents (e.g. Atlas, Hephaistos, Demeter) that act on the world rather than only on knowledge. Subject to the same provenance, audit, and Hestia oversight as knowledge agents.

@@ -1,0 +1,40 @@
+id: PHX-0020
+category: vision
+priority: low
+status: open
+generation_target: 3
+title: "Operative Knowledge: The Fifth Form"
+filed_by: hesiod
+created_at: 2026-04-16
+description: |
+  The Chronik must eventually represent operative knowledge: the knowledge
+  that runs the world rather than merely describes it. Shift schedules,
+  logistics chains, machine control, supply forecasts, maintenance protocols,
+  emergency procedures.
+
+  Unlike descriptive knowledge, operative knowledge is enacted in continuous
+  plan-execute-document-learn cycles. It requires:
+
+  - temporally structured action sequences with explicit dependencies
+  - versioned, auditable execution traces
+  - feedback loops between plan and execution
+  - resource constraints and availability windows
+  - explicit responsible actors (human or agent)
+
+  This implies a new class of operative agents (Atlas for logistics, Hephaistos
+  for production, Demeter for resource distribution) that act on the world
+  rather than only on knowledge. They must be bound by the same provenance,
+  audit, and Hestia oversight as knowledge agents.
+
+  In Generations 1 and 2, operative work is overwhelmingly human, supported
+  by software. As capability grows, machines and agents will perform
+  increasing shares of it. The architecture should remain general enough
+  to accommodate this evolution.
+
+  The power asymmetry of operative knowledge is severe: whoever writes the
+  schedules controls work; whoever plans logistics controls supply. This is
+  precisely why operative knowledge belongs in the open Chronik and requires
+  Hestia's strongest oversight.
+
+  See docs/OPERATIVE_KNOWLEDGE.md for the full treatment.
+resolution: null

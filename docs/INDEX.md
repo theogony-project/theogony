@@ -85,6 +85,7 @@ This path is about open problems, future directions, and the original conceptual
 - [`COGNITIVE_ARCHITECTURE.md`](COGNITIVE_ARCHITECTURE.md): fast/slow thinking, opposition protocol, knowledge forms beyond chronology
 - [`HIVE.md`](HIVE.md): the production model — from raw material to distilled intelligence
 - [`HESTIA.md`](HESTIA.md): the human flourishing guardian — drift monitoring, escalation, and the regulatory dial
+- [`OPERATIVE_KNOWLEDGE.md`](OPERATIVE_KNOWLEDGE.md): the fifth knowledge form — knowledge that runs the world (long-horizon, not Gen 1 or 2)
 
 ### System Design Documents
 
