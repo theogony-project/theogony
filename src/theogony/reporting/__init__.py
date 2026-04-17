@@ -1,0 +1,50 @@
+"""
+Run-report layer (Plan §2.11).
+
+Three Pydantic schemas (`IngestRunReport`, `QueryRunReport`,
+`OneirosTickReport`) summarise what happened in each kind of run,
+and the future Reviewer agent (PHX-0035) reads them to spot trends.
+
+Gen 1 ships only the **write side**: schemas, atomic writer, the
+self-verdict heuristics (`verdict.py`), and the four named anomaly
+rules (`anomaly.py`). Cross-run analytics, dashboards, and automated
+re-tuning all belong to the Reviewer agent and stay deferred.
+"""
+
+from theogony.reporting.models import (
+    CitationQuality,
+    EmbeddingSummary,
+    IngestRunReport,
+    IngestStageReport,
+    MultiHopBreakdown,
+    NerSummary,
+    OneirosTickReport,
+    QualityFlags,
+    QueryRunReport,
+    RelationSummary,
+    ResolutionSummary,
+    RunReportBase,
+    StoreSummary,
+    SynthesisBreakdown,
+    VitalityShift,
+    new_run_id,
+)
+
+__all__ = [
+    "CitationQuality",
+    "EmbeddingSummary",
+    "IngestRunReport",
+    "IngestStageReport",
+    "MultiHopBreakdown",
+    "NerSummary",
+    "OneirosTickReport",
+    "QualityFlags",
+    "QueryRunReport",
+    "RelationSummary",
+    "ResolutionSummary",
+    "RunReportBase",
+    "StoreSummary",
+    "SynthesisBreakdown",
+    "VitalityShift",
+    "new_run_id",
+]
