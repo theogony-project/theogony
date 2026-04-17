@@ -42,6 +42,7 @@ from theogony.reporting.verdict import (
     oneiros_verdict,
     query_verdict,
 )
+from theogony.reporting.writer import RunReportWriter
 
 __all__ = [
     "CitationQuality",
@@ -56,6 +57,7 @@ __all__ = [
     "RelationSummary",
     "ResolutionSummary",
     "RunReportBase",
+    "RunReportWriter",
     "StoreSummary",
     "SynthesisBreakdown",
     "Verdict",
