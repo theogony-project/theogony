@@ -61,7 +61,13 @@ def setup_logging(settings: Settings | None = None, *, force: bool = False) -> l
 
     existing_rich = [h for h in logger.handlers if isinstance(h, RichHandler)]
     if existing_rich and not force:
+        # Idempotent path: keep the existing handler but re-assert the
+        # invariants `setup_logging` documents — level and propagate.
+        # Without this, a caller that re-runs setup after something
+        # else (a test fixture, a library call) flipped `propagate`
+        # back to True would not get the documented behaviour.
         logger.setLevel(level)
+        logger.propagate = False
         return logger
 
     if force:
