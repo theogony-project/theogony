@@ -1,0 +1,79 @@
+id: PHX-0036
+category: improvement
+priority: medium
+status: open
+generation_target: 2
+title: "Re-evaluate Gemini 3.1 Flash Lite once GA and Athene exists"
+filed_by: talos
+created_at: 2026-04-17
+description: |
+  Gemini 3.1 Flash Lite Preview was released 2026-03-03, ~6 weeks before
+  Etappe B landed. It is a candidate replacement for the Gen 1 default
+  Gemini 2.5 Flash Lite (Plan §3.3a). The decision was deferred for
+  three reasons; this ticket records them and the conditions under
+  which the question should be reopened.
+
+  Hard data (verified 2026-04-17 against Google AI Studio pricing and
+  the official model documentation):
+
+    Property               | 2.5 Flash Lite (current) | 3.1 Flash Lite Preview
+    -----------------------+--------------------------+-----------------------
+    Input  / 1 M tokens    | $0.10                    | $0.25  (+150 %)
+    Output / 1 M tokens    | $0.40                    | $1.50  (+275 %)
+    Context window         | 1 M                      | 1 M
+    Status                 | GA                       | PREVIEW
+    JSON Schema            | yes                      | yes (response_json_schema)
+    Free tier              | generous daily quota     | 1 M input tokens during preview
+    Reported intelligence  | baseline                 | +62 % on benchmarks
+                           |                          |   (GPQA Diamond 86.9 %,
+                           |                          |    MMMU-Pro 76.8 %)
+    Time-to-first-token    | baseline                 | 2.5x faster
+
+  Cost projection on the Plan §4.1 single-book workload
+  (~3 000 calls × 200 in + 50 out tokens = 600 k in + 150 k out):
+
+    - 2.5 Flash Lite: $0.12 (~0.11 EUR) per book
+    - 3.1 Flash Lite: $0.375 (~0.35 EUR) per book — 3.1x more expensive
+
+  Both well within the 300 EUR/month budget; cost is not the blocker.
+
+  Why we did not switch the default in Etappe B:
+
+    1. PREVIEW status is the exact stability risk Plan §3.3a's Skeptic
+       paragraph names as Gemini's biggest weakness. Defaulting to a
+       6-week-old preview model that "may change before general
+       availability" (per Google's own doc) compounds the risk Daedalus
+       already flagged.
+
+    2. The +62 % intelligence improvement does not address our actual
+       bottleneck. Plan §3.3a's analysis: "JSON-Schema quality is good
+       enough for our fixed-vocabulary use case. Where Gemini struggles
+       is in open-ended schemas with many enums; ours has ~20 relation
+       types and a closed set of node types." Higher reasoning
+       benchmarks buy capability we cannot measure on this workload.
+
+    3. Switching is a one-line change. The LLMProvider Protocol from
+       Etappe B (PR #2) means setting
+       `THEOGONY_LLM__MODEL_ID=gemini-3.1-flash-lite-preview` swaps
+       providers without touching code. Anyone can A/B-test it today
+       per-run; only the *default* is conservative.
+
+  When to reopen:
+
+    - When Gemini 3.1 Flash Lite reaches GA (no longer "preview"), AND
+    - Athene-style relation verification exists (PHX-0027 cluster), so
+      we can measure relation-survival rate empirically rather than
+      trusting general-purpose benchmarks.
+
+  Bundling note:
+
+    PHX-0027 (LLM provider re-evaluation) already calls for the same
+    measurement methodology against multiple providers. This ticket is
+    its 3.1-specific extension; if Athene work begins, PHX-0027 and
+    PHX-0036 should be planned together.
+
+  References:
+    - Google AI pricing: https://ai.google.dev/gemini-api/docs/pricing
+    - Model card: https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite-preview
+    - Plan §3.3a (LLM provider comparison) and §7 (PHX-0027).
+resolution: null
