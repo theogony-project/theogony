@@ -4,9 +4,22 @@ The Phoenix Backlog is the evolutionary memory of the Chronik. It captures probl
 
 Tickets are filed by agents or humans during operation. They are evaluated when planning a Phoenix process (distillation and rebirth of the Chronik).
 
+## Two Layers: Catalogue and Active YAMLs
+
+The Phoenix Backlog has two layers, deliberately:
+
+1. **The catalogue** — this document (`docs/PHOENIX_BACKLOG.md`) and the implementation plan (`docs/IMPLEMENTATION_PLAN_GEN1.md` §7). This is the authoritative list of every PHX ticket that has ever been conceived. The numbered space `PHX-####` is allocated here.
+2. **Active YAMLs** — the files in [`phoenix-backlog/`](../phoenix-backlog/). These are the structured, machine-readable working copies of tickets that are currently being acted on, referenced from a PR or RunReport, or otherwise "warm".
+
+A YAML file is created **only when a ticket becomes active**. Absent YAML files are not gaps — they are intentional lazy materialization. A ticket that lives only in the catalogue is real; it just has no active workspace yet.
+
+This avoids the failure mode of dozens of stub YAMLs that nobody updates, while keeping the option to promote any catalogue entry into an active YAML the moment work begins on it. Conversely, a YAML may be archived back into catalogue-only form once a ticket is resolved or deferred and the structured fields no longer pay rent.
+
+When you file a new ticket: add it to this catalogue first. Create the YAML only if you (or another agent) intend to begin work on it now, or if a PR/RunReport needs to reference its structured form. See [`phoenix-backlog/README.md`](../phoenix-backlog/README.md) for the operational details.
+
 ## Ticket Format
 
-Each ticket in `phoenix-backlog/` is a YAML file:
+Each active ticket in `phoenix-backlog/` is a YAML file:
 
 ```yaml
 id: PHX-0001
