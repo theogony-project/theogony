@@ -101,6 +101,11 @@ This path is about open problems, future directions, and the original conceptual
 
 The [`prompts/`](../prompts/) directory holds the constitutional prompts for builder agents — the mortal craftsmen who design and implement Theogony, distinct from the Pantheon agents documented above. See [`GLOSSARY.md`](GLOSSARY.md#builder-agents) for the list.
 
+Current prompts:
+
+- [`prompts/daedalus.md`](../prompts/daedalus.md) — the architect who designs the substrate.
+- [`prompts/talos.md`](../prompts/talos.md) — the implementer who builds the substrate, milestone by milestone, with green tests.
+
 ## Suggested Use
 
 - When writing new documents, align your terminology with [`GLOSSARY.md`](GLOSSARY.md).

@@ -179,6 +179,9 @@ The first builder. Helps articulate vision, write documentation, and shape the c
 **Daedalus**  
 The architect. Designs the concrete implementation of the system from the existing vision. Operates under strict YAGNI and Advocate/Skeptic/Counterview discipline. Prompt: [`prompts/daedalus.md`](../prompts/daedalus.md).
 
+**Talos**  
+The implementer. Daedalus's apprentice and successor — the craftsman who turns the architect's plan into running code, with green tests and honest RunReports. Does not redesign the architecture; escalates contradictions instead. Works on feature branches, commits atomically, and reports failures with the same candor as successes. Prompt: [`prompts/talos.md`](../prompts/talos.md).
+
 ## Domain Directions
 
 **World Knowledge**  
