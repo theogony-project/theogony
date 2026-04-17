@@ -11,6 +11,13 @@ rules (`anomaly.py`). Cross-run analytics, dashboards, and automated
 re-tuning all belong to the Reviewer agent and stay deferred.
 """
 
+from theogony.reporting.anomaly import (
+    cost_spike_anomaly,
+    detect_ingest_anomalies,
+    embedding_skew_anomaly,
+    stage_slow_anomalies,
+    wikidata_failure_burst_anomaly,
+)
 from theogony.reporting.models import (
     CitationQuality,
     EmbeddingSummary,
@@ -53,8 +60,13 @@ __all__ = [
     "SynthesisBreakdown",
     "Verdict",
     "VitalityShift",
+    "cost_spike_anomaly",
+    "detect_ingest_anomalies",
+    "embedding_skew_anomaly",
     "ingest_verdict",
     "new_run_id",
     "oneiros_verdict",
     "query_verdict",
+    "stage_slow_anomalies",
+    "wikidata_failure_burst_anomaly",
 ]
