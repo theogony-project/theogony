@@ -35,9 +35,13 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from theogony.acquisition.base import RawContent
 from theogony.agents.llm import LLMProvider
 from theogony.config.logging import get_logger
+from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.sentence import Sentence
 
 log = get_logger("extraction.book_context")
+
+
+_AUDIT_STAGE = "book_context"
 
 
 DEFAULT_MAX_OPENING_CHARS = 8_000
@@ -214,18 +218,23 @@ class BookContextExtractor:
         llm: LLMProvider,
         max_opening_chars: int = DEFAULT_MAX_OPENING_CHARS,
         timeout_s: float = 30.0,
+        audit_log: ExtractionAuditLog | None = None,
+        audit_run_id: str | None = None,
     ) -> None:
         if max_opening_chars <= 0:
             raise ValueError(f"max_opening_chars must be positive; got {max_opening_chars}")
         self._llm = llm
         self._max_opening_chars = max_opening_chars
         self._timeout_s = timeout_s
+        self._audit_log = audit_log
+        self._audit_run_id = audit_run_id
 
     async def extract(
         self,
         *,
         raw_content: RawContent,
         opening_sentences: Sequence[Sentence],
+        run_id: str | None = None,
     ) -> BookContext:
         """Produce a :class:`BookContext` for the given book.
 
@@ -234,6 +243,11 @@ class BookContextExtractor:
         setting, not so much that the prompt blows past sensible
         sizes. The extractor truncates to ``max_opening_chars``
         regardless, so over-supplying is safe but wasteful.
+
+        ``run_id`` overrides the constructor-supplied audit_run_id
+        when both are provided. When neither is set and an audit_log
+        is configured, the call is silently not audited (the audit
+        log requires a run_id).
 
         Returns an empty BookContext (with ``derived_from_book``
         populated) when the LLM fails for any reason — the calling
@@ -257,12 +271,40 @@ class BookContextExtractor:
                 identifier,
                 exc,
             )
+            self._maybe_audit(
+                run_id=run_id,
+                prompt=prompt,
+                response="",
+                input_tokens=0,
+                output_tokens=0,
+                cost_eur=0.0,
+                latency_ms=0,
+                model_id=getattr(self._llm, "model_id", ""),
+                parse_error=f"transport_error:{type(exc).__name__}",
+            )
             return BookContext(
                 derived_from_book=identifier,
                 derived_from_model_id=getattr(self._llm, "model_id", ""),
             )
 
-        return self._parse_response(result.text, identifier=identifier)
+        ctx = self._parse_response(result.text, identifier=identifier)
+        # parse_error tag is "json_decode" / "validation" / None depending
+        # on whether the response was usable. The empty BookContext
+        # returned by _parse_response on failure carries no time_period /
+        # places etc., so we infer the failure mode from result.text.
+        parse_error = self._infer_parse_error(result.text)
+        self._maybe_audit(
+            run_id=run_id,
+            prompt=prompt,
+            response=result.text,
+            input_tokens=result.input_tokens,
+            output_tokens=result.output_tokens,
+            cost_eur=result.cost_eur,
+            latency_ms=result.latency_ms,
+            model_id=result.model_id,
+            parse_error=parse_error,
+        )
+        return ctx
 
     # ----------------------------------------------------------------- helpers
 
@@ -303,6 +345,53 @@ class BookContextExtractor:
             "Return JSON for: when is the book set, where is it set, "
             "what kinds of people are central, and a brief summary."
         )
+
+    def _maybe_audit(
+        self,
+        *,
+        run_id: str | None,
+        prompt: str,
+        response: str,
+        input_tokens: int,
+        output_tokens: int,
+        cost_eur: float,
+        latency_ms: int,
+        model_id: str,
+        parse_error: str | None,
+    ) -> None:
+        """Record one audit row when a log + run_id are both available."""
+        if self._audit_log is None:
+            return
+        effective_run_id = run_id or self._audit_run_id
+        if not effective_run_id:
+            return
+        self._audit_log.record(
+            run_id=effective_run_id,
+            stage=_AUDIT_STAGE,
+            prompt=prompt,
+            response=response,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cost_eur=cost_eur,
+            latency_ms=latency_ms,
+            model_id=model_id,
+            parse_error=parse_error,
+        )
+
+    @staticmethod
+    def _infer_parse_error(text: str) -> str | None:
+        """Best-effort tag for the audit log's parse_error column.
+
+        We avoid double-parsing by mirroring _parse_response's failure
+        modes here. Returns None when the response is at least valid
+        JSON; the BookContext consumer (resolver/Stage 4) is the
+        authority on whether the content was usable.
+        """
+        try:
+            json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            return "json_decode"
+        return None
 
     def _parse_response(self, text: str, *, identifier: str) -> BookContext:
         """Parse the LLM's JSON response into a :class:`BookContext`.

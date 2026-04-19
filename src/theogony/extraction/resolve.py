@@ -74,6 +74,7 @@ from theogony.agents.llm import LLMProvider
 from theogony.config.logging import get_logger
 from theogony.core.model import KnowledgeNode, NodeScores, SourceRef
 from theogony.extraction.alias_matcher import AliasMatchStrength, best_match, fully_normalise
+from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.book_context import BookContext
 from theogony.extraction.ner import Mention
 from theogony.extraction.sentence import Sentence
@@ -85,6 +86,9 @@ from theogony.extraction.wikidata_types import (
 )
 
 log = get_logger("extraction.resolve")
+
+
+_AUDIT_STAGE_STAGE4 = "stage4_disambiguation"
 
 
 DEFAULT_LANGUAGES: tuple[str, ...] = ("en", "de", "fr", "it")
@@ -285,6 +289,8 @@ class EntityResolver:
         book_context: BookContext | None = None,
         llm_timeout_s: float = 30.0,
         bio_facts_language: str = "en",
+        audit_log: ExtractionAuditLog | None = None,
+        audit_run_id: str | None = None,
     ) -> None:
         if not languages:
             raise ValueError("languages must be non-empty")
@@ -295,6 +301,8 @@ class EntityResolver:
         self._book_context = book_context
         self._llm_timeout_s = llm_timeout_s
         self._bio_facts_language = bio_facts_language
+        self._audit_log = audit_log
+        self._audit_run_id = audit_run_id
 
     @property
     def languages(self) -> tuple[str, ...]:
@@ -305,12 +313,34 @@ class EntityResolver:
         """True iff Stage 4 LLM disambiguation is wired up."""
         return self._llm is not None
 
+    @property
+    def book_context(self) -> BookContext | None:
+        """Currently configured BookContext (Plan §3.4 Stage 4 input)."""
+        return self._book_context
+
+    def set_book_context(self, ctx: BookContext | None) -> None:
+        """Update the BookContext used for Stage 4 prompts.
+
+        The IngestionPipeline (E5+) constructs the resolver before
+        the BookContext is available (BookContext is itself an
+        ingest-time LLM call), then calls this setter once the
+        context is extracted. Outside the pipeline, prefer the
+        constructor kwarg.
+
+        Concurrency: not safe across overlapping ingest runs that
+        share a resolver instance. Gen 1 single-tenant single-
+        ingest semantics make this fine; revisit if Gen 2 fans
+        out concurrent ingests against one resolver.
+        """
+        self._book_context = ctx
+
     async def resolve(
         self,
         mention: Mention,
         *,
         source_ref: SourceRef,
         sentences: Sequence[Sentence] | None = None,
+        run_id: str | None = None,
     ) -> ResolvedMention:
         """Resolve a single mention.
 
@@ -324,7 +354,9 @@ class EntityResolver:
         disambiguation prompt; optional otherwise (Tier 4/3/0 paths
         do not consume it).
         """
-        results = await self.resolve_many([mention], source_ref=source_ref, sentences=sentences)
+        results = await self.resolve_many(
+            [mention], source_ref=source_ref, sentences=sentences, run_id=run_id
+        )
         return results[0]
 
     async def resolve_many(
@@ -333,6 +365,7 @@ class EntityResolver:
         *,
         source_ref: SourceRef,
         sentences: Sequence[Sentence] | None = None,
+        run_id: str | None = None,
     ) -> list[ResolvedMention]:
         """Resolve every mention; identical surface forms share one node.
 
@@ -369,7 +402,12 @@ class EntityResolver:
         for key in order:
             group = groups[key]
             results.append(
-                await self._resolve_group(group, source_ref=source_ref, sentences=sentences)
+                await self._resolve_group(
+                    group,
+                    source_ref=source_ref,
+                    sentences=sentences,
+                    run_id=run_id,
+                )
             )
         return results
 
@@ -381,6 +419,7 @@ class EntityResolver:
         *,
         source_ref: SourceRef,
         sentences: Sequence[Sentence] | None = None,
+        run_id: str | None = None,
     ) -> ResolvedMention:
         """Run Stages 1-3 on one deduplication group."""
         rep_mention = group[0]
@@ -515,6 +554,7 @@ class EntityResolver:
             aliases=aliases,
             candidate_qids=candidate_qids,
             sentences=sentences,
+            run_id=run_id,
         )
 
     async def _stage4_disambiguate(
@@ -527,6 +567,7 @@ class EntityResolver:
         aliases: dict[str, dict[str, list[str]]],
         candidate_qids: list[str],
         sentences: Sequence[Sentence] | None,
+        run_id: str | None = None,
     ) -> ResolvedMention:
         """Run Stage 4: bio facts + LLM disambiguation.
 
@@ -578,6 +619,18 @@ class EntityResolver:
                 group[0].label,
                 exc,
             )
+            self._maybe_audit_stage4(
+                run_id=run_id,
+                sentence_index=group[0].sentence_index,
+                prompt=prompt,
+                response="",
+                input_tokens=0,
+                output_tokens=0,
+                cost_eur=0.0,
+                latency_ms=0,
+                model_id=getattr(self._llm, "model_id", ""),
+                parse_error=f"transport_error:{type(exc).__name__}",
+            )
             return self._mint_tier0(
                 group=group,
                 rep_text=rep_text,
@@ -587,6 +640,18 @@ class EntityResolver:
             )
 
         chosen, llm_confidence, reasoning, parse_error = self._parse_stage4_response(result.text)
+        self._maybe_audit_stage4(
+            run_id=run_id,
+            sentence_index=group[0].sentence_index,
+            prompt=prompt,
+            response=result.text,
+            input_tokens=result.input_tokens,
+            output_tokens=result.output_tokens,
+            cost_eur=result.cost_eur,
+            latency_ms=result.latency_ms,
+            model_id=result.model_id,
+            parse_error=parse_error,
+        )
         if parse_error is not None:
             log.warning(
                 "stage 4 response parse failed for mention=%r: %s — minting tier 0",
@@ -648,6 +713,39 @@ class EntityResolver:
             candidates=candidate_qids,
             stage4_reasoning=reasoning,
             stage4_llm_confidence=llm_confidence,
+        )
+
+    def _maybe_audit_stage4(
+        self,
+        *,
+        run_id: str | None,
+        sentence_index: int | None,
+        prompt: str,
+        response: str,
+        input_tokens: int,
+        output_tokens: int,
+        cost_eur: float,
+        latency_ms: int,
+        model_id: str,
+        parse_error: str | None,
+    ) -> None:
+        if self._audit_log is None:
+            return
+        effective_run_id = run_id or self._audit_run_id
+        if not effective_run_id:
+            return
+        self._audit_log.record(
+            run_id=effective_run_id,
+            stage=_AUDIT_STAGE_STAGE4,
+            sentence_index=sentence_index,
+            prompt=prompt,
+            response=response,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cost_eur=cost_eur,
+            latency_ms=latency_ms,
+            model_id=model_id,
+            parse_error=parse_error,
         )
 
     @staticmethod
