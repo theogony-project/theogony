@@ -202,6 +202,34 @@ class GutenbergAdapter:
     def supports(self, source_type: str) -> bool:
         return source_type == "gutenberg"
 
+    async def get_by_id(self, book_id: str | int) -> SourceCandidate:
+        """Look up a single book by its Project Gutenberg ID via Gutendex.
+
+        Hits ``/books/{id}`` directly — cheaper and more deterministic
+        than ``search`` (which is text-keyword indexing). Used by the
+        ``theogony ingest <book_id>`` CLI command (Plan §3.7).
+
+        Raises:
+            ValueError: when Gutendex returns 404, or when the book
+                exists but has no plain-text format we can fetch.
+            httpx.HTTPStatusError: on persistent transport failure
+                after exhausted retries.
+        """
+        client = self._ensure_client()
+        url = f"{self._gutendex_url}/books/{book_id}"
+        response = await self._request_with_retry(client, "GET", url)
+        payload = response.json()
+        # Gutendex's /books/{id} returns the book object directly
+        # (not wrapped in a results list).
+        cand = _candidate_from_gutendex_book(payload)
+        if cand is None:
+            raise ValueError(
+                f"Gutenberg book id={book_id!r} exists in Gutendex but "
+                "has no plain-text format we can ingest"
+            )
+        log.info("gutendex get_by_id id=%s title=%r", book_id, cand.title)
+        return cand
+
     async def search(self, query: str, *, limit: int = 10) -> list[SourceCandidate]:
         """Search Gutendex for books matching ``query``.
 
