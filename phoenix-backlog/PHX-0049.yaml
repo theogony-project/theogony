@@ -1,0 +1,86 @@
+id: PHX-0049
+category: packaging
+priority: medium
+status: open
+generation_target: 1
+title: "AnswerSynthesizer system prompt not packaged for non-editable installs"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  AnswerSynthesizer (E8, src/theogony/retrieval/synthesize.py) loads
+  its system prompt from a path computed relative to the module
+  file:
+
+      _DEFAULT_PROMPT_PATH = (
+          Path(__file__).resolve().parents[3]
+          / "prompts" / "answer_synthesizer.md"
+      )
+
+  This works for `pip install -e .` and the docker-compose dev
+  workflow because `prompts/` lives at the repo root, three
+  parents up from `src/theogony/retrieval/synthesize.py`. It
+  BREAKS for `pip install theogony` from a wheel: hatchling's
+  `[tool.hatch.build.targets.wheel] packages = ["src/theogony"]`
+  only includes the package directory, so `prompts/` is not in
+  the installed artifact. AnswerSynthesizer construction will
+  raise FileNotFoundError on first use.
+
+  This is not a hypothetical: E9 ships the FastAPI app and the
+  `theogony serve` CLI command, both of which a downstream user
+  would reasonably install via `pip install theogony` once the
+  package is on PyPI. The current state is "we can demo, you
+  cannot deploy".
+
+  Two options:
+    A. Move the prompt: `prompts/answer_synthesizer.md` →
+       `src/theogony/retrieval/prompts/answer_synthesizer.md`,
+       load via `importlib.resources.files`. The prompt becomes
+       part of the package; wheel installs work. Cost: one
+       file move + one loader rewrite (~10 lines).
+    B. Keep prompts/ at the repo root, add `[tool.hatch.build]
+       include = ["prompts/**"]` plus `[tool.hatch.build.targets.wheel]
+       artifacts = ["prompts/**"]`. The prompt is shipped alongside
+       the package, accessed via the same `parents[3]` logic as
+       today. Cost: pyproject.toml edit only; downside is that the
+       relative-path computation becomes install-layout-fragile
+       (different wheel layouts on Windows / older pips).
+
+  Hesiod recommends Option A — the importlib.resources idiom is
+  the standard for shipping data files inside a Python package,
+  and the AnswerSynthesizer is the only consumer (the prompt is
+  not used outside the synthesizer).
+
+  Acceptance:
+    - `pip install .` (NOT -e) into a fresh venv, then a Python
+      one-liner that constructs an AnswerSynthesizer with default
+      prompt_path → no FileNotFoundError.
+    - The existing `tests/test_retrieval_synthesize.py::TestPromptLoading`
+      tests stay green, with `_DEFAULT_PROMPT_PATH` updated to
+      whatever the chosen option uses.
+    - One new test (`test_synthesizer_prompt_packaged`) that uses
+      `importlib.metadata` or a subprocess-spawned `pip install
+      .` in a tmp venv to assert the prompt file is in the
+      installed layout. Skip on CI environments without `pip`
+      write access.
+    - README quickstart updated to NOT recommend `pip install -e .`
+      as the only path; `pip install theogony` becomes valid once
+      this lands.
+
+  Out of scope:
+    - Multi-prompt packaging (we have exactly one prompt file).
+    - Prompt versioning / hot-reload (Gen 2; PHX-0035 territory).
+
+  YAGNI guard: this ticket does NOT block E9 — Talos can ship the
+  CLI against the editable-install layout. It DOES block "the
+  first contributor who runs `pip install theogony` from PyPI",
+  which is a Gen-1 success criterion (Plan §5 Week 4: README
+  quickstart pip-installable).
+
+reopen_trigger: |
+  Implement before the first PyPI release of theogony, or before
+  any docker image is built that does NOT use the editable-install
+  pattern. Whichever comes first.
+
+related:
+  - PHX-0035  # Reviewer agent — prompt management surface
+resolution: null

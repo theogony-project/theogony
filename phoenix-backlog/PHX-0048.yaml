@@ -61,6 +61,21 @@ description: |
       stay; verify vitality recomputes per the parameterised formula.
     - Microbenchmark: ≥1.5× speedup on a 100-node update workload.
 
+  Race-condition note (added 2026-04-19, post-E8 reconciliation):
+    RelevanceTracker.bump (E8, memory/relevance.py) does the same
+    two-roundtrip pattern (get_node + upsert_node) for the
+    last_accessed + relevance bump. It is NOT atomic: if a future
+    OneirosWorker (E8.5) writes scores between the read and the
+    write, the OneirosWorker's update is lost. Today there is no
+    concurrent writer, so the race is dormant. The
+    single-roundtrip Cypher this ticket proposes
+    (COALESCE-based update_scores) ALSO solves this race,
+    because the Cypher MERGE is atomic at the relationship level.
+    When this ticket is picked up, factor the race-fix into the
+    acceptance criteria (one new contract-suite test: two
+    concurrent bumps yield exactly one composed result, not the
+    last-write-wins).
+
   YAGNI guard: filing this as deferred (not active) so the
   optimisation is not lost when PHX-0009 lands, but no engineering
   hours are spent on it now. The status field is "deferred" rather
@@ -75,4 +90,5 @@ reopen_trigger: |
 
 related:
   - PHX-0009  # vitality function tuning — the actual blocker
+  - PHX-0050  # also a relevance-tracker performance neighbour
 resolution: null

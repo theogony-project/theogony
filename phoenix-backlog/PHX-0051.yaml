@@ -1,0 +1,84 @@
+id: PHX-0051
+category: api-shape
+priority: low
+status: open
+generation_target: 1
+title: "MultiHopBreakdown.nodes_per_hop carries single-element approximation; pick a schema"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  MultiHopBreakdown (reporting/models.py) has a list[int] field
+  `nodes_per_hop` intended to capture per-hop expansion counts
+  during multi-hop retrieval. The protocol's
+  KnowledgeStore.multi_hop_search returns the deduped + ranked
+  final scored list directly; it does NOT expose per-hop
+  visibility. MultiHopRetriever (E8) therefore writes a single
+  element approximation:
+
+      nodes_per_hop = [len(scored)]
+
+  Talos documented this as Plan deviation #2 in PR #20. The
+  approximation is truthful within the protocol's resolution but
+  semantically muddy: a downstream consumer (Reviewer agent,
+  metrics dashboard) reading `nodes_per_hop=[10]` cannot tell
+  whether that means "1 hop, 10 nodes" or "the hop count is
+  unknown, 10 nodes total".
+
+  Two paths:
+    A. SCHEMA PATCH. Mark `nodes_per_hop: list[int] | None` and
+       add a `final_node_count: int` companion field that is
+       always populated. The Retriever sets `nodes_per_hop=None`
+       (signal: "store doesn't expose it") and `final_node_count
+       =len(scored)`. Cost: small Pydantic schema change + a
+       migration note in the PR body. Existing reports on disk
+       still parse (the field is now Optional).
+    B. PROTOCOL EXTENSION. Add an opt-in
+       `multi_hop_search_with_hops(...) -> tuple[list[ScoredNode],
+       list[int]]` to KnowledgeStore that exposes the per-hop
+       counts. The two stores override differently: InMemory
+       trivially knows the counts (it walks hops in process),
+       Neo4j would need to issue N Cypher queries (one per hop)
+       OR add a single Cypher with `range(0, $hops)` UNION
+       expansion. Cost: protocol surface grows, both stores need
+       implementations, both contract suites grow.
+
+  Daedalus-vorläufig: Option A. Reasons:
+    - The Reviewer agent (PHX-0035) will care about reporting
+      schema clarity, not per-hop forensics. A clear schema
+      with one field that is always truthful beats two fields
+      where one is sometimes a lie.
+    - Option B's value depends on a use case (debugging a slow
+      retrieval) that nobody has filed a ticket for yet. YAGNI.
+    - The migration is one Pydantic line + one Retriever line.
+      Option B is two Cypher-level designs and a Protocol vote.
+
+  Hesiod-decision-anchor: leave Option A vs B open in the ticket;
+  Daedalus will pick when this ticket is picked up.
+
+  Acceptance:
+    - One Pydantic schema change in reporting/models.py (Option A)
+      OR one Protocol method addition in core/store.py + two
+      implementations + two contract tests (Option B).
+    - MultiHopRetriever updated to use the chosen schema.
+    - Existing tests stay green; one new test asserts the
+      schema choice works as advertised.
+    - PR body documents the choice.
+
+  Out of scope:
+    - Per-hop latency capture (orthogonal to per-hop counts; could
+      be a separate field or a separate ticket).
+    - Per-hop weight distribution (Reviewer territory, Gen 2).
+
+  YAGNI guard: cosmetic correctness, no functional impact. The
+  current state ships and is honest in its docstring. File so it
+  is not lost; pick up when Reviewer agent work begins or when
+  someone tries to write a Grafana panel against the field.
+
+reopen_trigger: |
+  Either: (a) the Reviewer agent (PHX-0035) gets staffed and
+  wants schema clarity, OR (b) someone files a request to
+  visualise per-hop expansion in a dashboard.
+
+related:
+  - PHX-0035  # Reviewer agent — schema consumer
+resolution: null
