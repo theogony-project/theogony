@@ -365,7 +365,7 @@ class TestTier0:
         resolved = await resolver.resolve(m, source_ref=_book_source_ref())
 
         assert resolved.tier == 0
-        assert resolved.failure_reason == "weak_alias_match_no_llm_in_e2"
+        assert resolved.failure_reason == "weak_alias_match_no_llm_configured"
         assert resolved.candidates_considered == ["Q42"]
 
     async def test_non_resolvable_label_short_circuits_to_tier_0(self) -> None:
