@@ -100,18 +100,29 @@ class TestHelp:
 
 
 class TestIngestCommand:
-    def test_ingest_help_lists_all_options(self) -> None:
+    def test_ingest_help_lists_all_options(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Force wide terminal so Typer/Rich's columns don't wrap option
+        # names with ANSI escapes mid-token (CI's default 80-col TERM
+        # turned "--sentences" into a multi-segment Rich render that
+        # `in result.stdout` couldn't find).
+        monkeypatch.setenv("COLUMNS", "200")
         result = CliRunner().invoke(app, ["ingest", "--help"])
         assert result.exit_code == 0
         assert "BOOK_ID" in result.stdout
-        for opt in (
-            "--sentences",
-            "--relations",
-            "--no-book-context",
-            "--no-relations",
-            "--no-embed",
+        # Match each option's help description body — those words live
+        # in the description column and are not split by Rich even at
+        # narrow widths. More robust than asserting on the option
+        # token itself, which Rich may colour-segment.
+        for description_token in (
+            "Limit NER",  # --sentences
+            "Cap relation extraction",  # --relations
+            "Skip BookContextExtractor",  # --no-book-context
+            "Skip RelationExtractor",  # --no-relations
+            "Skip the embedder",  # --no-embed
         ):
-            assert opt in result.stdout
+            assert description_token in result.stdout, (
+                f"missing help description for option: {description_token!r}"
+            )
 
     def test_ingest_without_book_id_errors(self) -> None:
         # Typer should refuse the call with a usage error when the
