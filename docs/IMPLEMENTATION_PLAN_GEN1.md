@@ -9,6 +9,15 @@ This document translates the existing vision (`README.md`, `VISION.md`, `PHILOSO
 
 It deliberately under-builds. Generation 1 must reach one demonstrable moment, not the full vision. Anything not necessary for that moment is deferred to a Phoenix Backlog ticket.
 
+**Changes since post-PR-#24 reconciliation (2026-04-19, post-E8.5 design round).**
+
+Design-only round answering the Hesiod-to-Daedalus brief at [`docs/etappes/E8.5_brief_daedalus.md`](etappes/E8.5_brief_daedalus.md). No code in `src/`. The §5 E8.5 block is expanded from skeleton to full design — concrete formulas, pseudo-code, settings shape, race-condition story — so that Hesiod can write the Talos implementation brief directly off this Plan section. One PHX status flip; no new PHX tickets.
+
+- **§5 E8.5 — full design landed.** The block now carries (a) the chosen tick-loop shape and the strict-serial concurrency stance (Q1, Q6, Q10), (b) the hysteresis promote/degrade thresholds with `degrade_min_idle_days` (Q2), (c) explicit linear-cap-at-20 connectivity and linear-30-day freshness formulas inlined in the worker (Q3, Q4, kept separate from the existing `core/vitality.py` log/exp helpers which stay test-locked at their current shape), (d) full-sweep iteration with bulk `count_neighbors_in_layer` and bulk `batch_update_scores` (Q5, Q8, Q10), (e) Idiom-A test recipe — `monkeypatch.setattr(asyncio, "sleep", ...)` plus one real-clock 0.1-s integration test (Q7), (f) the `OneirosSettings` Pydantic shape with `max_nodes_per_tick` deliberately omitted (Q9), and (g) `_tick()` pseudo-code that reads as the spec the Talos brief will lift verbatim.
+- **§3.6 — Settings field-group enumeration added.** A short list documents the six current groups (`llm`, `embedding`, `neo4j`, `store`, `report`, `oneiros`) and the convention that every group nests under `THEOGONY_<GROUP>__<FIELD>` env vars (vendor-canonical API keys excepted, per Convention Decision B).
+- **PHX-0048 — REOPENED with refined shape.** Status `deferred → open`; generation target `Gen 2 → Gen 1`; title updated from "Neo4jKnowledgeStore.update_scores collapses to one round-trip" to "KnowledgeStore.batch_update_scores — bulk score writes for OneirosWorker". The original deferral was correct for the single-node Cypher COALESCE shape (which couples the vitality formula to Cypher and frustrates PHX-0009 evolution). The E8.5 design picks a different shape: **bulk `batch_update_scores(updates)` where vitality is computed client-side in the worker and Cypher only stores the precomputed number.** This shape (a) collapses the per-tick write cost from O(N) round-trips to one, (b) closes the documented `RelevanceTracker.bump`-vs-worker race because the bulk write is atomic relative to single-node bumps, AND (c) preserves PHX-0009's freedom to evolve the vitality formula because Cypher is formula-agnostic. The acceptance criteria are refreshed accordingly. Picked (b) on Q5; the bulk shape is the architectural refinement Hesiod's brief invited.
+- **Q1–Q10 verdicts** are itemised in the design PR body. Nine ACCEPTED / REFINED, one REJECTED-and-replaced (Q5). Zero new PHX tickets — all design choices land inside the existing E8.5 etappe surface plus the PHX-0048 reopen.
+
 **Changes since post-E8 reconciliation (2026-04-19, post-PR-#24 production-readiness merge).**
 
 Documentation-only reconciliation after Talos's bundled production-readiness PR #24 merged (PHX-0042 + PHX-0046 + PHX-0049 + PHX-0050 in one cluster). Four PHX tickets close, one Convention-Decision clause is refined to reflect the new `Settings.store` group, three new PHX tickets are filed for follow-up work the audit surfaced.
@@ -952,6 +961,19 @@ For Gen 1 with one developer and a demo, anything more than `.env` is overhead.
 **Recommendation.**  
 **As proposed.** Add a `.env.example` with all keys and dummy values; `.env` is in `.gitignore` already. The only hard rule: a `Settings` instance is never logged whole. Secrets fields use `SecretStr`.
 
+**Field groups (Gen 1 inventory).** `Settings` carries six nested groups, one per concern. New groups follow the same `THEOGONY_<GROUP>__<FIELD>` env-var convention (Convention Decision B in §3.1a; vendor-canonical API keys are the documented exception):
+
+| Field group | Type | Purpose | Introduced |
+|---|---|---|---|
+| `llm` | `LLMSettings` | Provider, model id, timeout, concurrency | v1 |
+| `embedding` | `EmbeddingSettings` | Embedder model id, dimensionality | v1 |
+| `neo4j` | `Neo4jSettings` | Bolt URI, user, password, database | E7 / §3.1a v5 |
+| `store` | `StoreSettings` | Cross-store performance knobs (today: `batch_size` for PHX-0046 batched upserts) | PR #24 |
+| `report` | `ReportSettings` | Verdict thresholds, anomaly thresholds, stage baselines, retention caps | v3 §2.11 |
+| `oneiros` | `OneirosSettings` | Tick interval, promote/degrade thresholds, hysteresis idle window, connectivity full-credit edges, freshness horizon | E8.5 (this round) |
+
+`Settings.store` is a documented exception to the original "no wrapper for hypothetical backends" prohibition (see §3.1a Convention Decision A, refined post-PR-#24): cross-store *performance knobs* legitimately group; *backend-selection wrappers* still don't. `Settings.oneiros` follows the same exception logic — it groups the worker's tunable lifecycle math, not a choice between worker implementations.
+
 ### 3.7 CLI design
 
 **Proposal: Typer (already a dependency). Seven commands (one with two sub-commands).**
@@ -1423,19 +1445,265 @@ Builds on E7's store. One etappe because the four components are tightly coupled
 
 The `OneirosWorker` that owns the §4.3 write-back lifecycle, separated from E8 because (a) it is a long-running asyncio task with its own tick-loop and test idiom (fast clock, sleep mocking), (b) its own `OneirosTickReport` plumbing including the §2.11 retention cap, and (c) it is not on the Plan §1 demo critical path — `RelevanceTracker.bump` (E8) is sufficient for the demo's read-side write-back.
 
+**Design source.** [`docs/etappes/E8.5_brief_daedalus.md`](etappes/E8.5_brief_daedalus.md) (Hesiod-to-Daedalus design brief) and the design verdicts in this block (Daedalus output to that brief). Hesiod writes the Talos implementation brief from this block.
+
 **Deliverables.**
-- `memory/oneiros.py` — `OneirosWorker` with the §4.4 main-loop shape (`_tick` between `asyncio.sleep`s, exits cleanly on `CancelledError`).
+
+- `memory/oneiros.py` — `OneirosWorker` with the §4.4 main-loop shape (`_tick` between `asyncio.sleep`s, exits cleanly on `CancelledError`). Constructor signature: `OneirosWorker(store, settings, report_writer, *, tick_interval_s: float | None = None)`. `tick_interval_s=None` falls back to `settings.oneiros.tick_interval_s`; tests pass `tick_interval_s=0.1` directly (Q1).
 - `OneirosWorker._finalize_report()` populated; one `OneirosTickReport` per tick. Cap retention at 100 most recent ticks per `Settings.report.oneiros_tick_retention` (already wired). (S, §2.11)
-- `theogony.api.app:lifespan` slot wired (E9 leaves the conditional in place; E8.5 fills it).
+- **`config/settings.py` — `OneirosSettings` added** with the six fields specified below (Q9). `Settings.oneiros: OneirosSettings = Field(default_factory=OneirosSettings)`. Env vars `THEOGONY_ONEIROS__TICK_INTERVAL_S` etc.
+- **`KnowledgeStore` Protocol — two new methods** specified below (Q5, Q8 / connectivity recompute):
+  - `count_neighbors_in_layer(layer: Layer) -> dict[str, int]` — bulk node-id → degree map for one layer (one Cypher round-trip; InMemory iterates `self._edges`).
+  - `batch_update_scores(updates: Sequence[ScoreUpdate]) -> None` — bulk write of precomputed `(connectivity, freshness, vitality)` tuples per node-id. Specified in PHX-0048 reopen below.
+- `theogony.api.app:lifespan` slot wired (E9 leaves the conditional in place; E8.5 fills it). The wire-up is one block:
+
+  ```python
+  worker = OneirosWorker(store, settings, report_writer)
+  app.state.oneiros = worker
+  app.state.oneiros_task = asyncio.create_task(worker.run())
+  ```
+
+  Shutdown ordering already encoded in §4.4 / `api/app.py:lifespan`; E8.5 does not redesign it.
+
+**Settings shape (Q9).**
+
+```python
+class OneirosSettings(BaseModel):
+    """Runtime tunables for the OneirosWorker (Plan §4.3, §5 E8.5).
+
+    Defaults match the chosen formulas in §5 E8.5. Operators tune via
+    `THEOGONY_ONEIROS__*` env vars or Settings overrides; PHX-0009
+    governs whether/when these defaults are revisited empirically.
+    """
+
+    tick_interval_s: float = Field(default=60.0, ge=0.01)
+    promote_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    degrade_threshold: float = Field(default=0.25, ge=0.0, le=1.0)
+    degrade_min_idle_days: float = Field(default=7.0, ge=0.0)
+    connectivity_full_credit_edges: int = Field(default=20, ge=1)
+    freshness_horizon_days: float = Field(default=30.0, ge=1.0)
+```
+
+`max_nodes_per_tick` deliberately omitted (Q9 refinement): the ≤ 2000-node demo target makes per-tick batching irrelevant; "I anticipate scale" is the §3.1 anti-pattern. If EPHEMERA crosses ~50K, file a fresh PHX at that point with measured tick latency.
+
+**Lifecycle math (Q3, Q4) — formulas inlined in the worker.**
+
+Connectivity (linear cap):
+
+```
+new_connectivity = min(1.0, edge_count / settings.oneiros.connectivity_full_credit_edges)
+```
+
+Default `full_credit_edges=20` aligns with the §3.1a HNSW M=20 graph-degree threshold — the rest of the system already encodes "20+ edges = graph-rich" in its vector index. Linear (not log) keeps the marginal value of edge N+1 honest until saturation; nodes with five edges score 0.25 connectivity, not the ~0.5 a log-scale would award.
+
+Freshness (linear 30-day decay):
+
+```
+idle_days = (now - node.last_accessed).total_seconds() / 86400.0
+new_freshness = max(0.0, 1.0 - idle_days / settings.oneiros.freshness_horizon_days)
+```
+
+Default horizon `30 days` coordinates with the §3.4 manual-resolution window (same number, same operator intuition: "month-scale"). Linear (not exponential half-life) is operator-explainable in one sentence — the prettier exponential math waits for PHX-0009 if usage data shows decay-shape sensitivity.
+
+Vitality (unchanged, computed client-side via existing helper):
+
+```python
+new_scores = node.scores.model_copy(
+    update={"connectivity": new_connectivity, "freshness": new_freshness}
+)
+new_vitality = new_scores.vitality()  # core/model.py NodeScores.vitality()
+```
+
+Important: the worker computes the new vitality value **client-side** and writes the precomputed number to Cypher. The vitality formula stays in `core/model.py`. PHX-0009's eventual weight-tuning does not require store-side changes.
+
+The existing helpers in `core/vitality.py` (`compute_freshness` exp half-life, `connectivity_score` log-scale) are not used by the worker. They stay test-locked at their current shape (see `tests/test_model.py`) to preserve any external doc semantics; the worker carries its own clearer-for-lifecycle-math formulas. PHX-0009's eventual freeze can reconcile the two homes if it judges the duplication is net cost; until then, the cleaner separation wins.
+
+**Promotion / degradation (Q2 — hysteresis).**
+
+Promote: `vitality >= settings.oneiros.promote_threshold` (default `0.7`).
+
+Degrade: `vitality <= settings.oneiros.degrade_threshold` AND `idle_days >= settings.oneiros.degrade_min_idle_days` (defaults `0.25` and `7.0`).
+
+The 0.45-wide gap between thresholds plus the 7-day idle guard prevents thrashing without requiring per-node lifecycle-history bookkeeping. Within a single 60-second tick the math cannot legitimately swing 0.45 vitality, so a single node never both promotes and degrades on consecutive ticks under realistic inputs. Degradation requiring `idle >= 7d` covers the cold-MNEME case; a recently-touched node is structurally safe regardless of its vitality dip.
+
+A side-note recorded here (not a PHX): `RelevanceTracker.bump` only *increments* relevance — there is no decay. In Gen 1 this is fine because freshness carries the time-decay role and connectivity gets recomputed each tick; relevance accumulates monotonically as a "this node has been useful at least once" signal weighted at 0.25 in vitality. PHX-0009 is the natural home for any future relevance-decay tuning when usage data exists.
+
+**Concurrency stance (Q6) — the worker's contract with the rest of the runtime.**
+
+| Scenario | Stance |
+|---|---|
+| Ingestion adds a new node mid-tick | Acceptable. Worker iterates over the EPHEMERA snapshot taken at tick start; new nodes wait for the next tick. |
+| `RelevanceTracker.bump` during tick (same node) | Acceptable + race documented (Q5 below). Bulk-update shape closes the worst-case lost-write window. |
+| Two ticks overlap (long tick, short interval) | **Forbidden.** Strict serial loop: `await self._tick(); await asyncio.sleep(interval)`. Never `asyncio.create_task(self._tick())`. The sleep follows the tick so a slow tick extends the effective interval rather than queueing concurrent ticks. |
+| Worker reads a node mid-`bump` | Acceptable. Read returns either pre-bump or post-bump value; both are valid lifecycle inputs. |
+| Worker discovers a node deleted mid-tick (between snapshot and write) | Silent skip. `update_scores` / `promote` / `degrade` / `batch_update_scores` are spec'd as no-op on missing node-id (matches `RelevanceTracker.bump` semantics; Cypher `MATCH … SET …` is naturally a no-op on no-match). |
+
+**Iteration target (Q10).** Full sweep over `EPHEMERA` per tick; full sweep over `MNEME` for degradation candidates. No work-queue. At the demo-target ≤ 2000-node retention surface, full sweep is constant-bounded; work-queue introduces durability/coordination questions whose answers are not justified by Gen-1 scale. Plan §4.3's prose is the source of truth.
+
+**`_tick()` pseudo-code.** Reads as the spec for Talos. One `await` per pipeline stage; bulk reads/writes where the Protocol supports them; per-node round-trips only for promotion/degradation (small fractions of EPHEMERA per tick).
+
+```python
+async def _tick(self) -> None:
+    """One pass over EPHEMERA + MNEME. Plan §4.3, §5 E8.5."""
+    started = datetime.now(UTC)
+    cfg = self._settings.oneiros
+
+    # 1. Snapshot EPHEMERA (one round-trip via export_layer iterator).
+    nodes_ephemera: list[KnowledgeNode] = [
+        n async for n in self._store.export_layer(Layer.EPHEMERA)
+    ]
+
+    # 2. Bulk neighbor-count for the layer (one round-trip).
+    edge_counts = await self._store.count_neighbors_in_layer(Layer.EPHEMERA)
+
+    # 3. Compute new connectivity, freshness, vitality client-side.
+    updates: list[ScoreUpdate] = []
+    pre_vitality: list[float] = []
+    post_vitality: list[float] = []
+    promote_targets: list[str] = []
+    for node in nodes_ephemera:
+        before = node.scores.vitality()
+        pre_vitality.append(before)
+
+        new_conn = min(1.0, edge_counts.get(node.id, 0) / cfg.connectivity_full_credit_edges)
+        idle_days = (started - _aware(node.last_accessed)).total_seconds() / 86400.0
+        new_fresh = max(0.0, 1.0 - idle_days / cfg.freshness_horizon_days)
+
+        new_scores = node.scores.model_copy(
+            update={"connectivity": new_conn, "freshness": new_fresh}
+        )
+        new_vitality = new_scores.vitality()
+        post_vitality.append(new_vitality)
+
+        updates.append(ScoreUpdate(
+            node_id=node.id,
+            connectivity=new_conn,
+            freshness=new_fresh,
+            vitality=new_vitality,
+        ))
+        if new_vitality >= cfg.promote_threshold:
+            promote_targets.append(node.id)
+
+    # 4. Bulk write all score updates in one round-trip (PHX-0048 reopen).
+    await self._store.batch_update_scores(updates)
+
+    # 5. Promotion (one round-trip per promoted node — typically a small
+    #    fraction of EPHEMERA per tick; not worth bulk-batching in Gen 1).
+    promoted = 0
+    for node_id in promote_targets:
+        await self._store.promote(node_id)
+        promoted += 1
+
+    # 6. Degradation pass over MNEME with the hysteresis guard.
+    degraded = 0
+    min_idle_s = cfg.degrade_min_idle_days * 86400.0
+    async for node in self._store.export_layer(Layer.MNEME):
+        idle_s = (started - _aware(node.last_accessed)).total_seconds()
+        if (
+            node.scores.vitality() <= cfg.degrade_threshold
+            and idle_s >= min_idle_s
+        ):
+            await self._store.degrade(node.id)
+            degraded += 1
+
+    # 7. Build OneirosTickReport, write via RunReportWriter (retention cap
+    #    handled by the writer per Settings.report.oneiros_tick_retention).
+    self._report = OneirosTickReport(
+        run_id=str(ulid()),
+        started_at=started,
+        ended_at=datetime.now(UTC),
+        duration_s=(datetime.now(UTC) - started).total_seconds(),
+        nodes_evaluated=len(nodes_ephemera),
+        nodes_promoted=promoted,
+        nodes_degraded=degraded,
+        vitality=VitalityShift(
+            nodes_evaluated=len(nodes_ephemera),
+            mean_vitality_before=_mean(pre_vitality),
+            mean_vitality_after=_mean(post_vitality),
+            median_shift=_median([
+                a - b for a, b in zip(post_vitality, pre_vitality, strict=False)
+            ]),
+        ),
+        verdict=self._compute_verdict(median_shift),  # per Settings.report.thresholds.oneiros
+    )
+    self._writer.write(self._report)
+```
+
+The main loop wraps `_tick()` per §4.4:
+
+```python
+async def run(self) -> None:
+    while True:
+        try:
+            await self._tick()
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            log.exception("oneiros tick failed; sleeping and retrying")
+        await asyncio.sleep(self._tick_interval_s)
+```
+
+The bare `except Exception` is intentional: a single failed tick must not crash the worker, because the worker's contract is "the lifecycle keeps moving". The exception is logged with full traceback; the next tick re-reads fresh state. If failures recur, operators see them in logs and the absence of `OneirosTickReport` JSON files in `data/run_reports/oneiros/` is itself an observable signal.
+
+**Race-condition note (Q5).** `RelevanceTracker.bump` and the worker can race on the `(last_accessed, scores.relevance)` of the same node:
+
+1. `bump` reads `node` (relevance=0.5).
+2. Worker reads `node` (relevance=0.5).
+3. `bump` writes `node` (relevance=0.55).
+4. Worker writes via `batch_update_scores` (connectivity, freshness, vitality only — does NOT touch relevance).
+
+Because the bulk update writes only the three computed fields and leaves `relevance` untouched, the bump survives the race in this specific shape. The lost-write surface that motivated PHX-0048's deferral note is reduced to "bump's update arrives between worker's read and worker's write of *the relevance-derived vitality value*" — which manifests as one tick of staleness on the post-bump vitality recomputation. The next tick reflects it. This is the convergence behavior, and the unit test recipe below pins it.
+
+**Test strategy (Q7) — Idiom A recipe.**
+
+Unit tests monkeypatch `asyncio.sleep` and drive the loop with manual yields. Recipe Talos can copy-paste:
+
+```python
+async def test_worker_processes_n_ticks(monkeypatch, store_with_seed_nodes):
+    sleep_calls = 0
+    real_sleep = asyncio.sleep  # capture before we monkeypatch
+
+    async def fake_sleep(seconds):
+        nonlocal sleep_calls
+        sleep_calls += 1
+        await real_sleep(0)  # yield, do not actually sleep
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    worker = OneirosWorker(store_with_seed_nodes, settings, writer)
+    task = asyncio.create_task(worker.run())
+
+    # Drive ticks: each fake_sleep call signals one completed tick.
+    for _ in range(50):  # bounded yield budget
+        await real_sleep(0)
+        if sleep_calls >= TARGET_TICKS:
+            break
+
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+    assert sleep_calls >= TARGET_TICKS
+    assert len(writer.written_reports) == sleep_calls  # one report per tick
+```
+
+The convergence test (Q5 race-pinning) follows the same pattern but interleaves a `RelevanceTracker.bump` between two manual yields and asserts the bumped relevance survives the worker's write (i.e. the post-tick `get_node` reflects relevance + bump, not relevance reset to pre-bump value).
+
+**One** integration test uses a real 0.1-s tick interval against a testcontainers Neo4j and asserts wall-clock-bounded behavior over ~0.5 s (≥ 4 ticks observed, retention cap enforced if exceeded). No Idiom-B time-travel plugins; cross-version stability across Python 3.11/3.12/3.13 is the dealmaker.
 
 **Success criteria.**
-- Worker promotes a node from one layer to the next on a synthetic fixture in a unit test with a fast clock.
+
+- Worker promotes a node from EPHEMERA → MNEME on a synthetic fixture in a unit test with a fast clock; degrades a stale MNEME node back to EPHEMERA on the same fixture after the idle window elapses (test mocks `datetime.now`).
+- The convergence test above passes: a `bump` interleaved with a tick leaves the bumped relevance intact in the post-tick `get_node` result.
 - `theogony serve` lifespan starts + cancels the worker cleanly within the §4.4 5-second graceful-shutdown budget.
 - `data/run_reports/oneiros/<ulid>.json` written on every tick, retention cap enforced.
+- `Settings.oneiros` round-trips through env vars (one test asserts `THEOGONY_ONEIROS__TICK_INTERVAL_S=0.5` reaches the constructor default).
 
 **Risks.**
-- Async-clock drift in tests. Mitigation: `asyncio.sleep` is monkeypatched in unit tests; integration test uses a 0.1-s tick interval.
-- Bolt round-trip cost on `update_scores`. PHX-0048 supersedes once the vitality formula is frozen; until then, the two-roundtrip pattern is acceptable for the demo's ≤ 2000-node retention surface.
+
+- Async-clock drift in tests. Mitigation: `asyncio.sleep` monkeypatched in unit tests (Idiom A recipe above); one integration test uses 0.1-s tick interval against testcontainers Neo4j.
+- Worker exception storms (e.g. Neo4j briefly unreachable) flood logs. Mitigation: `except Exception` in the main loop logs with full traceback once per tick; recurring failures are operator-observable as absence of new `OneirosTickReport` JSON files, no automatic alerting in Gen 1 (PHX-0035 Reviewer agent territory).
+- `count_neighbors_in_layer` Cypher cost on dense graphs. Mitigation: PROFILE the query in CI's neo4j-job; the existing range index on `:KnowledgeNode(layer)` (§3.1a) plus the relationship-projection should keep db-hits under 200 even at the ≤ 2000-node demo target.
 
 #### E9 — API + CLI (M)
 
