@@ -54,6 +54,15 @@ The spark has been lit.
 
 ## Local development
 
+> **Editable install required for now (PHX-0049).** The
+> `AnswerSynthesizer` system prompt lives at
+> `prompts/answer_synthesizer.md` (top-level repo dir) and is loaded
+> via a path relative to the package — wheel installs from PyPI will
+> raise `FileNotFoundError` at first use. PHX-0049 fixes this by
+> moving the prompt under `src/theogony/retrieval/prompts/` and
+> loading via `importlib.resources`. Until then, use the editable
+> install below.
+
 ```bash
 # 1. Set up Python (3.12+).
 pip install -e ".[dev,gemini]"
@@ -69,12 +78,32 @@ theogony status                           # config + report counts
 pytest -q                                 # unit + integration suite (no Neo4j)
 
 # 4. Run the Neo4j-store contract suite + live tests.
-THEOGONY_TEST_NEO4J=1 pytest tests/test_store_contract.py tests/test_neo4j_store_live.py -v
+THEOGONY_TEST_NEO4J=1 pytest \
+  tests/test_store_contract.py \
+  tests/test_neo4j_store_live.py \
+  tests/test_retrieval_pipeline_neo4j_live.py -v
 
-# 5. Ingest one Project Gutenberg book end-to-end (~1-3 min, ~0.1 EUR Gemini).
-#    Requires GEMINI_API_KEY or GOOGLE_API_KEY in env.
+# 5. Ingest one Project Gutenberg book end-to-end into Neo4j
+#    (~1-3 min, ~0.1 EUR Gemini). Requires GEMINI_API_KEY or
+#    GOOGLE_API_KEY in env.
 theogony ingest 43497 --sentences 50 --relations 10
 theogony reports show <run_id>
+
+# 6. Ask the Chronik a question (E9):
+theogony ask "Wer war Sven Hedin?"
+
+# 7. Hover-Lupe one shot (E9):
+theogony node AKA-3432a578cfb0
+
+# 8. Manual-resolution surface (E9, Plan §3.4):
+theogony resolve --list
+theogony resolve <node-id> --non-interactive --pick=Q1234
+
+# 9. FastAPI surface (E9):
+theogony serve                            # http://127.0.0.1:8000
+curl localhost:8000/health
+curl -X POST localhost:8000/query -H 'content-type: application/json' \
+  -d '{"q": "Wer war Sven Hedin?"}'
 ```
 
 Stop everything: `docker compose down`. Wipe Neo4j data: `docker compose down -v`.
