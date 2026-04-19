@@ -1,0 +1,52 @@
+id: PHX-0042
+category: measurement
+priority: medium
+status: open
+generation_target: 1
+title: "Cypher query-plan audit for the four hot Neo4jKnowledgeStore queries"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  After E7 (Neo4jKnowledgeStore) lands, run PROFILE (or EXPLAIN where
+  PROFILE is too costly) once over the four queries that carry every
+  ingest and every retrieval call:
+
+    - multi_hop_search        # the central retrieval operation, Plan §2.6
+    - traverse                # graph navigation building block
+    - vector_search           # HNSW-backed similarity entry point
+    - get_neighborhood        # the Hover-Lupe surface, Plan §1
+
+  The audit answers one question per query: does every operator hit
+  one of the ten Range indexes from Plan §3.1a, or the HNSW vector
+  index? An AllNodesScan or NodeByLabelScan without a backing index
+  is a defect — either the query is mis-written or an index is
+  missing — and is escalated as a follow-up ticket.
+
+  This is one-time work. The Reviewer agent (PHX-0035) will
+  eventually re-run it on schedule.
+
+  Acceptance:
+    - One short documentation file at docs/perf/E7_query_plan_audit.md
+      that lists, per query: the annotated PROFILE output, total
+      db-hits, which index was hit, the cardinality estimate, and a
+      verdict tag (`ok` | `attention` | `regression`).
+    - On `attention` or `regression`: a follow-up issue or ticket
+      with a concrete fix proposal.
+    - Effort estimate: ~2 hours. No new code in src/; one test or
+      REPL snippet plus the doc.
+
+  Sequencing: after E7 merge, before E8 starts. The result informs
+  the E8 retrieval-stack composition — multi_hop_search is its
+  central operation.
+
+  Pending plan anchor: §3.1a does not yet reference this audit. If
+  the audit surfaces an index that should have been on the Plan §3.1a
+  list (or one that should be removed), file a follow-up patch
+  against §3.1a after the audit completes. No plan change needed
+  pre-audit.
+
+related:
+  - PHX-0001  # custom engine implements the same Protocol surface;
+              # this audit informs its requirements spec
+  - PHX-0035  # Reviewer agent can automate the re-run
+resolution: null
