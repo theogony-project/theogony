@@ -54,15 +54,6 @@ The spark has been lit.
 
 ## Local development
 
-> **Editable install required for now (PHX-0049).** The
-> `AnswerSynthesizer` system prompt lives at
-> `prompts/answer_synthesizer.md` (top-level repo dir) and is loaded
-> via a path relative to the package — wheel installs from PyPI will
-> raise `FileNotFoundError` at first use. PHX-0049 fixes this by
-> moving the prompt under `src/theogony/retrieval/prompts/` and
-> loading via `importlib.resources`. Until then, use the editable
-> install below.
-
 ```bash
 # 1. Set up Python (3.12+).
 pip install -e ".[dev,gemini]"
