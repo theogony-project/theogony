@@ -1,0 +1,92 @@
+id: PHX-0052
+category: performance
+priority: low
+status: open
+generation_target: 2
+title: "HNSW + filter pushdown for vector_search WHERE-on-layer/node_type"
+filed_by: hesiod
+created_at: 2026-04-19
+description: |
+  Filed at PHX-0042 close (Cypher query-plan audit, PR #24). The
+  audit's path #1 (vector_search with k=20 + WHERE filter on
+  layer / node_type / min_confidence) showed:
+
+      vector_search (k=20 + WHERE filter)
+      Records: 7  ·  db hits/record: 7.6
+      Index used: HNSW + post-filter
+      Verdict: Accept
+
+  Verdict was "Accept" because 7.6 db hits/record is well under
+  the 1000 db hits/record "obvious budget" the audit uses. The
+  index choice is HOWEVER suboptimal: Neo4j 5.x runs the HNSW
+  query for the full k=20 candidates, then applies the WHERE
+  filter as a post-filter. If the filter is highly selective
+  (e.g. layer=MNEME on a corpus where 90% of nodes are EPHEMERA),
+  the post-filter discards 90% of the HNSW result and returns 2
+  records when the user asked for 20.
+
+  The Plan §1 demo runs against a recently-ingested corpus where
+  the layer distribution is heavily skewed toward EPHEMERA (no
+  Oneiros worker has run yet — see E8.5). For demo queries with
+  `--layer mneme`, the post-filter pattern would silently return
+  fewer results than the user requested.
+
+  Investigation paths:
+    1. Composite index: add a `(:KnowledgeNode {layer, node_type})`
+       range index that Neo4j's planner could use as a pre-filter
+       gate before HNSW. Requires schema change in
+       `stores/_schema.py`.
+    2. Index hint: rewrite the Cypher with `USING INDEX` to force
+       the planner toward a layer-first scan + cosine similarity
+       compute in-process. Hand-rolled; brittle across Neo4j minor
+       versions.
+    3. Pre-filter via `MATCH (n:KnowledgeNode) WHERE n.layer = $layer
+       AND n.node_type = $type WITH n  CALL db.index.vector.queryNodes(
+       'embedding_index', $k, $query_embedding) YIELD node, score
+       WHERE node = n RETURN ...`. Two-stage explicit pre-filter
+       via the `db.index.vector.queryNodes` procedure. Cypher
+       gets verbose; semantically clean.
+    4. Live with post-filter, document the surprise: when the
+       caller asks for k=N with a selective filter, the response
+       may have fewer than N results. Add a one-line note to the
+       MultiHopRetriever docstring; bump k internally if the
+       result count is short of the requested k.
+
+  YAGNI guard: this is Gen-2 territory. The demo's typical
+  query path uses no `--layer` filter (the default is "all
+  layers"); the post-filter behaviour is invisible to the
+  Plan §1 demonstration moment. File so the investigation
+  is not lost when the Reviewer agent (PHX-0035) starts
+  spotting "fewer results than requested" patterns in
+  QueryRunReports.
+
+  Acceptance (Gen 2, when reopened):
+    - One paragraph in the next cypher_audit/*.md round
+      after a corpus with selective layer distribution is
+      ingested, comparing options 1–4 with measured
+      `vector_search` records-returned vs records-requested.
+    - If option 1 or 3 wins: schema change + Cypher rewrite +
+      contract-suite test that asserts records-returned ==
+      records-requested under selective filter.
+    - If option 4 wins: docstring + retriever bump-k logic +
+      one report-side note ("filter applied; raw HNSW returned
+      X candidates, filtered to Y records").
+
+  Out of scope:
+    - Pre-filter as a default behaviour (would slow no-filter
+      queries; benchmark before changing the default).
+    - Multi-property composite index beyond (layer, node_type)
+      (more index = more write cost; YAGNI).
+
+reopen_trigger: |
+  Either: (a) the Reviewer agent (PHX-0035) starts spotting
+  "fewer results than requested" patterns in QueryRunReports,
+  OR (b) a corpus with substantial MNEME population (post-Oneiros
+  promotion) is ingested and `theogony ask --layer mneme`
+  becomes a real query path.
+
+related:
+  - PHX-0042  # parent — Cypher audit that surfaced this
+  - PHX-0035  # Reviewer agent — natural consumer of the
+              #                  "fewer results" pattern
+resolution: null

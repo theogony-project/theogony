@@ -1,11 +1,14 @@
 id: PHX-0042
 category: performance
 priority: medium
-status: open
+status: resolved
 generation_target: 1
 title: "Cypher query-plan audit for hot read paths in Neo4jKnowledgeStore"
 filed_by: daedalus
 created_at: 2026-04-19
+resolved_at: 2026-04-19
+linked_prs:
+  - "PR #24 — bundled production-readiness merge (PHX-0042 + PHX-0046 + PHX-0049 + PHX-0050)"
 description: |
   E7 ships Neo4jKnowledgeStore (Plan §3.1a) without a query-plan
   audit. The store passes the contract suite and the Plan §3.1a
@@ -54,4 +57,64 @@ related:
   - PHX-0001  # custom engine — query-plan data informs whether
               #                 to push for it sooner or later
   - PHX-0046  # batch_upsert — write-side analogue of this read audit
-resolution: null
+  - PHX-0052  # HNSW + filter pushdown — Gen 2, filed at PHX-0042 close
+  - PHX-0053  # traverse path-mat strip-embedding — filed at PHX-0042 close
+resolution: |
+  Resolved 2026-04-19 in PR #24. Two follow-up tickets filed at
+  close (PHX-0052, PHX-0053).
+
+  Implementation:
+    - `scripts/cypher_audit.py` — programmatic harness that runs
+      `PROFILE` against a populated Neo4j (≥2000 nodes, ≥2000
+      edges), captures db hits per record, total db hits, and
+      whether the expected index is selected, and emits the result
+      as a Markdown table.
+    - `docs/cypher_audit/2026-04-19_post_e9.md` — the audit report
+      itself, covering all five paths from the original priority
+      list:
+        1. vector_search (k=20 + WHERE filter on layer)
+        2. traverse (depth=3, weight + relation_type filter)
+        3. get_neighborhood (depth=1, undirected)
+        4. multi_hop_search seed (vector-only)
+        5. list_pending_resolution (limit=20)
+
+  Findings (verbatim from the report):
+    | # | Path | Records | db hits / record | Index used | Verdict |
+    |---|---|---:|---:|---|---|
+    | 1 | vector_search (k=20 + WHERE filter) | 7 | 7.6   | HNSW + post-filter | Accept |
+    | 2 | traverse (depth=3, weight + type filter) | 3 | 97.7 | NodeUniqueIndexSeek + VarLengthExpand | Accept |
+    | 3 | get_neighborhood (depth=1, undirected) | 1 | 20.0 | NodeUniqueIndexSeek | Accept |
+    | 4 | multi_hop_search seed (vector-only) | 10 | 1.0 | HNSW | OK |
+    | 5 | list_pending_resolution (limit=20) | 20 | 6.0 | NodeIndexSeek (manual_resolution_needed) | OK |
+
+    All five paths land at <100 db hits/record; all five use the
+    expected index. No path misses its expected index; no path
+    exceeds the "obvious budget" ceiling of 1000 db hits/record.
+    The report also confirms PHX-0050 was the right call for the
+    read-side write-back path (one bulk get_edges_among instead of
+    N depth-1 probes).
+
+  Follow-up tickets filed at close:
+    - PHX-0052 (HNSW + filter pushdown — Gen 2). The vector_search
+      Cypher uses HNSW with a WHERE post-filter on layer/node_type;
+      Neo4j 5.x treats the filter as post-vector, not as an
+      index-pushed filter. Investigate whether a composite index
+      or an index hint changes the plan. Gen 2 because the audit
+      already shows the post-filter is fast enough for the demo;
+      this is opportunistic optimisation territory.
+    - PHX-0053 (traverse path-materialisation strip-embedding —
+      Gen 1 candidate). The traverse Cypher returns full
+      KnowledgeNode payloads including embeddings; if a consumer
+      doesn't need the embedding, stripping it saves ~15% on
+      the wire. Only worth it if a consumer asks; filed so it's
+      not lost.
+
+  Closure rationale:
+    - All acceptance criteria met (one PROFILE per path, db hits
+      reported, index selection confirmed, "obvious budget" not
+      exceeded on any path).
+    - No path needs a remediation paragraph; all five accepted
+      as-is.
+    - The audit harness (`scripts/cypher_audit.py`) is reusable
+      for future audit rounds (e.g. after a schema change or a
+      Neo4j minor version bump).

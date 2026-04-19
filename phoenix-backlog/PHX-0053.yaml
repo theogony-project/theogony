@@ -1,0 +1,101 @@
+id: PHX-0053
+category: performance
+priority: low
+status: open
+generation_target: 1
+title: "traverse Cypher: strip embeddings from path-materialised KnowledgeNode payloads"
+filed_by: hesiod
+created_at: 2026-04-19
+description: |
+  Filed at PHX-0042 close (Cypher query-plan audit, PR #24). The
+  audit's path #2 (traverse with depth=3, weight + relation_type
+  filter) showed:
+
+      traverse (depth=3, weight + type filter)
+      Records: 3  ·  db hits/record: 97.7
+      Index used: NodeUniqueIndexSeek + VarLengthExpand
+      Verdict: Accept
+
+  The 97.7 db hits/record is the highest in the audit set, but
+  still well under the 1000 db hits/record budget. The dominant
+  cost factor: the traverse Cypher returns full `KnowledgeNode`
+  payloads at every hop, including the 384-float embedding
+  vector (`SET n += row.props` materialises every property
+  including `embedding`). At depth=3 with branching factor ~3,
+  one traverse returns ~9 nodes × 384 floats × 4 bytes = ~14 KB
+  of embedding data per call. The MultiHopRetriever (E8) does
+  not USE the embeddings from traverse output; it uses them
+  only at the seed (vector_search) stage.
+
+  Implementation sketch:
+    - Two options:
+      A. Add a `traverse_lite` Protocol method that returns
+         `KnowledgeNode` projections without the embedding field.
+         The InMemoryKnowledgeStore overrides to skip the
+         embedding copy; the Neo4jKnowledgeStore Cypher
+         explicitly enumerates returned properties (`RETURN
+         n.id, n.label, n.node_type, n.layer, n.confidence,
+         n.scores, n.source_ref_json, n.external_ids_json,
+         n.properties_json, n.created_at, n.updated_at`) without
+         `n.embedding`.
+      B. Add an opt-in parameter to the existing `traverse`
+         method: `include_embedding: bool = True`. The
+         MultiHopRetriever passes `include_embedding=False`;
+         existing callers (none, currently — only the retriever
+         uses traverse) keep the default.
+
+    - Hesiod's leaning at file time: option B. Reasons:
+        - One Protocol surface, not two.
+        - Existing call sites get a deprecation-style nudge:
+          if you don't need the embedding, opt out.
+        - Discoverable via the parameter name.
+
+    - Daedalus picks at ticket pickup if option A turns out
+      to be cleaner under mypy or test surface considerations.
+
+  Acceptance:
+    - `traverse` Protocol method gains `include_embedding: bool
+      = True` (or `traverse_lite` per option A).
+    - Both stores honour the new flag; in-memory uses
+      `model_copy(deep=True, exclude={"embedding"})` or similar;
+      Neo4j enumerates returned properties.
+    - MultiHopRetriever updated to pass `include_embedding=False`.
+    - One contract-suite test (`test_traverse_lite_excludes_embedding`)
+      confirms both stores return nodes with `embedding=None` or
+      `embedding=[]` when the flag is set.
+    - `tests/test_neo4j_perf_smoke.py` extension (gated): assert
+      ~15% wall-clock improvement on a depth=3 traverse against
+      a 100-node corpus. Reject if <5% (round-trip cost may
+      dominate at small corpus size).
+    - `docs/cypher_audit/2026-04-19_post_e9.md` audit re-run
+      footnote: traverse db hits/record drops from 97.7 to ~50
+      under `include_embedding=False`.
+
+  Out of scope:
+    - Stripping embeddings from `vector_search` results — the
+      retriever DOES use those to dedupe by similarity.
+    - Stripping embeddings from `get_neighborhood` — the API
+      `/node/{id}` slim-DTO already projects to ConstellationNode
+      which doesn't carry the embedding; the underlying full
+      KnowledgeNode is returned to the route handler which then
+      slim-projects. Future audit may show this can be optimised
+      similarly; file when measured.
+
+  YAGNI guard: ~15% on the wire savings is opportunistic. The
+  retrieval pipeline IS already fast enough for the Plan §1 demo
+  (the audit confirmed). File so the optimisation is not lost
+  when someone profiles the e2e demo and wants the numbers
+  better; no resourcing now.
+
+reopen_trigger: |
+  Either: (a) Plan §1 demo wall-clock latency budget is exceeded
+  on a real corpus and the traverse stage is a measurable
+  contributor (>10% of e2e), OR (b) an external consumer
+  (e.g. UI, dashboard) starts consuming the MultiHopResult and
+  the embedding payload becomes a wire-cost concern.
+
+related:
+  - PHX-0042  # parent — Cypher audit that surfaced this
+  - PHX-0050  # related — also a "what does the consumer
+              #            actually need?" payload concern
+resolution: null
