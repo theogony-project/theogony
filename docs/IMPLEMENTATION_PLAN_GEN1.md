@@ -572,19 +572,15 @@ This is a pragmatic Gen 1 choice. Vector-search-anchored retrieval does not quer
 
 Verbatim. All idempotent (`IF NOT EXISTS`). E7 ships these as one ordered list in `stores/_schema.py`.
 
+**Edition-agnostic.** Property-existence constraints (`REQUIRE … IS NOT NULL`) are Neo4j Enterprise Edition only. The Plan v5 default setup (`docker-compose.yml` neo4j 5.18-community, testcontainers default Community) does not run them. Existence is enforced one layer up: `KnowledgeNode.id` and `KnowledgeEdge.id` are computed in Pydantic post-validators (`compute_node_id` / `compute_edge_id`, Plan §9.5/§9.5a); `KnowledgeEdge.relation_type` is a required field. The store is the application-layer sink and has no codepath that bypasses Pydantic on writes — DB-side existence constraints would be redundant defense-in-depth at the cost of an Enterprise-license dependency that conflicts with the local-first / Apache-2.0 posture (§3.3a v5).
+
 ```cypher
--- Uniqueness + existence constraints
+-- Uniqueness constraints
 CREATE CONSTRAINT knowledge_node_id_unique IF NOT EXISTS
   FOR (n:KnowledgeNode) REQUIRE n.id IS UNIQUE;
 
-CREATE CONSTRAINT knowledge_node_id_exists IF NOT EXISTS
-  FOR (n:KnowledgeNode) REQUIRE n.id IS NOT NULL;
-
 CREATE CONSTRAINT relation_id_unique IF NOT EXISTS
   FOR ()-[r:RELATION]-() REQUIRE r.id IS UNIQUE;
-
-CREATE CONSTRAINT relation_type_exists IF NOT EXISTS
-  FOR ()-[r:RELATION]-() REQUIRE r.relation_type IS NOT NULL;
 
 -- Range indexes — node side. Each index has one named consumer.
 CREATE INDEX knowledge_node_label IF NOT EXISTS

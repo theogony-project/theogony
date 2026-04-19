@@ -48,6 +48,11 @@ dev = [
     # when the user has not installed the gemini extra. Cheap; the
     # SDK is small.
     "google-genai>=1.0.0",
+    # testcontainers[neo4j] for the parametrised contract suite +
+    # tests/test_neo4j_store_live.py (Plan §3.8 + E7 brief).
+    # CI runs the Neo4j matrix when THEOGONY_TEST_NEO4J=1; locally
+    # `docker compose up neo4j` is the no-testcontainers path.
+    "testcontainers[neo4j]>=4.0",
 ]
 gemini = [
     "google-genai>=1.0.0",

@@ -81,6 +81,13 @@ class InMemoryKnowledgeStore:
     ) -> list[ScoredNode]:
         candidates: list[tuple[float, KnowledgeNode]] = []
         for node in self._nodes.values():
+            # Nodes without embeddings cannot be similarity-ranked, so
+            # they never appear in vector_search results — matches the
+            # Neo4j HNSW semantic (only indexed nodes are returned).
+            # The contract suite asserts this exclusion across both
+            # backends.
+            if not node.embedding:
+                continue
             if layer is not None and node.layer != layer:
                 continue
             if node_types is not None and node.node_type not in node_types:
