@@ -1,0 +1,73 @@
+id: PHX-0046
+category: performance
+priority: medium
+status: open
+generation_target: 1
+title: "batch_upsert_nodes/batch_upsert_edges via UNWIND+MERGE in Neo4jKnowledgeStore"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  E7 brief (docs/etappes/E7_brief.md, line 62) explicitly required
+  "batched upserts (batch_upsert_nodes / batch_upsert_edges per
+  Plan §8 carry-over)". E7 PR #18 shipped only single-record
+  upsert_node / upsert_edge methods. The PR body did not deflag
+  this as out-of-scope and filed no ticket — silent brief deviation.
+
+  Hesiod's post-merge call: ship batched upserts as a follow-up,
+  not blocking E8.
+
+  Implementation sketch:
+    async def batch_upsert_nodes(self, nodes: list[KnowledgeNode]) -> list[str]:
+        cypher = """
+        UNWIND $rows AS row
+        MERGE (n:KnowledgeNode {id: row.id})
+        SET n += row.props
+        RETURN n.id AS id
+        """
+        rows = [{"id": n.id, "props": _node_to_props(n, self._embedding_dim)}
+                for n in nodes]
+        async with self._session() as session:
+            result = await session.run(cypher, rows=rows)
+            records = await result.data()
+        return [str(r["id"]) for r in records]
+
+    # batch_upsert_edges analogous, with UNWIND + MATCH source/target +
+    # MERGE relation.
+
+  Acceptance:
+    - batch_upsert_nodes + batch_upsert_edges added to KnowledgeStore
+      Protocol with default `for n in nodes: await self.upsert_node(n)`
+      fallback (so InMemoryKnowledgeStore inherits it without code
+      change; only Neo4jKnowledgeStore overrides for the speedup).
+    - Contract suite gains one parametrised test: 100-node batch_upsert
+      yields 100 retrievable nodes; same result as the equivalent
+      single-upsert loop.
+    - Microbenchmark in docstring (or a tests/test_neo4j_perf_smoke.py
+      file gated on THEOGONY_TEST_NEO4J=1): single-upserts vs
+      batch_upserts on a 1000-node payload. Target ≥ 30× speedup
+      (the Bolt round-trip cost dominates; UNWIND eliminates 99 %
+      of round-trips). Reject if < 10×.
+    - IngestionPipeline (Plan §2.5) Embedder stage rewires to call
+      batch_upsert_nodes / batch_upsert_edges in batches of
+      Settings.store.batch_size (new field, default 200; align with
+      Wikidata-client pattern).
+
+  Out of scope:
+    - APOC-based bulk import (Gen 2).
+    - Streaming UNWIND from a generator (E7 Gen-1 cardinality is
+      modest; one batch per pipeline call is enough).
+
+  YAGNI guard: this is the explicit E7-brief-promised carry-over,
+  not anticipation. Filed because Talos shipped E7 without it, not
+  because we're inventing scope.
+
+reopen_trigger: |
+  Implement before E8 ships, so retrieval-side performance audits
+  (PHX-0042) are measured against the production write path, not
+  the slow single-upsert path.
+
+related:
+  - PHX-0043  # async-pipelined writes — alternative path; this
+              # ticket supersedes if implemented.
+  - PHX-0042  # query-plan audit on the read side
+resolution: null

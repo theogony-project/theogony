@@ -1,78 +1,59 @@
 id: PHX-0045
-category: improvement
+category: tooling
 priority: medium
 status: open
 generation_target: 1
-title: "pytest-xdist with @pytest.mark.serial for the tests that cannot parallelise"
+title: "pytest-xdist parallel test execution with explicit `serial` marker"
 filed_by: daedalus
 created_at: 2026-04-19
 description: |
-  Test parallelisation via pytest-xdist with hardware-agnostic
-  `-n auto`. Local dev wall-clock on multi-core machines drops 5–8×
-  (e.g. an M4 Pro with 14 cores); on 2-core CI runners ~2×. No
-  hardcoded worker count.
+  The test suite is at 625+ tests (per E6 RunReport) and growing.
+  Local full-suite wallclock on Jakob's M4 Pro (14 cores) is
+  several minutes; CI on GitHub-hosted runners is 2-3 minutes per
+  matrix leg. Most tests are pure-Python unit tests with zero
+  shared state — the canonical pytest-xdist target.
 
-  The harder half of this ticket is the inverse: the four classes
-  of test that CANNOT parallelise and need an explicit serial
-  marker. Without the marker, pytest-xdist will run them in
-  parallel and break in subtle ways:
-
-    - Live tests against Gemini (tests/test_extraction_*_live.py):
-      parallel firing reproduces the exact E6 free-tier rate-limit
-      trap. The whole reason PHX-0039 / PHX-0040 exist is that the
-      relations stage was rate-limited by parallelism; running the
-      live tests in parallel reintroduces the same failure mode in
-      CI.
-    - testcontainers Neo4j tests (E7's CI job): the testcontainers
-      session creates one container; the bolt driver's connection
-      pool is per-test-process and cannot be safely shared across
-      pytest-xdist workers. Each worker would either spin up its
-      own container (slow + memory-hungry) or fight over the pool.
-      Marking these serial sidesteps the choice.
-    - SQLite-backed AuditLog and IngestRunStore tests: SQLite's
-      file-lock concurrency is fine for one writer at a time, but
-      pytest fixtures that share a single DB file across tests
-      will see lock contention under parallel workers.
-    - tests/test_pipeline_characterization.py: opt-in already, but
-      it spends real money on every run; parallel workers would
-      multiply that cost without measurable benefit.
-
-  The right tool for this is pytest's marker system. We add a
-  `serial` marker, annotate the affected tests, and split the CI
-  into two runs.
+  Approach (hardware-agnostic, per Hesiod's anti-hardware-coupling
+  guidance):
+    - Add `pytest-xdist` to the `[dev]` extras.
+    - Configure pytest with `-n auto` as the default in CI and a
+      documented opt-in locally (`pytest -n auto`). `auto` picks
+      one worker per logical CPU; on a 4-core CI runner that's 4
+      workers, on the M4 Pro that's 14 — no hardware-specific code.
+    - Introduce one new pytest marker, `@pytest.mark.serial`, for
+      tests that are NOT safe to parallelise:
+        * Anything writing to the same Neo4j database (the
+          contract suite + live tests share one container; per-test
+          DETACH DELETE assumes serial execution).
+        * Anything using shared filesystem fixtures (e.g. SQLite
+          audit-log tests writing to a shared temp file — audit
+          which use isolated tmpdirs vs shared paths).
+        * Anything reading shared environment state in a way
+          parallel workers would race on.
+    - Apply `-m "not serial"` to the parallel job, run a small
+      `-m serial` job sequentially after.
 
   Acceptance:
-    - pytest-xdist>=3.5 added as a dev-extra in pyproject.toml's
-      [project.optional-dependencies] dev group.
-    - The `serial` marker is registered in pyproject.toml under
-      [tool.pytest.ini_options.markers] with a one-line docstring
-      ("Run sequentially; rate-limited APIs, shared containers,
-      file locks, or paid-tier costs make parallel runs unsafe").
-    - All tests in the four classes above are decorated with
-      @pytest.mark.serial. Talos runs an audit pass over the
-      existing test suite — expected ~10–15 sites, dominated by
-      the live-test files and the Neo4j contract tests.
-    - The CI workflow gains two pytest invocations:
-        - `pytest -n auto -m "not serial"` — parallel job
-        - `pytest -m serial`               — serial job
-      Both must be green for merge.
-    - CONTRIBUTING.md (or the README test section) documents
-      `pytest -n auto -m "not serial"` as the recommended local
-      default, with a one-paragraph note explaining when to drop
-      the filter.
+    - First-pass audit: list every test file that touches Neo4j,
+      SQLite, or shared filesystem state. Mark them `@pytest.mark.serial`.
+    - CI matrix leg `Tests (Python 3.12)` and `Tests (Python 3.13)`
+      run with `-n auto -m "not serial"`, then a small follow-up
+      step runs `-m serial` sequentially.
+    - Wallclock improvement target: ≥2× on the 14-core M4 Pro,
+      ≥1.3× on the GitHub runner. Reject if no measurable speedup.
+    - Documentation: README quickstart's `pytest -q` line gains a
+      `# add -n auto for parallel execution` comment.
 
-  Sequencing: after E7 merge — the testcontainers Neo4j tests
-  exist by then and their serial-mark is final. Could be bundled
-  immediately after E7 (alongside PHX-0042 and PHX-0044, also
-  E7-merge-conditional) so the post-E7 audit etappe is one PR
-  rather than three.
+  Out of scope:
+    - Custom worker counts (no -n 14, no hardware coupling).
+    - pytest-xdist-specific fixtures like `worker_id` — if a test
+      needs them, it's serial.
 
-  Pending plan anchor: none. The split-CI behaviour is consumed
-  by Plan §2.10 (Tests) but the section already cites
-  testcontainers as the slow-test escape hatch; no plan change
-  required.
+reopen_trigger: |
+  Test suite wallclock blocks development OR the suite passes 1000
+  tests (whichever first).
 
 related:
-  - PHX-0034  # the characterisation test stays opt-in but needs the
-              # serial mark when it does run
+  - PHX-0042  # query-plan audit benchmarks, runs with -n 1
+  - PHX-0046  # batched upsert benchmarks, runs with -n 1
 resolution: null
