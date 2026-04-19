@@ -16,6 +16,7 @@ import respx
 from theogony.extraction.wikidata_client import (
     DEFAULT_API_URL,
     DEFAULT_SPARQL_URL,
+    BioFacts,
     WikidataCandidate,
     WikidataClient,
 )
@@ -334,6 +335,220 @@ class TestRetryAndPoliteness:
         # Wikidata blocks anonymous (no UA) requests at the WAF; we
         # always send a descriptive UA.
         assert "theogony" in captured["user_agent"].lower()
+
+
+# ---------------------------------------------------------------- bio facts
+
+
+def _bio_facts_response(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build a SPARQL bindings payload for fetch_bio_facts.
+
+    Each row is a dict mapping variable name to value (e.g.
+    ``{"item": "Q154759", "birth": "1865-02-19T00:00:00Z",
+    "occupationLabel": "geographer"}``). Missing keys produce missing
+    bindings — matches Wikidata's behaviour for OPTIONAL clauses.
+    """
+    bindings: list[dict[str, Any]] = []
+    for row in rows:
+        binding: dict[str, Any] = {}
+        item = row.get("item")
+        if item:
+            binding["item"] = {"type": "uri", "value": f"http://www.wikidata.org/entity/{item}"}
+        for key in ("birth", "death"):
+            val = row.get(key)
+            if val is not None:
+                binding[key] = {"type": "literal", "value": val}
+        for key in ("occupationLabel", "birthPlaceLabel", "workLocationLabel"):
+            val = row.get(key)
+            if val is not None:
+                binding[key] = {"type": "literal", "value": val}
+        bindings.append(binding)
+    return {
+        "head": {
+            "vars": [
+                "item",
+                "birth",
+                "death",
+                "occupationLabel",
+                "birthPlaceLabel",
+                "workLocationLabel",
+            ]
+        },
+        "results": {"bindings": bindings},
+    }
+
+
+class TestFetchBioFacts:
+    @respx.mock
+    async def test_returns_full_facts_for_known_person(self) -> None:
+        # Sven Hedin–like fingerprint: born 1865, died 1952, Swedish
+        # geographer + explorer + cartographer, born Stockholm,
+        # worked Tibet + Central Asia.
+        respx.post(DEFAULT_SPARQL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json=_bio_facts_response(
+                    [
+                        {
+                            "item": "Q154759",
+                            "birth": "1865-02-19T00:00:00Z",
+                            "death": "1952-11-26T00:00:00Z",
+                            "occupationLabel": "geographer",
+                            "birthPlaceLabel": "Stockholm",
+                            "workLocationLabel": "Tibet",
+                        },
+                        {
+                            "item": "Q154759",
+                            "birth": "1865-02-19T00:00:00Z",
+                            "death": "1952-11-26T00:00:00Z",
+                            "occupationLabel": "explorer",
+                            "birthPlaceLabel": "Stockholm",
+                            "workLocationLabel": "Central Asia",
+                        },
+                    ]
+                ),
+            )
+        )
+        async with WikidataClient(inter_request_delay_s=0) as client:
+            result = await client.fetch_bio_facts(["Q154759"])
+
+        facts = result["Q154759"]
+        assert facts.qid == "Q154759"
+        assert facts.birth_date == "1865-02-19T00:00:00Z"
+        assert facts.death_date == "1952-11-26T00:00:00Z"
+        assert facts.birth_place == "Stockholm"
+        # Multi-valued fields deduplicate and sort lexicographically.
+        assert facts.occupations == ["explorer", "geographer"]
+        assert facts.work_locations == ["Central Asia", "Tibet"]
+        assert facts.is_empty is False
+
+    @respx.mock
+    async def test_qid_with_no_facts_returns_empty(self) -> None:
+        # Query returns no bindings for Q-IDs with empty Wikidata
+        # statement set; the client must still produce a row for them.
+        respx.post(DEFAULT_SPARQL_URL).mock(
+            return_value=httpx.Response(200, json=_bio_facts_response([]))
+        )
+        async with WikidataClient(inter_request_delay_s=0) as client:
+            result = await client.fetch_bio_facts(["Q999"])
+
+        assert "Q999" in result
+        facts = result["Q999"]
+        assert facts.is_empty is True
+        assert facts.birth_date is None
+        assert facts.occupations == []
+
+    @respx.mock
+    async def test_partial_facts_only_some_properties(self) -> None:
+        respx.post(DEFAULT_SPARQL_URL).mock(
+            return_value=httpx.Response(
+                200,
+                json=_bio_facts_response(
+                    [
+                        {
+                            "item": "Q42",
+                            "occupationLabel": "writer",
+                        }
+                    ]
+                ),
+            )
+        )
+        async with WikidataClient(inter_request_delay_s=0) as client:
+            result = await client.fetch_bio_facts(["Q42"])
+
+        facts = result["Q42"]
+        assert facts.is_empty is False
+        assert facts.occupations == ["writer"]
+        assert facts.birth_date is None
+        assert facts.death_date is None
+        assert facts.birth_place is None
+        assert facts.work_locations == []
+
+    @respx.mock
+    async def test_batches_above_batch_size(self) -> None:
+        qids = [f"Q{i}" for i in range(1, 31)]
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json=_bio_facts_response([]))
+
+        route = respx.post(DEFAULT_SPARQL_URL).mock(side_effect=handler)
+        async with WikidataClient(inter_request_delay_s=0, batch_size=10) as client:
+            result = await client.fetch_bio_facts(qids)
+        # 30 Q-IDs at batch_size=10 → 3 SPARQL requests.
+        assert route.call_count == 3
+        assert len(result) == 30
+
+    @respx.mock
+    async def test_empty_qid_list_skips_http(self) -> None:
+        async with WikidataClient(inter_request_delay_s=0) as client:
+            assert await client.fetch_bio_facts([]) == {}
+
+    @respx.mock
+    async def test_language_parameter_threads_into_sparql(self) -> None:
+        from urllib.parse import parse_qs
+
+        captured: dict[str, str] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["body"] = request.content.decode("utf-8")
+            return httpx.Response(200, json=_bio_facts_response([]))
+
+        respx.post(DEFAULT_SPARQL_URL).mock(side_effect=handler)
+        async with WikidataClient(inter_request_delay_s=0) as client:
+            await client.fetch_bio_facts(["Q1"], language="de")
+        # The body is form-encoded (httpx default for `data=`); decode
+        # the `query=` parameter and assert against the raw SPARQL.
+        decoded_query = parse_qs(captured["body"])["query"][0]
+        assert 'wikibase:language "de"' in decoded_query
+
+
+class TestBioFactsModel:
+    def test_extra_fields_forbidden(self) -> None:
+        with pytest.raises(ValueError):
+            BioFacts(qid="Q1", bogus="x")  # type: ignore[call-arg]
+
+    def test_qid_pattern_enforced(self) -> None:
+        with pytest.raises(ValueError):
+            BioFacts(qid="not-a-qid")
+
+    def test_is_empty_returns_true_for_default(self) -> None:
+        assert BioFacts(qid="Q1").is_empty is True
+
+    def test_is_empty_false_when_any_field_set(self) -> None:
+        # Each property alone makes the facts non-empty.
+        assert BioFacts(qid="Q1", birth_date="1900").is_empty is False
+        assert BioFacts(qid="Q1", death_date="2000").is_empty is False
+        assert BioFacts(qid="Q1", birth_place="Berlin").is_empty is False
+        assert BioFacts(qid="Q1", occupations=["x"]).is_empty is False
+        assert BioFacts(qid="Q1", work_locations=["y"]).is_empty is False
+
+    def test_to_prompt_block_full(self) -> None:
+        block = BioFacts(
+            qid="Q154759",
+            birth_date="1865-02-19T00:00:00Z",
+            death_date="1952-11-26T00:00:00Z",
+            birth_place="Stockholm",
+            occupations=["geographer", "explorer"],
+            work_locations=["Tibet", "Central Asia"],
+        ).to_prompt_block()
+        assert "Q154759:" in block
+        assert "lifespan" in block
+        assert "Stockholm" in block
+        assert "geographer, explorer" in block
+        assert "Tibet, Central Asia" in block
+
+    def test_to_prompt_block_empty_explicit(self) -> None:
+        # Empty facts get an explicit "(no biographical facts)" line so
+        # the LLM is not left wondering whether the section was lost.
+        block = BioFacts(qid="Q1").to_prompt_block()
+        assert "Q1:" in block
+        assert "no biographical facts" in block
+
+    def test_to_prompt_block_only_birth_place(self) -> None:
+        block = BioFacts(qid="Q1", birth_place="Berlin").to_prompt_block()
+        assert "born in: Berlin" in block
+        assert "lifespan" not in block
+        assert "occupation" not in block
 
 
 # ---------------------------------------------------------------- DTO

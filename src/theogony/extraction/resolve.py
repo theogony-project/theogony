@@ -2,9 +2,10 @@
 EntityResolver — Wikidata alignment for NER mentions (Plan §3.4 v3).
 
 E2 scope: Stages 1-3 of the five-stage pipeline plus the Tier-4/3/0
-honest-failure path. Stage 4 (LLM disambiguation with biographical
-facts and ``BookContext``) lands in E3; Stage 5 (``WikidataDetective``,
-opt-in) in E4.
+honest-failure path.
+E3 scope: Stage 4 LLM disambiguation with biographical facts and
+``BookContext``, plus Tier 2 / Tier 1 minting. When constructed
+without an ``llm`` argument the resolver behaves exactly as in E2.
 
 Pipeline per mention:
 
@@ -27,7 +28,15 @@ Pipeline per mention:
    the acceptable set is empty — that is documented to mean
    "no type filter, accept anything".
 
-4. **Tier assignment** (E2 subset, Plan §3.4):
+4. **Stage 4 — LLM disambiguation with bio facts** (E3, only when an
+   ``llm`` is configured). Triggered when Stages 1-3 leave at least
+   one survivor but Tier 4/3 conditions are not met. Fetches the five
+   Plan-§3.4 properties (P569/P570/P106/P19/P937) for each survivor,
+   builds a structured prompt with the source mention + sentence
+   context + ``BookContext`` + each candidate's bio facts, and asks
+   the LLM to pick a Q-ID or refuse (chosen=null).
+
+5. **Tier assignment** (Plan §3.4):
 
    - **Tier 4** (confidence 0.90): exactly one candidate survives
      Stage 3 *and* it has an EXACT alias match in ≥ 2 distinct
@@ -37,13 +46,15 @@ Pipeline per mention:
      in ≥ 2 languages. Best-rank = (most languages with ≥CASE
      match, then most languages where the candidate appeared in
      wbsearchentities, then lexicographic Q-ID for determinism).
+   - **Tier 2** (confidence 0.65, E3): Stage 4 LLM disambiguation
+     succeeded *and* at least one survivor had non-empty
+     :class:`~theogony.extraction.wikidata_client.BioFacts`.
+   - **Tier 1** (confidence 0.55, E3): Stage 4 LLM disambiguation
+     succeeded but every survivor had empty bio facts (LLM had only
+     sentence context to work with).
    - **Tier 0** (confidence 0.50): no Q-ID assigned. Mints an
      ``AKA-…`` node with ``manual_resolution_needed=True`` and
-     ``properties["wikidata_failure_reason"]`` recording why
-     (no candidates / type filter eliminated all / weak match).
-
-   Tiers 2 and 1 (LLM disambiguation) are reserved for E3 and
-   currently unreachable from this resolver.
+     ``properties["wikidata_failure_reason"]`` recording why.
 
 The resolver is **stateless and concurrency-safe**: any number of
 ``resolve`` / ``resolve_many`` calls can run in parallel against the
@@ -53,16 +64,20 @@ politeness lock.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Sequence
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from theogony.agents.llm import LLMProvider
 from theogony.config.logging import get_logger
 from theogony.core.model import KnowledgeNode, NodeScores, SourceRef
 from theogony.extraction.alias_matcher import AliasMatchStrength, best_match, fully_normalise
+from theogony.extraction.book_context import BookContext
 from theogony.extraction.ner import Mention
-from theogony.extraction.wikidata_client import WikidataCandidate, WikidataClient
+from theogony.extraction.sentence import Sentence
+from theogony.extraction.wikidata_client import BioFacts, WikidataCandidate, WikidataClient
 from theogony.extraction.wikidata_types import (
     acceptable_wikidata_types,
     is_resolvable,
@@ -77,7 +92,48 @@ DEFAULT_WBSEARCH_LIMIT = 10
 
 TIER_4_CONFIDENCE = 0.90
 TIER_3_CONFIDENCE = 0.75
+TIER_2_CONFIDENCE = 0.65
+TIER_1_CONFIDENCE = 0.55
 TIER_0_CONFIDENCE = 0.50
+
+
+_STAGE4_SYSTEM_PROMPT = (
+    "You are a careful entity disambiguator. You read a mention from "
+    "a source text together with sentence context, book context, and "
+    "a small set of Wikidata candidates with biographical facts. You "
+    "pick the single Q-ID that best matches the source — or refuse "
+    "if no candidate is a confident match (chosen=null). You answer "
+    "ONLY with JSON matching the supplied schema. You never invent "
+    "facts about candidates and never invent Q-IDs that were not in "
+    "the candidate list."
+)
+
+_STAGE4_OUTPUT_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "chosen": {
+            "type": ["string", "null"],
+            "description": (
+                "The Q-ID picked from the candidate list, or null when "
+                "no candidate is a confident match. Pattern: ^Q\\d+$ "
+                "when non-null."
+            ),
+        },
+        "confidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "Self-rated confidence in the pick (or in the refusal).",
+        },
+        "reasoning": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "1-3 sentences justifying the choice (or refusal).",
+        },
+    },
+    "required": ["chosen", "confidence", "reasoning"],
+    "additionalProperties": False,
+}
 
 
 # ---------------------------------------------------------------------------- DTO
@@ -216,7 +272,8 @@ def _rank_key(
 
 
 class EntityResolver:
-    """Resolve NER mentions to Wikidata Q-IDs (Stages 1-3 + Tier 4/3/0)."""
+    """Resolve NER mentions to Wikidata Q-IDs (Stages 1-3 always; Stage 4
+    when an ``llm`` is configured)."""
 
     def __init__(
         self,
@@ -224,30 +281,50 @@ class EntityResolver:
         client: WikidataClient,
         languages: Sequence[str] = DEFAULT_LANGUAGES,
         wbsearch_limit: int = DEFAULT_WBSEARCH_LIMIT,
+        llm: LLMProvider | None = None,
+        book_context: BookContext | None = None,
+        llm_timeout_s: float = 30.0,
+        bio_facts_language: str = "en",
     ) -> None:
         if not languages:
             raise ValueError("languages must be non-empty")
         self._client = client
         self._languages = tuple(languages)
         self._wbsearch_limit = wbsearch_limit
+        self._llm = llm
+        self._book_context = book_context
+        self._llm_timeout_s = llm_timeout_s
+        self._bio_facts_language = bio_facts_language
 
     @property
     def languages(self) -> tuple[str, ...]:
         return self._languages
+
+    @property
+    def has_llm(self) -> bool:
+        """True iff Stage 4 LLM disambiguation is wired up."""
+        return self._llm is not None
 
     async def resolve(
         self,
         mention: Mention,
         *,
         source_ref: SourceRef,
+        sentences: Sequence[Sentence] | None = None,
     ) -> ResolvedMention:
-        """Resolve a single mention through Stages 1-3.
+        """Resolve a single mention.
 
         Convenience wrapper over :meth:`resolve_many`. When resolving
         many mentions from one document prefer ``resolve_many`` —
         it deduplicates surface forms and batches all Wikidata calls.
+
+        ``sentences`` is the cleaned-text sentence list from
+        :class:`~theogony.extraction.sentence.Sentencizer`. Required
+        for Stage 4 to inline the source sentence into the
+        disambiguation prompt; optional otherwise (Tier 4/3/0 paths
+        do not consume it).
         """
-        results = await self.resolve_many([mention], source_ref=source_ref)
+        results = await self.resolve_many([mention], source_ref=source_ref, sentences=sentences)
         return results[0]
 
     async def resolve_many(
@@ -255,6 +332,7 @@ class EntityResolver:
         mentions: Sequence[Mention],
         *,
         source_ref: SourceRef,
+        sentences: Sequence[Sentence] | None = None,
     ) -> list[ResolvedMention]:
         """Resolve every mention; identical surface forms share one node.
 
@@ -263,11 +341,14 @@ class EntityResolver:
         one HTTP/SPARQL round per unique form per book, not per
         occurrence.
 
+        ``sentences`` is the cleaned-text sentence list. When
+        provided and an ``llm`` is configured, Stage 4 prompts include
+        the source sentence; otherwise the mention text alone is the
+        sentence context.
+
         Returns one ``ResolvedMention`` per *group*, not per input
         mention. The ``mentions`` field of each ``ResolvedMention``
-        carries every member of the group in appearance order, so
-        downstream consumers (RelationExtractor, IngestionPipeline)
-        can recover per-mention provenance.
+        carries every member of the group in appearance order.
         """
         if not mentions:
             return []
@@ -287,7 +368,9 @@ class EntityResolver:
         results: list[ResolvedMention] = []
         for key in order:
             group = groups[key]
-            results.append(await self._resolve_group(group, source_ref=source_ref))
+            results.append(
+                await self._resolve_group(group, source_ref=source_ref, sentences=sentences)
+            )
         return results
 
     # ----------------------------------------------------------------- internals
@@ -297,6 +380,7 @@ class EntityResolver:
         group: list[Mention],
         *,
         source_ref: SourceRef,
+        sentences: Sequence[Sentence] | None = None,
     ) -> ResolvedMention:
         """Run Stages 1-3 on one deduplication group."""
         rep_mention = group[0]
@@ -412,15 +496,264 @@ class EntityResolver:
                 candidates=candidate_qids,
             )
 
-        # E2 stops here. Stage 4 (E3) would now run LLM disambiguation
-        # over the survivors. For E2 we honestly fail to Tier 0.
-        return self._mint_tier0(
+        # ---- Stage 4: LLM disambiguation (E3) ----
+        # Only when an LLM is configured. Otherwise (E2 backward-compat
+        # path) honestly fail to Tier 0.
+        if self._llm is None:
+            return self._mint_tier0(
+                group=group,
+                rep_text=rep_text,
+                source_ref=source_ref,
+                candidates=candidate_qids,
+                failure_reason="weak_alias_match_no_llm_configured",
+            )
+        return await self._stage4_disambiguate(
             group=group,
             rep_text=rep_text,
             source_ref=source_ref,
-            candidates=candidate_qids,
-            failure_reason="weak_alias_match_no_llm_in_e2",
+            survivors=survivors,
+            aliases=aliases,
+            candidate_qids=candidate_qids,
+            sentences=sentences,
         )
+
+    async def _stage4_disambiguate(
+        self,
+        *,
+        group: list[Mention],
+        rep_text: str,
+        source_ref: SourceRef,
+        survivors: list[str],
+        aliases: dict[str, dict[str, list[str]]],
+        candidate_qids: list[str],
+        sentences: Sequence[Sentence] | None,
+    ) -> ResolvedMention:
+        """Run Stage 4: bio facts + LLM disambiguation.
+
+        Falls back to Tier 0 with a specific failure reason on any
+        of: LLM transport error, JSON parse failure, schema-invalid
+        response, chosen Q-ID not in survivor set.
+
+        Tier 2 vs Tier 1 split: if at least one survivor returned
+        non-empty :class:`BioFacts`, the LLM had Plan-§3.4 Stage-4
+        evidence to work with → Tier 2 (conf 0.65). If all bio facts
+        were empty (e.g. GPE candidates, or a person Wikidata has no
+        biographical statements for) → Tier 1 (conf 0.55, "LLM with
+        sentence context only" per Plan §3.4).
+        """
+        # Defensive: this method is private but the resolver could
+        # have been constructed without an LLM by mistake.
+        if self._llm is None:  # pragma: no cover - guarded above
+            return self._mint_tier0(
+                group=group,
+                rep_text=rep_text,
+                source_ref=source_ref,
+                candidates=candidate_qids,
+                failure_reason="weak_alias_match_no_llm_configured",
+            )
+
+        bio_facts = await self._client.fetch_bio_facts(survivors, language=self._bio_facts_language)
+        sentence_text = self._lookup_sentence_text(group[0], sentences)
+        prompt = self._build_stage4_prompt(
+            mention_text=rep_text,
+            ner_label=group[0].label,
+            sentence_text=sentence_text,
+            survivors=survivors,
+            aliases=aliases,
+            bio_facts=bio_facts,
+        )
+
+        try:
+            result = await self._llm.complete(
+                prompt,
+                system=_STAGE4_SYSTEM_PROMPT,
+                json_schema=_STAGE4_OUTPUT_SCHEMA,
+                temperature=0.0,
+                timeout_s=self._llm_timeout_s,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning(
+                "stage 4 LLM call failed for mention=%r ner=%s: %s — minting tier 0",
+                rep_text,
+                group[0].label,
+                exc,
+            )
+            return self._mint_tier0(
+                group=group,
+                rep_text=rep_text,
+                source_ref=source_ref,
+                candidates=candidate_qids,
+                failure_reason="stage4_llm_transport_error",
+            )
+
+        chosen, llm_confidence, reasoning, parse_error = self._parse_stage4_response(result.text)
+        if parse_error is not None:
+            log.warning(
+                "stage 4 response parse failed for mention=%r: %s — minting tier 0",
+                rep_text,
+                parse_error,
+            )
+            return self._mint_tier0(
+                group=group,
+                rep_text=rep_text,
+                source_ref=source_ref,
+                candidates=candidate_qids,
+                failure_reason=f"stage4_parse_error:{parse_error}",
+            )
+
+        if chosen is None:
+            return self._mint_tier0(
+                group=group,
+                rep_text=rep_text,
+                source_ref=source_ref,
+                candidates=candidate_qids,
+                failure_reason="stage4_llm_refused",
+                stage4_reasoning=reasoning,
+                stage4_llm_confidence=llm_confidence,
+            )
+        if chosen not in survivors:
+            log.warning(
+                "stage 4 LLM picked non-survivor %s for mention=%r (survivors=%s)",
+                chosen,
+                rep_text,
+                survivors,
+            )
+            return self._mint_tier0(
+                group=group,
+                rep_text=rep_text,
+                source_ref=source_ref,
+                candidates=candidate_qids,
+                failure_reason="stage4_llm_chose_invalid_qid",
+                stage4_reasoning=reasoning,
+                stage4_llm_confidence=llm_confidence,
+            )
+
+        # Tier 2 vs Tier 1: did at least one survivor have bio facts?
+        any_bio_facts = any(not bio_facts.get(q, BioFacts(qid=q)).is_empty for q in survivors)
+        if any_bio_facts:
+            return self._mint_tier2(
+                group=group,
+                qid=chosen,
+                aliases=aliases,
+                source_ref=source_ref,
+                candidates=candidate_qids,
+                stage4_reasoning=reasoning,
+                stage4_llm_confidence=llm_confidence,
+            )
+        return self._mint_tier1(
+            group=group,
+            qid=chosen,
+            aliases=aliases,
+            source_ref=source_ref,
+            candidates=candidate_qids,
+            stage4_reasoning=reasoning,
+            stage4_llm_confidence=llm_confidence,
+        )
+
+    @staticmethod
+    def _lookup_sentence_text(
+        mention: Mention,
+        sentences: Sequence[Sentence] | None,
+    ) -> str | None:
+        """Return the source sentence for a mention, or None when unavailable.
+
+        spaCy sentence indexing is contiguous from 0, so the natural
+        lookup is by index. Out-of-range indices fall through to None
+        defensively (a mismatch between the sentencizer that produced
+        ``mention.sentence_index`` and the ``sentences`` passed here
+        is a data-flow bug, but the resolver should not crash on it).
+        """
+        if sentences is None:
+            return None
+        idx = mention.sentence_index
+        if idx < 0 or idx >= len(sentences):
+            return None
+        return sentences[idx].text
+
+    def _build_stage4_prompt(
+        self,
+        *,
+        mention_text: str,
+        ner_label: str,
+        sentence_text: str | None,
+        survivors: list[str],
+        aliases: dict[str, dict[str, list[str]]],
+        bio_facts: dict[str, BioFacts],
+    ) -> str:
+        """Assemble the per-mention Stage 4 prompt body.
+
+        Layout (stable across mentions):
+
+            Mention: "<text>"
+            NER label: <PERSON|GPE|...>
+            Source sentence: "<sentence text>"  (or "(not available)")
+            <BookContext block>
+            Candidates:
+              <BioFacts block per survivor>
+
+            Question + JSON instructions.
+        """
+        if sentence_text:
+            sentence_line = f'Source sentence: "{sentence_text}"'
+        else:
+            sentence_line = "Source sentence: (not available)"
+        context_block = (
+            self._book_context.to_prompt_block()
+            if self._book_context is not None
+            else "Book context: (not available)"
+        )
+        candidate_blocks: list[str] = []
+        for qid in survivors:
+            facts_block = bio_facts.get(qid, BioFacts(qid=qid)).to_prompt_block()
+            # Inline canonical labels so the LLM can reason about
+            # surface-form alignment too — alias dict may have multiple
+            # languages, so we surface the EN label and short alias list.
+            qid_aliases = aliases.get(qid, {})
+            en_strings = qid_aliases.get("en") or []
+            label_hint = f' (label: "{en_strings[0]}")' if en_strings else ""
+            candidate_blocks.append(facts_block.replace(f"{qid}:", f"{qid}{label_hint}:"))
+        candidates_section = "Candidates:\n" + "\n".join(candidate_blocks)
+
+        return (
+            f'Mention: "{mention_text}"\n'
+            f"NER label: {ner_label}\n"
+            f"{sentence_line}\n"
+            f"{context_block}\n"
+            f"{candidates_section}\n\n"
+            "Pick the single Q-ID from the candidates that best matches "
+            "the mention in this source. If no candidate is a confident "
+            "match, respond with chosen=null. Reply ONLY with JSON: "
+            '{"chosen": "Q…" or null, "confidence": 0.0-1.0, "reasoning": "..."}'
+        )
+
+    @staticmethod
+    def _parse_stage4_response(
+        text: str,
+    ) -> tuple[str | None, float, str, str | None]:
+        """Parse the LLM's JSON response.
+
+        Returns ``(chosen, confidence, reasoning, parse_error)``.
+        ``parse_error`` is None on success and a short tag string on
+        failure (so the resolver can pass it into the Tier-0 reason).
+        """
+        try:
+            payload = json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            return None, 0.0, "", "json_decode"
+        if not isinstance(payload, dict):
+            return None, 0.0, "", "non_object_payload"
+        chosen = payload.get("chosen")
+        confidence = payload.get("confidence", 0.0)
+        reasoning = payload.get("reasoning", "")
+        if chosen is not None and (
+            not isinstance(chosen, str) or not chosen.startswith("Q") or not chosen[1:].isdigit()
+        ):
+            return None, 0.0, "", "invalid_chosen_format"
+        if not isinstance(confidence, (int, float)):  # noqa: UP038
+            confidence = 0.0
+        if not isinstance(reasoning, str):
+            reasoning = ""
+        return chosen, float(confidence), reasoning, None
 
     # ---- minting helpers --------------------------------------------------
 
@@ -490,6 +823,85 @@ class EntityResolver:
             candidates_considered=list(candidates),
         )
 
+    def _mint_tier2(
+        self,
+        *,
+        group: list[Mention],
+        qid: str,
+        aliases: dict[str, dict[str, list[str]]],
+        source_ref: SourceRef,
+        candidates: list[str],
+        stage4_reasoning: str,
+        stage4_llm_confidence: float,
+    ) -> ResolvedMention:
+        label = _select_canonical_label(group[0].text, qid, aliases, self._languages)
+        properties = _node_properties(
+            ner_label=group[0].label,
+            qid=qid,
+            candidates=candidates,
+            first_mention=group[0],
+            mention_count=len(group),
+        )
+        properties["stage4_llm_reasoning"] = stage4_reasoning
+        properties["stage4_llm_confidence"] = stage4_llm_confidence
+        properties["stage4_llm_model_id"] = getattr(self._llm, "model_id", "")
+        node = KnowledgeNode(
+            label=label,
+            node_type=node_type_for_ner_label(group[0].label),
+            external_ids={"wikidata": qid},
+            source_ref=source_ref,
+            scores=NodeScores(confidence=TIER_2_CONFIDENCE),
+            resolution_tier=2,
+            properties=properties,
+        )
+        return ResolvedMention(
+            mentions=list(group),
+            node=node,
+            tier=2,
+            chosen_qid=qid,
+            candidates_considered=list(candidates),
+        )
+
+    def _mint_tier1(
+        self,
+        *,
+        group: list[Mention],
+        qid: str,
+        aliases: dict[str, dict[str, list[str]]],
+        source_ref: SourceRef,
+        candidates: list[str],
+        stage4_reasoning: str,
+        stage4_llm_confidence: float,
+    ) -> ResolvedMention:
+        label = _select_canonical_label(group[0].text, qid, aliases, self._languages)
+        properties = _node_properties(
+            ner_label=group[0].label,
+            qid=qid,
+            candidates=candidates,
+            first_mention=group[0],
+            mention_count=len(group),
+        )
+        properties["stage4_llm_reasoning"] = stage4_reasoning
+        properties["stage4_llm_confidence"] = stage4_llm_confidence
+        properties["stage4_llm_model_id"] = getattr(self._llm, "model_id", "")
+        properties["stage4_no_bio_facts"] = True
+        node = KnowledgeNode(
+            label=label,
+            node_type=node_type_for_ner_label(group[0].label),
+            external_ids={"wikidata": qid},
+            source_ref=source_ref,
+            scores=NodeScores(confidence=TIER_1_CONFIDENCE),
+            resolution_tier=1,
+            properties=properties,
+        )
+        return ResolvedMention(
+            mentions=list(group),
+            node=node,
+            tier=1,
+            chosen_qid=qid,
+            candidates_considered=list(candidates),
+        )
+
     def _mint_tier0(
         self,
         *,
@@ -498,6 +910,8 @@ class EntityResolver:
         source_ref: SourceRef,
         candidates: Iterable[str],
         failure_reason: str,
+        stage4_reasoning: str | None = None,
+        stage4_llm_confidence: float | None = None,
     ) -> ResolvedMention:
         candidates_list = list(candidates)
         properties = _node_properties(
@@ -509,6 +923,11 @@ class EntityResolver:
         )
         properties["wikidata_search_attempted"] = True
         properties["wikidata_failure_reason"] = failure_reason
+        if stage4_reasoning is not None:
+            properties["stage4_llm_reasoning"] = stage4_reasoning
+        if stage4_llm_confidence is not None:
+            properties["stage4_llm_confidence"] = stage4_llm_confidence
+            properties["stage4_llm_model_id"] = getattr(self._llm, "model_id", "")
         node = KnowledgeNode(
             label=rep_text,
             node_type=node_type_for_ner_label(group[0].label),
@@ -565,6 +984,8 @@ __all__ = [
     "EntityResolver",
     "ResolvedMention",
     "TIER_0_CONFIDENCE",
+    "TIER_1_CONFIDENCE",
+    "TIER_2_CONFIDENCE",
     "TIER_3_CONFIDENCE",
     "TIER_4_CONFIDENCE",
 ]

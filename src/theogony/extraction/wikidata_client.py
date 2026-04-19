@@ -97,6 +97,68 @@ class WikidataCandidate(BaseModel):
     """ISO 639-1 code of the language the search was issued in."""
 
 
+class BioFacts(BaseModel):
+    """Biographical fingerprint for a Q-ID (Plan §3.4 Stage 4).
+
+    The five properties Plan §3.4 lists for disambiguating people
+    (P569 birth, P570 death, P106 occupation, P19 birth place,
+    P937 work location). Date fields are kept as raw Wikidata
+    literal strings (e.g. ``"1865-02-19T00:00:00Z"``); place /
+    occupation fields carry their human-readable labels in the
+    SPARQL query's language (default ``en``).
+
+    Empty lists / ``None`` fields are honest emptiness — the entity
+    has no statement for that property in Wikidata. The resolver
+    treats a candidate with *all* fields empty as "no facts" and
+    routes it to Tier 1 (sentence-context-only) instead of Tier 2.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    qid: str = Field(pattern=r"^Q\d+$")
+    birth_date: str | None = None
+    death_date: str | None = None
+    birth_place: str | None = None
+    occupations: list[str] = Field(default_factory=list)
+    work_locations: list[str] = Field(default_factory=list)
+
+    @property
+    def is_empty(self) -> bool:
+        """True iff none of the five Stage-4 properties has a value.
+
+        EntityResolver uses this to choose between Tier 2 (bio facts
+        available) and Tier 1 (no bio facts).
+        """
+        return (
+            self.birth_date is None
+            and self.death_date is None
+            and self.birth_place is None
+            and not self.occupations
+            and not self.work_locations
+        )
+
+    def to_prompt_block(self) -> str:
+        """Render as a compact, prompt-ready block for Stage 4.
+
+        Stable format across all candidates so the LLM does not see
+        different wrappers per entry. Empty fields are omitted to
+        avoid suggesting facts that do not exist.
+        """
+        lines: list[str] = []
+        if self.birth_date or self.death_date:
+            lifespan = " – ".join(d for d in (self.birth_date, self.death_date) if d)
+            lines.append(f"lifespan: {lifespan}")
+        if self.birth_place:
+            lines.append(f"born in: {self.birth_place}")
+        if self.occupations:
+            lines.append("occupation: " + ", ".join(self.occupations))
+        if self.work_locations:
+            lines.append("worked in: " + ", ".join(self.work_locations))
+        if not lines:
+            return f"  {self.qid}: (no biographical facts in Wikidata)"
+        return f"  {self.qid}:\n" + "\n".join(f"    {ln}" for ln in lines)
+
+
 class WikidataClient:
     """Async client for the three Wikidata endpoints E2 needs.
 
@@ -267,6 +329,102 @@ class WikidataClient:
                                     lang_strings.append(value)
                     per_lang[lang] = lang_strings
                 out[qid] = per_lang
+        return out
+
+    async def fetch_bio_facts(
+        self,
+        qids: Iterable[str],
+        *,
+        language: str = "en",
+    ) -> dict[str, BioFacts]:
+        """Stage 4: biographical fingerprints batched via SPARQL.
+
+        Issues one SPARQL query per ``batch_size``-sized chunk of
+        Q-IDs covering the five properties Plan §3.4 lists for
+        disambiguation:
+
+            P569 (date of birth), P570 (date of death),
+            P106 (occupation), P19 (place of birth),
+            P937 (work location)
+
+        Returns ``{qid: BioFacts}``. Q-IDs absent from the response
+        (e.g. invalid Q-ID, network glitch) get an *empty* :class:`BioFacts`
+        rather than being missing — easier for the resolver to reason
+        about uniformly. Use :attr:`BioFacts.is_empty` to detect "no
+        facts" downstream.
+
+        Per-property OPTIONAL clauses produce a Cartesian product when
+        properties are multi-valued (occupation ∪ work_location can
+        return many rows per item); the result-merging loop below
+        deduplicates labels into the per-Q-ID lists.
+
+        Cost: ~5–10 SPARQL queries per typical book (Plan §4.1 v3).
+        Comfortably inside Wikidata's 60-req/min SPARQL endpoint
+        limit even at full ingest concurrency.
+        """
+        qid_list = [q for q in qids if q]
+        if not qid_list:
+            return {}
+        client = self._ensure_client()
+        out: dict[str, BioFacts] = {qid: BioFacts(qid=qid) for qid in qid_list}
+        # Track per-Q-ID dedup sets for multi-valued fields.
+        occupations_set: dict[str, set[str]] = {qid: set() for qid in qid_list}
+        work_locations_set: dict[str, set[str]] = {qid: set() for qid in qid_list}
+        for batch in _chunks(qid_list, self._batch_size):
+            values_clause = " ".join(f"wd:{q}" for q in batch)
+            query = (
+                "SELECT ?item ?birth ?death ?occupationLabel "
+                "?birthPlaceLabel ?workLocationLabel WHERE { "
+                f"VALUES ?item {{ {values_clause} }} "
+                "OPTIONAL { ?item wdt:P569 ?birth } "
+                "OPTIONAL { ?item wdt:P570 ?death } "
+                "OPTIONAL { ?item wdt:P106 ?occupation } "
+                "OPTIONAL { ?item wdt:P19 ?birthPlace } "
+                "OPTIONAL { ?item wdt:P937 ?workLocation } "
+                "SERVICE wikibase:label { "
+                f'bd:serviceParam wikibase:language "{language}" '
+                "} "
+                "}"
+            )
+            await self._respect_rate_limit()
+            response = await self._request_with_retry(
+                client,
+                "POST",
+                self._sparql_url,
+                data={"query": query},
+                headers={"Accept": "application/sparql-results+json"},
+            )
+            payload = response.json()
+            bindings = (payload.get("results") or {}).get("bindings", []) or []
+            for binding in bindings:
+                qid = _qid_from_uri((binding.get("item") or {}).get("value", ""))
+                if not qid or qid not in out:
+                    continue
+                fact = out[qid]
+                # Birth / death dates: literal values, take the first
+                # non-empty reading (multiple statements rare; if they
+                # exist Wikidata's ranking already gives us "preferred").
+                birth = (binding.get("birth") or {}).get("value")
+                if birth and fact.birth_date is None:
+                    fact.birth_date = birth
+                death = (binding.get("death") or {}).get("value")
+                if death and fact.death_date is None:
+                    fact.death_date = death
+                # Birth place label: same logic — first wins.
+                bp = (binding.get("birthPlaceLabel") or {}).get("value")
+                if bp and fact.birth_place is None:
+                    fact.birth_place = bp
+                # Multi-valued: dedup via set, materialise into list at end.
+                occ = (binding.get("occupationLabel") or {}).get("value")
+                if occ:
+                    occupations_set[qid].add(occ)
+                wl = (binding.get("workLocationLabel") or {}).get("value")
+                if wl:
+                    work_locations_set[qid].add(wl)
+        # Materialise dedup sets into sorted lists for stable output.
+        for qid in qid_list:
+            out[qid].occupations = sorted(occupations_set[qid])
+            out[qid].work_locations = sorted(work_locations_set[qid])
         return out
 
     async def fetch_types(self, qids: Iterable[str]) -> dict[str, set[str]]:
@@ -441,6 +599,7 @@ __all__ = [
     "DEFAULT_API_URL",
     "DEFAULT_SPARQL_URL",
     "DEFAULT_USER_AGENT",
+    "BioFacts",
     "WikidataCandidate",
     "WikidataClient",
 ]
