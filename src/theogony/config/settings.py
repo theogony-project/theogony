@@ -86,6 +86,24 @@ class Neo4jSettings(BaseModel):
     database: str = "neo4j"
 
 
+class StoreSettings(BaseModel):
+    """Storage-layer tuning that is *backend-agnostic*.
+
+    Knobs here apply to every :class:`~theogony.core.store.KnowledgeStore`
+    implementation; backend-specific tuning (Neo4j connection, future
+    DuckDB pragmas, …) lives in dedicated subgroups (``Neo4jSettings``).
+
+    PHX-0046: ``batch_size`` chooses how many nodes / edges the
+    IngestionPipeline hands to ``KnowledgeStore.batch_upsert_*`` per
+    UNWIND round-trip. 200 is the sweet spot per the Neo4j driver
+    documentation: small enough that one batch fits comfortably in
+    Bolt's default frame and large enough that the per-round-trip
+    overhead amortises to near zero.
+    """
+
+    batch_size: int = Field(default=200, ge=1)
+
+
 class IngestVerdictThresholds(BaseModel):
     """Cut-points for ``IngestRunReport.verdict`` per Plan §2.11.2.
 
@@ -218,6 +236,7 @@ class Settings(BaseSettings):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     neo4j: Neo4jSettings = Field(default_factory=Neo4jSettings)
+    store: StoreSettings = Field(default_factory=StoreSettings)
     report: ReportSettings = Field(default_factory=ReportSettings)
 
     data_dir: Path = Field(

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import math
 from collections import deque
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 
 from theogony.core.model import (
     Constellation,
@@ -208,6 +208,18 @@ class InMemoryKnowledgeStore:
         self._edges[edge.id] = edge
         self._outgoing.setdefault(edge.source_id, set()).add(edge.id)
         self._incoming.setdefault(edge.target_id, set()).add(edge.id)
+
+    async def batch_upsert_nodes(self, nodes: Sequence[KnowledgeNode]) -> list[str]:
+        # PHX-0046: InMemory has no per-call I/O, so a per-node loop is
+        # already optimal — the contract is identical to the Neo4j
+        # UNWIND override (idempotent, ordered, returns ids in input
+        # order). Tests in tests/test_store_contract.py exercise both
+        # backends through the same assertions.
+        return [await self.upsert_node(n) for n in nodes]
+
+    async def batch_upsert_edges(self, edges: Sequence[KnowledgeEdge]) -> None:
+        for edge in edges:
+            await self.upsert_edge(edge)
 
     async def get_node(self, node_id: str) -> KnowledgeNode | None:
         return self._nodes.get(node_id)

@@ -61,7 +61,7 @@ What this module deliberately does NOT do
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Mapping, Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -526,6 +526,65 @@ class Neo4jKnowledgeStore:
                 id=edge.id,
                 props=props,
             )
+
+    async def batch_upsert_nodes(self, nodes: Sequence[KnowledgeNode]) -> list[str]:
+        """One Bolt round-trip per batch via Cypher UNWIND + MERGE.
+
+        PHX-0046: replaces N round-trips for an N-node batch with a
+        single ``UNWIND $rows AS row MERGE … SET n += row.props``
+        round-trip. The rows preserve input order; ``RETURN row.id``
+        propagates that order back so the IngestionPipeline can
+        cross-reference returned ids against its in-memory node list.
+
+        Embedding-dim cross-check applied per row before the Cypher
+        runs: any node whose embedding length disagrees with the
+        store's configured dim raises ``ValueError`` immediately
+        (Plan §3.1a "never silently truncate"). Same contract as
+        single ``upsert_node``; the batch path inherits the discipline
+        rather than degrading it.
+        """
+        if not nodes:
+            return []
+        rows = [{"id": n.id, "props": _node_to_props(n, self._embedding_dim)} for n in nodes]
+        cypher = """
+        UNWIND $rows AS row
+        MERGE (n:KnowledgeNode {id: row.id})
+        SET n += row.props
+        RETURN row.id AS id
+        """
+        async with self._session() as session:
+            result = await session.run(cypher, rows=rows)
+            records = await result.data()
+        return [str(rec["id"]) for rec in records]
+
+    async def batch_upsert_edges(self, edges: Sequence[KnowledgeEdge]) -> None:
+        """One Bolt round-trip per batch via Cypher UNWIND + MERGE.
+
+        PHX-0046: same shape as ``batch_upsert_nodes``. Endpoint
+        nodes must already exist (caller's responsibility, matching
+        ``upsert_edge``); this method does NOT MERGE-create the
+        endpoints, it only attaches the relation.
+        """
+        if not edges:
+            return
+        rows = [
+            {
+                "id": e.id,
+                "source_id": e.source_id,
+                "target_id": e.target_id,
+                "props": _edge_to_props(e),
+            }
+            for e in edges
+        ]
+        cypher = """
+        UNWIND $rows AS row
+        MATCH (s:KnowledgeNode {id: row.source_id})
+        MATCH (t:KnowledgeNode {id: row.target_id})
+        MERGE (s)-[r:RELATION {id: row.id}]->(t)
+        SET r += row.props
+        """
+        async with self._session() as session:
+            await session.run(cypher, rows=rows)
 
     async def get_node(self, node_id: str) -> KnowledgeNode | None:
         cypher = """

@@ -613,6 +613,67 @@ class TestPendingResolution:
         assert len(result) == 2
 
 
+class TestBatchUpsert:
+    """PHX-0046: batch_upsert_nodes / batch_upsert_edges contract.
+
+    Backend-agnostic. The Neo4j override uses one UNWIND round-trip;
+    the InMemory default-loop uses N per-node calls. The contract is
+    identical: same idempotency, same return-id ordering, same
+    embedding-dim discipline.
+    """
+
+    async def test_batch_upsert_nodes_returns_ids_in_input_order(
+        self, store: KnowledgeStore
+    ) -> None:
+        nodes = [make_node(f"N{i}") for i in range(5)]
+        ids = await store.batch_upsert_nodes(nodes)
+        assert ids == [n.id for n in nodes]
+
+    async def test_batch_upsert_nodes_is_idempotent(self, store: KnowledgeStore) -> None:
+        nodes = [make_node(f"N{i}") for i in range(3)]
+        await store.batch_upsert_nodes(nodes)
+        await store.batch_upsert_nodes(nodes)
+        await store.batch_upsert_nodes(nodes)
+        assert await store.count_nodes() == 3
+
+    async def test_batch_upsert_nodes_empty_input_returns_empty(
+        self, store: KnowledgeStore
+    ) -> None:
+        ids = await store.batch_upsert_nodes([])
+        assert ids == []
+
+    async def test_batch_upsert_edges_attaches_relations(self, store: KnowledgeStore) -> None:
+        a = make_node("A")
+        b = make_node("B")
+        c = make_node("C")
+        await store.batch_upsert_nodes([a, b, c])
+        edges = [
+            KnowledgeEdge(source_id=a.id, target_id=b.id, relation_type="LINKS_TO", weight=0.5),
+            KnowledgeEdge(source_id=b.id, target_id=c.id, relation_type="LINKS_TO", weight=0.5),
+        ]
+        await store.batch_upsert_edges(edges)
+        nb_a = await store.get_neighborhood(a.id, depth=1, min_weight=0.0)
+        nb_b = await store.get_neighborhood(b.id, depth=1, min_weight=0.0)
+        # a has the (a→b) edge; b has both (a→b) and (b→c).
+        assert any(e.source_id == a.id and e.target_id == b.id for e in nb_a.edges)
+        assert any(e.source_id == b.id and e.target_id == c.id for e in nb_b.edges)
+
+    async def test_batch_upsert_edges_is_idempotent(self, store: KnowledgeStore) -> None:
+        a = make_node("A")
+        b = make_node("B")
+        await store.batch_upsert_nodes([a, b])
+        edge = KnowledgeEdge(source_id=a.id, target_id=b.id, relation_type="LINKS_TO")
+        await store.batch_upsert_edges([edge, edge])
+        await store.batch_upsert_edges([edge])
+        nb = await store.get_neighborhood(a.id, depth=1, min_weight=0.0)
+        # Deterministic edge id (Plan §9.5a) collapses three batch-upserts
+        # to one stored edge.
+        assert sum(1 for e in nb.edges if e.source_id == a.id and e.target_id == b.id) == 1
+
+    async def test_batch_upsert_edges_empty_input_is_noop(self, store: KnowledgeStore) -> None:
+        await store.batch_upsert_edges([])  # must not raise
+
+
 class TestResolveNode:
     async def test_resolve_with_qid_sets_external_id_clears_flag_bumps_tier(
         self, store: KnowledgeStore
