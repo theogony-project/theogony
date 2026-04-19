@@ -2,22 +2,27 @@
 Parametrised KnowledgeStore contract suite (Plan §2.2, §3.8).
 
 Every concrete KnowledgeStore implementation MUST pass every test in
-this file. The InMemoryKnowledgeStore exists primarily so this suite
-can run on every CI without a Neo4j container; Neo4jKnowledgeStore
-joins the matrix in Week 3 (parameter ``"neo4j"`` will be added with
-a testcontainers-gated skip).
+this file. The InMemoryKnowledgeStore is the always-on parameter
+(no external services). Neo4jKnowledgeStore joins the matrix when
+``THEOGONY_TEST_NEO4J=1`` is set in the environment (Plan §3.8 + E7
+brief): the fixture starts a ``testcontainers`` Neo4j container per
+session, runs the same assertions against the production backend,
+and tears the container down on session exit.
 
-These tests assert behaviour, not implementation detail. They use the
-fixture helpers from ``tests/conftest.py`` so the same nodes can be
-shared across backends without leaking through implementation
-particularities.
+These tests assert behaviour, not implementation detail. The fixture
+yields async-context-managed stores; every test gets a clean state
+(``MATCH (n) DETACH DELETE n`` between tests for the Neo4j backend,
+fresh ``InMemoryKnowledgeStore`` for the in-memory one).
 """
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
+from typing import Any
 
 import pytest
+import pytest_asyncio
 
 from tests.conftest import make_node, make_source_ref
 from theogony.core import (
@@ -36,20 +41,112 @@ from theogony.stores import InMemoryKnowledgeStore
 # Backend matrix
 # ---------------------------------------------------------------------------
 
-STORE_BACKENDS = ["in_memory"]
+_NEO4J_GATE = os.environ.get("THEOGONY_TEST_NEO4J") == "1"
+
+STORE_BACKENDS: list[str] = ["in_memory"]
+if _NEO4J_GATE:
+    STORE_BACKENDS.append("neo4j")
+
+#: Embedding dim used by every test in this suite. The Neo4j HNSW
+#: vector index is rebuilt at this dim per session. Production-default
+#: 384 is covered by tests/test_neo4j_store_live.py separately.
+_CONTRACT_EMBEDDING_DIM = 4
 
 
-@pytest.fixture(params=STORE_BACKENDS)
-def store(request: pytest.FixtureRequest) -> KnowledgeStore:
+def _emb(*values: float) -> list[float]:
+    """Pad / truncate ``values`` to the contract-suite embedding dim.
+
+    Tests want short, inspectable vectors like ``_emb(1.0, 0.0)``;
+    the Neo4j HNSW index needs them at the configured dim. Padding
+    with zeros preserves cosine direction, so test assertions about
+    ranking remain meaningful.
+    """
+    if len(values) > _CONTRACT_EMBEDDING_DIM:
+        raise ValueError(f"emb takes at most {_CONTRACT_EMBEDDING_DIM} values; got {len(values)}")
+    return [float(v) for v in values] + [0.0] * (_CONTRACT_EMBEDDING_DIM - len(values))
+
+
+# Cache the testcontainers Neo4j container for the whole session — bringing
+# it up costs ~30-60 s, the contract suite has ~50 tests; we share one
+# container across all of them and reset state between tests.
+_NEO4J_CONTAINER: Any = None
+_NEO4J_URI: str | None = None
+_NEO4J_USER: str | None = None
+_NEO4J_PASSWORD: str | None = None
+
+
+@pytest.fixture(scope="session")
+def neo4j_container() -> Any:
+    """Session-scoped testcontainers Neo4j 5.x.
+
+    Skipped when ``THEOGONY_TEST_NEO4J`` is not ``1``. Tested against
+    the same Community-edition default as ``docker-compose.yml`` (Plan
+    §3.1a edition note — Pydantic-enforced existence; no Enterprise
+    constraints).
+    """
+    if not _NEO4J_GATE:
+        pytest.skip("Set THEOGONY_TEST_NEO4J=1 to run Neo4j contract suite.")
+
+    global _NEO4J_CONTAINER, _NEO4J_URI, _NEO4J_USER, _NEO4J_PASSWORD
+    if _NEO4J_CONTAINER is not None:
+        return _NEO4J_CONTAINER
+
+    try:
+        from testcontainers.neo4j import Neo4jContainer
+    except ImportError as exc:
+        pytest.skip(f"testcontainers[neo4j] not installed: {exc}")
+
+    # 5.18-community matches the docker-compose default + Plan §3.1a.
+    # APOC / Bloom / Enterprise plugins are explicitly out of scope (E7 brief).
+    container = Neo4jContainer("neo4j:5.18-community")
+    container.start()
+    _NEO4J_CONTAINER = container
+    _NEO4J_URI = container.get_connection_url()
+    _NEO4J_USER = container.username
+    _NEO4J_PASSWORD = container.password
+    return container
+
+
+@pytest_asyncio.fixture(params=STORE_BACKENDS)
+async def store(request: pytest.FixtureRequest) -> AsyncIterator[KnowledgeStore]:
     """Parametrised store fixture.
 
-    Adding a new backend means: (a) install in this fixture, (b) add
-    its name to ``STORE_BACKENDS``. The Neo4jKnowledgeStore lands in
-    Week 3 with a ``testcontainers``-gated branch here.
+    Yields a connected store with clean state. For the in-memory backend
+    a fresh dict-backed instance per test; for the Neo4j backend the
+    session-cached container with a per-test ``MATCH (n) DETACH DELETE
+    n`` reset so tests stay independent.
     """
     backend = request.param
     if backend == "in_memory":
-        return InMemoryKnowledgeStore()
+        yield InMemoryKnowledgeStore()
+        return
+    if backend == "neo4j":
+        # Lazy local imports keep test collection cheap when the
+        # Neo4j matrix is gated out.
+        from theogony.config.settings import Neo4jSettings
+        from theogony.stores import Neo4jKnowledgeStore
+
+        request.getfixturevalue("neo4j_container")  # ensure container started
+        from pydantic import SecretStr
+
+        settings = Neo4jSettings(
+            uri=str(_NEO4J_URI),
+            user=str(_NEO4J_USER),
+            password=SecretStr(str(_NEO4J_PASSWORD)),
+            database="neo4j",
+        )
+        # Contract-suite embeddings are 4-dim throughout for visual
+        # clarity (cosine math stays inspectable in tests). The
+        # production HNSW dim (384, BGE-small) is exercised separately
+        # in tests/test_neo4j_store_live.py.
+        async with Neo4jKnowledgeStore(
+            settings, embedding_dim=_CONTRACT_EMBEDDING_DIM
+        ) as neo_store:
+            # Wipe between tests so no state leaks across fixture invocations.
+            async with neo_store._session() as session:  # noqa: SLF001 — test fixture
+                await session.run("MATCH (n) DETACH DELETE n")
+            yield neo_store
+        return
     raise NotImplementedError(f"unknown backend: {backend}")
 
 
@@ -163,56 +260,65 @@ class TestEdgeCrud:
 
 class TestVectorSearch:
     async def test_returns_scored_nodes_in_descending_order(self, store: KnowledgeStore) -> None:
-        a = make_node("A", embedding=[1.0, 0.0, 0.0])
-        b = make_node("B", embedding=[0.9, 0.1, 0.0])
-        c = make_node("C", embedding=[0.0, 0.0, 1.0])
+        a = make_node("A", embedding=_emb(1.0, 0.0, 0.0))
+        b = make_node("B", embedding=_emb(0.9, 0.1, 0.0))
+        c = make_node("C", embedding=_emb(0.0, 0.0, 1.0))
         for n in (a, b, c):
             await store.upsert_node(n)
-        results = await store.vector_search([1.0, 0.0, 0.0], k=3)
+        results = await store.vector_search(_emb(1.0, 0.0, 0.0), k=3)
         assert [r.node.label for r in results[:2]] == ["A", "B"]
         assert all(isinstance(r, ScoredNode) for r in results)
         assert results[0].score >= results[1].score >= results[2].score
 
     async def test_k_caps_result_count(self, store: KnowledgeStore) -> None:
         for i in range(5):
-            await store.upsert_node(make_node(f"N{i}", embedding=[1.0, float(i) / 10]))
-        results = await store.vector_search([1.0, 0.0], k=2)
+            await store.upsert_node(make_node(f"N{i}", embedding=_emb(1.0, float(i) / 10)))
+        results = await store.vector_search(_emb(1.0, 0.0), k=2)
         assert len(results) == 2
 
     async def test_layer_filter_excludes_other_layer(self, store: KnowledgeStore) -> None:
-        e_node = make_node("E", embedding=[1.0, 0.0])
-        m_node = make_node("M", embedding=[1.0, 0.0])
+        e_node = make_node("E", embedding=_emb(1.0, 0.0))
+        m_node = make_node("M", embedding=_emb(1.0, 0.0))
         m_node.layer = Layer.MNEME
         await store.upsert_node(e_node)
         await store.upsert_node(m_node)
-        ephemeral = await store.vector_search([1.0, 0.0], k=10, layer=Layer.EPHEMERA)
+        ephemeral = await store.vector_search(_emb(1.0, 0.0), k=10, layer=Layer.EPHEMERA)
         assert {r.node.label for r in ephemeral} == {"E"}
-        mneme = await store.vector_search([1.0, 0.0], k=10, layer=Layer.MNEME)
+        mneme = await store.vector_search(_emb(1.0, 0.0), k=10, layer=Layer.MNEME)
         assert {r.node.label for r in mneme} == {"M"}
 
     async def test_min_confidence_filter(self, store: KnowledgeStore) -> None:
-        low = make_node("LowConf", embedding=[1.0, 0.0], confidence=0.2)
-        high = make_node("HighConf", embedding=[1.0, 0.0], confidence=0.9)
+        low = make_node("LowConf", embedding=_emb(1.0, 0.0), confidence=0.2)
+        high = make_node("HighConf", embedding=_emb(1.0, 0.0), confidence=0.9)
         await store.upsert_node(low)
         await store.upsert_node(high)
-        results = await store.vector_search([1.0, 0.0], k=5, min_confidence=0.5)
+        results = await store.vector_search(_emb(1.0, 0.0), k=5, min_confidence=0.5)
         assert {r.node.label for r in results} == {"HighConf"}
 
     async def test_node_type_filter(self, store: KnowledgeStore) -> None:
-        person = make_node("Harrer", node_type=NodeType.PERSON, embedding=[1.0, 0.0])
-        place = make_node("Lhasa", node_type=NodeType.PLACE, embedding=[1.0, 0.0])
+        person = make_node("Harrer", node_type=NodeType.PERSON, embedding=_emb(1.0, 0.0))
+        place = make_node("Lhasa", node_type=NodeType.PLACE, embedding=_emb(1.0, 0.0))
         await store.upsert_node(person)
         await store.upsert_node(place)
         only_persons = await store.vector_search(
-            [1.0, 0.0], k=5, node_types=[NodeType.PERSON.value]
+            _emb(1.0, 0.0), k=5, node_types=[NodeType.PERSON.value]
         )
         assert {r.node.label for r in only_persons} == {"Harrer"}
 
-    async def test_node_without_embedding_scores_zero(self, store: KnowledgeStore) -> None:
-        nope = make_node("NoEmbedding")
-        await store.upsert_node(nope)
-        results = await store.vector_search([1.0, 0.0, 0.0], k=10)
-        assert any(r.node.label == "NoEmbedding" and r.score == 0.0 for r in results)
+    async def test_nodes_without_embeddings_excluded(self, store: KnowledgeStore) -> None:
+        # Nodes without embeddings have no defined similarity. Both
+        # backends exclude them: InMemory by an early-continue, Neo4j
+        # because the HNSW vector index never indexed them. The
+        # contract is "vector_search returns only ranked, embedded
+        # nodes".
+        embedded = make_node("Embedded", embedding=_emb(1.0, 0.0))
+        no_embed = make_node("NoEmbedding")
+        await store.upsert_node(embedded)
+        await store.upsert_node(no_embed)
+        results = await store.vector_search(_emb(1.0, 0.0), k=10)
+        labels = {r.node.label for r in results}
+        assert "Embedded" in labels
+        assert "NoEmbedding" not in labels
 
 
 # ---------------------------------------------------------------------------
@@ -285,14 +391,14 @@ class TestTraverse:
 
 class TestMultiHopSearch:
     async def test_includes_seeds_and_neighbours(self, store: KnowledgeStore) -> None:
-        a = make_node("A", embedding=[1.0, 0.0])
-        b = make_node("B", embedding=[0.0, 1.0])  # not similar to query
+        a = make_node("A", embedding=_emb(1.0, 0.0))
+        b = make_node("B", embedding=_emb(0.0, 1.0))  # not similar to query
         await store.upsert_node(a)
         await store.upsert_node(b)
         await store.upsert_edge(
             KnowledgeEdge(source_id=a.id, target_id=b.id, relation_type="LINKS_TO", weight=0.7)
         )
-        results = await store.multi_hop_search([1.0, 0.0], k=10, hops=1, min_weight=0.5)
+        results = await store.multi_hop_search(_emb(1.0, 0.0), k=10, hops=1, min_weight=0.5)
         labels = {r.node.label for r in results}
         assert "A" in labels  # seed
         assert "B" in labels  # discovered via traversal
@@ -311,7 +417,10 @@ class TestGetNeighborhood:
         assert nb.edges == []
 
     async def test_returns_slim_dtos_not_full_records(self, store: KnowledgeStore) -> None:
-        a = make_node("A", embedding=[0.42] * 384)
+        # Embedding values must be absent from the slim ConstellationNode
+        # serialisation (Plan §9.1). 0.42 is the canary; the dim is the
+        # contract-suite default so both backends store it identically.
+        a = make_node("A", embedding=[0.42] * _CONTRACT_EMBEDDING_DIM)
         b = make_node("B")
         await store.upsert_node(a)
         await store.upsert_node(b)
@@ -387,16 +496,27 @@ class TestClusters:
         assert await store.get_cluster_centroid("nope") == []
 
     async def test_assign_cluster_then_centroid_is_mean(self, store: KnowledgeStore) -> None:
-        a = make_node("A", embedding=[1.0, 0.0])
-        b = make_node("B", embedding=[3.0, 4.0])
+        a = make_node("A", embedding=_emb(1.0, 0.0))
+        b = make_node("B", embedding=_emb(3.0, 4.0))
         await store.upsert_node(a)
         await store.upsert_node(b)
         await store.assign_cluster(a.id, "cluster1")
         await store.assign_cluster(b.id, "cluster1")
         centroid = await store.get_cluster_centroid("cluster1")
-        assert centroid == pytest.approx([2.0, 2.0])
+        # Padded embeddings: ([1,0,0,0] + [3,4,0,0]) / 2 = [2,2,0,0].
+        assert centroid == pytest.approx(_emb(2.0, 2.0))
 
-    async def test_centroid_with_mixed_dim_returns_empty(self, store: KnowledgeStore) -> None:
+    async def test_centroid_with_mixed_dim_returns_empty(
+        self, store: KnowledgeStore, request: pytest.FixtureRequest
+    ) -> None:
+        # Constructing nodes with mismatched embedding dims is impossible
+        # against the Neo4j store (Plan §3.1a "never silently truncate"
+        # rejects writes whose embedding length differs from the index
+        # dim). The mixed-dim centroid contract therefore stays
+        # in-memory-only — Neo4j cannot reach the state this test
+        # asserts about.
+        if "neo4j" in request.node.callspec.id:
+            pytest.skip("mixed-dim embeddings are unreachable on Neo4j (HNSW dim is fixed)")
         a = make_node("A", embedding=[1.0, 2.0])
         b = make_node("B", embedding=[1.0, 2.0, 3.0])
         await store.upsert_node(a)
