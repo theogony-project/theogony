@@ -613,6 +613,52 @@ class TestPendingResolution:
         assert len(result) == 2
 
 
+class TestResolveNode:
+    async def test_resolve_with_qid_sets_external_id_clears_flag_bumps_tier(
+        self, store: KnowledgeStore
+    ) -> None:
+        # Operator picks Q-ID for a previously unresolved tier-0 mention.
+        node = KnowledgeNode(
+            label="aufschnaiter",
+            source_ref=make_source_ref(location="loc-aufsch"),
+            manual_resolution_needed=True,
+            resolution_tier=0,
+        )
+        await store.upsert_node(node)
+        ok = await store.resolve_node(node.id, "Q123456")
+        assert ok is True
+        fetched = await store.get_node(node.id)
+        assert fetched is not None
+        assert fetched.external_ids.get("wikidata") == "Q123456"
+        assert fetched.resolution_tier == 1
+        assert fetched.manual_resolution_needed is False
+        # And it must drop out of the resolve queue.
+        assert all(n.id != node.id for n in await store.list_pending_resolution())
+
+    async def test_resolve_with_none_clears_flag_only(self, store: KnowledgeStore) -> None:
+        # Operator confirmed "none of the candidates fit" — flag clears,
+        # tier stays at 0, no Wikidata id minted.
+        node = KnowledgeNode(
+            label="ambiguous",
+            source_ref=make_source_ref(location="loc-amb"),
+            manual_resolution_needed=True,
+            resolution_tier=0,
+        )
+        await store.upsert_node(node)
+        ok = await store.resolve_node(node.id, None)
+        assert ok is True
+        fetched = await store.get_node(node.id)
+        assert fetched is not None
+        assert "wikidata" not in fetched.external_ids
+        assert fetched.resolution_tier == 0
+        assert fetched.manual_resolution_needed is False
+
+    async def test_resolve_unknown_id_returns_false(self, store: KnowledgeStore) -> None:
+        # Silent no-op semantics matching promote / update_scores.
+        ok = await store.resolve_node("AKA-deadbeefdead", "Q1")
+        assert ok is False
+
+
 # ---------------------------------------------------------------------------
 # Diagnostics
 # ---------------------------------------------------------------------------

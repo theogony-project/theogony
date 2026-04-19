@@ -225,6 +225,33 @@ class KnowledgeStore(Protocol):
         """
         ...
 
+    async def resolve_node(
+        self,
+        node_id: str,
+        wikidata_id: str | None,
+    ) -> bool:
+        """Resolve one ``manual_resolution_needed=True`` node by hand.
+
+        Used by ``theogony resolve <mention>`` (Plan §3.4) to record an
+        operator's pick after the automated five-stage resolver fell
+        through to tier 0. Two effects on the node, applied atomically
+        from the store's perspective (one upsert / one Cypher SET):
+
+        * If ``wikidata_id`` is non-empty: set
+          ``external_ids["wikidata"] = wikidata_id`` and bump
+          ``resolution_tier`` to 1 (operator-confirmed). Clear
+          ``manual_resolution_needed``.
+        * If ``wikidata_id`` is None or empty string: keep the node at
+          tier 0 (operator confirmed "none of the candidates fit"),
+          but still clear ``manual_resolution_needed`` so it stops
+          showing up in the resolve queue.
+
+        Returns ``True`` when the node existed and was updated;
+        ``False`` when the id was unknown (silent no-op semantics
+        matching ``promote`` / ``update_scores``).
+        """
+        ...
+
     # -------------------------------------------------------------------------
     # Diagnostics
     # -------------------------------------------------------------------------
