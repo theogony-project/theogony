@@ -9,6 +9,15 @@ This document translates the existing vision (`README.md`, `VISION.md`, `PHILOSO
 
 It deliberately under-builds. Generation 1 must reach one demonstrable moment, not the full vision. Anything not necessary for that moment is deferred to a Phoenix Backlog ticket.
 
+**Changes since v5 (2026-04-19, post-E8 reconciliation patch round).**
+
+Documentation-only reconciliation after E8 (PR #20) merged. Talos shipped E8 against the brief, which deliberately scoped the `OneirosWorker` out of E8 — the plan still listed the worker as an E8 deliverable. Two-paragraph fix plus three new PHX tickets that fell out of E8 review.
+
+- **§5 Week 3 — `E8.5` etappe inserted between E8 and E9.** `OneirosWorker` and its `_finalize_report()` hook moved out of E8 into their own S–M etappe. Reasoning: tight composition with its own tick-loop and test idiom (fast clock, sleep mocking), retention-cap plumbing for `OneirosTickReport`, and not on the §1 demo critical path — `RelevanceTracker.bump` (E8) is sufficient for the demo's read-side write-back. The §4.4 `serve` lifespan slot is still wired in E9 (the conditional stays); E8.5 fills it. The E9 risk bullet on shutdown-ordering remains correct as written.
+- **PHX-0049 — `AnswerSynthesizer` system prompt not packaged.** E8's `prompts/answer_synthesizer.md` loader assumes the editable-install layout. Wheel installs from PyPI will raise `FileNotFoundError`. Hesiod-recommended fix: move the prompt under `src/theogony/retrieval/prompts/` and load via `importlib.resources.files`. Blocks the Week-4 README "pip-installable" success criterion, not E9 itself.
+- **PHX-0050 — `ConstellationAssembler` N+1 neighbourhood probes.** Replace ten depth-1 `get_neighborhood` round-trips per assemble with one `get_edges_among(node_ids)` Cypher (range-index-served, schema in §3.1a). Read-side analogue of PHX-0046 (UNWIND+MERGE on the write side). To be measured together with PHX-0042.
+- **PHX-0051 — `MultiHopBreakdown.nodes_per_hop` schema choice deferred.** Talos's PR-#20 deviation #2: the protocol exposes only the deduped final list, so the retriever currently writes `[len(scored)]` as a single-element approximation. Two paths (Pydantic `Optional` + `final_node_count`, or a new `multi_hop_search_with_hops` protocol method); Daedalus picks at ticket pickup.
+
 **Changes since v4 (2026-04-19, Hesiod patch round — close the gap before E7 starts).**
 
 Narrow scope. Four anchor patches that PHX-0037..0041 and `docs/etappes/E7_brief.md` already point at. No new architecture decisions outside those four spots. Two convention questions that were blocking Talos resolved in §3.1a.
@@ -1345,15 +1354,16 @@ Four weekly milestones. Each is independently demonstrable to a critical observe
 - LLM API key unavailable for some contributors. Mitigation: `StubLLMProvider` with scripted responses keyed to fixture sentences; `ingest` can run with stub for development.
 - Detective Mode is a new component touching multiple subsystems (Wikipedia HTTP, longer LLM prompts). Mitigation: build it last in Week 2 with `--detective` opt-in; if it slips to Week 3, the default ingest still works and Hesiod can verify the demonstration moment without it.
 
-### Week 3 — Retrieval and Neo4j (split into E7 / E8 / E9 in v5)
+### Week 3 — Retrieval and Neo4j (split into E7 / E8 / E8.5 / E9; E8.5 added post-E8 reconciliation)
 
-v4 Week 3 was one bundle. v5 splits it into three serial etappes — each with its own brief, its own PR, its own scope of failure. Reasons for the split:
+v4 Week 3 was one bundle. v5 splits it into serial etappes — each with its own brief, its own PR, its own scope of failure. Reasons for the split:
 
 - E7 (the store) is the riskiest piece. It carries a schema commitment that is hard to revise once data lives in it. It deserves a PR by itself with full review.
 - E8 (retrieval stack) is a tight composition (`multi_hop` → `ConstellationAssembler` → `AnswerSynthesizer` → `QueryPipeline`) that wants its own integration surface against a settled store API.
+- **E8.5 (memory lifecycle, added post-E8 reconciliation)** owns the `OneirosWorker` — separate from E8 because it is a long-running asyncio task with its own tick-loop test idiom, its own `OneirosTickReport` retention plumbing, and is not on the §1 demo critical path. See the E8.5 block below for full reasoning.
 - E9 (API + CLI) cuts across the retrieval stack differently and benefits from being reviewed against a frozen retrieval contract.
 
-Sequencing also matches risk: store first (most reversible if wrong), then retrieval (depends on store), then API (depends on retrieval), then Detective (depends on full ingest data — see "Detective Mode etappe" below).
+Sequencing also matches risk: store first (most reversible if wrong), then retrieval (depends on store), then memory lifecycle (depends on retrieval's read-side scoring contracts), then API (depends on all three), then Detective (depends on full ingest data — see "Detective Mode etappe" below).
 
 #### E7 — `Neo4jKnowledgeStore` + schema + contract suite (L)
 
@@ -1382,13 +1392,14 @@ Sequencing also matches risk: store first (most reversible if wrong), then retri
 
 Builds on E7's store. One etappe because the four components are tightly coupled (the synthesizer's prompt depends on the constellation's exact shape).
 
+**Scope decision (post-merge note).** The `OneirosWorker` and its `_finalize_report()` hook were originally listed here but moved to a separate etappe E8.5 — see the brief and the E8.5 block below. E8 ships the read-side write-back via `RelevanceTracker.bump`, which is sufficient for the §1 demonstration moment.
+
 **Deliverables.**
 - `retrieval/multi_hop.py` — vector → traverse → re-rank → dedupe (Plan §2.6).
 - `retrieval/constellation.py` — `ConstellationAssembler` per §9.1 slim DTOs.
 - `retrieval/synthesize.py` — `AnswerSynthesizer`, structured prompt + citation parser.
 - `retrieval/pipeline.py` — `QueryPipeline` orchestrating the three above.
 - `QueryPipeline._finalize_report()` populated; emits `QueryRunReport` JSON. (S, §2.11)
-- `OneirosWorker._finalize_report()` populated; one `OneirosTickReport` per tick. Cap retention at 100 most recent ticks. (S, §2.11)
 
 **Success criteria.**
 - `QueryPipeline.ask("...")` against a Neo4j store loaded from a fixture ingest returns a `Constellation` with ≥ 3 nodes and a synthesised answer that cites at least one of them.
@@ -1397,6 +1408,24 @@ Builds on E7's store. One etappe because the four components are tightly coupled
 **Risks.**
 - Synthesizer prompt drift across providers. Mitigation: snapshot tests on constellation *structure* + StubLLMProvider deterministic-citation path.
 - Multi-hop blow-up on dense subgraphs. Mitigation: `min_weight` threshold + `hops` cap; tested against a deliberately dense synthetic graph.
+
+#### E8.5 — Memory lifecycle (S–M)
+
+The `OneirosWorker` that owns the §4.3 write-back lifecycle, separated from E8 because (a) it is a long-running asyncio task with its own tick-loop and test idiom (fast clock, sleep mocking), (b) its own `OneirosTickReport` plumbing including the §2.11 retention cap, and (c) it is not on the Plan §1 demo critical path — `RelevanceTracker.bump` (E8) is sufficient for the demo's read-side write-back.
+
+**Deliverables.**
+- `memory/oneiros.py` — `OneirosWorker` with the §4.4 main-loop shape (`_tick` between `asyncio.sleep`s, exits cleanly on `CancelledError`).
+- `OneirosWorker._finalize_report()` populated; one `OneirosTickReport` per tick. Cap retention at 100 most recent ticks per `Settings.report.oneiros_tick_retention` (already wired). (S, §2.11)
+- `theogony.api.app:lifespan` slot wired (E9 leaves the conditional in place; E8.5 fills it).
+
+**Success criteria.**
+- Worker promotes a node from one layer to the next on a synthetic fixture in a unit test with a fast clock.
+- `theogony serve` lifespan starts + cancels the worker cleanly within the §4.4 5-second graceful-shutdown budget.
+- `data/run_reports/oneiros/<ulid>.json` written on every tick, retention cap enforced.
+
+**Risks.**
+- Async-clock drift in tests. Mitigation: `asyncio.sleep` is monkeypatched in unit tests; integration test uses a 0.1-s tick interval.
+- Bolt round-trip cost on `update_scores`. PHX-0048 supersedes once the vitality formula is frozen; until then, the two-roundtrip pattern is acceptable for the demo's ≤ 2000-node retention surface.
 
 #### E9 — API + CLI (M)
 

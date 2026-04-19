@@ -1,0 +1,89 @@
+id: PHX-0050
+category: performance
+priority: medium
+status: open
+generation_target: 1
+title: "ConstellationAssembler does N depth-1 neighborhood probes; replace with single bulk-edges Cypher"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  ConstellationAssembler.assemble (E8, src/theogony/retrieval/
+  constellation.py:89-102) collects edges among the retrieved
+  nodes by calling KnowledgeStore.get_neighborhood(node.id,
+  depth=1) once per retrieved node:
+
+      for node in retrieved_nodes:
+          neighbourhood = await self._store.get_neighborhood(node.id, ...)
+          for edge in neighbourhood.edges:
+              ...
+
+  At k=10 (Plan §4.2 default), this is 10 Bolt round-trips on
+  Neo4j — and each round-trip returns the entire depth-1
+  neighbourhood, most of which is then DISCARDED by the
+  `(source_id, target_id, relation_type)` dedupe.
+
+  The actual question the assembler is asking is: "given this
+  set of N node ids, what edges connect any two of them?" That
+  is one Cypher round-trip:
+
+      MATCH (a:KnowledgeNode)-[r:RELATION]->(b:KnowledgeNode)
+      WHERE a.id IN $ids AND b.id IN $ids
+      RETURN a.id, b.id, r
+
+  Implementation sketch:
+    1. Add to KnowledgeStore Protocol:
+         async def get_edges_among(
+             self, node_ids: Sequence[str], min_weight: float = 0.0
+         ) -> list[KnowledgeEdge]: ...
+    2. Default implementation in InMemoryKnowledgeStore: filter
+       self._edges in-process; <100 ns per edge, no measurable
+       overhead.
+    3. Override in Neo4jKnowledgeStore with the bulk Cypher above
+       (one round-trip, range index on node id is already in
+       place per Plan §3.1a).
+    4. ConstellationAssembler.assemble switches the inner loop
+       to `await self._store.get_edges_among(retrieved_ids)`,
+       drops the per-node neighborhood probe entirely.
+    5. The orphan-target gap detection still works (endpoints
+       collected from the bulk edges, same set arithmetic).
+
+  Acceptance:
+    - get_edges_among added to KnowledgeStore Protocol with
+      default fallback implementation; both stores tested in the
+      contract suite (one new parametrised test: 5 nodes, 4
+      edges between subsets, returns exactly the 4 edges).
+    - ConstellationAssembler unit tests stay green without
+      modification (the slim DTO output is unchanged).
+    - tests/test_neo4j_perf_smoke.py (or extend the existing
+      neo4j live test): assert get_edges_among on 100 ids does
+      ≤2 PROFILE-reported db hits per returned edge. Reject
+      if >5.
+    - One assembler perf microbenchmark in the docstring (or
+      a gated test): k=10 retrieved nodes vs the old N+1 loop,
+      target ≥ 5x speedup wall-clock against testcontainers
+      Neo4j (the round-trip cost dominates; reject if <2x).
+
+  Out of scope:
+    - Bidirectional/symmetric edge handling beyond what the
+      Cypher MATCH already produces (RELATION edges are
+      directed in Plan §3.1a; both directions are already covered
+      because assemble probes from both endpoints today).
+    - Edge-property filtering beyond min_weight (the assembler
+      doesn't filter by relation_type yet; YAGNI until a
+      consumer asks).
+
+  YAGNI guard: this is an obvious win for the demo's hot read
+  path, but NOT a correctness fix. The current N+1 pattern is
+  ~50 ms per assemble call against testcontainers (10 round-trips
+  × 5 ms LAN). Acceptable for the demo; targets the next-gen
+  "this should feel instantaneous" UX bar.
+
+reopen_trigger: |
+  Run together with PHX-0042 (Cypher query-plan audit) so the
+  assemble path is profiled before AND after, in the same
+  measurement session. Both tickets unblock on E9 merge.
+
+related:
+  - PHX-0042  # query-plan audit — same measurement session
+  - PHX-0046  # batch_upsert — write-side analogue
+resolution: null
