@@ -1,0 +1,46 @@
+id: PHX-0037
+category: improvement
+priority: high
+status: open
+generation_target: 1
+title: "LLMRateLimitError as first-class exception in LLMProvider"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  Today the three LLMProvider impls raise provider-specific exceptions on
+  rate limit (`google.api_core.exceptions.ResourceExhausted` from Gemini,
+  OpenAI's `RateLimitError`, Anthropic's `RateLimitError`). The pipeline
+  catches `Exception` and degrades silently to "0 edges" — losing the
+  signal that the cause was rate-limiting rather than a code bug.
+
+  Add a first-class `LLMRateLimitError` type to `src/theogony/agents/llm.py`
+  with a `retry_after_s: float | None` field (parsed from provider headers
+  when present — Gemini returns `retryDelay` in the error payload, OpenAI's
+  `Retry-After`, Anthropic's `retry-after`). Each provider impl translates
+  its native exception into the canonical type at the protocol boundary.
+
+  Why now (Plan §3.3a v5 Watch-Item 4):
+    - Unblocks PHX-0039 (token-bucket): the provider can react cleanly
+      to "rate limited, wait N seconds" instead of opaque exception
+      type-sniffing.
+    - Unblocks the new `verdict="incomplete"` (Plan §2.11.2 v5): the
+      pipeline can mark a run as "rate-limit-driven 0-edges" vs. an
+      actual logic bug.
+    - Cheap: the type is ~5 lines plus three per-provider catch + raise
+      blocks. ~1 hour of work.
+
+  Acceptance:
+    - `LLMRateLimitError(Exception)` in `theogony.agents.llm` with
+      `retry_after_s: float | None` and `provider_id: str` fields.
+    - GeminiLLMProvider, OpenAILLMProvider (when added), and
+      AnthropicLLMProvider (when added) translate native rate-limit
+      exceptions into LLMRateLimitError at the `complete()` boundary.
+    - The relations.py `_AUDIT_STAGE` audit row populates
+      `parse_error="rate_limited"` (new tag) when the exception is
+      LLMRateLimitError, not the generic `transport_error:Exception`.
+
+related:
+  - PHX-0039  # token-bucket consumes this
+  - PHX-0040  # per-stage RPM throttling consumes this too
+  - PHX-0035  # Reviewer agent reads parse_error tags
+resolution: null

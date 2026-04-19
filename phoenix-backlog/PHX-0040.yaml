@@ -1,0 +1,43 @@
+id: PHX-0040
+category: improvement
+priority: medium
+status: open
+generation_target: 1
+title: "Per-stage RPM throttling in IngestionPipeline (alternative to PHX-0039)"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  Alternative to PHX-0039. Instead of provider-level smartness, the
+  pipeline rate-limits at stage boundaries.
+
+  Spec:
+    - `Settings.extraction.relations.rpm: int = 15` (default for
+      free tier; 1000 for paid).
+    - In _run_relation_stage(): wrap the per-sentence LLM call in
+      an `aiolimiter.AsyncLimiter(rpm, 60)` (or equivalent token
+      bucket). Each call awaits the limiter before proceeding.
+    - Same for EntityResolver Stage 4 (LLM disambiguation) under
+      `Settings.extraction.resolve.rpm`. BookContextExtractor is
+      one call per book; not throttled.
+
+  Trade-off vs. PHX-0039:
+    - Simpler (~30 lines vs. ~150).
+    - Lives in the pipeline, not the provider. Future LLM consumers
+      (QueryPipeline synthesizer, Detective, Athene) need their own
+      throttling — either each grows its own or PHX-0039 absorbs
+      them later.
+    - Cannot react to LLMRateLimitError responses (it pre-empts
+      rate-limiting; if the provider's limits change or temporarily
+      tighten, we still hit them).
+
+  Recommendation: skip if PHX-0039 lands cleanly. Use as fast-path
+  if PHX-0039 hits SDK friction (google-genai's built-in retry
+  layer can fight a custom token-bucket).
+
+  Acceptance is the same as PHX-0039: free-tier ingest of the
+  Tibet book completes with edges_upserted > 100.
+
+related:
+  - PHX-0039  # the preferred alternative
+  - PHX-0037  # both can use LLMRateLimitError when present
+resolution: null

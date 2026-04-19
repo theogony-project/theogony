@@ -1,0 +1,50 @@
+id: PHX-0038
+category: improvement
+priority: medium
+status: open
+generation_target: 2
+title: "AuditingLLMProvider wrapper to replace per-extractor audit-wiring"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  Today every LLM-using extractor (BookContextExtractor,
+  EntityResolver Stage 4, RelationExtractor — and shortly
+  AnswerSynthesizer + WikidataDetective) takes `audit_log` and
+  `audit_run_id` constructor kwargs and runs a `_maybe_audit(...)`
+  helper after each LLM call. E5 added ~330 lines of this wiring
+  across three sites. With E8 (synthesizer) and the Detective
+  etappe we will be at five sites.
+
+  At seven sites the cost-benefit flips. An `AuditingLLMProvider`
+  wrapper class would absorb the pattern cleanly:
+
+    audited = AuditingLLMProvider(
+        inner=base_llm,
+        audit_log=audit_log,
+        stage="relation_extraction",
+        sentence_index_provider=current_sentence_index,
+    )
+    extractor = RelationExtractor(llm=audited)
+
+  Trade-off (Plan §8 v5 — Preserved Decisions):
+    - The wrapper needs to know which `stage` and which
+      `sentence_index` to record. `contextvars.ContextVar` is the
+      idiomatic Python tool but adds runtime indirection that is
+      harder to debug than the current explicit kwargs.
+    - The current pattern is explicit and trivially reviewable in
+      a PR. A wrapper hides the audit call inside a layer.
+    - At three sites the pattern is fine. At five sites it is
+      tolerable. At seven sites the wrapper is justified.
+
+  Reopen condition: when the seventh LLM-call site is being added
+  (likely a Gen-2 Athene or Metis component), file a small refactor
+  PR that introduces AuditingLLMProvider and migrates all sites in
+  one commit. Tests should still pass without modification because
+  the audit log row shape is unchanged.
+
+  Until then the explicit pattern stays.
+
+related:
+  - PHX-0035  # Reviewer agent (consumes the audit log either way)
+  - PHX-0026  # Pantheon-as-Personas (would land at the same time)
+resolution: null

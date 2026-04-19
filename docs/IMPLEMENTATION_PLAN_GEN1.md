@@ -2,12 +2,33 @@
 
 Architect: Daedalus  
 Mandate: [`prompts/daedalus.md`](../prompts/daedalus.md)  
-Status: **Draft v4 — Hesiod Review Round 2 (Run Reports)**  
-Date: 2026-04-17
+Status: **Draft v5 — Hesiod patch round (anchor commit pre-E7)**  
+Date: 2026-04-19
 
 This document translates the existing vision (`README.md`, `VISION.md`, `PHILOSOPHY.md`, `ARCHITECTURE.md`, `DEEP_TECH_VISION.md`, `CHRONESE.md`, `METIS.md`, `HESTIA.md`, `HIVE.md`, `COGNITIVE_ARCHITECTURE.md`, `OPERATIVE_KNOWLEDGE.md`, `PHOENIX_BACKLOG.md`) into a concrete, buildable plan for the first four weeks of work.
 
 It deliberately under-builds. Generation 1 must reach one demonstrable moment, not the full vision. Anything not necessary for that moment is deferred to a Phoenix Backlog ticket.
+
+**Changes since v4 (2026-04-19, Hesiod patch round — close the gap before E7 starts).**
+
+Narrow scope. Four anchor patches that PHX-0037..0041 and `docs/etappes/E7_brief.md` already point at. No new architecture decisions outside those four spots. Two convention questions that were blocking Talos resolved in §3.1a.
+
+- **§3.1a — Neo4j schema specification.** New section right after §3.1. Two property tables (`KnowledgeNode` and `KnowledgeEdge`) with one row per Pydantic field from `core/model.py`, the JSON-serialised columns explained, the Cypher DDL for constraints + range indexes as a verbatim block, and the HNSW vector index as its own block. Talos copies the Cypher into `stores/_schema.py`.
+- **§3.3a v5 — free-tier promise corrected.** v4 §3.3a Z. 548 promised "a contributor can clone the repo and run `theogony ingest` against the fixture without a credit card." E6 measured 41 nodes / 0 edges under that path. The promise is replaced by a sober contract: free tier covers unit + integration tests; full ingest needs PHX-0039 (token-bucket) or PHX-0040 (per-stage RPM throttling) — and even then runs ~4–6× slower than paid tier. Without one of those: paid tier or shorter texts.
+- **§3.4.0 — `FrontmatterFilter`.** New stage between `cleaned` and `sentencized`. Empirical justification (E5/E6 Tier-0 = 88 % includes substantial Macmillan boilerplate that `TextCleaner` was never meant to handle), heuristics, output schema, pipeline insertion point, `IngestStageReport` extension.
+- **§5 Week 3 — E7/E8/E9 split locked.** The week is no longer one bundle. E7 (Neo4jKnowledgeStore + schema + contract suite), then E8 (retrieval stack), then E9 (API + CLI). Detective Mode lands as a separate S–M etappe after PHX-0041's re-measurement.
+- **Two small v5 anchor patches** so PHX-0037..0041 references resolve:
+  - **§2.11.2 — verdict table extended** with `inconclusive` (small-sample guard) and `incomplete` (0-edges-after-clean-run guard). PHX-0037 referenced this as v5 §2.11.2; that anchor now exists.
+  - **§8 — preserved-decisions audit extended** with the audit-log-wiring entry (kept as constructor injection; PHX-0038 records the trigger to revisit at site seven). PHX-0038 referenced this as v5 §8; that anchor now exists.
+
+**Convention decisions made in this round** (Talos was blocked on both — both resolved Hesiod's recommended way; reasoning in §3.1a):
+
+- **A. `Settings.neo4j` stays flat.** No `Settings.store.neo4j` wrapper. YAGNI: Gen 1 has two store implementations (InMemory + Neo4j); InMemory needs no settings of its own. A `StoreSettings` group is anticipation for hypothetical future backends and is filed against PHX-0001 (custom engine) when it arrives.
+- **B. Env-var prefix `THEOGONY_NEO4J__URI`** etc. Convention-preserving: `Settings` already uses `env_prefix="THEOGONY_"` + `env_nested_delimiter="__"`. The only documented exceptions are vendor-canonical API keys (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`) because that is what the surrounding ecosystem writes by default. Neo4j has no comparable convention worth importing.
+
+**Numbering note.** PHX-0037..0041 are the v5 tickets filed in the previous review round (rate-limit class, audit-wiring deferral, token-bucket, per-stage throttling, Detective threshold re-evaluation). They reference v5 sections in this document; this commit makes those references resolvable.
+
+What is NOT in this round: no re-opening of decisions that were closed in v1–v4 (Neo4j as backend, BGE-small as default embedder, Gemini 2.5 Flash Lite as default LLM, fixed-vocabulary relation types, sentence-level granularity per PID-1/PID-2). No code in `src/`. No new PHX tickets.
 
 **Changes since v3 (2026-04-17, Hesiod review round 2 continued — Run Reports):**
 - New §2.11 — `Reporting` component group: three Pydantic schemas (`IngestRunReport`, `QueryRunReport`, `OneirosTickReport`), `RunReportWriter`, self-verdict heuristics with explicit default thresholds.
@@ -375,14 +396,18 @@ class OneirosTickReport(RunReportBase):
 
 Each `_finalize_report()` computes its own `verdict` from concrete observations. The thresholds below are **defaults** — every threshold lives in `Settings` under `report.thresholds.*` so a future Reviewer agent (or a human) can tune them based on measured behaviour.
 
-**`IngestRunReport.verdict`** is computed in this order:
+**`IngestRunReport.verdict`** is computed in this order (v5 anchor patch — adds `incomplete` and `inconclusive` per the empirical evidence from E5/E6/characterization, referenced by PHX-0037):
 
 | Verdict | Triggered when |
 |---|---|
 | `failed` | `status != "completed"` |
+| `inconclusive` | `total_resolved < settings.report.thresholds.ingest.minimum_resolved_for_verdict` (default 50); short-circuits before any quality threshold fires — small-sample slices like the E5/E6 15-sentence smoke test should not collapse to `poor` purely on noise |
+| `incomplete` | `relations.attempted > 0` AND `store.edges_upserted == 0`; pipeline ran cleanly but produced no constellation. Typical cause: rate-limited LLM (the E6 free-tier 41-nodes/0-edges case). Distinct from `poor` because it is *not* a quality verdict on what we extracted — it is a "we did not get the chance to extract anything" honest report. PHX-0037 makes the underlying `LLMRateLimitError` first-class so the pipeline can recognise this case from a real bug |
 | `poor` | `quality_flags.parse_error_rate > 0.20` OR `quality_flags.low_tier_ratio > 0.60` OR `len(anomalies) ≥ 3` |
 | `partial` | `0.05 < parse_error_rate ≤ 0.20` OR `0.30 < low_tier_ratio ≤ 0.60` OR `0 < len(anomalies) < 3` |
 | `good` | none of the above; all stages `ok`, `parse_error_rate ≤ 0.05`, `low_tier_ratio ≤ 0.30`, `anomalies == []` |
+
+The `verdict` literal type widens to `Literal["good", "partial", "poor", "incomplete", "inconclusive", "failed"]`. Existing v4 reports remain valid (the new values do not appear in them; Pydantic literal extension is forward-compatible on read). New `Settings.report.thresholds.ingest.minimum_resolved_for_verdict: int = 50` controls the inconclusive cutoff. Both verdicts are orthogonal — `inconclusive` is a sample-size guard, `incomplete` is a pipeline-output guard — and in practice cannot both fire because `incomplete` requires `relations.attempted > 0` which presupposes resolution well above 50. The Reviewer agent (PHX-0035) is the natural owner of the threshold.
 
 `anomalies` are detected by simple, named rules in `reporting/anomaly.py`:
 
@@ -467,6 +492,144 @@ What is given up: roughly 1–2 days of Cypher learning, ~3 GB of RAM on the dev
 
 What we must do regardless: implement `InMemoryKnowledgeStore` first. Without it, the upper layers cannot be developed in parallel and CI cannot run without a Neo4j container in every job.
 
+### 3.1a Neo4j schema specification (added in v5)
+
+Talos-targeted spec for E7. The Cypher in this section is verbatim what `stores/_schema.py` ships with — copy, do not paraphrase.
+
+**Convention decisions (resolved in this round, see header).**
+
+- `Settings.neo4j: Neo4jSettings` stays flat, not `Settings.store.neo4j`. Reason: YAGNI. Gen 1 has two `KnowledgeStore` implementations; only Neo4j needs settings. A `StoreSettings` wrapper for hypothetical future backends is anticipation, deferred to PHX-0001 (custom engine) when it ships.
+- Env vars use the existing `THEOGONY_` prefix with `__` nested separator. So `THEOGONY_NEO4J__URI`, `THEOGONY_NEO4J__PASSWORD`, etc. The only documented exceptions are vendor-canonical API keys (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`) — Neo4j has no comparable convention worth importing.
+
+**Settings (existing, no schema change).** `src/theogony/config/settings.py` already declares:
+
+```python
+class Neo4jSettings(BaseModel):
+    uri: str = "bolt://localhost:7687"
+    user: str = "neo4j"
+    password: SecretStr = SecretStr("neo4j")
+    database: str = "neo4j"
+```
+
+E7 does **not** add fields to `Neo4jSettings`. The driver's defaults for connection pool size and timeouts are sufficient for Gen 1. The vector-index dimension comes from `Settings.embedding.dim` (384 for BGE-small) — passed to `Neo4jKnowledgeStore` explicitly at construction so the cross-check is a single line at one boundary.
+
+**Storage shape: one node label, one relation type.** All knowledge atoms carry the single label `:KnowledgeNode`. All relations are `[:RELATION]` with `relation_type` as a property. Reason: dynamic Cypher labels are awkward and at Gen 1 cardinality (~thousands of nodes, ~thousands of edges) the property-based filter is fast enough. The trade-off is verbosity — `MATCH (a)-[r:RELATION {relation_type: 'LOCATED_IN'}]->(b)` instead of `[:LOCATED_IN]` — accepted in exchange for uniform multi-hop Cypher.
+
+**JSON-serialised columns.** Three properties on each node and edge are stored as JSON-serialised strings, not as native Cypher maps:
+
+- `source_ref_json` — `SourceRef` is a Pydantic model with discriminated-union internals (per `core/model.py`). Cypher does not represent Pydantic discriminated unions; a JSON round-trip is deterministic and survives every property the model carries.
+- `external_ids_json` — preserves the full `external_ids: dict[str, str]`. The single Wikidata id is *also* flattened to a top-level `wikidata_id` property (indexed) for cheap Detective lookup; rarer ids (gutenberg, doi, isbn …) survive in the JSON column and are query-scanned when needed. Recorded as PHX-eligible only if the scan ever bites.
+- `properties_json` — flexible bag, includes the `extracted_by` provenance list (per §9.5a).
+
+This is a pragmatic Gen 1 choice. Vector-search-anchored retrieval does not query into these structures; the slim `ConstellationNode` DTO (§9.1) is what reaches the LLM. A future need to query into `properties_json` is a Phoenix concern.
+
+#### Properties on `:KnowledgeNode`
+
+| Property | Type | Pydantic source | Index | Notes |
+|---|---|---|---|---|
+| `id` | STRING | `KnowledgeNode.id` | UNIQUE CONSTRAINT | deterministic AKA-{12hex} per §9.5; primary key |
+| `label` | STRING | `KnowledgeNode.label` | range | for `theogony node`, prefix lookups |
+| `description` | STRING? | `KnowledgeNode.description` | — | nullable |
+| `node_type` | STRING | `KnowledgeNode.node_type` | range | `vector_search` filter |
+| `knowledge_form` | STRING | `KnowledgeNode.knowledge_form` | — | low-cardinality |
+| `epistemic_status` | STRING | `KnowledgeNode.epistemic_status` | — | low-cardinality |
+| `layer` | STRING | `KnowledgeNode.layer` (`ephemera`\|`mneme`) | range | `vector_search` filter; very common |
+| `cluster_id` | STRING? | `KnowledgeNode.cluster_id` | range | nullable; Gen 2 (PHX-0011) |
+| `embedding` | LIST<FLOAT> | `KnowledgeNode.embedding` | **HNSW vector index** | dim from `Settings.embedding.dim` |
+| `embedding_model_id` | STRING? | `KnowledgeNode.embedding_model_id` | — | per §9.3; consumed by Phoenix re-embedding |
+| `embedding_dim` | INTEGER? | `KnowledgeNode.embedding_dim` | — | cross-checked against vector-index dim on write |
+| `wikidata_id` | STRING? | `KnowledgeNode.external_ids["wikidata"]` | range | flattened from `external_ids_json` for Detective lookup |
+| `external_ids_json` | STRING | `KnowledgeNode.external_ids` (rest) | — | JSON; full map round-trips |
+| `source_ref_json` | STRING | `KnowledgeNode.source_ref` | — | JSON; round-trips Pydantic model |
+| `confidence` | FLOAT | `KnowledgeNode.scores.confidence` | — | flattened |
+| `relevance` | FLOAT | `KnowledgeNode.scores.relevance` | — | flattened |
+| `connectivity` | FLOAT | `KnowledgeNode.scores.connectivity` | — | flattened |
+| `freshness` | FLOAT | `KnowledgeNode.scores.freshness` | — | flattened |
+| `vitality` | FLOAT | computed | range | denormalised for cheap Oneiros queries |
+| `properties_json` | STRING | `KnowledgeNode.properties` | — | JSON; includes `extracted_by` list |
+| `created_at` | DATETIME | `KnowledgeNode.created_at` | — | timestamp |
+| `last_accessed` | DATETIME | `KnowledgeNode.last_accessed` | range | for Oneiros freshness recompute |
+| `last_verified` | DATETIME? | `KnowledgeNode.last_verified` | — | nullable |
+| `resolution_tier` | INTEGER? | `KnowledgeNode.resolution_tier` (0–4) | range | per §3.4; queried by Reviewer + manual review |
+| `manual_resolution_needed` | BOOLEAN | `KnowledgeNode.manual_resolution_needed` | range | for `theogony resolve --list` |
+
+#### Properties on `[:RELATION]`
+
+| Property | Type | Pydantic source | Index | Notes |
+|---|---|---|---|---|
+| `id` | STRING | `KnowledgeEdge.id` | UNIQUE CONSTRAINT | deterministic per §9.5 / §9.5a |
+| `relation_type` | STRING | `KnowledgeEdge.relation_type` | range | primary `traverse` filter |
+| `weight` | FLOAT | `KnowledgeEdge.weight` | range | `traverse` `min_weight` filter |
+| `confidence` | FLOAT | `KnowledgeEdge.confidence` | — | flattened |
+| `bidirectional` | BOOLEAN | `KnowledgeEdge.bidirectional` | — | when True, write two directed edges at upsert |
+| `epistemic_type` | STRING | `KnowledgeEdge.epistemic_type` | — | low-cardinality |
+| `evidence_span` | STRING? | `KnowledgeEdge.evidence_span` | — | per §9.4; nullable |
+| `source_ref_json` | STRING? | `KnowledgeEdge.source_ref` | — | JSON; nullable |
+| `properties_json` | STRING | `KnowledgeEdge.properties` | — | JSON; includes `extracted_by` |
+| `created_at` | DATETIME | `KnowledgeEdge.created_at` | — | timestamp |
+
+#### Cypher DDL — constraints + range indexes
+
+Verbatim. All idempotent (`IF NOT EXISTS`). E7 ships these as one ordered list in `stores/_schema.py`.
+
+```cypher
+-- Uniqueness + existence constraints
+CREATE CONSTRAINT knowledge_node_id_unique IF NOT EXISTS
+  FOR (n:KnowledgeNode) REQUIRE n.id IS UNIQUE;
+
+CREATE CONSTRAINT knowledge_node_id_exists IF NOT EXISTS
+  FOR (n:KnowledgeNode) REQUIRE n.id IS NOT NULL;
+
+CREATE CONSTRAINT relation_id_unique IF NOT EXISTS
+  FOR ()-[r:RELATION]-() REQUIRE r.id IS UNIQUE;
+
+CREATE CONSTRAINT relation_type_exists IF NOT EXISTS
+  FOR ()-[r:RELATION]-() REQUIRE r.relation_type IS NOT NULL;
+
+-- Range indexes — node side. Each index has one named consumer.
+CREATE INDEX knowledge_node_label IF NOT EXISTS
+  FOR (n:KnowledgeNode) ON (n.label);                     -- theogony node, prefix lookup
+CREATE INDEX knowledge_node_node_type IF NOT EXISTS
+  FOR (n:KnowledgeNode) ON (n.node_type);                 -- vector_search filter
+CREATE INDEX knowledge_node_layer IF NOT EXISTS
+  FOR (n:KnowledgeNode) ON (n.layer);                     -- vector_search filter
+CREATE INDEX knowledge_node_wikidata IF NOT EXISTS
+  FOR (n:KnowledgeNode) ON (n.wikidata_id);               -- Detective lookup
+CREATE INDEX knowledge_node_resolution_tier IF NOT EXISTS
+  FOR (n:KnowledgeNode) ON (n.resolution_tier);           -- Reviewer agent, audit
+CREATE INDEX knowledge_node_manual_resolution IF NOT EXISTS
+  FOR (n:KnowledgeNode) ON (n.manual_resolution_needed);  -- theogony resolve --list
+CREATE INDEX knowledge_node_vitality IF NOT EXISTS
+  FOR (n:KnowledgeNode) ON (n.vitality);                  -- Oneiros decay query
+CREATE INDEX knowledge_node_last_accessed IF NOT EXISTS
+  FOR (n:KnowledgeNode) ON (n.last_accessed);             -- Oneiros freshness
+
+-- Range indexes — edge side.
+CREATE INDEX relation_relation_type IF NOT EXISTS
+  FOR ()-[r:RELATION]-() ON (r.relation_type);            -- traverse type filter
+CREATE INDEX relation_weight IF NOT EXISTS
+  FOR ()-[r:RELATION]-() ON (r.weight);                   -- traverse min_weight filter
+```
+
+That is **ten** range indexes (eight on `:KnowledgeNode`, two on `[:RELATION]`). Every one has a named consumer in the table comments above. We do not pre-emptively index `cluster_id` (Gen 2), `confidence` (rare filter), or anything inside the JSON columns.
+
+#### Cypher DDL — HNSW vector index
+
+```cypher
+CREATE VECTOR INDEX knowledge_node_embedding IF NOT EXISTS
+  FOR (n:KnowledgeNode) ON (n.embedding)
+  OPTIONS {
+    indexConfig: {
+      `vector.dimensions`: 384,
+      `vector.similarity_function`: 'cosine'
+    }
+  };
+```
+
+Dim hard-coded to 384 (BGE-small per §3.2). E7 generates this Cypher from `Settings.embedding.dim` so a future model swap (PHX-0005 / Phoenix) just changes the integer. The cross-check on every `upsert_node`: if `node.embedding_dim is not None` and differs from `Settings.embedding.dim`, raise — never silently truncate. `cosine` because BGE-small is cosine-trained; an `ip`-similarity index against a cosine-normalised model is a foot-gun.
+
+**Index lifecycle.** The schema is built on first connect (`_ensure_schema()` runs `_SCHEMA_CYPHER` on `__aenter__`). Every statement is idempotent so reconnecting against an existing database is a no-op. A future Phoenix re-import drops only the vector index, swaps the model id, and rebuilds — handled in `import_nodes`.
+
 ### 3.2 Embedding strategy
 
 **Proposal: BGE-small-en-v1.5 (384 dim) via `sentence-transformers`, local, default. OpenAI `text-embedding-3-small` (1536 dim) available behind the same Protocol as an opt-in. The embedding model identifier is stored on every node.**
@@ -545,7 +708,15 @@ Haiku has the best record for adhering exactly to a structured schema and for re
 
 The decisive factors, in order:
 
-1. **Free tier removes the contributor onboarding friction.** A new contributor can clone the repo and run `theogony ingest` against the fixture without a credit card. None of the other two offer this.
+1. ~~**Free tier removes the contributor onboarding friction.** A new contributor can clone the repo and run `theogony ingest` against the fixture without a credit card. None of the other two offer this.~~  
+   **CORRECTED in v5 (was Hesiod review round 3 / Watch-Item 4 KRITISCH).** This was wrong as written. The free tier covers `pytest` (StubLLMProvider, no calls) and the slice characterization layer (`tests/test_pipeline_characterization.py`, ~80 calls per slice on the 282-sentence Hedin window). It does **not** cover a full ingest of a real book: the relation-extraction stage at one LLM call per central sentence saturates Gemini's free-tier RPM ceiling almost immediately. E6 measured this directly — the free-tier full-Tibet-book run produced **41 nodes / 0 edges** because every relation call past the first ~15 was rate-limited; the pipeline degraded honestly to "mark sentences attempted, mint zero edges". Honest contract today:
+   - **Free tier** — unit tests, slice characterization, and *very* short books (under ~50 sentences) work. Useful for getting started; not enough for the demonstration moment.
+   - **Free tier + PHX-0039 (token-bucket in `LLMProvider`)** *or* **PHX-0040 (per-stage RPM throttling in `IngestionPipeline`)** — full ingest works but ~4–6× slower wall-clock than paid tier (the budget gets eaten by `await asyncio.sleep(retry_after)`). Either ticket is sufficient; we ship one, not both.
+   - **Paid tier** — works as the v3 §4.1 timing assumed (mentions_resolved is then the bottleneck, not relations).
+   The README quickstart and `theogony status` need to surface this. PHX-0037 (`LLMRateLimitError` as first-class exception) is the prerequisite that makes both PHX-0039 and PHX-0040 implementable cleanly. Until one of them ships, the empirically honest demo recipe is "use a paid Google AI Studio key" — documented as the demo-recipe, not as a permanent contract.
+
+   The remaining factors below still hold and still favour Gemini.
+
 2. **1 M context window is a hedge for PID-2** (sentence vs. document-level extraction, §3a). If we later switch to paragraph-level or chapter-level extraction, Gemini does not constrain us; GPT-4o-mini at 128 k starts to.
 3. **Cost scales better past Gen 1.** The savings are noise at 25 iterations; they are real at 2 500 books in Gen 2.
 4. **JSON-Schema quality is good enough for our fixed-vocabulary use case.** Where Gemini struggles is in open-ended schemas with many enums; ours has ~20 relation types and a closed set of node types. Tight schema, tight prompt, tight tests.
@@ -555,9 +726,60 @@ What is given up:
 - **API stability margin.** We pin `google-genai` versions hard, write integration tests that exercise the JSON path, and accept a non-trivial chance of one mid-sprint SDK upgrade.
 - **Marginal output quality vs. Haiku** on edge cases where the LLM should refuse rather than guess. Mitigation: the `evidence_span` field (§9.4) makes refusal observable post-hoc, and the `ExtractionAuditLog` (§2.5) makes it auditable.
 
-The decision is reversible by env-var: `THEOGONY_LLM_PROVIDER=openai` swaps to GPT-4o-mini, `=anthropic` to Haiku. The contract suite for `LLMProvider` runs against all three (the latter two gated on optional API keys, allowed to be skipped in CI). If Gemini's JSON adherence proves untrustworthy on real Tibet-book extractions in Week 2, we switch defaults before Week 3 — the cost of switching is one config change, not a re-architecture.
+The decision is reversible by env-var: `THEOGONY_LLM__PROVIDER=openai` swaps to GPT-4o-mini, `=anthropic` to Haiku (per the existing `Settings.llm.provider` field; not a new env-var convention). The contract suite for `LLMProvider` runs against all three (the latter two gated on optional API keys, allowed to be skipped in CI). If Gemini's JSON adherence proves untrustworthy on real Tibet-book extractions in Week 2, we switch defaults before Week 3 — the cost of switching is one config change, not a re-architecture.
 
 A PHX ticket records that Gen 2 must re-evaluate this with empirical data on extraction quality (PHX-0027, see §7).
+
+### 3.4.0 `FrontmatterFilter` — pre-NER body isolation (added in v5)
+
+Empirical (E5/E6 IngestRunReports): a substantial fraction of Tier-0 mentions on full-book ingest comes from editorial frontmatter — title pages ("MACMILLAN AND CO"), copyright lines ("PRINTED IN GREAT BRITAIN", "All rights reserved"), the publisher's catalogue, signed prefaces by editors who never appear in the narrative, and table-of-contents headers. The system honestly tries to look up "Macmillan" and resolves it to a publishing house with low confidence; this is not an entity-resolution failure, it is a we-should-not-be-resolving-this failure.
+
+`TextCleaner` (`extraction/clean.py`) is the wrong place for this work. Its single job is to strip the Project Gutenberg envelope — `*** START OF THE PROJECT GUTENBERG EBOOK ... ***` markers and CRLF normalisation. Editorial frontmatter is the *publisher's* envelope inside the PG envelope and needs a different vocabulary.
+
+**Component.** New `extraction/frontmatter.py`:
+
+```python
+class FrontmatterIsolation(BaseModel):
+    body_start_offset: int            # char offset into cleaned.content
+    body_end_offset: int              # exclusive
+    frontmatter_lines_excluded: int
+    endmatter_lines_excluded: int
+    reasoning: str                    # which heuristic fired
+    warnings: list[str] = []
+
+class FrontmatterFilter:
+    def isolate(self, cleaned: CleanedContent) -> FrontmatterIsolation: ...
+```
+
+**Pipeline insertion.** `IngestionPipeline` composition becomes:
+
+```text
+RawContent → TextCleaner → FrontmatterFilter → Sentencizer → ...
+```
+
+`Sentencizer` consumes only `cleaned.content[body_start:body_end]`. The `FrontmatterIsolation` itself is recorded on the run for audit (added to `IngestRunReport.stages` as a new stage `body_isolated` between `cleaned` and `sentencized`). Char offsets remain referenceable to the post-cleaner text — `SourceRef.location` indices stay correct.
+
+**Heuristics, in order.** Each heuristic is conservative; the filter never trims more than ~10 % of input without a hard chapter marker.
+
+1. **Top-of-body marker.** Find the first line matching `^\s*(CHAPTER\s+(I|1|ONE)\b|PART\s+(I|1|ONE)\b|PROLOGUE\b|INTRODUCTION\b)`, case-insensitive, allowing centring whitespace. If found, body starts at that line.
+2. **Bottom-of-body marker.** Find the last line matching `^\s*(INDEX|GLOSSARY|APPENDIX(\s+[A-Z]?)?|BIBLIOGRAPHY)\b`. If found, body ends at the line before.
+3. **Boilerplate signature scoring.** Each line containing one of: `PRINTED IN`, `ALL RIGHTS RESERVED`, `FIRST PUBLISHED`, `^COPYRIGHT`, `SET IN`, `BOUND BY`, `PUBLISHED BY` (case-insensitive) scores 1 point. A sliding 30-line window with score ≥ 3 is treated as frontmatter and skipped, even if no chapter marker fired.
+4. **Fall-through.** If neither (1) nor (3) trigger, body is the whole `cleaned.content` — same behaviour as v4. The filter records the fall-through in `reasoning` so the Reviewer agent (PHX-0035) can spot books where the heuristics need extending.
+
+**Settings** (added under existing `Settings.extraction` group):
+
+```python
+class FrontmatterSettings(BaseModel):
+    enabled: bool = True
+    aggressive: bool = False    # when True, run the boilerplate-line scan
+                                # even on books with no chapter markers
+```
+
+Env vars follow the project convention: `THEOGONY_EXTRACTION__FRONTMATTER__ENABLED`, `..._AGGRESSIVE`.
+
+**What this does not solve.** The mid-book Tier-0 tail. The characterization slice (`tests/test_pipeline_characterization.py`, sentences 260–560) is frontmatter-free by construction and still measures ~88 % Tier 0 — those are genuine Hedin transliterated names that have no Wikidata entries. PHX-0041 reopens the Detective default-on threshold *after* `FrontmatterFilter` ships and *after* PHX-0039 / PHX-0040 lifts the rate-limit cap, so the post-fix tier ratio can be measured cleanly.
+
+**Test fixtures.** `tests/fixtures/frontmatter/` gets one sample per real shape: a Hedin book with full Macmillan front matter, a Gutenberg PD book with only a one-page copyright, a book with a long ToC + dedications, a book with no frontmatter at all (modern reissue). Golden-file tests assert `body_start_offset` and `body_end_offset` match expected values. No live network.
 
 ### 3.4 Wikidata alignment strategy
 
@@ -1127,29 +1349,79 @@ Four weekly milestones. Each is independently demonstrable to a critical observe
 - LLM API key unavailable for some contributors. Mitigation: `StubLLMProvider` with scripted responses keyed to fixture sentences; `ingest` can run with stub for development.
 - Detective Mode is a new component touching multiple subsystems (Wikipedia HTTP, longer LLM prompts). Mitigation: build it last in Week 2 with `--detective` opt-in; if it slips to Week 3, the default ingest still works and Hesiod can verify the demonstration moment without it.
 
-### Week 3 — Retrieval and Neo4j
+### Week 3 — Retrieval and Neo4j (split into E7 / E8 / E9 in v5)
 
-**Goal:** the same ingest works against Neo4j, queries return Constellations, the CLI synthesizes answers.
+v4 Week 3 was one bundle. v5 splits it into three serial etappes — each with its own brief, its own PR, its own scope of failure. Reasons for the split:
+
+- E7 (the store) is the riskiest piece. It carries a schema commitment that is hard to revise once data lives in it. It deserves a PR by itself with full review.
+- E8 (retrieval stack) is a tight composition (`multi_hop` → `ConstellationAssembler` → `AnswerSynthesizer` → `QueryPipeline`) that wants its own integration surface against a settled store API.
+- E9 (API + CLI) cuts across the retrieval stack differently and benefits from being reviewed against a frozen retrieval contract.
+
+Sequencing also matches risk: store first (most reversible if wrong), then retrieval (depends on store), then API (depends on retrieval), then Detective (depends on full ingest data — see "Detective Mode etappe" below).
+
+#### E7 — `Neo4jKnowledgeStore` + schema + contract suite (L)
+
+**Brief:** [`docs/etappes/E7_brief.md`](etappes/E7_brief.md) — Talos-targeted, file paths + class names + verbatim Cypher. Schema spec is §3.1a.
 
 **Deliverables.**
-- `stores/neo4j_store.py` — `Neo4jKnowledgeStore`, full Protocol, contract suite green.
-- `retrieval/multi_hop.py`, `retrieval/constellation.py`, `retrieval/synthesize.py`, `retrieval/pipeline.py`.
-- `api/app.py` with `/ingest`, `/query`, `/node/{id}`, `/health`.
-- `QueryPipeline._finalize_report()` populated; emits `QueryRunReport` JSON to `data/run_reports/query/`. (S, §2.11)
-- `OneirosWorker._finalize_report()` populated; emits one `OneirosTickReport` per tick to `data/run_reports/oneiros/`. Cap retention at 100 most recent ticks via `RunReportWriter` to prevent disk bloat (the audit log is the long-term record). (S, §2.11)
-- `theogony ask`, `theogony node`, `theogony serve` working.
-- `testcontainers-python` integration in CI for Neo4j tests (with caching; should add ~60 s to CI).
+- `stores/neo4j_store.py` — `Neo4jKnowledgeStore`, every method of the `KnowledgeStore` Protocol, schema bootstrap on `__aenter__`.
+- `stores/_schema.py` — Cypher constants (constraints + range indexes + vector index), copied verbatim from §3.1a.
+- `tests/test_store_contract.py` — extended to parametrise over both `InMemoryKnowledgeStore` and `Neo4jKnowledgeStore`. The Neo4j parametrisation is gated on `THEOGONY_TEST_NEO4J=1`.
+- `tests/test_neo4j_store_live.py` — schema-bootstrap idempotence, vector-index dim-mismatch rejection, deterministic-id idempotent-upsert.
+- `docker-compose.yml` for local dev (`neo4j:5.18-community`).
+- `.env.example` updated with `THEOGONY_NEO4J__URI`, `THEOGONY_NEO4J__PASSWORD` etc.
+- `pyproject.toml`: add `neo4j>=5.18`, `testcontainers[neo4j]>=4.0`.
 
 **Success criteria.**
-- The Week 2 fixture, ingested into Neo4j via `theogony ingest`, answers a known question with a Constellation containing the expected entities.
-- The contract suite passes for `Neo4jKnowledgeStore`.
-- `curl -X POST localhost:8000/query -d '{"q":"..."}'` returns JSON with answer + constellation.
-- Query latency p95 < 2 s on the fixture.
-- A `QueryRunReport` JSON file exists for every `theogony ask` invocation; an `OneirosTickReport` exists for at least the most recent worker tick.
+- Contract suite passes for both stores.
+- The characterization slice ingests cleanly into Neo4j with the same node/edge counts as `InMemoryKnowledgeStore`.
+- `theogony status` reports the Neo4j store reachable, schema present, embedding dim matched.
+- New CI job (`neo4j` matrix) is green.
 
 **Risks.**
-- Neo4j vector index quirks with our embedding dimensions. Mitigation: build the index once at first use; warm-up step in `theogony status`.
-- Cypher mistakes in `multi_hop_search`. Mitigation: contract suite + a small set of hand-crafted Cypher unit tests with golden fixture data.
+- Neo4j 5.x vector-index syntax has shifted across point releases; lock to `>=5.18`.
+- Cypher mistakes in batched upserts. Mitigation: contract suite + hand-crafted Cypher fixture tests.
+
+#### E8 — Retrieval stack (L)
+
+Builds on E7's store. One etappe because the four components are tightly coupled (the synthesizer's prompt depends on the constellation's exact shape).
+
+**Deliverables.**
+- `retrieval/multi_hop.py` — vector → traverse → re-rank → dedupe (Plan §2.6).
+- `retrieval/constellation.py` — `ConstellationAssembler` per §9.1 slim DTOs.
+- `retrieval/synthesize.py` — `AnswerSynthesizer`, structured prompt + citation parser.
+- `retrieval/pipeline.py` — `QueryPipeline` orchestrating the three above.
+- `QueryPipeline._finalize_report()` populated; emits `QueryRunReport` JSON. (S, §2.11)
+- `OneirosWorker._finalize_report()` populated; one `OneirosTickReport` per tick. Cap retention at 100 most recent ticks. (S, §2.11)
+
+**Success criteria.**
+- `QueryPipeline.ask("...")` against a Neo4j store loaded from a fixture ingest returns a `Constellation` with ≥ 3 nodes and a synthesised answer that cites at least one of them.
+- Query latency p95 < 2 s on the fixture.
+
+**Risks.**
+- Synthesizer prompt drift across providers. Mitigation: snapshot tests on constellation *structure* + StubLLMProvider deterministic-citation path.
+- Multi-hop blow-up on dense subgraphs. Mitigation: `min_weight` threshold + `hops` cap; tested against a deliberately dense synthetic graph.
+
+#### E9 — API + CLI (M)
+
+User-facing layer. Includes the `theogony resolve` command from v3 §3.4 (honest-failure path) and pulls forward `theogony reports list/show` from v4 Week 4 — the report directories already exist by E8 close, so no reason to delay.
+
+**Deliverables.**
+- `api/app.py` with `/ingest`, `/query`, `/node/{id}`, `/health`, plus the `serve` lifespan from §4.4.
+- CLI: `theogony ask`, `theogony node`, `theogony serve`, `theogony resolve [<mention>] [--list]`.
+- `theogony reports list` and `theogony reports show <run_id>` working against `data/run_reports/`.
+
+**Success criteria.**
+- `curl -X POST localhost:8000/query -d '{"q":"..."}'` returns JSON with answer + constellation against the fixture-loaded Neo4j store.
+- `theogony resolve --list` lists pending nodes; `theogony resolve <mention>` opens an interactive session that updates a node and writes one row to the audit log.
+- `theogony reports list/show` works.
+
+**Risks.**
+- FastAPI lifespan + `OneirosWorker` shutdown ordering (already specified in §4.4). Test asserts `Ctrl-C` triggers graceful exit.
+
+#### Detective Mode — separate S–M etappe, conditional on PHX-0041 measurement
+
+Per OQ-10 / PHX-0041, the Detective default-on decision is reopened only after `FrontmatterFilter` (§3.4.0) lands and after either PHX-0039 or PHX-0040 lifts the rate-limit cap. The etappe ships `WikidataDetective` + the `--detective` opt-in CLI flag regardless; only the *default* (off vs. on) depends on the post-fix tier-distribution measurement. The etappe sits after E9 in the queue, not inside it.
 
 ### Week 4 — Demonstration
 
@@ -1338,6 +1610,7 @@ Things in the existing codebase or documentation that I examined and chose to ke
 - **`KnowledgeNode.layer` as enum with only `EPHEMERA` and `MNEME`** (no `ONEIROS`). Kept. Oneiros is a process, not a layer; the docs are consistent with this.
 - **`vitality` as a weighted sum of four scores.** Kept. The defaults are heuristic and PHX-0009 already records that empirical tuning is needed.
 - **Pydantic v2 throughout.** Kept. Already in pyproject.
+- **Audit-log wiring as constructor injection on each LLM-using extractor** (v5 anchor patch — referenced by PHX-0038). E5 added the `audit_log=` / `audit_run_id=` kwargs and the `_maybe_audit(...)` helper to `BookContextExtractor`, `EntityResolver` Stage 4, and `RelationExtractor` — three sites, ~330 lines. The honest alternative is an `AuditingLLMProvider` wrapper that absorbs the pattern (PHX-0038). Not yet justified: at three sites the explicit pattern is more readable than a wrapper that has to thread `stage` and `sentence_index` through `contextvars.ContextVar`. After E8 (`AnswerSynthesizer`) and the Detective etappe (`WikidataDetective`) we will be at five sites — still tolerable. Reopen at site seven; PHX-0038 records the trigger condition.
 
 ## 9. Challenged-Decisions Audit
 
