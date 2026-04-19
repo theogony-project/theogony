@@ -674,6 +674,60 @@ class TestBatchUpsert:
         await store.batch_upsert_edges([])  # must not raise
 
 
+class TestGetEdgesAmong:
+    """PHX-0050: bulk edges-among-N-nodes contract.
+
+    Both backends return only edges where both endpoints are in the
+    given ``node_ids`` and ``weight >= min_weight``. Exact edges,
+    no extras, no synthesised endpoints.
+    """
+
+    async def test_returns_only_edges_with_both_endpoints_in_input(
+        self, store: KnowledgeStore
+    ) -> None:
+        a, b, c, d, e_node = (make_node(label) for label in ("A", "B", "C", "D", "E"))
+        await store.batch_upsert_nodes([a, b, c, d, e_node])
+        # 4 edges spanning the (a,b,c,d,e) graph; one (a→e) is an
+        # endpoint-pair the test will deliberately exclude from the
+        # node-id query so the assertion has bite.
+        all_edges = [
+            KnowledgeEdge(source_id=a.id, target_id=b.id, relation_type="LINKS_TO", weight=0.5),
+            KnowledgeEdge(source_id=b.id, target_id=c.id, relation_type="LINKS_TO", weight=0.5),
+            KnowledgeEdge(source_id=c.id, target_id=d.id, relation_type="LINKS_TO", weight=0.5),
+            # The "outsider" edge — its target e is NOT in the query set.
+            KnowledgeEdge(source_id=a.id, target_id=e_node.id, relation_type="OTHER", weight=0.5),
+        ]
+        await store.batch_upsert_edges(all_edges)
+
+        # Query only over (a, b, c, d) — the (a→e) edge must NOT appear.
+        result = await store.get_edges_among([a.id, b.id, c.id, d.id])
+        assert len(result) == 3
+        endpoint_pairs = {(edge.source_id, edge.target_id) for edge in result}
+        assert (a.id, b.id) in endpoint_pairs
+        assert (b.id, c.id) in endpoint_pairs
+        assert (c.id, d.id) in endpoint_pairs
+        assert (a.id, e_node.id) not in endpoint_pairs
+
+    async def test_min_weight_filter_excludes_low_weight_edges(self, store: KnowledgeStore) -> None:
+        a, b = make_node("A"), make_node("B")
+        await store.batch_upsert_nodes([a, b])
+        await store.batch_upsert_edges(
+            [
+                KnowledgeEdge(source_id=a.id, target_id=b.id, relation_type="WEAK", weight=0.2),
+                KnowledgeEdge(source_id=b.id, target_id=a.id, relation_type="STRONG", weight=0.8),
+            ]
+        )
+        result = await store.get_edges_among([a.id, b.id], min_weight=0.5)
+        types = {e.relation_type for e in result}
+        assert types == {"STRONG"}
+
+    async def test_empty_input_returns_empty_without_round_trip(
+        self, store: KnowledgeStore
+    ) -> None:
+        result = await store.get_edges_among([])
+        assert result == []
+
+
 class TestResolveNode:
     async def test_resolve_with_qid_sets_external_id_clears_flag_bumps_tier(
         self, store: KnowledgeStore

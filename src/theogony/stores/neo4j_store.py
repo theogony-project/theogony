@@ -599,6 +599,37 @@ class Neo4jKnowledgeStore:
             return None
         return _node_from_record(record["node"])
 
+    async def get_edges_among(
+        self,
+        node_ids: Sequence[str],
+        min_weight: float = 0.0,
+    ) -> list[KnowledgeEdge]:
+        # PHX-0050: one Cypher round-trip replaces N depth-1
+        # get_neighborhood probes from the assembler hot loop. Both
+        # endpoint matches are served by the
+        # ``knowledge_node_id_unique`` constraint-backed range index
+        # (Plan §3.1a); the WHERE-IN-list expands per-row but the
+        # range-index seek per id is constant-time. Source/target
+        # ids are projected explicitly so the assembler's edge
+        # reconstruction does not depend on driver-side
+        # ``rel.start_node`` / ``rel.end_node`` quirks (those are
+        # the same caveat get_neighborhood already documented).
+        if not node_ids:
+            return []
+        cypher = """
+        MATCH (a:KnowledgeNode)-[r:RELATION]->(b:KnowledgeNode)
+        WHERE a.id IN $ids AND b.id IN $ids AND r.weight >= $min_weight
+        RETURN r{.*, id: r.id} AS rel,
+               a.id AS source_id,
+               b.id AS target_id
+        """
+        async with self._session() as session:
+            result = await session.run(cypher, ids=list(node_ids), min_weight=min_weight)
+            records = await result.data()
+        return [
+            _edge_from_record(rec["rel"], rec["source_id"], rec["target_id"]) for rec in records
+        ]
+
     async def get_neighborhood(
         self,
         node_id: str,

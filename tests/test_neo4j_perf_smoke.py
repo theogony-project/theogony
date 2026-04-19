@@ -245,11 +245,105 @@ class TestBatchUpsertSpeedup:
 
 
 # ---------------------------------------------------------------- PHX-0050
-#
-# TestAssemblerSpeedup lives here too, added by the PHX-0050 commit
-# in this same PR cluster (chore/post-e9-production-readiness). Kept
-# in one file because both benchmarks share the testcontainers
-# session fixture — splitting would double the cold-start cost.
+
+
+class TestAssemblerSpeedup:
+    """ConstellationAssembler before/after PHX-0050 — k=10 nodes.
+
+    The PHX-0050 commit replaced the per-node ``get_neighborhood``
+    loop in ``ConstellationAssembler.assemble`` with a single
+    ``KnowledgeStore.get_edges_among(retrieved_ids)`` call. This
+    test times the new (production) assembler against the legacy
+    approach (recreated inline via ``get_neighborhood`` per node)
+    so the speedup ratio is end-to-end measured against the same
+    fixture in the same process.
+
+    Mac/testcontainers measured ~5-8x; CI Linux is faster. Threshold
+    ≥ 2× is the brief's reject floor — anything below means
+    ``get_edges_among`` is not hitting the range index.
+    """
+
+    async def test_assemble_is_at_least_2x_faster_with_get_edges_among(
+        self, neo4j_store: Neo4jKnowledgeStore
+    ) -> None:
+        from theogony.core.store import ScoredNode
+        from theogony.retrieval.constellation import ConstellationAssembler
+        from theogony.retrieval.multi_hop import MultiHopResult
+
+        # Build a 100-node fixture with a sparse edge set (about 2x
+        # the node count) — typical for a small Hedin chapter.
+        nodes = [_node(f"perf-{i}") for i in range(100)]
+        await neo4j_store.batch_upsert_nodes(nodes)
+        edges: list[KnowledgeEdge] = []
+        for i in range(len(nodes) - 1):
+            edges.append(
+                KnowledgeEdge(
+                    source_id=nodes[i].id,
+                    target_id=nodes[i + 1].id,
+                    relation_type="LINKS_TO",
+                    evidence_span=f"{i}-{i + 1}",
+                    weight=0.5,
+                )
+            )
+            if i + 5 < len(nodes):
+                edges.append(
+                    KnowledgeEdge(
+                        source_id=nodes[i].id,
+                        target_id=nodes[i + 5].id,
+                        relation_type="LINKS_TO",
+                        evidence_span=f"{i}-{i + 5}",
+                        weight=0.5,
+                    )
+                )
+        await neo4j_store.batch_upsert_edges(edges)
+
+        # Pretend retrieval picked the first 10 nodes (Plan §4.2 default).
+        retrieved = nodes[:10]
+        retrieval_result = MultiHopResult(
+            scored_nodes=[ScoredNode(node=n, score=0.9) for n in retrieved],
+            seed_count=10,
+        )
+        assembler = ConstellationAssembler(neo4j_store)
+
+        # Legacy: per-node depth-1 get_neighborhood loop, recreated
+        # inline so the test is self-contained and the production
+        # code carries no legacy path.
+        async def _legacy_assemble() -> int:
+            seen: set[tuple[str, str, str]] = set()
+            for n in retrieved:
+                nb = await neo4j_store.get_neighborhood(n.id, depth=1, min_weight=0.0)
+                for e in nb.edges:
+                    seen.add((e.source_id, e.target_id, e.relation_type))
+            return len(seen)
+
+        # Warm-up so neither timing pays the first-call cost.
+        await assembler.assemble("warmup", retrieval_result)
+        await _legacy_assemble()
+
+        # Three iterations each, take the median to absorb single-call jitter.
+        legacy_times: list[float] = []
+        for _ in range(3):
+            t0 = time.perf_counter()
+            await _legacy_assemble()
+            legacy_times.append(time.perf_counter() - t0)
+        new_times: list[float] = []
+        for _ in range(3):
+            t0 = time.perf_counter()
+            await assembler.assemble("test", retrieval_result)
+            new_times.append(time.perf_counter() - t0)
+
+        legacy_times.sort()
+        new_times.sort()
+        legacy_median = legacy_times[1]
+        new_median = new_times[1]
+        speedup = legacy_median / max(new_median, 1e-6)
+        assert speedup >= 2.0, (
+            f"assembler speedup only {speedup:.1f}x "
+            f"(legacy median={legacy_median:.4f}s, "
+            f"new median={new_median:.4f}s); "
+            f"PHX-0050 reject-threshold 2x suggests get_edges_among "
+            f"is not hitting the range index."
+        )
 
 
 _: type = asyncio.Task  # silences unused-import check

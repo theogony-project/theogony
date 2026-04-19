@@ -221,6 +221,24 @@ class InMemoryKnowledgeStore:
         for edge in edges:
             await self.upsert_edge(edge)
 
+    async def get_edges_among(
+        self,
+        node_ids: Sequence[str],
+        min_weight: float = 0.0,
+    ) -> list[KnowledgeEdge]:
+        # PHX-0050: in-memory has no I/O cost, a set-membership filter
+        # over self._edges is already optimal. The contract — return
+        # only edges where both endpoints are in node_ids and
+        # weight >= min_weight — is identical to the Neo4j override.
+        if not node_ids:
+            return []
+        ids = set(node_ids)
+        return [
+            e
+            for e in self._edges.values()
+            if e.source_id in ids and e.target_id in ids and e.weight >= min_weight
+        ]
+
     async def get_node(self, node_id: str) -> KnowledgeNode | None:
         return self._nodes.get(node_id)
 

@@ -14,10 +14,17 @@ not embed the query (the pipeline does both). Its job is to:
    suffices because multi_hop already discovered the broader
    topology). Dedupe by ``(source_id, target_id, relation_type)``.
 3. Identify gaps (Plan §9.1: ``Constellation.gaps``):
-     * ``"orphan_target:<id>"`` — a node referenced by an edge but
-       not in the retrieved node set;
      * ``"no_strong_match"`` — the top-1 node's similarity to the
        query embedding is below the strong-match threshold (0.3).
+
+  PHX-0050 semantic note: the previous implementation also surfaced
+  an ``"orphan_target:<id>"`` gap for any edge endpoint not in the
+  retrieved set. The bulk ``get_edges_among`` Cypher only returns
+  within-set edges by definition (``WHERE a.id IN $ids AND b.id
+  IN $ids``), so the orphan-target gap kind is now structurally
+  unreachable from this code path and the constant
+  ``GAP_ORPHAN_PREFIX`` is preserved for future consumers (e.g. a
+  separate diagnostic query) but no longer emitted by ``assemble``.
 4. Populate ``suggested_sources`` from each node's ``source_ref``
    (deduped on ``(source_type, identifier)``).
 5. Set ``path="fast"`` (Plan §9.1; ``"slow"`` is reserved for Gen 2).
@@ -82,32 +89,44 @@ class ConstellationAssembler:
 
         # 2. Edges via depth-1 neighbourhood probes per retrieved node.
         #    Multi-hop already expanded; depth-1 here just collects edges
-        #    *between* the retrieved set. We dedupe on the natural key.
+        #    *between* the retrieved set in **one** store round-trip.
+        #    PHX-0050: the previous implementation looped k get_neighborhood
+        #    calls (k=10 round-trips per assemble), throwing away most of
+        #    each neighbourhood through the (source_id, target_id,
+        #    relation_type) dedup. The bulk get_edges_among Cypher runs a
+        #    single MATCH (a)-[r]->(b) WHERE a.id IN $ids AND b.id IN $ids
+        #    on the production Neo4j backend — same answer, one round-trip,
+        #    range-index-served on both endpoint id lookups (Plan §3.1a).
         seen_edge_keys: set[tuple[str, str, str]] = set()
         constellation_edges: list[ConstellationEdge] = []
         endpoint_ids: set[str] = set()
-        for node in retrieved_nodes:
-            try:
-                neighbourhood = await self._store.get_neighborhood(node.id, depth=1, min_weight=0.0)
-            except Exception as exc:  # pragma: no cover - defensive
-                log.warning("get_neighborhood failed for node %s: %s — skipping", node.id, exc)
+        try:
+            full_edges = await self._store.get_edges_among(
+                [n.id for n in retrieved_nodes], min_weight=0.0
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning("get_edges_among failed: %s — assembling without edges", exc)
+            full_edges = []
+        for edge in full_edges:
+            key = (edge.source_id, edge.target_id, edge.relation_type)
+            if key in seen_edge_keys:
                 continue
-            for edge in neighbourhood.edges:
-                key = (edge.source_id, edge.target_id, edge.relation_type)
-                if key in seen_edge_keys:
-                    continue
-                seen_edge_keys.add(key)
-                constellation_edges.append(edge)
-                endpoint_ids.add(edge.source_id)
-                endpoint_ids.add(edge.target_id)
+            seen_edge_keys.add(key)
+            constellation_edges.append(ConstellationEdge.from_knowledge_edge(edge))
+            endpoint_ids.add(edge.source_id)
+            endpoint_ids.add(edge.target_id)
 
         # 3. Gap detection.
         gaps: list[str] = []
-        # 3a. Orphan-target: any endpoint mentioned in an edge but not
-        #     in the retrieved set. Sorted to keep gap order
-        #     deterministic across re-runs (tests + snapshots care).
+        # 3a. Orphan-target gap: structurally unreachable under the
+        #     PHX-0050 bulk-edges semantics — get_edges_among only
+        #     returns within-set edges (WHERE a.id IN $ids AND
+        #     b.id IN $ids), so endpoint_ids ⊆ retrieved_ids by
+        #     definition. We compute the set difference anyway as a
+        #     correctness check; a non-empty orphan set would mean
+        #     the store violated the get_edges_among contract.
         orphans = sorted(endpoint_ids - retrieved_ids)
-        for orphan in orphans:
+        for orphan in orphans:  # pragma: no cover - structurally unreachable
             gaps.append(f"{GAP_ORPHAN_PREFIX}{orphan}")
         # 3b. No-strong-match: only when we have an embedding and the
         #     top-1 retrieval score is below the threshold.

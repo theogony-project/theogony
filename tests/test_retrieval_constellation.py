@@ -162,9 +162,15 @@ class TestEdgeCollectionAndDedup:
 
 
 class TestGapDetection:
-    async def test_orphan_target_gap_when_edge_endpoint_not_retrieved(self) -> None:
-        # Hedin retrieved, Tibet not retrieved but Hedin -[REACHED]-> Tibet exists.
-        # The assembler must surface "orphan_target:<tibet_id>" as a gap.
+    async def test_orphan_target_gap_unreachable_under_bulk_edges_semantics(self) -> None:
+        # PHX-0050: the previous implementation surfaced an
+        # "orphan_target:<id>" gap whenever a retrieved node had an
+        # edge to a non-retrieved node. The bulk get_edges_among
+        # Cypher only returns within-set edges by definition, so the
+        # cross-set edge is invisible to the assembler here — and the
+        # orphan gap can never fire. This test pins that semantic
+        # change so any future re-introduction of orphan detection
+        # has to update the test too.
         store = InMemoryKnowledgeStore()
         hedin, tibet = _node("Hedin"), _node("Tibet", node_type=NodeType.PLACE)
         edge = KnowledgeEdge(
@@ -175,11 +181,13 @@ class TestGapDetection:
         )
         await _populate(store, [hedin, tibet], [edge])
         assembler = ConstellationAssembler(store)
-        # Only Hedin in the retrieved set.
+        # Only Hedin in the retrieved set; Tibet is "out of view".
         result = MultiHopResult(scored_nodes=[ScoredNode(node=hedin, score=0.9)], seed_count=1)
         constellation = await assembler.assemble("Hedin", result)
-        assert any(g.startswith(GAP_ORPHAN_PREFIX) for g in constellation.gaps)
-        assert f"{GAP_ORPHAN_PREFIX}{tibet.id}" in constellation.gaps
+        # No edges in the constellation (the (Hedin → Tibet) edge is
+        # not "among" the retrieved set), so no orphan gap either.
+        assert constellation.edges == []
+        assert all(not g.startswith(GAP_ORPHAN_PREFIX) for g in constellation.gaps)
 
     async def test_no_strong_match_gap_when_top_score_below_threshold(self) -> None:
         store = InMemoryKnowledgeStore()

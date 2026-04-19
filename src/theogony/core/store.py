@@ -151,6 +151,29 @@ class KnowledgeStore(Protocol):
         """Insert or update a batch of edges. PHX-0046 perf path; see batch_upsert_nodes."""
         ...
 
+    async def get_edges_among(
+        self,
+        node_ids: Sequence[str],
+        min_weight: float = 0.0,
+    ) -> list[KnowledgeEdge]:
+        """All edges whose source and target are both in ``node_ids``.
+
+        PHX-0050 perf path: ``ConstellationAssembler.assemble`` used
+        to call ``get_neighborhood`` once per retrieved node — k=10
+        round-trips per assemble, with most of each neighbourhood
+        thrown away by the assembler's ``(source_id, target_id,
+        relation_type)`` dedup. The actual question — "which edges
+        connect any two of these N nodes?" — is one Cypher round-trip
+        on the production Neo4j backend (range-index-served via the
+        Plan §3.1a uniqueness constraint on ``id``).
+
+        Returns edges with ``weight >= min_weight``. Order is
+        implementation-defined; callers that need a stable order
+        sort by ``(source_id, target_id, relation_type)``. Empty
+        ``node_ids`` returns ``[]`` without a round-trip.
+        """
+        ...
+
     async def get_node(self, node_id: str) -> KnowledgeNode | None:
         """Retrieve a single node by ID."""
         ...
