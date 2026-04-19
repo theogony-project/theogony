@@ -45,6 +45,16 @@ Every entity mentioned in the generated answer links back to its node in the Chr
 
 There are no static Wikipedia-style articles anymore. Only dynamic, query-dependent knowledge landscapes.
 
+## The Chronik Grows Where It Is Looked At
+
+The Hover-Lupe is more than a way to read what is already there. It is the eye through which the Chronik becomes *aware of its own gaps*.
+
+When a query, a zoom, or a contextual ask reaches a region of knowledge the Chronik does not yet know well, the system does not silently shrug. It dispatches research. Prometheus formalises the gap; Argus searches; Jason acquires; Morpheus extracts; Athene verifies. The Mind-Map fills in progressively, with honest progress updates. Cold regions are allowed to be slow — but never silent.
+
+This is the **Curiosity Loop**: attention is a first-class architectural input, and the Chronik grows organically in exactly the directions that turn out to matter. Hestia stands beside it as guardian, because curiosity without restraint is surveillance.
+
+See [`CURIOSITY.md`](CURIOSITY.md) for the full mechanism.
+
 ## Two Equal Pillars
 
 The Chronik has two primary purposes of equal importance:

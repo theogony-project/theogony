@@ -361,6 +361,16 @@ It can be approximated by combining:
 - signed graph reasoning
 - message passing ideas from GNNs
 
+#### Outward Activation: the Curiosity Loop
+
+Activation does not have to stop at the boundary of what the Chronik already knows.
+
+When activation reaches a region that is too thin to absorb it — sparse nodes, weak edges, low confidence, narrow source diversity — the activation can spill *outward*: a Curiosity Trigger is emitted, and outward-facing agents (Prometheus, Argus, Jason) acquire new content in exactly that direction. New nodes and edges land in the activated region, and the activation field updates.
+
+This is the same physical metaphor extended one step: attention is energy; energy injected into the network propagates inward; energy that finds no substrate to propagate through escapes outward into the world and pulls new substrate back.
+
+The full mechanism lives in [`CURIOSITY.md`](CURIOSITY.md). The point here is only that the Activation Engine and the Curiosity Loop are not two separate systems — they are inward and outward expressions of the same attention flow.
+
 ### 6. Constellation Compiler
 
 Agents should not consume the raw substrate directly.

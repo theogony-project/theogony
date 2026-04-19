@@ -318,6 +318,28 @@ The expected query flow for an LLM using the Chronik:
 
 The LLM does not need to know facts. It needs to know how to navigate the Chronik and interpret constellations. This is a fundamentally different skill from memorization.
 
+### Curiosity Loop
+
+Retrieval and acquisition are not separate phases in maturity. They are coupled by attention.
+
+Every query, every zoom into a Constellation node, and every contextual ask runs a structured **stub check** on the assembled Constellation: node count, edge density, vitality scores, source diversity, confidence aggregate, and named-entity coverage of the question. The check produces a structured `StubVerdict` recorded in the `QueryRunReport`.
+
+When the verdict crosses the stub threshold, a **Curiosity Trigger** is emitted. The trigger is a typed event consumed by Helios (orchestrator), which dispatches a directional research run:
+
+1. **Prometheus** formalises the gap — what is missing, what would close it, what is the acceptable source-diversity floor.
+2. **Argus** searches the open web for candidate sources.
+3. **Jason** acquires bytes from the most promising candidates via the same `AcquisitionAdapter` protocol used for direct ingest.
+4. **Morpheus** extracts entities and relations from the new content.
+5. **Athene** verifies, scores confidence, and resolves contradictions against existing nodes.
+
+The Constellation re-assembles progressively as new nodes and edges land in the focused region. The querying agent (or human client) receives an immediate response with whatever Constellation is currently available, plus a `research_in_progress: true` flag and a `CuriosityRun` ID to subscribe to. Honest progress updates flow on that subscription. Cold regions may be slow; they may not be silent.
+
+A `CuriosityRunReport` is emitted for every run, alongside the existing `IngestRunReport`, `QueryRunReport`, and `OneirosTickReport`.
+
+**Hestia subscribes to every Curiosity Trigger.** Person-as-target checks, sensitive-topic rules, recursion budgets, and drift audit are part of the loop, not optional add-ons. Curiosity without Hestia is a profiling engine. See [`HESTIA.md`](HESTIA.md) and the full mechanism in [`CURIOSITY.md`](CURIOSITY.md).
+
+This is a Generation 2-3 capability. Generation 1 emits the `StubVerdict` (so calibration data accumulates) but does not yet dispatch the trigger. See PHX-0037, PHX-0038, PHX-0039.
+
 ### Advisory Layer (Metis)
 
 On top of retrieval sits a dedicated advisory role: **Metis**.
@@ -402,7 +424,7 @@ Two distinct orchestration roles:
 | **Argus** | WorldCrawler — autonomous web exploration and content acquisition | 0 |
 | **Jason** | BulkIngestor — large corpus ingestion from organizations or data repositories | 0 → 1 |
 | **Iris** | ContactAgent — human interaction interface for information intake | 0 |
-| **Prometheus** | GapExplorer — identifies knowledge gaps, creates acquisition tasks | 2 |
+| **Prometheus** | GapExplorer — identifies knowledge gaps, creates acquisition tasks; primary trigger-handler for the [Curiosity Loop](CURIOSITY.md) | 2 |
 | **Morpheus** | Dreamer — association, inference, edge creation (Oneiros worker) | 2 |
 | **Athene** | Verifier — fact-checking, confidence scoring, bias detection | 2 |
 | **Chronos** | Recycler — lifecycle management, vitality decay, cleanup | 2 |
