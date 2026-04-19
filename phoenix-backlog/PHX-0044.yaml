@@ -1,67 +1,44 @@
 id: PHX-0044
-category: improvement
+category: architecture
 priority: low
 status: open
-generation_target: 1
-title: "Read-replica-readiness audit of the KnowledgeStore Protocol surface"
+generation_target: 2
+title: "Read-replica readiness audit of Neo4jKnowledgeStore"
 filed_by: daedalus
 created_at: 2026-04-19
 description: |
-  Hygiene audit. Every method on the KnowledgeStore Protocol
-  (src/theogony/core/store.py — ~13 public methods including
-  vector_search, traverse, multi_hop_search, get_node,
-  get_neighborhood, upsert_node, upsert_edge, delete_node,
-  promote, degrade, count, etc.) is classified as read-only or
-  read-write and the Neo4jKnowledgeStore implementation annotates
-  each with the matching Bolt-driver pattern:
+  Neo4j 5.x supports clustered deployment with read-replica routing
+  via the `neo4j+s://` URI scheme and the driver's `default_access_mode`
+  parameter. Neo4jKnowledgeStore today opens one driver, one database,
+  one access mode (write). A future demo-scale or community-scale
+  deployment may want read-only retrieval queries to fan out to
+  replicas while writes stay on the leader.
 
-    - read-only  ⇒ session.execute_read(lambda tx: ...)
-    - read-write ⇒ session.execute_write(lambda tx: ...)
-
-  Today this distinction is invisible to a single-node Neo4j and
-  thus correct-by-accident. The day someone configures a Causal
-  Cluster with read-replicas, the routing layer reads execute_read
-  vs execute_write to decide which instance handles the request —
-  RO calls go to replicas, RW calls go to the leader. Without the
-  classification, every call lands on the leader and the cluster
-  buys nothing.
-
-  This is Gen 1 hygiene. The Read-replica payoff is Gen 2/3 (the
-  generation where multiple Chronik consumers read concurrently
-  and the leader becomes a write-bottleneck). The audit work itself
-  is small and pays a real correctness dividend on the day it is
-  needed.
+  This ticket is an audit, not an implementation. It asks: which
+  Neo4jKnowledgeStore methods are pure reads (vector_search,
+  traverse, multi_hop_search, get_node, get_neighborhood,
+  list_pending_resolution, count_nodes, get_cluster_centroid,
+  health) and could be marked `READ` access mode at session
+  construction? Which are writes (every upsert_*, promote, degrade,
+  update_scores, assign_cluster, import_nodes)? Which are mixed
+  and need explicit decomposition?
 
   Acceptance:
-    - A documentation table that lists every Protocol method with
-      its RO/RW classification. Live location: either
-      docs/perf/E7_query_plan_audit.md (alongside PHX-0042) or a
-      Postscriptum block in the existing E7 brief — whichever is
-      cheaper. Pending plan anchor: §3.1a does not currently host
-      this table; if a future contributor argues it belongs there,
-      file a follow-up patch then.
-    - Neo4jKnowledgeStore uses session.execute_read /
-      session.execute_write consistently per the table.
-    - A contract-suite test (or a targeted lint) detects drift:
-      every new Protocol method must declare its classification or
-      the test fails. The mechanism is the simpler of: (a) a class
-      attribute on KnowledgeStore declaring the dict, (b) a test
-      that introspects the Protocol's methods against a fixture
-      classification list.
-    - Effort: ~1 hour of audit + ~30 minutes of test wiring.
-      Bundle with PHX-0042 in one mini-etappe — both are post-E7
-      audits and share the same review surface.
+    - One markdown table in docs/etappes/ (or wherever Daedalus
+      decides) listing every method with its access classification.
+    - One paragraph per "ambiguous" method (if any) with the
+      decomposition recommendation.
+    - One paragraph: "what would change in Neo4jKnowledgeStore code
+      to actually wire access modes" — but no code change.
 
-  Sequencing: after E7 merge. Bundle with PHX-0042. Pure Gen-1
-  hygiene — the read-replica gain itself is Gen 2/3.
+  Gen 2 explicitly because Gen 1 is single-instance; multi-instance
+  read-replica deployment isn't on the demo path.
 
-  Pending plan anchor: §3.1a does not yet enumerate per-method
-  RO/RW classifications. If the audit recommends adopting the
-  table into §3.1a, file a one-section patch then. Until the audit
-  exists, leaving §3.1a clean is the right default.
+reopen_trigger: |
+  Either: (a) a Gen 2 deployment scenario explicitly requires
+  horizontal read scaling, or (b) a community contributor asks
+  about replica support, signalling external demand.
 
 related:
-  - PHX-0001  # custom engine inherits the same Protocol classification
-  - PHX-0014  # Metis is read-heavy and would benefit from replicas
-  - PHX-0015  # Fast/Slow Cognition path likewise — fast path is RO-dominant
+  - PHX-0001  # custom engine — replica-aware engine is a Gen 2 motivator
 resolution: null

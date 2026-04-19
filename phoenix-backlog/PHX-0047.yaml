@@ -1,0 +1,53 @@
+id: PHX-0047
+category: hygiene
+priority: low
+status: open
+generation_target: 1
+title: "Neo4jSettings password default 'neo4j' triggers Neo4j 5.x default-prevention"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  Neo4jSettings (src/theogony/config/settings.py) has
+  `password: SecretStr = SecretStr("neo4j")` as default. Neo4j 5.x
+  rejects the literal "neo4j" password on first connect to enforce
+  default-prevention. The local docker-compose.yml works around this
+  by setting NEO4J_AUTH=none — the driver sends ("neo4j", "neo4j"),
+  the server ignores it. Functionally fine for local dev.
+
+  Failure mode this ticket addresses: an operator pointing
+  THEOGONY_NEO4J__URI at a real auth-enabled Neo4j (managed cloud,
+  prod docker-compose, etc.) without setting THEOGONY_NEO4J__PASSWORD
+  hits the default-prevention rejection. The error surfaces as a
+  driver-level "Unauthorized" with no breadcrumb back to the
+  Theogony settings convention.
+
+  Two implementation options (Daedalus picks):
+
+  Option A (small, status-quo-preserving): a Pydantic validator on
+  Neo4jSettings that emits a WARNING-level log line if
+  password.get_secret_value() == "neo4j". Two lines, zero behaviour
+  change, matches PHX-0008's general "fail loudly" stance.
+
+  Option B (cleaner, behaviour change): change the default to
+  None; Neo4jKnowledgeStore.__init__ branches on None to either
+  pass auth=None to the driver (AUTH=none-server case) or raise
+  with a clear "set THEOGONY_NEO4J__PASSWORD" message. Larger
+  refactor, requires updating docker-compose.yml documentation.
+
+  Recommendation: Option A. Option B is a footgun-proofing of a
+  dev convenience.
+
+  Acceptance:
+    - Either Option A or Option B, with rationale in commit message.
+    - One unit test: instantiating Neo4jSettings(password=SecretStr("neo4j"))
+      either logs a warning (Option A) or raises (Option B).
+    - docker-compose.yml header comment gains one line: "If you
+      override NEO4J_AUTH to enable auth, set THEOGONY_NEO4J__PASSWORD
+      to anything other than 'neo4j' — Neo4j 5.x rejects that literal."
+
+reopen_trigger: |
+  File now, implement when convenient. Not blocking E8.
+
+related:
+  - PHX-0008  # general "fail loudly" stance
+resolution: null

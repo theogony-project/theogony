@@ -1,0 +1,78 @@
+id: PHX-0048
+category: performance
+priority: low
+status: deferred
+generation_target: 2
+title: "Neo4jKnowledgeStore.update_scores collapses to one round-trip"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  Neo4jKnowledgeStore.update_scores (src/theogony/stores/neo4j_store.py)
+  currently does two Bolt round-trips per invocation: one get_node
+  to read existing scores, one MERGE to write. The two round-trips
+  exist because vitality is denormalised to a top-level property
+  (Plan §3.1a) and computed from all four NodeScores fields via
+  NodeScores.vitality(); the partial-update needs the existing
+  values for the fields the caller didn't supply.
+
+  Single-round-trip alternative via Cypher COALESCE:
+    SET n.confidence  = COALESCE($confidence, n.confidence),
+        n.relevance   = COALESCE($relevance, n.relevance),
+        n.connectivity = COALESCE($connectivity, n.connectivity),
+        n.freshness   = COALESCE($freshness, n.freshness),
+        n.vitality    = (n.confidence * w_c + n.relevance * w_r
+                       + n.connectivity * w_co + n.freshness * w_f)
+                       -- vitality formula inline, weights as parameters
+
+  Trade-off: hardcoding the vitality formula in Cypher (even with
+  the weights as parameters) couples the Neo4j store to the
+  weighted-sum aggregation shape. Plan §8 v3 explicitly notes
+  vitality is "kept; defaults are heuristic and PHX-0009 records
+  empirical tuning is needed". The formula is therefore EXPECTED
+  to evolve (per-NodeType weights, age-decay, etc.).
+
+  Daedalus decision (applying Hesiod's own decision rule):
+    PHX-0009 (Vitality function tuning) is already filed and
+    explicitly says the formula is heuristic, defaults need
+    empirical tuning. Hesiod's rule:
+
+      "If the vitality formula is expected to evolve in Gen 1
+       (e.g. weighted by NodeType, decayed by age, etc.), defer
+       this optimisation. Two round-trips are not in any hot path
+       we've measured."
+
+    The condition fires. The formula will evolve. Coupling the
+    store now buys ~10-15 ms per update_scores call — a code
+    path that runs once per Oneiros tick per node, not in any
+    measured hot path.
+
+    → DEFERRED to Gen 2. Status: deferred. Generation target: 2.
+
+  Acceptance (Gen 2, when reopened):
+    - Either (a) PHX-0009 has produced a frozen vitality formula
+      (or at minimum a stable computational shape such as "weighted
+      sum with parameter array"), OR (b) OneirosWorker microbenchmark
+      shows update_scores latency is a measurable bottleneck (>5 %
+      of tick wallclock).
+    - Implementation: Cypher COALESCE+inline-vitality, with the
+      weights passed as parameters from Settings.vitality.weights
+      (new field group introduced as part of PHX-0009 freeze).
+    - Regression test: update one field, verify all four others
+      stay; verify vitality recomputes per the parameterised formula.
+    - Microbenchmark: ≥1.5× speedup on a 100-node update workload.
+
+  YAGNI guard: filing this as deferred (not active) so the
+  optimisation is not lost when PHX-0009 lands, but no engineering
+  hours are spent on it now. The status field is "deferred" rather
+  than "open" to distinguish it from work the next reviewer should
+  pick up.
+
+reopen_trigger: |
+  Either: (a) PHX-0009 freezes the vitality formula or stabilises
+  it to a parameter-shaped computation, OR (b) OneirosWorker
+  performance benchmarking shows score-update latency is a
+  measurable bottleneck (>5 % of tick wallclock).
+
+related:
+  - PHX-0009  # vitality function tuning — the actual blocker
+resolution: null

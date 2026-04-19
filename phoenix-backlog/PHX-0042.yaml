@@ -1,52 +1,57 @@
 id: PHX-0042
-category: measurement
+category: performance
 priority: medium
 status: open
 generation_target: 1
-title: "Cypher query-plan audit for the four hot Neo4jKnowledgeStore queries"
+title: "Cypher query-plan audit for hot read paths in Neo4jKnowledgeStore"
 filed_by: daedalus
 created_at: 2026-04-19
 description: |
-  After E7 (Neo4jKnowledgeStore) lands, run PROFILE (or EXPLAIN where
-  PROFILE is too costly) once over the four queries that carry every
-  ingest and every retrieval call:
+  E7 ships Neo4jKnowledgeStore (Plan §3.1a) without a query-plan
+  audit. The store passes the contract suite and the Plan §3.1a
+  range indexes are in place, but no `EXPLAIN`/`PROFILE` data
+  exists for the hot read paths. The Gen 1 demo (Plan §1) is
+  retrieval-anchored — every `theogony ask` round-trips through
+  vector_search → traverse → get_neighborhood. A plan miss on any
+  of those degrades the demo perceptibly (200 ms vs 2 s noticeable;
+  2 s vs 20 s demo-killing).
 
-    - multi_hop_search        # the central retrieval operation, Plan §2.6
-    - traverse                # graph navigation building block
-    - vector_search           # HNSW-backed similarity entry point
-    - get_neighborhood        # the Hover-Lupe surface, Plan §1
-
-  The audit answers one question per query: does every operator hit
-  one of the ten Range indexes from Plan §3.1a, or the HNSW vector
-  index? An AllNodesScan or NodeByLabelScan without a backing index
-  is a defect — either the query is mis-written or an index is
-  missing — and is escalated as a follow-up ticket.
-
-  This is one-time work. The Reviewer agent (PHX-0035) will
-  eventually re-run it on schedule.
+  Hot paths to audit (in priority order):
+    1. vector_search — HNSW + WHERE filter on layer/node_type/min_confidence
+       (uses knowledge_node_layer + knowledge_node_node_type indexes).
+    2. traverse — variable-length [r:RELATION*1..max_depth] with weight + type filters.
+    3. get_neighborhood — undirected variable-length match.
+    4. multi_hop_search — vector seed + N traverse calls (N=k).
+    5. list_pending_resolution — manual_resolution_needed=true filter.
 
   Acceptance:
-    - One short documentation file at docs/perf/E7_query_plan_audit.md
-      that lists, per query: the annotated PROFILE output, total
-      db-hits, which index was hit, the cardinality estimate, and a
-      verdict tag (`ok` | `attention` | `regression`).
-    - On `attention` or `regression`: a follow-up issue or ticket
-      with a concrete fix proposal.
-    - Effort estimate: ~2 hours. No new code in src/; one test or
-      REPL snippet plus the doc.
+    - One PROFILE invocation per path against a populated database
+      (≥2000 nodes, ≥2000 edges; the E8 retrieval slice qualifies).
+    - For each path: db hits per record returned, total db hits,
+      whether the expected index is selected.
+    - For each path that misses its expected index OR exceeds an
+      "obvious" budget (>1000 db hits per returned record): one
+      diagnosis paragraph + a remediation suggestion (rewrite the
+      Cypher, add a missing composite index, or accept the cost
+      with rationale).
 
-  Sequencing: after E7 merge, before E8 starts. The result informs
-  the E8 retrieval-stack composition — multi_hop_search is its
-  central operation.
+  Out of scope (Gen 1):
+    - Cluster-aware Cypher routing (Gen 2).
+    - Apoc-based query rewriting (Gen 2 PHX-0011 region).
+    - Continuous query-plan regression (Reviewer-agent territory,
+      PHX-0035).
 
-  Pending plan anchor: §3.1a does not yet reference this audit. If
-  the audit surfaces an index that should have been on the Plan §3.1a
-  list (or one that should be removed), file a follow-up patch
-  against §3.1a after the audit completes. No plan change needed
-  pre-audit.
+  YAGNI guard: file but do NOT execute until E8 (retrieval stack)
+  is functionally complete. Auditing the Cypher before retrieval
+  is wired to it produces academic numbers; auditing after wiring
+  produces production-relevant numbers.
+
+reopen_trigger: |
+  Execute when E8 is review-ready AND a representative book has been
+  ingested into Neo4j (e.g. Hedin Trans-Himalaya full-book).
 
 related:
-  - PHX-0001  # custom engine implements the same Protocol surface;
-              # this audit informs its requirements spec
-  - PHX-0035  # Reviewer agent can automate the re-run
+  - PHX-0001  # custom engine — query-plan data informs whether
+              #                 to push for it sooner or later
+  - PHX-0046  # batch_upsert — write-side analogue of this read audit
 resolution: null
