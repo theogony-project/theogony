@@ -56,11 +56,26 @@ GPE: frozenset[str] = frozenset(
         "Q5119",  # capital
         "Q35657",  # state of the United States
         "Q15642541",  # historical administrative division — for 19th-century gazetteer entries
+        # Real Wikidata data: famous modern cities are P31-classified
+        # as more specific subclasses than Q515. Without these the
+        # type filter rejects Berlin (Q64), Beijing, etc. — a
+        # measurable failure mode caught by the live smoke test.
+        "Q1549591",  # big city ("Großstadt")
+        "Q133442",  # city-state (covers Berlin-as-state, Singapore, etc.)
+        "Q1637706",  # city with millions of inhabitants (megacity)
+        "Q1093829",  # city in the United States
+        "Q484170",  # commune of France
+        "Q1221156",  # state of Germany
     }
 )
-"""GPE — geo-political entities. Plan §3.4 Stage 3 lists Q486972, Q515,
-Q6256, Q3024240; the additional five are minimal, documented expansions
-that the travel-literature corpus (Hedin, Harrer) routinely names."""
+"""GPE — geo-political entities. Plan §3.4 Stage 3 lists the original
+quartet (Q486972, Q515, Q6256, Q3024240); the additional entries are
+minimal, empirically-justified expansions for the travel-literature
+corpus. The "modern subclasses" group (Q1549591 big city, Q133442
+city-state, Q1637706 megacity, Q1093829 US city, Q484170 French
+commune, Q1221156 German state) was added after the live smoke test
+revealed that Berlin (Q64) and similar famous cities never carry
+Q515 directly — Wikidata classifies them under more specific types."""
 
 LOC: frozenset[str] = frozenset(
     {
