@@ -55,6 +55,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from theogony.agents.llm import LLMProvider
 from theogony.config.logging import get_logger
 from theogony.extraction.alias_matcher import fully_normalise
+from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.ner import Mention
 from theogony.extraction.relation_types import (
     RELATION_TYPES_LIST,
@@ -65,6 +66,9 @@ from theogony.extraction.relation_types import (
 from theogony.extraction.sentence import Sentence
 
 log = get_logger("extraction.relations")
+
+
+_AUDIT_STAGE = "relation_extraction"
 
 
 _SYSTEM_PROMPT = (
@@ -161,10 +165,14 @@ class RelationExtractor:
         llm: LLMProvider,
         expand_window: bool = False,
         llm_timeout_s: float = 30.0,
+        audit_log: ExtractionAuditLog | None = None,
+        audit_run_id: str | None = None,
     ) -> None:
         self._llm = llm
         self._expand_window = expand_window
         self._llm_timeout_s = llm_timeout_s
+        self._audit_log = audit_log
+        self._audit_run_id = audit_run_id
 
     @property
     def expand_window(self) -> bool:
@@ -177,6 +185,7 @@ class RelationExtractor:
         mentions: Sequence[Mention],
         previous_sentence: Sentence | None = None,
         next_sentence: Sentence | None = None,
+        run_id: str | None = None,
     ) -> list[ExtractedRelation]:
         """Extract relations from ``central_sentence``.
 
@@ -219,9 +228,84 @@ class RelationExtractor:
                 central_sentence.index,
                 exc,
             )
+            self._maybe_audit(
+                run_id=run_id,
+                sentence_index=central_sentence.index,
+                prompt=prompt,
+                response="",
+                input_tokens=0,
+                output_tokens=0,
+                cost_eur=0.0,
+                latency_ms=0,
+                model_id=getattr(self._llm, "model_id", ""),
+                parse_error=f"transport_error:{type(exc).__name__}",
+            )
             return []
 
-        return self._parse_relations(result.text, central_sentence=central_sentence)
+        relations = self._parse_relations(result.text, central_sentence=central_sentence)
+        self._maybe_audit(
+            run_id=run_id,
+            sentence_index=central_sentence.index,
+            prompt=prompt,
+            response=result.text,
+            input_tokens=result.input_tokens,
+            output_tokens=result.output_tokens,
+            cost_eur=result.cost_eur,
+            latency_ms=result.latency_ms,
+            model_id=result.model_id,
+            parse_error=self._infer_parse_error(result.text),
+        )
+        return relations
+
+    def _maybe_audit(
+        self,
+        *,
+        run_id: str | None,
+        sentence_index: int | None,
+        prompt: str,
+        response: str,
+        input_tokens: int,
+        output_tokens: int,
+        cost_eur: float,
+        latency_ms: int,
+        model_id: str,
+        parse_error: str | None,
+    ) -> None:
+        if self._audit_log is None:
+            return
+        effective_run_id = run_id or self._audit_run_id
+        if not effective_run_id:
+            return
+        self._audit_log.record(
+            run_id=effective_run_id,
+            stage=_AUDIT_STAGE,
+            sentence_index=sentence_index,
+            prompt=prompt,
+            response=response,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cost_eur=cost_eur,
+            latency_ms=latency_ms,
+            model_id=model_id,
+            parse_error=parse_error,
+        )
+
+    @staticmethod
+    def _infer_parse_error(text: str) -> str | None:
+        """Best-effort tag for the audit log's parse_error column.
+
+        Mirrors _parse_relations' early-out failure modes so the
+        Reviewer agent can bucket without re-parsing.
+        """
+        try:
+            payload = json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            return "json_decode"
+        if not isinstance(payload, dict):
+            return "non_object_payload"
+        if not isinstance(payload.get("relations"), list):
+            return "relations_not_list"
+        return None
 
     # ---------------------------------------------------------------- prompt
 
