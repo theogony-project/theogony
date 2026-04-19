@@ -8,7 +8,14 @@ OpenAILLMProvider and AnthropicLLMProvider live behind their
 respective extras and land when a caller needs them.
 """
 
+from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.llm import LLMProvider, LLMResult, StubLLMProvider
 from theogony.agents.llm_gemini import GeminiLLMProvider
 
-__all__ = ["GeminiLLMProvider", "LLMProvider", "LLMResult", "StubLLMProvider"]
+__all__ = [
+    "GeminiLLMProvider",
+    "LLMProvider",
+    "LLMResult",
+    "StubLLMProvider",
+    "build_llm_from_settings",
+]
