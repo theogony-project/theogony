@@ -1,0 +1,138 @@
+{
+  "run_id": "01KPJ2PPPQM26RKTHWV7HN0838",
+  "report_type": "ingest",
+  "started_at": "2026-04-19T05:16:37.975463Z",
+  "finished_at": "2026-04-19T05:22:25.483234Z",
+  "duration_s": 347.5079077919945,
+  "status": "completed",
+  "verdict": "poor",
+  "verdict_reasoning": "low_tier_ratio=0.88 (>0.60 poor-threshold)",
+  "anomalies": [],
+  "recommendations": [],
+  "audit_log_run_id": "01KPJ2PPPQM26RKTHWV7HN0838",
+  "ingest_run_id": "01KPJ2PPPQM26RKTHWV7HN0838",
+  "source_type": "gutenberg",
+  "source_identifier": "43497",
+  "word_count": 7589,
+  "sentence_count": 282,
+  "chapter_count": null,
+  "stages": [
+    {
+      "name": "acquired",
+      "duration_s": 0.0,
+      "status": "ok",
+      "notes": "43253 bytes from gutenberg"
+    },
+    {
+      "name": "cleaned",
+      "duration_s": 0.0008492079796269536,
+      "status": "ok",
+      "notes": null
+    },
+    {
+      "name": "sentencized",
+      "duration_s": 0.11195429193321615,
+      "status": "ok",
+      "notes": null
+    },
+    {
+      "name": "mentions_extracted",
+      "duration_s": 2.409750667051412,
+      "status": "ok",
+      "notes": null
+    },
+    {
+      "name": "mentions_resolved",
+      "duration_s": 321.4613762079971,
+      "status": "ok",
+      "notes": null
+    },
+    {
+      "name": "relations_extracted",
+      "duration_s": 13.3561149580637,
+      "status": "ok",
+      "notes": "114 sentences attempted, 0 edges minted"
+    },
+    {
+      "name": "embedded",
+      "duration_s": 9.314384499914013,
+      "status": "ok",
+      "notes": null
+    },
+    {
+      "name": "stored",
+      "duration_s": 0.00016516703180968761,
+      "status": "ok",
+      "notes": null
+    }
+  ],
+  "ner": {
+    "total_mentions": 500,
+    "by_type": {
+      "ORG": 54,
+      "DATE": 66,
+      "GPE": 100,
+      "CARDINAL": 49,
+      "NORP": 53,
+      "LOC": 25,
+      "FAC": 4,
+      "PERSON": 89,
+      "LANGUAGE": 5,
+      "PRODUCT": 14,
+      "ORDINAL": 15,
+      "TIME": 13,
+      "QUANTITY": 6,
+      "EVENT": 2,
+      "LAW": 2,
+      "MONEY": 1,
+      "WORK_OF_ART": 2
+    }
+  },
+  "resolution": {
+    "tier_counts": {
+      "0": 243,
+      "4": 11,
+      "3": 21
+    },
+    "wikidata_api_requests": 0,
+    "cache_hits": 0,
+    "failures_after_retry": 0,
+    "manual_resolution_needed": 243
+  },
+  "relations": {
+    "attempted": 114,
+    "parsed_ok": 0,
+    "dropped_schema_violation": 0,
+    "dropped_evidence_span_violation": 0,
+    "llm_cost_eur": 4.371000000000001e-05
+  },
+  "embedding": {
+    "nodes_embedded": 275,
+    "embedding_model_id": "BAAI/bge-small-en-v1.5@v1",
+    "duration_s": 9.314349624910392
+  },
+  "store": {
+    "nodes_upserted": 275,
+    "edges_upserted": 0,
+    "idempotent_skips": 0
+  },
+  "quality_flags": {
+    "low_tier_ratio": 0.8836363636363637,
+    "schema_violation_rate": 0.0,
+    "parse_error_rate": 0.0
+  },
+  "characterization_meta": {
+    "slice_start": 260,
+    "slice_end": 560,
+    "wall_clock_s_with_acquire": 347.5104727500584,
+    "llm_calls_total": 160,
+    "llm_cost_eur": 4.371000000000001e-05,
+    "calibration": {
+      "resolved_nodes": 81,
+      "tier_high_ratio": 0.456,
+      "wall_clock_s": 191.6,
+      "llm_calls_total": 53,
+      "materialised_edges": 65
+    }
+  }
+}
