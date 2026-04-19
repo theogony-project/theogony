@@ -1,0 +1,78 @@
+id: PHX-0034
+category: measurement
+priority: medium
+status: open
+generation_target: 2
+title: "Entity-resolution quality benchmark — gold-standard regression"
+filed_by: talos
+created_at: 2026-04-19
+description: |
+  Plan §7 calls out PHX-0034 ("entity-resolution quality benchmark") as
+  Gen-2 work. Etappe E7 ships a small Gen-1 stub-vorhut: the
+  ``tests/test_pipeline_characterization.py`` characterization layer
+  (Plan §3.8 layer 6) that runs the full IngestionPipeline against a
+  ~300-sentence narrative slice of Hedin Trans-Himalaya Vol. I
+  (Gutenberg #43497) and asserts on bands (tier distribution, edge
+  yield, wall-clock, LLM call count, materialised edges).
+
+  This is **not** the full benchmark this ticket is for. It is the
+  smallest mechanism that catches gross regressions ("we used to
+  resolve 30 nodes from this slice, now we resolve 5 — something
+  upstream broke").
+
+  What the full Gen-2 benchmark must add (deferred):
+
+  1. **Hand-annotated gold standard.** A chapter or two of one or two
+     books with every named entity hand-resolved to its true Q-ID
+     (or marked AKA-only when no Wikidata entry exists). Needed to
+     measure precision / recall of EntityResolver, not just yield.
+
+  2. **Cross-provider comparison.** Same slice, three providers
+     (Gemini 2.5 Flash Lite default, GPT-4o-mini, Claude Haiku 3.5 —
+     all behind the LLMProvider protocol per Plan §3.3). The
+     measurement that decides PHX-0027 ("LLM provider re-evaluation")
+     directly. Cost: ~3× a single characterization run, gated by
+     having a Settings.llm.provider override per run.
+
+  3. **Multi-slice parametrisation.** Different narrative shapes —
+     dialogue-heavy, dense gazetteer, biographical chronology — to
+     surface failure modes the single-slice characterization layer
+     cannot see.
+
+  4. **Confusion-matrix reporting.** Today's IngestRunReport has tier
+     counts and parse_error tags but no per-mention "expected Q vs
+     actual Q" diff. Needs a new report type or a sidecar artefact.
+
+  5. **Athene-style verification.** Once Athene exists (PHX-0026),
+     a second LLM call per relation that asks "does this evidence
+     span justify this relation?" — Plan §3.4 v3 round 2 anticipates
+     this for relation extraction; the entity-resolution half is
+     already partially there via Tier 4 / 3.
+
+  Why this ticket stays open even after E7 ships the stub: the
+  characterization layer measures **drift**, not **correctness**. We
+  need the gold-standard work above before we can answer "is the
+  resolver getting the right answer?" — only "is the resolver still
+  doing what it was doing?".
+
+acceptance_criteria:
+  - At least one chapter (~50 sentences) of one Hedin or Harrer book
+    is hand-annotated with expected Q-IDs, machine-readable JSON in
+    ``docs/gold_standard/<book>/<chapter>.json``.
+  - A new test (or extension of ``test_pipeline_characterization.py``)
+    runs the resolver against the gold-standard mentions and reports
+    precision, recall, F1 per tier.
+  - Cross-provider runs are scripted, reproducible, and cost-budgeted
+    (≤ 5 EUR per benchmark run across all three providers).
+  - Results are persisted to ``docs/benchmarks/`` (committed) so PR
+    reviewers can compare before/after a resolver change.
+
+related:
+  - PHX-0027  # LLM provider re-evaluation (cross-provider runs feed this)
+  - PHX-0033  # Wikidata mirror (eliminates SPARQL flakiness in benchmark runs)
+  - PHX-0026  # Pantheon-as-Personas refactor (unblocks Athene)
+
+referenced_in:
+  - "Plan §7 PHX-0034"
+  - "Plan §3.8 layer 6 (the stub-vorhut)"
+  - "tests/test_pipeline_characterization.py docstring"

@@ -86,3 +86,8 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    """characterization: opt-in pipeline characterization runs (Plan §3.8 layer 6). \
+Gated by both this marker and THEOGONY_RUN_CHARACTERIZATION=1 env var; \
+consumes ~0.15-0.25 EUR Gemini per run.""",
+]

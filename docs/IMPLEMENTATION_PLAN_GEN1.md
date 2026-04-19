@@ -754,13 +754,14 @@ The CLI module satisfies the existing `pyproject.toml` declaration `theogony = "
 
 ### 3.8 Test strategy
 
-**Proposal: Five layers, in this order of priority.**
+**Proposal: Six layers, in this order of priority.**
 
 1. **Pure unit tests** for `core/model.py`, `core/vitality.py`, embedding/LLM stubs, individual extractors. Fast, no I/O.
 2. **Store contract suite** in `tests/test_store_contract.py`, parametrised with each `KnowledgeStore` implementation; `Neo4jKnowledgeStore` runs only when `TESTCONTAINERS_NEO4J=1` (default in CI, optional locally).
 3. **Pipeline integration tests** with `StubLLMProvider` and a tiny fixture text (~20 sentences crafted to exercise NER, Wikidata alignment, relation extraction, and constellation assembly).
 4. **API tests** with `httpx.AsyncClient` against an in-process FastAPI app, using `InMemoryKnowledgeStore`.
 5. **End-to-end smoke** that ingests the small fixture, queries it, asserts the answer mentions the expected entities, marked `slow` and excluded from the default `pytest` run, included in CI under a separate job.
+6. **Pipeline characterization** (added Etappe E7, see PHX-0034 stub-vorhut): one opt-in test that runs the full IngestionPipeline against a larger real-corpus slice (~300 narrative sentences, frontmatter-free) and asserts on **bands** rather than equalities — tier distribution, edge yield, wall-clock, LLM call count, materialised edge count. Calibrated once; bands are ±20% around the calibration. Gated by both `THEOGONY_RUN_CHARACTERIZATION=1` env var and the `@pytest.mark.characterization` marker so default `pytest` and CI never pay the ~0.15–0.25 EUR Gemini cost per run. Persisted JSON reports live under `docs/run_reports/characterization/<ulid>.json` (committed — they are documentation of the project's state, not runtime data). One slice, one test, no parametrisation: YAGNI until measurement says otherwise. Cross-provider comparison, gold-standard regression, and multi-slice runs are deferred.
 
 **Tools.** `pytest`, `pytest-asyncio` (already configured), `respx` for HTTP mocking, `syrupy` for snapshot testing of Constellations, `testcontainers-python` for Neo4j, `hypothesis` for property tests on vitality math.
 
