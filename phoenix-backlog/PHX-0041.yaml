@@ -1,0 +1,68 @@
+id: PHX-0041
+category: measurement
+priority: medium
+status: open
+generation_target: 1
+title: "Detective default-on threshold re-evaluation post-frontmatter-fix"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  v3 §3.4 Stage 5 (WikidataDetective) ships opt-in via the
+  `theogony ingest --detective` flag. v3 set heuristic threshold
+  bands for flipping the default:
+
+    Tier 1+0 (frontmatter-free) < 15 % → Detective stays opt-in
+                                          (Gen 2 PHX)
+    15 - 30 %                          → opt-in remains correct
+                                          (status quo)
+    > 30 %                             → flip Detective default-on
+
+  Empirical data from v5 characterization (mid-book slice, no
+  frontmatter): Tier 0 = 88 %. That superficially demands
+  default-on, but two confounders:
+
+    1. Rate-limit confounder: both characterization runs hit the
+       free-tier rate-limit on relations; some Stage-4 LLM
+       disambiguation calls may have also been rate-limited. Not
+       cleanly separable from current audit data.
+
+    2. Frontmatter confounder for full-book numbers: the
+       characterization slice is frontmatter-free by construction,
+       but the production decision is about full-book ingest.
+       FrontmatterFilter (v5 §3.4.0) will lift the full-book ratio
+       by an unmeasured amount.
+
+  v5 decision (locked): Detective stays opt-in. Reopen ONLY after
+  both confounders are removed.
+
+  Reopen sequence:
+    1. PHX-0039 OR PHX-0040 lands (rate-limit lifted).
+    2. FrontmatterFilter lands (v5 §3.4.0; ships in E7-or-earlier
+       etappe per the Architecture C splits).
+    3. Re-run `tests/test_pipeline_characterization.py` against the
+       same Hedin slice. Expect rate-limit removal alone to lift
+       relations.parsed_ok from 0 to ~30-50; frontmatter alone
+       does not affect mid-book slices.
+    4. Run a full-book ingest of Hedin Trans-Himalaya and Harrer's
+       Tibet. Apply v3 thresholds to the resulting tier ratios.
+
+  Decision rule:
+    - If post-fix Tier 1+0 ratio (full-book, frontmatter-filtered)
+      stays > 30 % → flip default-on. Update Plan §3.4 Stage 5
+      "off by default" → "on by default; opt out via
+      `--no-detective`". Estimated cost increase per book: +1.30
+      EUR (per v5 §4.1) — acceptable.
+    - If 15-30 % → opt-in remains correct, no change.
+    - If < 15 % → Detective is genuinely Gen-2 work. File a Gen-2
+      ticket to remove it from Gen 1 entirely (or document it as
+      an advanced-mode tool that ships but is rarely needed).
+
+  The Reviewer agent (PHX-0035) is the natural owner once it
+  exists; until then a human runs the measurement after E7+E8 and
+  files the verdict.
+
+related:
+  - PHX-0035  # Reviewer agent owns the measurement long-term
+  - PHX-0039  # rate-limit lift prerequisite
+  - PHX-0034  # the benchmark this measurement extends
+resolution: null

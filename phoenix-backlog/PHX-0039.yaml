@@ -1,0 +1,61 @@
+id: PHX-0039
+category: improvement
+priority: high
+status: open
+generation_target: 1
+title: "Token-bucket backoff inside LLMProvider"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  E6 free-tier ingest produced 41 nodes / 0 edges because the
+  RelationExtractor's per-sentence LLM calls saturated Gemini's
+  free-tier RPM limit (~15 req/min). The pipeline degraded gracefully
+  but the result is unusable for the demo. Plan §3.3a v5 corrected
+  the false free-tier promise; PHX-0039 / PHX-0040 are the two
+  candidate fixes (we ship one, not both).
+
+  Approach: per-LLMProvider-instance token-bucket honouring the
+  provider's RPM and TPM limits, with exponential backoff on
+  LLMRateLimitError (PHX-0037). Lives inside the provider so every
+  caller benefits without per-extractor changes.
+
+  Spec:
+    - `RateLimit(rpm: int, tpm: int)` configurable per provider via
+      Settings (e.g. `Settings.llm.gemini.rate_limit.rpm = 15` for
+      free tier, `1000` for paid).
+    - Token-bucket implemented with `asyncio.Semaphore` + a leaky-
+      bucket replenishment task. Reference impl: `aiolimiter` package
+      (~150 lines, MIT) — use it rather than rolling our own.
+    - On LLMRateLimitError (PHX-0037): sleep `retry_after_s` if set
+      else exponential backoff (initial 1 s, cap 60 s, jitter ±20%).
+      Up to 3 retries before re-raising.
+    - The wait must be `asyncio.sleep`, not blocking — otherwise it
+      stalls the entire concurrency-8 pipeline.
+
+  Trade-off vs. PHX-0040:
+    - PHX-0039 is provider-aware (knows its own limits) and works
+      across pipelines (any future query / Detective / Athene call
+      benefits).
+    - PHX-0040 is pipeline-aware (knows which stage is hot) and
+      simpler to implement (~30 lines in IngestionPipeline) but
+      does not help retrieval / synthesis / future agents.
+
+  Recommendation: ship PHX-0039 because it is the durable solution.
+  PHX-0040 is the fast path if PHX-0039 turns out to be hard to
+  thread through the google-genai SDK's async retry layer (which
+  has its own opinions).
+
+  Acceptance:
+    - GeminiLLMProvider with `rate_limit=RateLimit(rpm=15, tpm=...)`
+      runs the characterization slice (282 sentences) without
+      raising LLMRateLimitError outside its retry loop.
+    - Free-tier ingest of the Tibet book completes (under 60 min on
+      free tier; under 25 min on paid) with edges_upserted > 100.
+    - Plan §3.3a Watch-Item 4 correction is updated: free tier now
+      WORKS for full ingest, just slower.
+
+related:
+  - PHX-0037  # LLMRateLimitError prerequisite
+  - PHX-0040  # alternative; we pick one
+  - PHX-0034  # benchmark (reproducibility depends on this)
+resolution: null
