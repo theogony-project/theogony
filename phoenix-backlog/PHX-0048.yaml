@@ -1,94 +1,138 @@
 id: PHX-0048
 category: performance
-priority: low
-status: deferred
-generation_target: 2
-title: "Neo4jKnowledgeStore.update_scores collapses to one round-trip"
+priority: medium
+status: open
+generation_target: 1
+title: "KnowledgeStore.batch_update_scores — bulk score writes for OneirosWorker"
 filed_by: daedalus
 created_at: 2026-04-19
 description: |
-  Neo4jKnowledgeStore.update_scores (src/theogony/stores/neo4j_store.py)
-  currently does two Bolt round-trips per invocation: one get_node
-  to read existing scores, one MERGE to write. The two round-trips
-  exist because vitality is denormalised to a top-level property
-  (Plan §3.1a) and computed from all four NodeScores fields via
-  NodeScores.vitality(); the partial-update needs the existing
-  values for the fields the caller didn't supply.
+  Originally filed (2026-04-19) as "Neo4jKnowledgeStore.update_scores
+  collapses to one round-trip via Cypher COALESCE", deferred to Gen 2
+  because the single-node COALESCE shape couples the vitality formula
+  to Cypher and frustrates PHX-0009's freedom to evolve the formula
+  empirically.
 
-  Single-round-trip alternative via Cypher COALESCE:
-    SET n.confidence  = COALESCE($confidence, n.confidence),
-        n.relevance   = COALESCE($relevance, n.relevance),
-        n.connectivity = COALESCE($connectivity, n.connectivity),
-        n.freshness   = COALESCE($freshness, n.freshness),
-        n.vitality    = (n.confidence * w_c + n.relevance * w_r
-                       + n.connectivity * w_co + n.freshness * w_f)
-                       -- vitality formula inline, weights as parameters
+  Reopened by E8.5 design (2026-04-19) — see
+  docs/etappes/E8.5_brief_daedalus.md Q5 and Plan §5 E8.5.
+  Generation target moved Gen 2 → Gen 1 because the OneirosWorker's
+  full-sweep tick over EPHEMERA at the demo's ≤ 2000-node retention
+  surface needs O(1) write round-trips per tick, not O(N): with the
+  original per-node update_scores at ~5 ms per Bolt round-trip,
+  N=2000 gives ~10 s per tick, exceeding any reasonable share of the
+  60-s tick interval and making the demo's "feels alive" UX
+  observably laggy.
 
-  Trade-off: hardcoding the vitality formula in Cypher (even with
-  the weights as parameters) couples the Neo4j store to the
-  weighted-sum aggregation shape. Plan §8 v3 explicitly notes
-  vitality is "kept; defaults are heuristic and PHX-0009 records
-  empirical tuning is needed". The formula is therefore EXPECTED
-  to evolve (per-NodeType weights, age-decay, etc.).
+  REFINED IMPLEMENTATION SHAPE (the change that re-opens this ticket):
 
-  Daedalus decision (applying Hesiod's own decision rule):
-    PHX-0009 (Vitality function tuning) is already filed and
-    explicitly says the formula is heuristic, defaults need
-    empirical tuning. Hesiod's rule:
+  Drop the single-node Cypher COALESCE shape. Add a NEW Protocol
+  method that accepts a batch of updates with PRECOMPUTED vitality:
 
-      "If the vitality formula is expected to evolve in Gen 1
-       (e.g. weighted by NodeType, decayed by age, etc.), defer
-       this optimisation. Two round-trips are not in any hot path
-       we've measured."
+      class ScoreUpdate(BaseModel):
+          node_id: str
+          confidence: float | None = None
+          relevance: float | None = None
+          connectivity: float | None = None
+          freshness: float | None = None
+          vitality: float | None = None  # precomputed by caller
 
-    The condition fires. The formula will evolve. Coupling the
-    store now buys ~10-15 ms per update_scores call — a code
-    path that runs once per Oneiros tick per node, not in any
-    measured hot path.
+      class KnowledgeStore(Protocol):
+          ...
+          async def batch_update_scores(
+              self, updates: Sequence[ScoreUpdate]
+          ) -> None: ...
 
-    → DEFERRED to Gen 2. Status: deferred. Generation target: 2.
+  Cypher (Neo4j override):
 
-  Acceptance (Gen 2, when reopened):
-    - Either (a) PHX-0009 has produced a frozen vitality formula
-      (or at minimum a stable computational shape such as "weighted
-      sum with parameter array"), OR (b) OneirosWorker microbenchmark
-      shows update_scores latency is a measurable bottleneck (>5 %
-      of tick wallclock).
-    - Implementation: Cypher COALESCE+inline-vitality, with the
-      weights passed as parameters from Settings.vitality.weights
-      (new field group introduced as part of PHX-0009 freeze).
-    - Regression test: update one field, verify all four others
-      stay; verify vitality recomputes per the parameterised formula.
-    - Microbenchmark: ≥1.5× speedup on a 100-node update workload.
+      UNWIND $rows AS r
+      MATCH (n:KnowledgeNode {id: r.node_id})
+      SET n.confidence   = COALESCE(r.confidence,   n.confidence),
+          n.relevance    = COALESCE(r.relevance,    n.relevance),
+          n.connectivity = COALESCE(r.connectivity, n.connectivity),
+          n.freshness    = COALESCE(r.freshness,    n.freshness),
+          n.vitality     = COALESCE(r.vitality,     n.vitality)
 
-  Race-condition note (added 2026-04-19, post-E8 reconciliation):
-    RelevanceTracker.bump (E8, memory/relevance.py) does the same
-    two-roundtrip pattern (get_node + upsert_node) for the
-    last_accessed + relevance bump. It is NOT atomic: if a future
-    OneirosWorker (E8.5) writes scores between the read and the
-    write, the OneirosWorker's update is lost. Today there is no
-    concurrent writer, so the race is dormant. The
-    single-roundtrip Cypher this ticket proposes
-    (COALESCE-based update_scores) ALSO solves this race,
-    because the Cypher MERGE is atomic at the relationship level.
-    When this ticket is picked up, factor the race-fix into the
-    acceptance criteria (one new contract-suite test: two
-    concurrent bumps yield exactly one composed result, not the
-    last-write-wins).
+  InMemory fallback: iterate updates, look up node, apply non-None
+  fields, write back (no race because in-process).
 
-  YAGNI guard: filing this as deferred (not active) so the
-  optimisation is not lost when PHX-0009 lands, but no engineering
-  hours are spent on it now. The status field is "deferred" rather
-  than "open" to distinguish it from work the next reviewer should
-  pick up.
+  Why this shape sidesteps the original deferral:
+
+  1. NO formula in Cypher. The vitality column is written from the
+     pre-computed value the caller passed in. PHX-0009 changes the
+     formula in core/model.py NodeScores.vitality(); Cypher does not
+     care. The original PHX-0048 shape (Cypher COALESCE with weights
+     as parameters) DID couple the formula to Cypher; this shape
+     does not.
+
+  2. ATOMIC at the bulk level. The single Cypher statement holds
+     one transaction across all N nodes; concurrent
+     RelevanceTracker.bump calls (which use the existing per-node
+     get_node + upsert_node pattern) interleave at single-node
+     granularity. Because the bulk write touches connectivity /
+     freshness / vitality but NOT relevance (the worker does not
+     mutate relevance), the bump's relevance update survives the
+     race in the worst case. Documented in Plan §5 E8.5
+     "Race-condition note (Q5)".
+
+  3. PERFORMANT for the worker's actual workload. One round-trip
+     per tick instead of N. At demo scale (N=2000, tick=60 s) the
+     write cost drops from ~10 s to ~5-50 ms.
+
+  Acceptance:
+
+    - `ScoreUpdate` Pydantic model added (likely in core/model.py
+      next to NodeScores, or a new core/store_models.py if Daedalus
+      prefers separation; Talos picks).
+    - `KnowledgeStore.batch_update_scores(updates: Sequence[ScoreUpdate])`
+      added to Protocol with default fallback implementation.
+    - `InMemoryKnowledgeStore` implements via per-node in-process
+      apply.
+    - `Neo4jKnowledgeStore` overrides with the UNWIND+COALESCE Cypher
+      above. PROFILE confirms one MATCH per row, range-index served
+      via the existing :KnowledgeNode(id) index.
+    - Contract suite extended (one new parametrised test): seed N
+      nodes with known scores, batch_update_scores with a mix of
+      partial / full updates, verify all updates landed, verify
+      unmodified fields stayed.
+    - Convergence test (Plan §5 E8.5 Q5): one test that interleaves
+      a RelevanceTracker.bump between two worker tick yields and
+      asserts the bumped relevance survives. This is the
+      "documented race converges on next tick" pin.
+    - Microbenchmark in the docstring (or a gated test): N=200
+      nodes, batch_update_scores vs N per-node update_scores calls
+      against testcontainers Neo4j, target ≥ 20× speedup
+      wall-clock. Reject if < 5×.
+    - The original `update_scores(node_id, scores: dict[str, float])`
+      stays in the Protocol for RelevanceTracker.bump's reactive
+      single-node use case; it is NOT removed. Both methods coexist.
+
+  Out of scope:
+
+    - Vitality-formula evolution itself (PHX-0009).
+    - Locking the vitality formula's SHAPE (weighted sum vs. other).
+      Because Cypher only stores precomputed numbers, the shape can
+      evolve freely on the Python side.
+    - Removing the per-node update_scores. RelevanceTracker.bump
+      remains single-node + reactive; bulk would be over-engineering
+      a code path that fires at most once per cited node per query.
+
+  YAGNI guard preserved: the bulk method exists ONLY because
+  E8.5's full-sweep tick generates the workload that justifies it.
+  No speculative bulk APIs for code paths that don't have a
+  concrete consumer.
 
 reopen_trigger: |
-  Either: (a) PHX-0009 freezes the vitality formula or stabilises
-  it to a parameter-shaped computation, OR (b) OneirosWorker
-  performance benchmarking shows score-update latency is a
-  measurable bottleneck (>5 % of tick wallclock).
+  This ticket is now `open` (Gen 1) and is part of the E8.5
+  implementation surface. Talos picks it up alongside the
+  OneirosWorker. There is no "wait for trigger" — the trigger
+  fired (E8.5 design landed).
 
 related:
-  - PHX-0009  # vitality function tuning — the actual blocker
-  - PHX-0050  # also a relevance-tracker performance neighbour
+  - PHX-0009  # vitality formula tuning — orthogonal; Cypher is
+              # formula-agnostic in this shape, so PHX-0009 does
+              # not block PHX-0048
+  - PHX-0046  # batch_upsert_nodes/edges — sibling write-side
+              # bulk Protocol method; same UNWIND pattern
+  - PHX-0050  # get_edges_among — sibling read-side bulk Protocol
+              # method (resolved); same shape category
 resolution: null
