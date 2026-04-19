@@ -33,7 +33,40 @@ jobs:
         run: python -m spacy download en_core_web_sm
 
       - name: Run tests
+        # Default suite — Neo4j matrix is gated out; that lives in the
+        # dedicated `neo4j` job below.
         run: pytest tests/ -v --tb=short
+
+  neo4j:
+    name: Neo4j store contract + live tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Install spaCy English model
+        run: python -m spacy download en_core_web_sm
+
+      - name: Run Neo4j contract + live tests
+        # ``THEOGONY_TEST_NEO4J=1`` enables the Neo4j parametrisation in
+        # tests/test_store_contract.py and ungates tests/test_neo4j_store_live.py.
+        # testcontainers-python brings up `neo4j:5.18-community` per session
+        # (cached). Expected wall-clock add-on: ~30-60 s (Plan §3.8 budget).
+        # If the runner cannot reach Docker / pull the image, set the env
+        # var to anything other than 1 to skip the matrix; the failure is
+        # surfaced in the dedicated job's logs without breaking the rest of CI.
+        env:
+          THEOGONY_TEST_NEO4J: "1"
+        run: pytest tests/test_store_contract.py tests/test_neo4j_store_live.py -v --tb=short
 
   lint:
     name: Lint

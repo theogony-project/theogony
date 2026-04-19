@@ -49,3 +49,33 @@ The spark has been lit.
 **The initial impulse is being written now.**
 
 **Contribute. The future is listening.**
+
+---
+
+## Local development
+
+```bash
+# 1. Set up Python (3.12+).
+pip install -e ".[dev,gemini]"
+python -m spacy download en_core_web_sm
+
+# 2. Start the Neo4j 5.18-community store backend (Plan §3.1a).
+#    Auth is disabled for local dev (see docker-compose.yml header);
+#    production deployments override THEOGONY_NEO4J__PASSWORD.
+docker compose up -d neo4j
+
+# 3. Verify the toolchain.
+theogony status                           # config + report counts
+pytest -q                                 # unit + integration suite (no Neo4j)
+
+# 4. Run the Neo4j-store contract suite + live tests.
+THEOGONY_TEST_NEO4J=1 pytest tests/test_store_contract.py tests/test_neo4j_store_live.py -v
+
+# 5. Ingest one Project Gutenberg book end-to-end (~1-3 min, ~0.1 EUR Gemini).
+#    Requires GEMINI_API_KEY or GOOGLE_API_KEY in env.
+theogony ingest 43497 --sentences 50 --relations 10
+theogony reports show <run_id>
+```
+
+Stop everything: `docker compose down`. Wipe Neo4j data: `docker compose down -v`.
+
