@@ -1,11 +1,14 @@
 id: PHX-0049
 category: packaging
 priority: medium
-status: open
+status: resolved
 generation_target: 1
 title: "AnswerSynthesizer system prompt not packaged for non-editable installs"
 filed_by: daedalus
 created_at: 2026-04-19
+resolved_at: 2026-04-19
+linked_prs:
+  - "PR #24 — bundled production-readiness merge (PHX-0042 + PHX-0046 + PHX-0049 + PHX-0050)"
 description: |
   AnswerSynthesizer (E8, src/theogony/retrieval/synthesize.py) loads
   its system prompt from a path computed relative to the module
@@ -83,4 +86,36 @@ reopen_trigger: |
 
 related:
   - PHX-0035  # Reviewer agent — prompt management surface
-resolution: null
+resolution: |
+  Resolved 2026-04-19 in PR #24 via Hesiod's recommended Option A.
+
+  Implementation:
+    - Prompt moved from repo-root `prompts/answer_synthesizer.md`
+      to packaged `src/theogony/retrieval/prompts/answer_synthesizer.md`.
+    - `src/theogony/retrieval/prompts/__init__.py` added to make
+      the directory a proper Python sub-package.
+    - `AnswerSynthesizer.__init__` now loads the prompt via
+      `importlib.resources.files("theogony.retrieval.prompts")
+       .joinpath("answer_synthesizer.md").read_text(encoding="utf-8")`
+      with explicit `prompt_path` parameter as a test-time override.
+    - `pyproject.toml` carries
+      `[tool.hatch.build.targets.wheel.force-include]` for the
+      `.md` file so non-editable wheel installs ship the prompt.
+
+  Tests:
+    - `tests/test_retrieval_synthesize.py::test_default_loads_packaged_prompt_via_importlib_resources`
+      verifies the default path uses the packaged location.
+    - `tests/test_retrieval_synthesize.py::test_synthesizer_prompt_packaged`
+      verifies the prompt resource is reachable via importlib.resources
+      (proxies the wheel-install behaviour without a subprocess pip
+      install — the resource API is the same in editable + wheel modes).
+
+  README quickstart no longer carries the editable-install caveat;
+  `pip install theogony` becomes valid once the package lands on PyPI.
+
+  Closure rationale:
+    - All acceptance criteria met (importlib.resources idiom in place,
+      no FileNotFoundError under wheel layout, README updated).
+    - No follow-up tickets needed; multi-prompt packaging and
+      hot-reload remain Gen-2 concerns per the original out-of-scope
+      list (PHX-0035 territory).

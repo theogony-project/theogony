@@ -1,0 +1,91 @@
+id: PHX-0054
+category: performance
+priority: low
+status: open
+generation_target: 1
+title: "Re-measure PHX-0046 batch_upsert speedup on bare-metal Linux Neo4j"
+filed_by: hesiod
+created_at: 2026-04-19
+description: |
+  Filed at PHX-0046 close (PR #24). The original PHX-0046 brief
+  targeted ≥30× speedup for `batch_upsert_nodes` on the basis
+  that "the Bolt round-trip cost dominates; UNWIND eliminates
+  99% of round-trips". Talos's empirical measurements on Mac
+  via testcontainers showed:
+
+    batch_upsert_nodes (no embedding):    ~10–12× speedup
+    batch_upsert_nodes (production embed): ~9.9× speedup
+    batch_upsert_edges:                    ~3–4× speedup
+
+  Reason for the gap: server-side processing (HNSW index inserts,
+  MERGE conflict resolution) competes with the round-trip cost
+  on the testcontainers + Mac setup. The Cypher's correctness
+  in collapsing round-trips is confirmed (round-trip count
+  drops from N to 1 per batch); the wall-clock multiplier is
+  capped by the server-side work.
+
+  Hesiod's hypothesis: the 30× ceiling is bare-metal-Linux-Neo4j
+  territory, where:
+    - The Bolt round-trip cost is lower (loopback over Linux
+      socket vs Docker bridge over macOS).
+    - The HNSW index insert cost benefits from the Linux page
+      cache + io_uring style I/O.
+    - The MERGE planner's overhead is a smaller fraction of
+      the per-row cost.
+
+  This ticket asks for one re-measurement on a representative
+  bare-metal Linux Neo4j (e.g. an EC2 t3.medium or a contributor's
+  Linux laptop with native Neo4j 5.x). If the 30× ceiling holds,
+  the original PHX-0046 brief is vindicated and the test
+  thresholds in `tests/test_neo4j_perf_smoke.py` can be tightened
+  on the Linux CI matrix only. If the 30× ceiling does NOT hold
+  on bare-metal either, the brief target is updated, and the
+  next round of PHX-0046-style work knows the realistic ceiling.
+
+  Acceptance:
+    - One re-run of `tests/test_neo4j_perf_smoke.py` gated on
+      `THEOGONY_TEST_NEO4J=1` against bare-metal Linux Neo4j 5.x
+      (not testcontainers; native install or
+      `docker run --network=host` on Linux).
+    - Three datapoints captured: batch_upsert_nodes (no embedding),
+      batch_upsert_nodes (production embedding), batch_upsert_edges.
+    - One paragraph in the next `docs/cypher_audit/*.md` round
+      summarising the bare-metal vs testcontainers/Mac delta and
+      the implications for the assertion thresholds.
+    - If bare-metal hits ≥20×: update the docstring of
+      `Neo4jKnowledgeStore.batch_upsert_nodes` to note the
+      hardware-dependent ceiling and the bare-metal datapoint.
+    - If bare-metal hits <15× (i.e. close to Mac): file a
+      diagnostic note suggesting the bottleneck is HNSW insert
+      cost and propose one of:
+        - APOC bulk loader (Gen-2 PHX, separate ticket)
+        - Stage the embedding write into a separate batch
+          (write nodes first, embed second, MERGE the embedding
+          property)
+        - Accept the ~10× ceiling as the production reality and
+          retire the 30× expectation.
+
+  Out of scope:
+    - The bare-metal re-measurement itself running in CI on
+      every commit (matrix cost; one-off measurement is enough).
+    - Replacing testcontainers in unit tests (testcontainers is
+      the right tool for portable smoke tests; the bare-metal
+      run is only for the empirical re-measurement).
+
+  YAGNI guard: PHX-0046 is RESOLVED in PR #24 with documented
+  threshold deviation. This ticket exists ONLY to close the
+  empirical gap so the next PR-style optimisation knows the
+  realistic ceiling. No demo path depends on this measurement.
+
+reopen_trigger: |
+  Either: (a) a contributor with bare-metal Linux Neo4j
+  picks it up opportunistically, OR (b) the Plan §1 demo's
+  ingest wall-clock is measurably constrained by the
+  upsert path (e.g. the Hedin Trans-Himalaya full-book
+  ingest takes >20 min on the demo machine).
+
+related:
+  - PHX-0046  # parent — the speedup target this re-measures
+  - PHX-0042  # sibling audit — re-measurement could roll into
+              #                 the next cypher_audit/*.md round
+resolution: null

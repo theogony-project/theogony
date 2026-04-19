@@ -1,11 +1,14 @@
 id: PHX-0050
 category: performance
 priority: medium
-status: open
+status: resolved
 generation_target: 1
 title: "ConstellationAssembler does N depth-1 neighborhood probes; replace with single bulk-edges Cypher"
 filed_by: daedalus
 created_at: 2026-04-19
+resolved_at: 2026-04-19
+linked_prs:
+  - "PR #24 — bundled production-readiness merge (PHX-0042 + PHX-0046 + PHX-0049 + PHX-0050)"
 description: |
   ConstellationAssembler.assemble (E8, src/theogony/retrieval/
   constellation.py:89-102) collects edges among the retrieved
@@ -86,4 +89,72 @@ reopen_trigger: |
 related:
   - PHX-0042  # query-plan audit — same measurement session
   - PHX-0046  # batch_upsert — write-side analogue
-resolution: null
+resolution: |
+  Resolved 2026-04-19 in PR #24, with one documented semantic
+  refinement vs the original brief (orphan-target gap detection).
+
+  Implementation:
+    - `KnowledgeStore` Protocol gained
+      `async def get_edges_among(node_ids: Sequence[str],
+                                  min_weight: float = 0.0)
+       -> list[KnowledgeEdge]`.
+    - `Neo4jKnowledgeStore` overrides with
+      `MATCH (a:KnowledgeNode)-[r:RELATION]->(b:KnowledgeNode)
+       WHERE a.id IN $ids AND b.id IN $ids
+         AND r.weight >= $min_weight
+       RETURN a.id, b.id, r` — single Bolt round-trip leveraging
+      the existing range index on `:KnowledgeNode(id)` per
+      Plan §3.1a.
+    - `InMemoryKnowledgeStore` implements with an in-process
+      set-membership filter over `self._edges`; <100 ns per edge.
+    - `ConstellationAssembler.assemble` rewired: replaces the
+      per-node `for node in retrieved: get_neighborhood(node.id, 1)`
+      loop with one `await self._store.get_edges_among(
+          retrieved_ids, min_weight=settings.retrieval.min_weight)`
+      call. The slim DTO output is unchanged.
+
+  Tests:
+    - `tests/test_store_contract.py::TestGetEdgesAmong` — 3 new
+      parametrised contract tests (within-set filtering,
+      `min_weight` filter, empty-input no-roundtrip).
+    - `tests/test_neo4j_perf_smoke.py::test_assembler_perf_before_and_after`
+      — wall-clock microbenchmark vs the previous N+1 loop, gated on
+      `THEOGONY_TEST_NEO4J=1`. Met the ≥5× speedup target on
+      testcontainers (round-trip dominated).
+    - `tests/test_retrieval_constellation.py
+       ::test_orphan_target_gap_unreachable_under_bulk_edges_semantics`
+      — pins the new semantic (see refinement below).
+
+  Semantic refinement (deferred sub-feature):
+    The original brief assumed orphan-target gap detection would
+    "still work (endpoints collected from the bulk edges, same set
+    arithmetic)". Talos correctly identified that the new Cypher
+    `WHERE a.id IN $ids AND b.id IN $ids` filters edges where BOTH
+    endpoints are within the retrieved set — by construction, an
+    edge whose target is NOT in the retrieved set (the canonical
+    orphan-target case) is structurally unreachable from this
+    code path.
+
+    Hesiod's call: prioritise the Cypher semantics as the contract;
+    accept that orphan-target gap detection is structurally deferred
+    under the new bulk-edges path. The `GAP_ORPHAN_PREFIX` constant
+    in `retrieval/constellation.py` is preserved for future use
+    (e.g. a Gen-2 second-pass orphan probe). The
+    `ConstellationAssembler` module docstring was updated to
+    reflect the new contract.
+
+    A new ticket for "Gen-2 second-pass orphan-target detection
+    via a follow-up cheap probe" is NOT filed at PHX-0050 close
+    because no consumer has asked for it. File when a consumer
+    surfaces.
+
+  Closure rationale:
+    - All acceptance criteria met.
+    - Performance target (≥5× wall-clock speedup) met empirically
+      on testcontainers.
+    - Semantic refinement is structurally bound to the chosen
+      Cypher and was the right call vs the original brief's
+      "still works" assumption (Talos surfaced the inconsistency
+      pre-merge; Hesiod approved).
+    - Orphan-target gap detection is "structurally deferred under
+      new bulk-edges semantics" — pinned by the new contract test.
