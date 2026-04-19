@@ -353,6 +353,20 @@ class InMemoryKnowledgeStore:
         candidates.sort(key=lambda n: n.created_at, reverse=True)
         return candidates[:limit]
 
+    async def resolve_node(
+        self,
+        node_id: str,
+        wikidata_id: str | None,
+    ) -> bool:
+        node = self._nodes.get(node_id)
+        if node is None:
+            return False
+        if wikidata_id:
+            node.external_ids = {**node.external_ids, "wikidata": wikidata_id}
+            node.resolution_tier = 1
+        node.manual_resolution_needed = False
+        return True
+
     # -------------------------------------------------------------------------
     # Diagnostics
     # -------------------------------------------------------------------------

@@ -762,6 +762,46 @@ class Neo4jKnowledgeStore:
             records = await result.data()
         return [_node_from_record(rec["node"]) for rec in records]
 
+    async def resolve_node(
+        self,
+        node_id: str,
+        wikidata_id: str | None,
+    ) -> bool:
+        # Operator confirms a Wikidata Q-ID for a previously
+        # tier-0 mention. We bump tier to 1 (operator-confirmed),
+        # set the flat wikidata_id index column + the JSON column,
+        # and clear manual_resolution_needed. When wikidata_id is
+        # falsy, only the manual flag clears (operator said "none
+        # of the candidates fit").
+        existing = await self.get_node(node_id)
+        if existing is None:
+            return False
+        if wikidata_id:
+            updated_external = {**existing.external_ids, "wikidata": wikidata_id}
+            rest_external = {k: v for k, v in updated_external.items() if k != "wikidata"}
+            cypher = """
+            MATCH (n:KnowledgeNode {id: $node_id})
+            SET n.wikidata_id              = $wikidata_id,
+                n.external_ids_json        = $external_ids_json,
+                n.resolution_tier          = $resolution_tier,
+                n.manual_resolution_needed = false
+            """
+            params = {
+                "node_id": node_id,
+                "wikidata_id": wikidata_id,
+                "external_ids_json": json.dumps(rest_external, sort_keys=True),
+                "resolution_tier": 1,
+            }
+        else:
+            cypher = """
+            MATCH (n:KnowledgeNode {id: $node_id})
+            SET n.manual_resolution_needed = false
+            """
+            params = {"node_id": node_id}
+        async with self._session() as session:
+            await session.run(cypher, **params)
+        return True
+
     # ----- diagnostics -------------------------------------------------------
 
     async def count_nodes(self, layer: Layer | None = None) -> int:
