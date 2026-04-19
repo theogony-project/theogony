@@ -99,6 +99,106 @@ class TestHelp:
 # ---------------------------------------------------------------------------
 
 
+class TestIngestCommand:
+    def test_ingest_help_lists_all_options(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Force wide terminal so Typer/Rich's columns don't wrap option
+        # names with ANSI escapes mid-token (CI's default 80-col TERM
+        # turned "--sentences" into a multi-segment Rich render that
+        # `in result.stdout` couldn't find).
+        monkeypatch.setenv("COLUMNS", "200")
+        result = CliRunner().invoke(app, ["ingest", "--help"])
+        assert result.exit_code == 0
+        assert "BOOK_ID" in result.stdout
+        # Match each option's help description body — those words live
+        # in the description column and are not split by Rich even at
+        # narrow widths. More robust than asserting on the option
+        # token itself, which Rich may colour-segment.
+        for description_token in (
+            "Limit NER",  # --sentences
+            "Cap relation extraction",  # --relations
+            "Skip BookContextExtractor",  # --no-book-context
+            "Skip RelationExtractor",  # --no-relations
+            "Skip the embedder",  # --no-embed
+        ):
+            assert description_token in result.stdout, (
+                f"missing help description for option: {description_token!r}"
+            )
+
+    def test_ingest_without_book_id_errors(self) -> None:
+        # Typer should refuse the call with a usage error when the
+        # required positional argument is missing.
+        result = CliRunner().invoke(app, ["ingest"])
+        assert result.exit_code != 0
+
+    def test_ingest_reports_acquisition_failure_cleanly(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # No GEMINI/GOOGLE keys in env (autouse fixture clears them)
+        # AND no network access in CI sandbox. The acquisition stage
+        # is the first thing that touches the network — it must fail
+        # with a clean Rich panel + non-zero exit, not a stack trace.
+        # We force-fail acquisition by monkeypatching get_by_id to
+        # raise — keeps the test offline and deterministic.
+        from theogony.acquisition import gutenberg as gb
+
+        async def boom(self: gb.GutenbergAdapter, book_id: object) -> None:
+            raise gb.httpx.HTTPStatusError(
+                "404 Not Found",
+                request=gb.httpx.Request("GET", "https://gutendex.com/books/x"),
+                response=gb.httpx.Response(404),
+            )
+
+        monkeypatch.setattr(gb.GutenbergAdapter, "get_by_id", boom)
+        result = CliRunner().invoke(app, ["ingest", "999999999"])
+        assert result.exit_code == 1
+        assert "Acquisition failed" in result.stdout
+
+    def test_ingest_reports_missing_llm_key_cleanly(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Force acquisition to succeed via a stub that returns a
+        # minimal RawContent — then the missing Gemini key must be
+        # what fails next, with a clean panel.
+        from datetime import UTC
+        from datetime import datetime as _dt
+
+        from theogony.acquisition import gutenberg as gb
+        from theogony.acquisition.base import RawContent, SourceCandidate
+
+        async def fake_get(self: gb.GutenbergAdapter, book_id: object) -> SourceCandidate:
+            return SourceCandidate(
+                source_type="gutenberg",
+                identifier=str(book_id),
+                title="Test",
+                download_url="https://example.invalid/x",
+            )
+
+        async def fake_acquire(
+            self: gb.GutenbergAdapter,
+            cand: SourceCandidate,
+        ) -> RawContent:
+            return RawContent(
+                source_type="gutenberg",
+                identifier=cand.identifier,
+                title=cand.title,
+                language="en",
+                content="hello world",
+                content_format="text/plain; charset=utf-8",
+                bytes_acquired=11,
+                acquired_at=_dt.now(UTC),
+            )
+
+        monkeypatch.setattr(gb.GutenbergAdapter, "get_by_id", fake_get)
+        monkeypatch.setattr(gb.GutenbergAdapter, "acquire", fake_acquire)
+        # Default provider is "gemini" but no key in env → factory raises.
+        result = CliRunner().invoke(app, ["ingest", "1"])
+        assert result.exit_code == 1
+        assert "LLM provider unavailable" in result.stdout
+        assert "GEMINI_API_KEY" in result.stdout
+
+
 class TestStatus:
     def test_status_runs_without_external_services(self) -> None:
         # No env vars, no network — must still print a coherent summary.

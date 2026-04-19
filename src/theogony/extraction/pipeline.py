@@ -66,6 +66,7 @@ from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.book_context import BookContext, BookContextExtractor
 from theogony.extraction.clean import TextCleaner
 from theogony.extraction.edges import build_resolved_lookup, materialise_edges
+from theogony.extraction.embedding import EmbeddingProvider
 from theogony.extraction.ner import Mention, NerExtractor
 from theogony.extraction.relations import ExtractedRelation, RelationExtractor
 from theogony.extraction.resolve import EntityResolver, ResolvedMention
@@ -125,6 +126,7 @@ class IngestionPipeline:
         ner_extractor: NerExtractor | None = None,
         relation_extractor: RelationExtractor | None = None,
         book_context_extractor: BookContextExtractor | None = None,
+        embedder: EmbeddingProvider | None = None,
         audit_log: ExtractionAuditLog | None = None,
         store: KnowledgeStore | None = None,
         settings: Settings | None = None,
@@ -137,6 +139,7 @@ class IngestionPipeline:
         self._ner_extractor = ner_extractor or NerExtractor()
         self._relation_extractor = relation_extractor
         self._book_context_extractor = book_context_extractor
+        self._embedder = embedder
         self._audit_log = audit_log
         self._store = store
         self._settings = settings or Settings()
@@ -277,20 +280,19 @@ class IngestionPipeline:
             run_id=run_id,
         )
 
-        # ---- embedded (placeholder, E6) ----
-        stages.append(
-            IngestStageReport(
-                name="embedded",
+        # ---- embedded ----
+        embedding_summary, _ = await self._stage(
+            stages,
+            "embedded",
+            self._stage_embed,
+            resolved_mentions,
+        )
+        if embedding_summary is None:
+            embedding_summary = EmbeddingSummary(
+                nodes_embedded=0,
+                embedding_model_id=_EMBEDDER_NOT_CONFIGURED,
                 duration_s=0.0,
-                status="skipped",
-                notes="Embedder not yet wired (E6+)",
             )
-        )
-        embedding_summary = EmbeddingSummary(
-            nodes_embedded=0,
-            embedding_model_id=_EMBEDDER_NOT_CONFIGURED,
-            duration_s=0.0,
-        )
 
         # ---- stored ----
         store_summary, store_status = await self._stage(
@@ -411,6 +413,50 @@ class IngestionPipeline:
             source_ref=source_ref,
             sentences=sentences,
             run_id=run_id,
+        )
+
+    async def _stage_embed(
+        self,
+        resolved_mentions: list[ResolvedMention],
+    ) -> EmbeddingSummary:
+        """Embed the label of every minted node and stamp model-identity metadata.
+
+        When no embedder is configured returns an empty-but-honest
+        EmbeddingSummary (model_id="(not configured)", count=0). When
+        configured but ``resolved_mentions`` is empty returns
+        ``nodes_embedded=0`` with the real model_id — the next ingest
+        with content can still re-use this pipeline instance.
+
+        The embedder writes ``embedding`` + ``embedding_model_id`` +
+        ``embedding_dim`` directly onto each ResolvedMention.node. The
+        pipeline does NOT mint a fresh KnowledgeNode — Pydantic models
+        permit attribute assignment and the ResolvedMention map is
+        shared with the store stage that runs immediately after.
+        """
+        if self._embedder is None:
+            return EmbeddingSummary(
+                nodes_embedded=0,
+                embedding_model_id=_EMBEDDER_NOT_CONFIGURED,
+                duration_s=0.0,
+            )
+        if not resolved_mentions:
+            return EmbeddingSummary(
+                nodes_embedded=0,
+                embedding_model_id=self._embedder.model_id,
+                duration_s=0.0,
+            )
+        started_perf = time.perf_counter()
+        labels = [rm.node.label for rm in resolved_mentions]
+        vectors = await self._embedder.embed_many(labels)
+        for rm, vec in zip(resolved_mentions, vectors, strict=True):
+            rm.node.embedding = vec
+            rm.node.embedding_model_id = self._embedder.model_id
+            rm.node.embedding_dim = self._embedder.dim
+        duration = time.perf_counter() - started_perf
+        return EmbeddingSummary(
+            nodes_embedded=len(vectors),
+            embedding_model_id=self._embedder.model_id,
+            duration_s=duration,
         )
 
     async def _stage_store(

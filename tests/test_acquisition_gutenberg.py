@@ -162,6 +162,47 @@ class TestCandidateProjection:
 # ---------------------------------------------------------------------------
 
 
+class TestGetById:
+    @respx.mock
+    async def test_returns_candidate_for_existing_id(self) -> None:
+        respx.get(f"{DEFAULT_GUTENDEX_URL}/books/43497").mock(
+            return_value=httpx.Response(200, json=_HEDIN_BOOK_PAYLOAD)
+        )
+        async with GutenbergAdapter() as adapter:
+            cand = await adapter.get_by_id("43497")
+        assert cand.identifier == "43497"
+        assert cand.title.startswith("Trans-Himalaya")
+        assert cand.download_url is not None
+
+    @respx.mock
+    async def test_accepts_int_id(self) -> None:
+        respx.get(f"{DEFAULT_GUTENDEX_URL}/books/43497").mock(
+            return_value=httpx.Response(200, json=_HEDIN_BOOK_PAYLOAD)
+        )
+        async with GutenbergAdapter() as adapter:
+            cand = await adapter.get_by_id(43497)
+        assert cand.identifier == "43497"
+
+    @respx.mock
+    async def test_raises_value_error_for_book_without_text_format(self) -> None:
+        no_text = {**_HEDIN_BOOK_PAYLOAD, "formats": {"text/html": "..."}}
+        respx.get(f"{DEFAULT_GUTENDEX_URL}/books/99").mock(
+            return_value=httpx.Response(200, json=no_text)
+        )
+        async with GutenbergAdapter() as adapter:
+            with pytest.raises(ValueError, match="no plain-text format"):
+                await adapter.get_by_id("99")
+
+    @respx.mock
+    async def test_propagates_404(self) -> None:
+        respx.get(f"{DEFAULT_GUTENDEX_URL}/books/99999999").mock(
+            return_value=httpx.Response(404, json={"detail": "Not found."})
+        )
+        async with GutenbergAdapter(retry_attempts=1) as adapter:
+            with pytest.raises(httpx.HTTPStatusError):
+                await adapter.get_by_id("99999999")
+
+
 class TestSearch:
     @respx.mock
     async def test_returns_mapped_candidates(self) -> None:

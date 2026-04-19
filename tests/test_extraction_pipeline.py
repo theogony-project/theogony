@@ -247,9 +247,12 @@ class TestIngestHappyPath:
             "stored",  # status="ok" with empty store summary when no store
         ):
             assert required in stage_names, f"stage {required} missing from report"
-        # Embedder is a placeholder in E5.
+        # Embedded stage runs unconditionally now (E6) — without an
+        # embedder configured it completes ok with nodes_embedded=0.
         embed_stage = next(s for s in result.report.stages if s.name == "embedded")
-        assert embed_stage.status == "skipped"
+        assert embed_stage.status == "ok"
+        assert result.report.embedding.nodes_embedded == 0
+        assert result.report.embedding.embedding_model_id == "(not configured)"
 
         # ---- summaries ----
         assert result.report.ner.total_mentions >= 4  # Hedin × 2 + Lhasa + Dalai + Aufs
@@ -376,6 +379,68 @@ class TestBookContext:
 
 
 # ---------------------------------------------------------------- failure paths
+
+
+class TestEmbedder:
+    """Embedder stage stamps every minted node with model identity."""
+
+    async def test_embedder_writes_vectors_to_every_node(self) -> None:
+        client = FakeWikidataClient(_hedin_responses())
+        resolver = EntityResolver(client=client)  # type: ignore[arg-type]
+        embedder = _FakeEmbedder(dim=4)
+        pipeline = IngestionPipeline(
+            entity_resolver=resolver,
+            embedder=embedder,
+        )
+        result = await pipeline.ingest(_hedin_raw())
+
+        # Every resolved node carries the embedder's identity + a vector.
+        assert len(result.resolved_mentions) >= 1
+        for rm in result.resolved_mentions:
+            assert rm.node.embedding_model_id == embedder.model_id
+            assert rm.node.embedding_dim == 4
+            assert len(rm.node.embedding) == 4
+
+        # Report summary populated.
+        assert result.report.embedding.nodes_embedded == len(result.resolved_mentions)
+        assert result.report.embedding.embedding_model_id == embedder.model_id
+        assert result.report.embedding.duration_s >= 0.0
+
+    async def test_embedder_called_once_with_label_batch(self) -> None:
+        # Plan §2.3: embed_many is the batched API; pipeline must use
+        # it (not N × embed) to keep ingest cheap on large books.
+        client = FakeWikidataClient(_hedin_responses())
+        resolver = EntityResolver(client=client)  # type: ignore[arg-type]
+        embedder = _FakeEmbedder(dim=2)
+        pipeline = IngestionPipeline(entity_resolver=resolver, embedder=embedder)
+        await pipeline.ingest(_hedin_raw())
+        assert embedder.embed_many_calls == 1
+        assert embedder.embed_calls == 0
+
+
+class _FakeEmbedder:
+    """Trivial embedder that returns deterministic vectors of the given dim."""
+
+    def __init__(self, dim: int = 4) -> None:
+        self._dim = dim
+        self.embed_calls = 0
+        self.embed_many_calls = 0
+
+    @property
+    def model_id(self) -> str:
+        return "fake-embedder@v1"
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    async def embed(self, text: str) -> list[float]:
+        self.embed_calls += 1
+        return [float(i) / max(len(text), 1) for i in range(self._dim)]
+
+    async def embed_many(self, texts: list[str]) -> list[list[float]]:
+        self.embed_many_calls += 1
+        return [[float(i) / max(len(t), 1) for i in range(self._dim)] for t in texts]
 
 
 class TestRelationExtractorOptional:
