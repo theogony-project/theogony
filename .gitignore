@@ -43,3 +43,7 @@ htmlcov/
 
 # Neo4j local data
 neo4j_data/
+
+# Runtime data: audit log, run reports, ingested artefacts.
+# Reports that document project state live under docs/run_reports/.
+data/
