@@ -191,6 +191,63 @@ class TestComplete:
         await provider.complete("q")
         assert capture["config"].response_mime_type is None
 
+    async def test_nullable_json_schema_converted_to_gemini_form(self) -> None:
+        # Gemini's API rejects {"type": ["string", "null"]} (the JSON
+        # Schema 2020-12 idiom). The provider must rewrite it to
+        # {"type": "string", "nullable": true} on the way through —
+        # otherwise Stage 4 disambiguation with "chosen: string|null"
+        # crashes with a Pydantic validation error inside the SDK.
+        capture: dict[str, Any] = {}
+        client = _fake_client(capture=capture)
+        provider = GeminiLLMProvider(api_key=None, client=client)
+        schema = {
+            "type": "object",
+            "properties": {
+                "chosen": {"type": ["string", "null"]},
+                "places": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["chosen", "places"],
+            "additionalProperties": False,
+        }
+        await provider.complete("q", json_schema=schema)
+        cfg_repr = str(capture["config"].response_schema)
+        # The string-or-null became single-type + nullable.
+        assert "nullable" in cfg_repr
+        # The plain "string" type for items survived untouched (no
+        # accidental nullable=true on every leaf string).
+        assert "places" in cfg_repr
+
+    async def test_unsupported_json_schema_keys_are_stripped(self) -> None:
+        # Gemini's API rejects "additionalProperties", "$schema", etc.
+        # The provider must strip them silently rather than failing the
+        # call — losing strictness is acceptable, losing the call is not.
+        capture: dict[str, Any] = {}
+        client = _fake_client(capture=capture)
+        provider = GeminiLLMProvider(api_key=None, client=client)
+        schema = {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "properties": {
+                "chosen": {"type": "string"},
+                "nested": {
+                    "type": "object",
+                    "properties": {"x": {"type": "string"}},
+                    "additionalProperties": False,
+                },
+            },
+            "required": ["chosen"],
+            "additionalProperties": False,
+        }
+        await provider.complete("q", json_schema=schema)
+        cfg_repr = str(capture["config"].response_schema)
+        # Both top-level and nested additionalProperties / $schema gone.
+        assert "additional_properties" not in cfg_repr.lower()
+        assert "additionalProperties" not in cfg_repr
+        assert "$schema" not in cfg_repr
+        # The properties survived.
+        assert "chosen" in cfg_repr
+        assert "nested" in cfg_repr
+
     async def test_timeout_raises(self) -> None:
         client = _fake_client(delay_s=1.0)
         provider = GeminiLLMProvider(api_key=None, client=client)

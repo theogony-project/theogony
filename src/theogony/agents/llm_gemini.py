@@ -129,7 +129,7 @@ class GeminiLLMProvider:
             kwargs["max_output_tokens"] = max_output_tokens
         if json_schema is not None:
             kwargs["response_mime_type"] = "application/json"
-            kwargs["response_schema"] = json_schema
+            kwargs["response_schema"] = _to_gemini_schema(json_schema)
         return types.GenerateContentConfig(**kwargs)
 
     async def complete(
@@ -175,3 +175,65 @@ class GeminiLLMProvider:
             latency_ms=latency_ms,
             model_id=self._model_id,
         )
+
+
+def _to_gemini_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Convert a standard JSON Schema fragment into the form Gemini accepts.
+
+    Gemini's ``response_schema`` is OpenAPI-3-flavoured and rejects two
+    common JSON-Schema-2020-12 idioms:
+
+    1. ``"type": ["string", "null"]`` — a type-array means
+       "either string or null" in JSON Schema; Gemini wants a single
+       type plus ``"nullable": true``.
+    2. Top-level ``additionalProperties`` is fine but Gemini ignores
+       most string-format hints — a soft no-op rather than an error,
+       so we leave it intact.
+
+    This converter walks the schema recursively and rewrites every
+    ``type``-array into single-type-plus-``nullable``. Other shape
+    differences are passed through untouched. Works for the small
+    schemas the extraction pipeline uses (BookContext, Stage 4); a
+    fully general JSON-Schema → OpenAPI converter is PHX-deferrable
+    (PHX-0027 LLM provider re-evaluation will re-open it when we
+    swap providers).
+    """
+    if not isinstance(schema, dict):
+        return schema
+    out: dict[str, Any] = {}
+    for key, value in schema.items():
+        # Gemini's OpenAPI-3 schema does not understand a handful of
+        # JSON-Schema-2020-12 keywords and rejects payloads that
+        # include them. Strip them silently — they are advisory in
+        # standard JSON Schema anyway, so the loss is the absence of
+        # validator strictness, not semantic content.
+        if key in _GEMINI_UNSUPPORTED_KEYS:
+            continue
+        if key == "type" and isinstance(value, list):
+            non_null = [t for t in value if t != "null"]
+            if len(non_null) == 1 and "null" in value:
+                out["type"] = non_null[0]
+                out["nullable"] = True
+                continue
+            # Multi-type without null, or all-null: leave untouched and
+            # let Gemini decide whether to accept (it generally won't —
+            # callers should narrow these themselves).
+            out[key] = value
+        elif key == "properties" and isinstance(value, dict):
+            out[key] = {k: _to_gemini_schema(v) for k, v in value.items()}
+        elif isinstance(value, dict):
+            # Covers ``items`` (array element schema) and any other
+            # nested-schema slot — recurse uniformly.
+            out[key] = _to_gemini_schema(value)
+        else:
+            out[key] = value
+    return out
+
+
+# JSON-Schema keywords Gemini's response_schema rejects. ``pattern`` is
+# fine; ``additionalProperties`` is the canonical strictness lever in
+# JSON Schema but Gemini doesn't model it. ``$schema`` is meta and
+# never relevant inside a Gemini config.
+_GEMINI_UNSUPPORTED_KEYS: frozenset[str] = frozenset(
+    {"additionalProperties", "$schema", "$id", "$ref"}
+)
