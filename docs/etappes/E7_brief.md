@@ -38,7 +38,7 @@ Property mapping: every field listed in Plan §3.1a's two tables, with the expli
 
 ## Constraints + indexes
 
-Verbatim from Plan §3.1a Cypher blocks. Two unique constraints (node `id`, relation `id`), two existence constraints (node `id`, relation `relation_type`), ten range indexes (eight on `:KnowledgeNode`, two on `[:RELATION]` — `relation_type` and `weight`), one HNSW vector index on `embedding`. All idempotent (`IF NOT EXISTS`).
+Verbatim from Plan §3.1a Cypher blocks. Two unique constraints (node `id`, relation `id`), ten range indexes (eight on `:KnowledgeNode`, two on `[:RELATION]` — `relation_type` and `weight`), one HNSW vector index on `embedding`. All idempotent (`IF NOT EXISTS`). Property-existence is Pydantic-enforced — see §3.1a edition note.
 
 ## Settings (env vars)
 
