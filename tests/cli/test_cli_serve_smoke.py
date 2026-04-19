@@ -44,13 +44,22 @@ def _free_tcp_port() -> int:
         return int(s.getsockname()[1])
 
 
-def test_serve_subprocess_serves_health_then_clean_shutdown() -> None:
+def test_serve_subprocess_serves_health_then_clean_shutdown(tmp_path: object) -> None:
     port = _free_tcp_port()
+    # Run the subprocess against the StubLLMProvider so CI runners
+    # without a GEMINI_API_KEY can still exercise the lifespan + the
+    # /health surface end-to-end. /health does not invoke the LLM
+    # (asserted in tests/api/test_api_health.py); we only need the
+    # provider factory to accept the configuration.
+    env = os.environ.copy()
+    env["THEOGONY_LLM__PROVIDER"] = "stub"
+    env["THEOGONY_LLM__MODEL_ID"] = "stub-llm"
     proc = subprocess.Popen(
         [sys.executable, "-m", "theogony.cli", "serve", "--port", str(port)],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        env=env,
     )
     try:
         # Poll /health up to 30 s — cold-start (BGE + Neo4j + audit) can
