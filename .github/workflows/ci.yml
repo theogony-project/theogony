@@ -41,6 +41,26 @@ jobs:
     name: Neo4j store contract + live tests
     runs-on: ubuntu-latest
 
+    # ``services:`` runs neo4j 5.18-community on the standard port for
+    # any test that connects via ``localhost:7687`` — currently the
+    # ``theogony serve`` subprocess smoke (its lifespan opens a Bolt
+    # connection from inside the spawned uvicorn). The contract +
+    # live tests use ``testcontainers`` which picks an ephemeral port
+    # and is unaffected by this service.
+    services:
+      neo4j:
+        image: neo4j:5.18-community
+        ports:
+          - 7687:7687
+          - 7474:7474
+        env:
+          NEO4J_AUTH: none
+        options: >-
+          --health-cmd "wget -q -O - http://localhost:7474 || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v4
 
