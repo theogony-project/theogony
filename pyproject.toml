@@ -76,6 +76,14 @@ Repository = "https://github.com/theogony-project/theogony"
 [tool.hatch.build.targets.wheel]
 packages = ["src/theogony"]
 
+[tool.hatch.build.targets.wheel.force-include]
+# PHX-0049: explicitly ship the AnswerSynthesizer system prompt with
+# the wheel. Hatchling only auto-includes ``.py`` files inside the
+# package; the ``.md`` data files need force-include or they vanish
+# from non-editable installs and the synthesizer raises FileNotFoundError
+# on first use.
+"src/theogony/retrieval/prompts/answer_synthesizer.md" = "theogony/retrieval/prompts/answer_synthesizer.md"
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

@@ -206,15 +206,50 @@ class TestAuditLogWiring:
 
 
 class TestPromptLoading:
-    def test_missing_prompt_raises_file_not_found(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_missing_explicit_prompt_path_raises_file_not_found(
+        self, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        # An explicitly-provided path that doesn't exist must raise
+        # immediately at construction — not silently fall back to the
+        # packaged default.
         bogus = tmp_path / "nope.md"  # type: ignore[attr-defined]
-        with pytest.raises(FileNotFoundError, match="answer_synthesizer"):
+        with pytest.raises(FileNotFoundError, match="(?i)synthesizer"):
             AnswerSynthesizer(StubLLMProvider(), prompt_path=bogus)
 
-    def test_default_prompt_path_resolves_to_repo_prompts_dir(self) -> None:
+    def test_default_loads_packaged_prompt_via_importlib_resources(self) -> None:
+        # PHX-0049: the loader resolves the prompt from inside the
+        # package via importlib.resources rather than a parents[3]
+        # path computation. The constructor accepts no prompt_path,
+        # the packaged copy is read, and the constraint grammar
+        # marker (one of the lines a packager could not have edited
+        # without us noticing) appears in the loaded text.
         synth = AnswerSynthesizer(StubLLMProvider())
-        assert synth._prompt_path.name == "answer_synthesizer.md"
-        assert synth._prompt_path.exists()
+        # _prompt_path stays None when the packaged default is used
+        # (we no longer expose a filesystem path because importlib
+        # resources may serve from a zip-importer or similar).
+        assert synth._prompt_path is None
+        assert "AKA-" in synth._system_prompt
+        assert "AnswerSynthesizer" in synth._system_prompt
+
+    def test_synthesizer_prompt_packaged(self) -> None:
+        # Direct importlib.resources verification: the package and the
+        # resource exist, are readable, and contain the expected
+        # citation grammar. This proves the wheel-install path works
+        # without spawning a subprocess pip install in a tmp venv.
+        from importlib import resources
+
+        traversable = resources.files("theogony.retrieval.prompts").joinpath(
+            "answer_synthesizer.md"
+        )
+        assert traversable.is_file(), (
+            "answer_synthesizer.md missing from theogony.retrieval.prompts; "
+            "wheel installs would fail FileNotFoundError on first synthesizer call."
+        )
+        text = traversable.read_text(encoding="utf-8")
+        # The grammar lines are the contract; anything packager-stripped
+        # would change them and be caught here.
+        assert "[AKA-<12-hex-chars>]" in text
+        assert "AnswerSynthesizer system prompt" in text
 
 
 # ---------------------------------------------------------------- transport error
