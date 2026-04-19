@@ -313,6 +313,27 @@ class EntityResolver:
         """True iff Stage 4 LLM disambiguation is wired up."""
         return self._llm is not None
 
+    @property
+    def book_context(self) -> BookContext | None:
+        """Currently configured BookContext (Plan §3.4 Stage 4 input)."""
+        return self._book_context
+
+    def set_book_context(self, ctx: BookContext | None) -> None:
+        """Update the BookContext used for Stage 4 prompts.
+
+        The IngestionPipeline (E5+) constructs the resolver before
+        the BookContext is available (BookContext is itself an
+        ingest-time LLM call), then calls this setter once the
+        context is extracted. Outside the pipeline, prefer the
+        constructor kwarg.
+
+        Concurrency: not safe across overlapping ingest runs that
+        share a resolver instance. Gen 1 single-tenant single-
+        ingest semantics make this fine; revisit if Gen 2 fans
+        out concurrent ingests against one resolver.
+        """
+        self._book_context = ctx
+
     async def resolve(
         self,
         mention: Mention,

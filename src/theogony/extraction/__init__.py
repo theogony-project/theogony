@@ -3,16 +3,17 @@
 Gen 1 stages (Plan §2.5), in pipeline order:
 
     RawContent → TextCleaner → Sentencizer → NerExtractor →
-        EntityResolver → RelationExtractor → Embedder → KnowledgeStore
+        BookContextExtractor (optional) →
+        EntityResolver → RelationExtractor →
+        edge materialisation → Embedder → KnowledgeStore
 
 E1: TextCleaner, Sentencizer, NerExtractor.
-E2: EntityResolver Stages 1-3 (deterministic Wikidata alignment) plus
-    its supporting modules WikidataClient, AliasMatcher, wikidata_types.
-E3: BookContextExtractor + Stage 4 LLM disambiguation + Tier 2/1
-    minting (extends EntityResolver; opt-in via constructor llm arg).
-E4: RelationExtractor (Plan §3.3 fixed vocabulary, §3a PID-2 sentence-
-    level extraction with optional expand_window for prev/next context).
-    Stage 5 (WikidataDetective opt-in) remains deferred to E5+.
+E2: EntityResolver Stages 1-3 + supporting modules.
+E3: BookContextExtractor + Stage 4 LLM disambiguation + Tier 2/1.
+E4: RelationExtractor (fixed vocabulary, PID-2 safeguards).
+E5: ExtractionAuditLog (SQLite) + edge materialisation +
+    IngestionPipeline orchestrator. Stage 5 (WikidataDetective) and
+    the Embedder are deferred to later etappes.
 
 The Embedder lives here too (Plan §2.3) — it shares the lifecycle of
 the extraction pipeline at runtime.
@@ -24,17 +25,24 @@ from theogony.extraction.alias_matcher import (
     fully_normalise,
     is_match,
 )
+from theogony.extraction.audit import AuditRecord, ExtractionAuditLog
 from theogony.extraction.book_context import (
     DEFAULT_MAX_OPENING_CHARS,
     BookContext,
     BookContextExtractor,
 )
 from theogony.extraction.clean import CleanedContent, TextCleaner
+from theogony.extraction.edges import (
+    EdgeMaterialisation,
+    build_resolved_lookup,
+    materialise_edges,
+)
 from theogony.extraction.embedding import (
     EmbeddingProvider,
     LocalSentenceTransformerEmbedder,
 )
 from theogony.extraction.ner import DEFAULT_NER_MODEL, Mention, NerExtractor
+from theogony.extraction.pipeline import IngestionPipeline, IngestionResult
 from theogony.extraction.relation_types import (
     RELATION_TYPE_TO_WIKIDATA,
     RELATION_TYPES,
@@ -77,13 +85,18 @@ __all__ = [
     "TIER_3_CONFIDENCE",
     "TIER_4_CONFIDENCE",
     "AliasMatchStrength",
+    "AuditRecord",
     "BioFacts",
     "BookContext",
     "BookContextExtractor",
     "CleanedContent",
+    "EdgeMaterialisation",
     "EmbeddingProvider",
     "EntityResolver",
     "ExtractedRelation",
+    "ExtractionAuditLog",
+    "IngestionPipeline",
+    "IngestionResult",
     "LocalSentenceTransformerEmbedder",
     "Mention",
     "NerExtractor",
@@ -97,10 +110,12 @@ __all__ = [
     "WikidataClient",
     "acceptable_wikidata_types",
     "best_match",
+    "build_resolved_lookup",
     "fully_normalise",
     "is_known_relation_type",
     "is_match",
     "is_resolvable",
+    "materialise_edges",
     "node_type_for_ner_label",
     "normalise_relation_type",
 ]
