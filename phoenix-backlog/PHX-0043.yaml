@@ -1,0 +1,68 @@
+id: PHX-0043
+category: improvement
+priority: low
+status: open
+generation_target: 1
+title: "Embedder→Store async pipelining inside IngestionPipeline"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  Today IngestionPipeline serialises its terminal stages: the
+  embedder produces embeddings on every minted node, then the store
+  writes them. With asyncio.gather over batch_upsert_nodes plus
+  parallel batch_upsert_edges, the embedder stage and the store
+  stage can overlap. Expected wall-clock win on the ingest path:
+  1.5–2× — but only on the ingest profile where the LLM bottleneck
+  has already been lifted.
+
+  Hard precondition. This optimisation is meaningless while LLM
+  calls dominate ingest wall-clock. E6 measured ~73 s total ingest
+  with the relations stage as the dominant cost; embedder + store
+  together were a small fraction of that. Until PHX-0039 (token-
+  bucket) or PHX-0040 (per-stage throttling) makes the relations
+  stage's wall-clock predictable AND a fresh characterisation run
+  shows a measurable embedder→store gap, this ticket has no
+  substance to optimise. File and defer.
+
+  Why this is a "low (conditional)" priority: the prerequisite
+  (PHX-0039 or PHX-0040) is itself in flight. Once that lands and
+  the gap becomes measurable, the priority of this ticket should be
+  raised to medium and the work scheduled. If the prerequisite ships
+  in Gen 1, this ticket ships in Gen 1; if not, it slips to Gen 2.
+
+  Acceptance:
+    - PHX-0039 OR PHX-0040 has landed and stabilised the relations
+      stage.
+    - A new characterisation run shows a measured gap > 5 s between
+      the `embedded` and `stored` IngestStageReport timestamps. The
+      gap proves there is something to overlap; without it the
+      change is engineering for engineering's sake.
+    - Implementation: IngestionPipeline._run_embedding_stage and
+      _run_store_stage are coupled via an asyncio.Queue or via
+      asyncio.gather with per-batch backpressure. The store backend
+      (Neo4jKnowledgeStore at this point) must support concurrent
+      batch_upsert_nodes / batch_upsert_edges calls without
+      transaction conflicts — Neo4j 5 with the implicit per-call
+      transaction handles this.
+    - A follow-up characterisation run shows: embedder stage
+      wall-clock unchanged (LLM-side, untouched), store stage
+      wall-clock under 50 % of its previous value, total ingest
+      time reduced accordingly.
+    - The change is reverted by env var (Settings.extraction.
+      pipelining.enabled or similar) until measured stable.
+
+  Sequencing: earliest after PHX-0039 OR PHX-0040 ships and the
+  follow-on characterisation run confirms a measurable gap. Not
+  before E8 / E9 land — the retrieval-side work is more valuable
+  and uses the same engineering hours.
+
+  Pending plan anchor: none. If implemented, the IngestionPipeline
+  composition diagram in Plan §4.1 will need a small update showing
+  the embedded↔stored overlap; that is a one-paragraph patch to
+  §4.1 filed when this ticket is accepted.
+
+related:
+  - PHX-0039  # token-bucket precondition
+  - PHX-0040  # per-stage throttling precondition (alternative to PHX-0039)
+  - PHX-0034  # the characterisation test measures the wall-clock effect
+resolution: null

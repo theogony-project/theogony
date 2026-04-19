@@ -1,0 +1,67 @@
+id: PHX-0044
+category: improvement
+priority: low
+status: open
+generation_target: 1
+title: "Read-replica-readiness audit of the KnowledgeStore Protocol surface"
+filed_by: daedalus
+created_at: 2026-04-19
+description: |
+  Hygiene audit. Every method on the KnowledgeStore Protocol
+  (src/theogony/core/store.py — ~13 public methods including
+  vector_search, traverse, multi_hop_search, get_node,
+  get_neighborhood, upsert_node, upsert_edge, delete_node,
+  promote, degrade, count, etc.) is classified as read-only or
+  read-write and the Neo4jKnowledgeStore implementation annotates
+  each with the matching Bolt-driver pattern:
+
+    - read-only  ⇒ session.execute_read(lambda tx: ...)
+    - read-write ⇒ session.execute_write(lambda tx: ...)
+
+  Today this distinction is invisible to a single-node Neo4j and
+  thus correct-by-accident. The day someone configures a Causal
+  Cluster with read-replicas, the routing layer reads execute_read
+  vs execute_write to decide which instance handles the request —
+  RO calls go to replicas, RW calls go to the leader. Without the
+  classification, every call lands on the leader and the cluster
+  buys nothing.
+
+  This is Gen 1 hygiene. The Read-replica payoff is Gen 2/3 (the
+  generation where multiple Chronik consumers read concurrently
+  and the leader becomes a write-bottleneck). The audit work itself
+  is small and pays a real correctness dividend on the day it is
+  needed.
+
+  Acceptance:
+    - A documentation table that lists every Protocol method with
+      its RO/RW classification. Live location: either
+      docs/perf/E7_query_plan_audit.md (alongside PHX-0042) or a
+      Postscriptum block in the existing E7 brief — whichever is
+      cheaper. Pending plan anchor: §3.1a does not currently host
+      this table; if a future contributor argues it belongs there,
+      file a follow-up patch then.
+    - Neo4jKnowledgeStore uses session.execute_read /
+      session.execute_write consistently per the table.
+    - A contract-suite test (or a targeted lint) detects drift:
+      every new Protocol method must declare its classification or
+      the test fails. The mechanism is the simpler of: (a) a class
+      attribute on KnowledgeStore declaring the dict, (b) a test
+      that introspects the Protocol's methods against a fixture
+      classification list.
+    - Effort: ~1 hour of audit + ~30 minutes of test wiring.
+      Bundle with PHX-0042 in one mini-etappe — both are post-E7
+      audits and share the same review surface.
+
+  Sequencing: after E7 merge. Bundle with PHX-0042. Pure Gen-1
+  hygiene — the read-replica gain itself is Gen 2/3.
+
+  Pending plan anchor: §3.1a does not yet enumerate per-method
+  RO/RW classifications. If the audit recommends adopting the
+  table into §3.1a, file a one-section patch then. Until the audit
+  exists, leaving §3.1a clean is the right default.
+
+related:
+  - PHX-0001  # custom engine inherits the same Protocol classification
+  - PHX-0014  # Metis is read-heavy and would benefit from replicas
+  - PHX-0015  # Fast/Slow Cognition path likewise — fast path is RO-dominant
+resolution: null
