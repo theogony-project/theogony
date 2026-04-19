@@ -257,3 +257,52 @@ class TestOneirosTickReport:
     def test_negative_promoted_rejected(self) -> None:
         with pytest.raises(ValidationError):
             self._minimal(nodes_promoted=-1)
+
+
+class TestMultiHopBreakdownPhx0051:
+    """PHX-0051 (Option A): nodes_per_hop is Optional, final_node_count
+    is always populated.
+    """
+
+    def test_multi_hop_breakdown_partial_hops(self) -> None:
+        # Default-shape: store does not expose per-hop visibility →
+        # nodes_per_hop=None, final_node_count carries the truth.
+        bd = MultiHopBreakdown(
+            seed_count=10,
+            duration_ms=200,
+            final_node_count=10,
+        )
+        assert bd.nodes_per_hop is None
+        assert bd.final_node_count == 10
+        # JSON round-trip preserves the None.
+        restored = MultiHopBreakdown.model_validate_json(bd.model_dump_json())
+        assert restored.nodes_per_hop is None
+        assert restored.final_node_count == 10
+
+    def test_forward_compat_per_hop_list(self) -> None:
+        # A future per-hop-aware retriever can fill the list directly;
+        # the schema accepts it and the value round-trips through JSON.
+        bd = MultiHopBreakdown(
+            seed_count=10,
+            duration_ms=200,
+            nodes_per_hop=[3, 5, 2],
+            final_node_count=10,
+        )
+        restored = MultiHopBreakdown.model_validate_json(bd.model_dump_json())
+        assert restored.nodes_per_hop == [3, 5, 2]
+        assert restored.final_node_count == 10
+
+    def test_legacy_report_with_list_nodes_per_hop_still_parses(self) -> None:
+        # Backwards-compatibility canary: reports written before the
+        # PHX-0051 schema patch carried nodes_per_hop=[<int>] (no
+        # final_node_count). Optional-widening means they parse cleanly,
+        # final_node_count defaults to 0.
+        legacy_payload = {
+            "seed_count": 10,
+            "nodes_per_hop": [10],
+            "duplicates_removed": 0,
+            "duration_ms": 200,
+        }
+        bd = MultiHopBreakdown.model_validate(legacy_payload)
+        assert bd.nodes_per_hop == [10]
+        assert bd.final_node_count == 0  # absent in legacy → default
