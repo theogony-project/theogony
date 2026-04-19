@@ -13,6 +13,7 @@ from theogony.config.settings import (
     QueryVerdictThresholds,
     ReportSettings,
     Settings,
+    StoreSettings,
     VerdictThresholds,
 )
 
@@ -28,6 +29,7 @@ __all__ = [
     "QueryVerdictThresholds",
     "ReportSettings",
     "Settings",
+    "StoreSettings",
     "THEOGONY_LOGGER_NAME",
     "VerdictThresholds",
     "get_logger",

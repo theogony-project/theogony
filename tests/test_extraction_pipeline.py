@@ -51,7 +51,13 @@ class FakeWikidataClient:
 
 
 class InMemoryStore:
-    """Tiny KnowledgeStore stub: collects upserts into lists for assertions."""
+    """Tiny KnowledgeStore stub: collects upserts into lists for assertions.
+
+    Implements both single + batch upsert APIs (PHX-0046). The pipeline
+    stage uses ``batch_upsert_*`` exclusively after PR
+    chore/post-e9-production-readiness; the single methods stay so the
+    older direct-call assertions in this file keep working.
+    """
 
     def __init__(self) -> None:
         self.nodes: list[KnowledgeNode] = []
@@ -63,6 +69,13 @@ class InMemoryStore:
 
     async def upsert_edge(self, edge: KnowledgeEdge) -> None:
         self.edges.append(edge)
+
+    async def batch_upsert_nodes(self, nodes: list[KnowledgeNode]) -> list[str]:
+        return [await self.upsert_node(n) for n in nodes]
+
+    async def batch_upsert_edges(self, edges: list[KnowledgeEdge]) -> None:
+        for edge in edges:
+            await self.upsert_edge(edge)
 
 
 # ---------------------------------------------------------------- raw content fixture

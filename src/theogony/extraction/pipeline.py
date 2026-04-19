@@ -52,7 +52,7 @@ What this module deliberately does NOT do:
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -464,19 +464,32 @@ class IngestionPipeline:
         resolved_mentions: list[ResolvedMention],
         edges: list[KnowledgeEdge],
     ) -> StoreSummary:
+        """Persist resolved nodes + minted edges via batched upserts.
+
+        PHX-0046: chunks both lists into ``Settings.store.batch_size``
+        slices and routes each through ``KnowledgeStore.batch_upsert_*``.
+        Backends with bulk-write APIs (Neo4j UNWIND) collapse N
+        round-trips to ⌈N/batch_size⌉; backends without (InMemory)
+        loop per node — same idempotency contract, same return shape.
+
+        ``nodes_count`` reflects the size of the input list (one
+        ResolvedMention = one node, resolver-deduped). The store may
+        return the same id back twice on rare ``KnowledgeNode`` ingest
+        races; we trust the resolver's dedup and report the input
+        count, matching the pre-batching semantics.
+        """
         if self._store is None:
             return StoreSummary(nodes_upserted=0, edges_upserted=0)
-        nodes_count = 0
-        edges_count = 0
-        # Resolver dedup'd by surface form, so each ResolvedMention has
-        # one node — upserting the whole list is the right granularity.
-        for rm in resolved_mentions:
-            await self._store.upsert_node(rm.node)
-            nodes_count += 1
-        for edge in edges:
-            await self._store.upsert_edge(edge)
-            edges_count += 1
-        return StoreSummary(nodes_upserted=nodes_count, edges_upserted=edges_count)
+        batch_size = self._settings.store.batch_size
+        node_list = [rm.node for rm in resolved_mentions]
+        for node_chunk in _chunks(node_list, batch_size):
+            await self._store.batch_upsert_nodes(node_chunk)
+        for edge_chunk in _chunks(edges, batch_size):
+            await self._store.batch_upsert_edges(edge_chunk)
+        return StoreSummary(
+            nodes_upserted=len(node_list),
+            edges_upserted=len(edges),
+        )
 
     # =========================================================== relation stage
 
@@ -669,6 +682,20 @@ class IngestionPipeline:
 
 
 # ============================================================ summary helpers
+
+
+def _chunks[T](items: Sequence[T], size: int) -> Iterator[list[T]]:
+    """Yield successive ``size``-sized chunks of ``items`` (last may be short).
+
+    PHX-0046: used to slice the per-run node + edge lists into batches
+    of ``Settings.store.batch_size`` for ``KnowledgeStore.batch_upsert_*``.
+    Empty input yields nothing; ``size <= 0`` is a programmer error
+    that surfaces as ValueError immediately rather than infinite loop.
+    """
+    if size <= 0:
+        raise ValueError(f"chunk size must be positive; got {size}")
+    for start in range(0, len(items), size):
+        yield list(items[start : start + size])
 
 
 def _ner_summary_from(mentions_per_sentence: list[list[Mention]]) -> NerSummary:

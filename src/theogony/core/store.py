@@ -10,7 +10,7 @@ Implementations must live in src/theogony/stores/.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
@@ -129,6 +129,49 @@ class KnowledgeStore(Protocol):
 
     async def upsert_edge(self, edge: KnowledgeEdge) -> None:
         """Insert or update an edge."""
+        ...
+
+    async def batch_upsert_nodes(self, nodes: Sequence[KnowledgeNode]) -> list[str]:
+        """Insert or update a batch of nodes. Returns the node IDs in order.
+
+        PHX-0046 perf path: backends with bulk-write APIs (Neo4j UNWIND
+        + MERGE; future DuckDB COPY) override this for one-round-trip
+        semantics. The InMemory backend implements it as a per-node
+        ``upsert_node`` loop — same ordering, same idempotency, just
+        no perf win.
+
+        Pipelines (``IngestionPipeline.run``) chunk their final node
+        list into batches of ``Settings.store.batch_size`` and call
+        this method once per chunk; on Neo4j that collapses N
+        round-trips to ⌈N/batch_size⌉.
+        """
+        ...
+
+    async def batch_upsert_edges(self, edges: Sequence[KnowledgeEdge]) -> None:
+        """Insert or update a batch of edges. PHX-0046 perf path; see batch_upsert_nodes."""
+        ...
+
+    async def get_edges_among(
+        self,
+        node_ids: Sequence[str],
+        min_weight: float = 0.0,
+    ) -> list[KnowledgeEdge]:
+        """All edges whose source and target are both in ``node_ids``.
+
+        PHX-0050 perf path: ``ConstellationAssembler.assemble`` used
+        to call ``get_neighborhood`` once per retrieved node — k=10
+        round-trips per assemble, with most of each neighbourhood
+        thrown away by the assembler's ``(source_id, target_id,
+        relation_type)`` dedup. The actual question — "which edges
+        connect any two of these N nodes?" — is one Cypher round-trip
+        on the production Neo4j backend (range-index-served via the
+        Plan §3.1a uniqueness constraint on ``id``).
+
+        Returns edges with ``weight >= min_weight``. Order is
+        implementation-defined; callers that need a stable order
+        sort by ``(source_id, target_id, relation_type)``. Empty
+        ``node_ids`` returns ``[]`` without a round-trip.
+        """
         ...
 
     async def get_node(self, node_id: str) -> KnowledgeNode | None:

@@ -61,7 +61,7 @@ What this module deliberately does NOT do
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Mapping, Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -527,6 +527,65 @@ class Neo4jKnowledgeStore:
                 props=props,
             )
 
+    async def batch_upsert_nodes(self, nodes: Sequence[KnowledgeNode]) -> list[str]:
+        """One Bolt round-trip per batch via Cypher UNWIND + MERGE.
+
+        PHX-0046: replaces N round-trips for an N-node batch with a
+        single ``UNWIND $rows AS row MERGE … SET n += row.props``
+        round-trip. The rows preserve input order; ``RETURN row.id``
+        propagates that order back so the IngestionPipeline can
+        cross-reference returned ids against its in-memory node list.
+
+        Embedding-dim cross-check applied per row before the Cypher
+        runs: any node whose embedding length disagrees with the
+        store's configured dim raises ``ValueError`` immediately
+        (Plan §3.1a "never silently truncate"). Same contract as
+        single ``upsert_node``; the batch path inherits the discipline
+        rather than degrading it.
+        """
+        if not nodes:
+            return []
+        rows = [{"id": n.id, "props": _node_to_props(n, self._embedding_dim)} for n in nodes]
+        cypher = """
+        UNWIND $rows AS row
+        MERGE (n:KnowledgeNode {id: row.id})
+        SET n += row.props
+        RETURN row.id AS id
+        """
+        async with self._session() as session:
+            result = await session.run(cypher, rows=rows)
+            records = await result.data()
+        return [str(rec["id"]) for rec in records]
+
+    async def batch_upsert_edges(self, edges: Sequence[KnowledgeEdge]) -> None:
+        """One Bolt round-trip per batch via Cypher UNWIND + MERGE.
+
+        PHX-0046: same shape as ``batch_upsert_nodes``. Endpoint
+        nodes must already exist (caller's responsibility, matching
+        ``upsert_edge``); this method does NOT MERGE-create the
+        endpoints, it only attaches the relation.
+        """
+        if not edges:
+            return
+        rows = [
+            {
+                "id": e.id,
+                "source_id": e.source_id,
+                "target_id": e.target_id,
+                "props": _edge_to_props(e),
+            }
+            for e in edges
+        ]
+        cypher = """
+        UNWIND $rows AS row
+        MATCH (s:KnowledgeNode {id: row.source_id})
+        MATCH (t:KnowledgeNode {id: row.target_id})
+        MERGE (s)-[r:RELATION {id: row.id}]->(t)
+        SET r += row.props
+        """
+        async with self._session() as session:
+            await session.run(cypher, rows=rows)
+
     async def get_node(self, node_id: str) -> KnowledgeNode | None:
         cypher = """
         MATCH (n:KnowledgeNode {id: $node_id})
@@ -539,6 +598,37 @@ class Neo4jKnowledgeStore:
         if record is None:
             return None
         return _node_from_record(record["node"])
+
+    async def get_edges_among(
+        self,
+        node_ids: Sequence[str],
+        min_weight: float = 0.0,
+    ) -> list[KnowledgeEdge]:
+        # PHX-0050: one Cypher round-trip replaces N depth-1
+        # get_neighborhood probes from the assembler hot loop. Both
+        # endpoint matches are served by the
+        # ``knowledge_node_id_unique`` constraint-backed range index
+        # (Plan §3.1a); the WHERE-IN-list expands per-row but the
+        # range-index seek per id is constant-time. Source/target
+        # ids are projected explicitly so the assembler's edge
+        # reconstruction does not depend on driver-side
+        # ``rel.start_node`` / ``rel.end_node`` quirks (those are
+        # the same caveat get_neighborhood already documented).
+        if not node_ids:
+            return []
+        cypher = """
+        MATCH (a:KnowledgeNode)-[r:RELATION]->(b:KnowledgeNode)
+        WHERE a.id IN $ids AND b.id IN $ids AND r.weight >= $min_weight
+        RETURN r{.*, id: r.id} AS rel,
+               a.id AS source_id,
+               b.id AS target_id
+        """
+        async with self._session() as session:
+            result = await session.run(cypher, ids=list(node_ids), min_weight=min_weight)
+            records = await result.data()
+        return [
+            _edge_from_record(rec["rel"], rec["source_id"], rec["target_id"]) for rec in records
+        ]
 
     async def get_neighborhood(
         self,

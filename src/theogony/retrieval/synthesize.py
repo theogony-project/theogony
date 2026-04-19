@@ -30,13 +30,17 @@ Three discipline points (E8 brief):
    the invariant explicit so downstream consumers (the Hover-Lupe,
    the report's CitationQuality) can rely on it.
 
-The system prompt lives at ``prompts/answer_synthesizer.md`` (top-level
-repo dir) and is loaded once at construction time.
+The system prompt is shipped inside the package as
+``theogony.retrieval.prompts.answer_synthesizer.md`` and loaded via
+:func:`importlib.resources.files` (PHX-0049, Hesiod Option A). Wheel
+installs from PyPI and editable installs both find it; tests can
+override by passing an explicit ``prompt_path`` to the constructor.
 """
 
 from __future__ import annotations
 
 import re
+from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -57,12 +61,34 @@ log = get_logger("retrieval.synthesize")
 #: (Plan §8 / PHX-0038 audit-log tracking).
 _AUDIT_STAGE = "answer_synthesis"
 
-#: Default location of the system prompt: ``<repo_root>/prompts/answer_synthesizer.md``.
-#: Computed relative to this file: ``src/theogony/retrieval/synthesize.py`` →
-#: parents[3] is the repo root. Tests pass an explicit path; production
-#: relies on the default, which works for editable installs (``pip
-#: install -e .``) and the docker-compose dev workflow.
-_DEFAULT_PROMPT_PATH = Path(__file__).resolve().parents[3] / "prompts" / "answer_synthesizer.md"
+#: Resource anchor for the packaged system prompt. Lives inside the
+#: distribution as ``theogony/retrieval/prompts/answer_synthesizer.md``;
+#: ``importlib.resources.files`` resolves it identically for editable
+#: installs and wheel installs (PHX-0049 Option A). Tests that need a
+#: specific on-disk file pass ``prompt_path=Path(...)`` directly.
+_PROMPT_PACKAGE = "theogony.retrieval.prompts"
+_PROMPT_RESOURCE = "answer_synthesizer.md"
+
+
+def _load_default_prompt() -> str:
+    """Read the packaged system prompt via ``importlib.resources``.
+
+    Raises ``FileNotFoundError`` when the prompt is missing from the
+    install — possible if a packager strips the package's
+    ``prompts/`` subdirectory or drops the ``__init__.py`` that turns
+    it into a sub-package.
+    """
+    try:
+        return (
+            resources.files(_PROMPT_PACKAGE).joinpath(_PROMPT_RESOURCE).read_text(encoding="utf-8")
+        )
+    except (FileNotFoundError, ModuleNotFoundError) as exc:  # pragma: no cover - defensive
+        raise FileNotFoundError(
+            f"AnswerSynthesizer system prompt not found in package "
+            f"{_PROMPT_PACKAGE!r}; check the install includes "
+            f"src/theogony/retrieval/prompts/{_PROMPT_RESOURCE}."
+        ) from exc
+
 
 #: Citation regex (see module docstring point 2). Tolerates
 #: ``[**…**]`` and ``[*…*]`` so Gemini's occasional emphasis wrapping
@@ -93,15 +119,20 @@ class AnswerSynthesizer:
         audit_run_id: str | None = None,
     ) -> None:
         self._llm = llm
-        self._prompt_path = prompt_path or _DEFAULT_PROMPT_PATH
-        if not self._prompt_path.exists():
-            raise FileNotFoundError(
-                f"AnswerSynthesizer system prompt not found at {self._prompt_path}; "
-                "either ship prompts/answer_synthesizer.md with the install or "
-                "pass an explicit prompt_path to the constructor."
-            )
-        # Load once at construction time so per-call latency is just LLM round-trip.
-        self._system_prompt = self._prompt_path.read_text(encoding="utf-8")
+        # When prompt_path is given, read it directly (test surface).
+        # Otherwise resolve via importlib.resources from the packaged
+        # location — works for editable installs AND wheel installs
+        # (PHX-0049 Hesiod Option A).
+        self._prompt_path = prompt_path
+        if prompt_path is not None:
+            if not prompt_path.exists():
+                raise FileNotFoundError(
+                    f"AnswerSynthesizer system prompt not found at {prompt_path}; "
+                    "pass an existing path or omit prompt_path to use the packaged default."
+                )
+            self._system_prompt = prompt_path.read_text(encoding="utf-8")
+        else:
+            self._system_prompt = _load_default_prompt()
         self._audit_log = audit_log
         self._audit_run_id = audit_run_id
 
