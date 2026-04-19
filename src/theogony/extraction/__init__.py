@@ -15,12 +15,16 @@ from theogony.extraction.embedding import (
     EmbeddingProvider,
     LocalSentenceTransformerEmbedder,
 )
+from theogony.extraction.ner import DEFAULT_NER_MODEL, Mention, NerExtractor
 from theogony.extraction.sentence import Sentence, Sentencizer
 
 __all__ = [
     "CleanedContent",
+    "DEFAULT_NER_MODEL",
     "EmbeddingProvider",
     "LocalSentenceTransformerEmbedder",
+    "Mention",
+    "NerExtractor",
     "Sentence",
     "Sentencizer",
     "TextCleaner",
