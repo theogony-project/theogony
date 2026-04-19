@@ -59,7 +59,18 @@ For someone interested in guidance, decision support, and human/agent counsel:
 
 This path explains the advisory layer, Norm Space, Lethe context, and the separation of facts, options, risks, and values.
 
-### 6. Evolution and Open Questions
+### 6. Organic Growth
+
+For someone interested in how the Chronik grows by being looked at:
+
+1. [`VISION.md`](VISION.md)
+2. [`CURIOSITY.md`](CURIOSITY.md)
+3. [`HESTIA.md`](HESTIA.md)
+4. [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md)
+
+This path explains how attention from humans or agents triggers research in exactly the focused region, how stub answers become invitations, how the Mind-Map fills in progressively, and why Hestia must ship with Curiosity to prevent it from sliding into surveillance.
+
+### 7. Evolution and Open Questions
 
 For someone working on future generations:
 
@@ -85,6 +96,7 @@ This path is about open problems, future directions, and the original conceptual
 - [`COGNITIVE_ARCHITECTURE.md`](COGNITIVE_ARCHITECTURE.md): fast/slow thinking, opposition protocol, knowledge forms beyond chronology
 - [`HIVE.md`](HIVE.md): the production model — from raw material to distilled intelligence
 - [`HESTIA.md`](HESTIA.md): the human flourishing guardian — drift monitoring, escalation, and the regulatory dial
+- [`CURIOSITY.md`](CURIOSITY.md): the Curiosity Loop — how attention from humans or agents triggers research in exactly the focused region (Gen 2-3, with a Gen 1 stub-detection foothold)
 - [`OPERATIVE_KNOWLEDGE.md`](OPERATIVE_KNOWLEDGE.md): the fifth knowledge form — knowledge that runs the world (long-horizon, not Gen 1 or 2)
 
 ### System Design Documents

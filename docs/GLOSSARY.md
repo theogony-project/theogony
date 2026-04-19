@@ -56,7 +56,16 @@ The core primitive proposed for Chronese. A structured representation of an even
 A structured, query-relevant working set returned by the Chronik to an agent. It contains the currently relevant nodes, edges, evidence, sources, gaps, and sometimes contradictions or competing hypotheses.
 
 **Hover-Lupe**  
-The idea that any entity or concept mentioned in an answer can be opened into a deeper local knowledge landscape. Not a static article, but a dynamic contextual zoom into the Chronik.
+The idea that any entity or concept mentioned in an answer can be opened into a deeper local knowledge landscape. Not a static article, but a dynamic contextual zoom into the Chronik. The Hover-Lupe is also the entry point of the [Curiosity Loop](CURIOSITY.md): a zoom into a thin region triggers research in exactly that region.
+
+**Curiosity Loop**  
+The architectural coupling between attention and acquisition. A query, a zoom, or a contextual ask runs a structured stub check on the assembled Constellation; if the verdict crosses threshold, a `CuriosityTrigger` is emitted; Helios dispatches Prometheus → Argus → Jason → Morpheus → Athene to acquire new content in exactly the focused region; the Constellation re-assembles progressively. Hestia subscribes to every trigger to prevent attention-driven research from sliding into surveillance. See [`CURIOSITY.md`](CURIOSITY.md). Generation 2-3, with a Gen 1 stub-detection foothold.
+
+**Mind-Map**  
+A canonical human-facing rendering of a Constellation: nodes laid out spatially, sized by relevance, with provenance glyphs and zoom-into-node interaction. Not part of the Chronik core (clients render Constellations); the server-side response contract that makes Mind-Map clients possible is tracked under PHX-0038.
+
+**Stub Verdict**  
+A structured assessment recorded in the `QueryRunReport` indicating whether the assembled Constellation for a query is too thin to be considered a satisfying answer. Combines node count, edge density, vitality, source diversity, confidence aggregate, and named-entity coverage. Crossing the threshold emits a `CuriosityTrigger` (in Gen 2-3); in Gen 1 the verdict is recorded for calibration only.
 
 ## Deep Technical Terms
 
