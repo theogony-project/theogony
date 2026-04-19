@@ -1,23 +1,29 @@
 """
 Typer CLI entry point (Plan §2.8 + §3.7).
 
-Etappe C ships the **operational** subset of the seven-command CLI:
-``status`` (read-only health snapshot — the first command a new
-contributor runs after cloning), ``reports list``, and
-``reports show``. The data-flow commands (``ingest``, ``ask``,
-``node``, ``serve``, ``resolve``) need pipelines that don't exist
-yet; they land in Etappe D and beyond.
+Commands available in this module:
 
-The module satisfies the ``[project.scripts]`` declaration in
-pyproject.toml (``theogony = "theogony.cli:app"``), which has pointed
-at this module since the project was scaffolded; this commit closes
-that gap noted in Plan §3.7.
+- ``status``         — read-only health snapshot (E-C)
+- ``reports list``   — list recent run reports (E-C)
+- ``reports show``   — pretty-print one report's full JSON (E-C)
+- ``ingest <id>``    — full end-to-end ingest of one Project
+  Gutenberg book; runs acquisition + extraction + embedding +
+  store + report persistence (E6)
+
+The remaining Plan-§3.7 commands (``ask``, ``node``, ``resolve``,
+``serve``) need retrieval / serve pipelines that are not yet
+implemented; they land in E7+.
+
+Module satisfies the ``[project.scripts]`` declaration in
+pyproject.toml (``theogony = "theogony.cli:app"``).
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import typer
 from rich.console import Console
@@ -25,7 +31,21 @@ from rich.panel import Panel
 from rich.table import Table
 
 from theogony import __version__
+from theogony.acquisition.gutenberg import GutenbergAdapter
+from theogony.agents.factory import build_llm_from_settings
 from theogony.config import Settings, setup_logging
+from theogony.extraction.audit import ExtractionAuditLog
+from theogony.extraction.book_context import BookContextExtractor
+from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
+from theogony.extraction.pipeline import IngestionPipeline, IngestionResult
+from theogony.extraction.relations import RelationExtractor
+from theogony.extraction.resolve import EntityResolver
+from theogony.extraction.wikidata_client import WikidataClient
+from theogony.reporting.writer import RunReportWriter
+from theogony.stores.memory import InMemoryKnowledgeStore
+
+if TYPE_CHECKING:
+    from theogony.acquisition.base import RawContent
 
 app = typer.Typer(
     name="theogony",
@@ -262,6 +282,240 @@ def reports_show(run_id: str = typer.Argument(..., help="The run_id (ULID).")) -
         )
     )
     _console.print_json(json.dumps(payload, indent=2))
+
+
+# ---------------------------------------------------------------------------
+# `theogony ingest <book_id>`
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def ingest(
+    book_id: str = typer.Argument(
+        ...,
+        help="Project Gutenberg book ID (e.g. 43497 for Hedin Trans-Himalaya Vol. I).",
+    ),
+    sentences: int | None = typer.Option(
+        None,
+        "--sentences",
+        "-s",
+        min=1,
+        help=(
+            "Limit NER + downstream stages to the first N sentences. "
+            "Dev-mode shortcut: full ingest of a book typically runs ~7 000 "
+            "sentences; --sentences 50 brings cold-cache wall-clock under a minute."
+        ),
+    ),
+    relations: int | None = typer.Option(
+        None,
+        "--relations",
+        "-r",
+        min=1,
+        help=(
+            "Cap relation extraction to the first N (post-NER-limit) sentences. "
+            "Each relation call is one Gemini round-trip; useful for budgeting."
+        ),
+    ),
+    no_book_context: bool = typer.Option(
+        False,
+        "--no-book-context",
+        help=(
+            "Skip BookContextExtractor (E3). Saves one Gemini call; "
+            "Stage 4 falls back to a no-context prompt."
+        ),
+    ),
+    no_relations: bool = typer.Option(
+        False,
+        "--no-relations",
+        help="Skip RelationExtractor entirely. Useful when validating just node resolution.",
+    ),
+    no_embed: bool = typer.Option(
+        False,
+        "--no-embed",
+        help="Skip the embedder. Saves the BGE-small download / load on first run.",
+    ),
+) -> None:
+    """Ingest a Project Gutenberg book end-to-end into the in-memory store.
+
+    Pipeline (Plan §2.5): acquire → clean → sentencize → NER →
+    book context → resolve → relations → embed → store. The
+    IngestRunReport is persisted under ``settings.run_reports_dir/ingest/``;
+    every LLM call is logged under ``settings.data_dir/audit.sqlite``.
+
+    The InMemoryKnowledgeStore that this command uses is process-local —
+    nodes and edges live only for the duration of the call. The
+    Neo4jKnowledgeStore (E7) will replace it for persistence.
+    """
+    asyncio.run(
+        _run_ingest(
+            book_id=book_id,
+            ner_sentence_limit=sentences,
+            max_relation_sentences=relations,
+            include_book_context=not no_book_context,
+            include_relations=not no_relations,
+            include_embedder=not no_embed,
+        )
+    )
+
+
+async def _run_ingest(
+    *,
+    book_id: str,
+    ner_sentence_limit: int | None,
+    max_relation_sentences: int | None,
+    include_book_context: bool,
+    include_relations: bool,
+    include_embedder: bool,
+) -> None:
+    """Async core of the ``theogony ingest`` command.
+
+    Wires GutenbergAdapter + WikidataClient + Gemini (or Stub) +
+    audit log + InMemoryKnowledgeStore + RunReportWriter, runs one
+    IngestionPipeline.ingest, persists the report, and prints a
+    Rich-styled summary.
+
+    Honest-failure: every blockable error (Gutenberg 404, missing
+    Gemini key, etc.) is rendered as a clean Rich panel and exits
+    with non-zero — never a raw stack trace.
+    """
+    settings = _load_settings()
+    audit_path = settings.data_dir / "audit.sqlite"
+    report_writer = RunReportWriter(settings.run_reports_dir)
+
+    # ---- acquire ----
+    try:
+        async with GutenbergAdapter(inter_request_delay_s=0.0) as gutenberg:
+            cand = await gutenberg.get_by_id(book_id)
+            raw_content = await gutenberg.acquire(cand)
+    except Exception as exc:
+        _console.print(
+            Panel.fit(
+                f"[red]Acquisition failed[/red]: {exc}",
+                title="theogony ingest",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1) from exc
+
+    # ---- compose pipeline ----
+    try:
+        llm = build_llm_from_settings(settings)
+    except (ValueError, NotImplementedError) as exc:
+        _console.print(
+            Panel.fit(
+                f"[red]LLM provider unavailable[/red]: {exc}",
+                title="theogony ingest",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1) from exc
+
+    embedder = (
+        LocalSentenceTransformerEmbedder(
+            model_id=settings.embedding.model_id,
+            dim=settings.embedding.dim,
+        )
+        if include_embedder
+        else None
+    )
+
+    with ExtractionAuditLog(audit_path) as audit:
+        async with WikidataClient() as wd_client:
+            resolver = EntityResolver(client=wd_client, llm=llm, audit_log=audit)
+            book_context_extractor: BookContextExtractor | None = (
+                BookContextExtractor(llm=llm, audit_log=audit) if include_book_context else None
+            )
+            relation_extractor: RelationExtractor | None = (
+                RelationExtractor(llm=llm, audit_log=audit) if include_relations else None
+            )
+            store = InMemoryKnowledgeStore()
+            pipeline = IngestionPipeline(
+                entity_resolver=resolver,
+                relation_extractor=relation_extractor,
+                book_context_extractor=book_context_extractor,
+                embedder=embedder,
+                audit_log=audit,
+                store=store,
+                settings=settings,
+                ner_sentence_limit=ner_sentence_limit,
+                max_relation_sentences=max_relation_sentences,
+            )
+            result = await pipeline.ingest(raw_content)
+            audit_rows = audit.count_for_run(result.run_id)
+            audit_cost = audit.total_cost_for_run(result.run_id)
+
+    # ---- persist report ----
+    report_path = report_writer.write(result.report)
+
+    _print_ingest_summary(
+        result=result,
+        raw_content=raw_content,
+        report_path=report_path,
+        audit_rows=audit_rows,
+        audit_cost=audit_cost,
+    )
+
+
+def _print_ingest_summary(
+    *,
+    result: IngestionResult,
+    raw_content: RawContent,
+    report_path: Path,
+    audit_rows: int,
+    audit_cost: float,
+) -> None:
+    """Render a Rich panel + summary table for the completed ingest."""
+    report = result.report
+    verdict_styles = {
+        "good": "green",
+        "partial": "yellow",
+        "poor": "red",
+        "failed": "red",
+    }
+    verdict_style = verdict_styles.get(report.verdict, "white")
+
+    title = (
+        f"theogony ingest [bold]{raw_content.source_type}:{raw_content.identifier}[/bold] "
+        f"— [{verdict_style}]{report.verdict}[/{verdict_style}]"
+    )
+    _console.print(Panel.fit(title, border_style=verdict_style))
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Metric")
+    table.add_column("Value")
+
+    table.add_row("run_id", report.run_id)
+    table.add_row("source title", raw_content.title)
+    table.add_row("status", report.status)
+    reasoning = report.verdict_reasoning or "(no reasoning)"
+    table.add_row(
+        "verdict",
+        f"[{verdict_style}]{report.verdict}[/{verdict_style}] — {reasoning}",
+    )
+    table.add_row("duration", f"{report.duration_s:.2f}s")
+    table.add_row("sentences", str(report.sentence_count))
+    table.add_row("ner mentions", str(report.ner.total_mentions))
+    table.add_row("resolved nodes", str(len(result.resolved_mentions)))
+    table.add_row("edges minted", str(len(result.edges)))
+    tier_str = ", ".join(f"T{t}={c}" for t, c in sorted(report.resolution.tier_counts.items()))
+    table.add_row("tier counts", tier_str or "(none)")
+    table.add_row("manual resolution needed", str(report.resolution.manual_resolution_needed))
+    table.add_row("relations attempted", str(report.relations.attempted))
+    table.add_row("relations parsed_ok", str(report.relations.parsed_ok))
+    table.add_row(
+        "embedding",
+        f"{report.embedding.nodes_embedded} nodes via {report.embedding.embedding_model_id}",
+    )
+    store_str = f"{report.store.nodes_upserted} nodes / {report.store.edges_upserted} edges"
+    table.add_row("store", store_str)
+    table.add_row("audit rows", str(audit_rows))
+    table.add_row("LLM cost (EUR)", f"{audit_cost:.5f}")
+    table.add_row("report file", str(report_path))
+
+    _console.print(table)
+    _console.print(
+        f"[dim]To re-read this report: [/dim][bold]theogony reports show {report.run_id}[/bold]"
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -185,8 +185,17 @@ class KnowledgeStore(Protocol):
     # Bulk operations — for the Phoenix process
     # -------------------------------------------------------------------------
 
-    async def export_layer(self, layer: Layer) -> AsyncIterator[KnowledgeNode]:
-        """Export all nodes in a given memory layer. Used by the Phoenix process."""
+    def export_layer(self, layer: Layer) -> AsyncIterator[KnowledgeNode]:
+        """Export all nodes in a given memory layer. Used by the Phoenix process.
+
+        This is an **async generator** — implementations are
+        ``async def export_layer(...) -> AsyncIterator[KnowledgeNode]``
+        with ``yield`` in the body. Callers do NOT ``await``;
+        they iterate via ``async for n in store.export_layer(...)``.
+        The Protocol declaration is intentionally a sync ``def``
+        because that is what mypy sees from outside an async
+        generator (the function returns the iterator immediately).
+        """
         ...
 
     async def import_nodes(self, nodes: AsyncIterator[KnowledgeNode]) -> None:
