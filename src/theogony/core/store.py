@@ -20,6 +20,7 @@ from theogony.core.model import (
     KnowledgeEdge,
     KnowledgeNode,
     Layer,
+    ScoreUpdate,
 )
 
 
@@ -210,6 +211,44 @@ class KnowledgeStore(Protocol):
 
     async def update_scores(self, node_id: str, scores: dict[str, float]) -> None:
         """Update the lifecycle scores for a node."""
+        ...
+
+    async def batch_update_scores(self, updates: Sequence[ScoreUpdate]) -> None:
+        """Bulk write of partial score updates (PHX-0048).
+
+        Per :class:`ScoreUpdate` row, only non-``None`` fields are
+        written; other fields keep their existing values. Atomic at
+        the bulk level (one Cypher transaction on Neo4j; in-process
+        loop on InMemory). Empty ``updates`` is a no-op (no
+        round-trip on Neo4j).
+
+        Used by :meth:`OneirosWorker._tick` to collapse N per-tick
+        score writes into one Bolt round-trip (Plan §5 E8.5 step 4).
+        Missing node ids (e.g. deleted between snapshot and write)
+        are silently skipped — same semantic as
+        :meth:`update_scores` and :meth:`promote`.
+
+        Plan §5 E8.5 race-condition note (Q5): the worker writes only
+        ``connectivity / freshness / vitality`` here; concurrent
+        :meth:`RelevanceTracker.bump` writes to ``relevance`` survive
+        the race because the bulk write does not touch that field.
+        """
+        ...
+
+    async def count_neighbors_in_layer(self, layer: Layer) -> dict[str, int]:
+        """Map node id → degree (in + out edges) for all nodes in ``layer``.
+
+        Used by :meth:`OneirosWorker._tick` (Plan §5 E8.5 step 2) to
+        compute the connectivity score for every EPHEMERA node in one
+        round-trip per layer instead of N
+        :meth:`get_neighborhood` calls.
+
+        Isolated nodes appear with degree 0 (Cypher ``OPTIONAL MATCH``
+        + ``COUNT(r)``). Cross-layer edges count toward the in-layer
+        node's degree (an EPHEMERA node connected to a MNEME node has
+        degree 1 in the EPHEMERA result) — connectivity is symmetric
+        per Plan §5 E8.5.
+        """
         ...
 
     # -------------------------------------------------------------------------

@@ -79,6 +79,7 @@ from theogony.core.model import (
     Layer,
     NodeScores,
     NodeType,
+    ScoreUpdate,
     SourceRef,
 )
 from theogony.core.store import Path, ScoredNode
@@ -774,6 +775,61 @@ class Neo4jKnowledgeStore:
                 freshness=merged.freshness,
                 vitality=merged.vitality(),
             )
+
+    async def batch_update_scores(self, updates: Sequence[ScoreUpdate]) -> None:
+        # PHX-0048 (reopened by E8.5): one Bolt round-trip via Cypher
+        # ``UNWIND $rows AS r MATCH … SET … = COALESCE(...)``. Each
+        # row writes only non-NULL fields; the COALESCE preserves the
+        # existing value when the caller passed None. The Plan §3.1a
+        # ``knowledge_node_id_unique`` constraint-backed range index
+        # serves the per-row MATCH (one db-hit per row).
+        #
+        # Empty input → no round-trip (matches the
+        # :meth:`batch_upsert_*` PHX-0046 contract).
+        # Missing node ids → silent no-op (the MATCH returns nothing
+        # for that row, the SET applies to nothing).
+        if not updates:
+            return
+        rows = [
+            {
+                "node_id": upd.node_id,
+                "confidence": upd.confidence,
+                "relevance": upd.relevance,
+                "connectivity": upd.connectivity,
+                "freshness": upd.freshness,
+                "vitality": upd.vitality,
+            }
+            for upd in updates
+        ]
+        cypher = """
+        UNWIND $rows AS r
+        MATCH (n:KnowledgeNode {id: r.node_id})
+        SET n.confidence   = COALESCE(r.confidence,   n.confidence),
+            n.relevance    = COALESCE(r.relevance,    n.relevance),
+            n.connectivity = COALESCE(r.connectivity, n.connectivity),
+            n.freshness    = COALESCE(r.freshness,    n.freshness),
+            n.vitality     = COALESCE(r.vitality,     n.vitality)
+        """
+        async with self._session() as session:
+            await session.run(cypher, rows=rows)
+
+    async def count_neighbors_in_layer(self, layer: Layer) -> dict[str, int]:
+        # Plan §5 E8.5 step 2: bulk degree map for one layer in one
+        # Bolt round-trip. ``OPTIONAL MATCH`` keeps isolated nodes
+        # (degree 0) in the result; the undirected ``-[r:RELATION]-``
+        # makes the count symmetric (in + out edges).
+        # PROFILE on the 2000-node demo target (PHX-0042 audit
+        # methodology) keeps db-hits ≤ 200 per the Plan §5 E8.5
+        # Risks bullet on dense graphs.
+        cypher = """
+        MATCH (n:KnowledgeNode {layer: $layer})
+        OPTIONAL MATCH (n)-[r:RELATION]-()
+        RETURN n.id AS id, count(r) AS degree
+        """
+        async with self._session() as session:
+            result = await session.run(cypher, layer=layer.value)
+            records = await result.data()
+        return {str(rec["id"]): int(rec["degree"]) for rec in records}
 
     # ----- clusters ----------------------------------------------------------
 

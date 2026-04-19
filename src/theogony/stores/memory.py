@@ -30,6 +30,7 @@ from theogony.core.model import (
     KnowledgeEdge,
     KnowledgeNode,
     Layer,
+    ScoreUpdate,
 )
 from theogony.core.store import Path, ScoredNode
 
@@ -324,6 +325,46 @@ class InMemoryKnowledgeStore:
         for key, value in scores.items():
             if hasattr(node_scores, key):
                 setattr(node_scores, key, value)
+
+    async def batch_update_scores(self, updates: Sequence[ScoreUpdate]) -> None:
+        # PHX-0048: in-process per-node loop. Same partial-update
+        # semantics as the Neo4j override (only non-None fields are
+        # written), missing-id silent no-op (matches update_scores).
+        #
+        # ``vitality`` is a derived value on NodeScores (computed by
+        # ``NodeScores.vitality()`` from the four component scores).
+        # The Neo4j store carries a denormalised ``vitality`` column
+        # which the bulk write also updates — InMemory has no such
+        # column; the four component scores are the source of truth
+        # and ``vitality()`` recomputes on read. We therefore accept
+        # ``upd.vitality`` for cross-backend symmetry but do nothing
+        # with it: any downstream consumer that needs the vitality
+        # number calls ``node.scores.vitality()`` and gets the
+        # canonical value.
+        for upd in updates:
+            node = self._nodes.get(upd.node_id)
+            if node is None:
+                continue
+            for field in ("confidence", "relevance", "connectivity", "freshness"):
+                value = getattr(upd, field)
+                if value is not None:
+                    setattr(node.scores, field, value)
+
+    async def count_neighbors_in_layer(self, layer: Layer) -> dict[str, int]:
+        # PHX-0050 / E8.5: bulk degree map. The InMemory store keeps
+        # outgoing/incoming sets per node id (E1), so this is a
+        # constant-time lookup per node — same answer the Neo4j
+        # ``OPTIONAL MATCH`` would give. Cross-layer edges count
+        # toward the in-layer node's degree (Plan §5 E8.5
+        # ``connectivity is symmetric``).
+        result: dict[str, int] = {}
+        for node_id, node in self._nodes.items():
+            if node.layer != layer:
+                continue
+            outgoing = len(self._outgoing.get(node_id, set()))
+            incoming = len(self._incoming.get(node_id, set()))
+            result[node_id] = outgoing + incoming
+        return result
 
     # -------------------------------------------------------------------------
     # Cluster management

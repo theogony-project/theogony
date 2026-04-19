@@ -775,6 +775,155 @@ class TestResolveNode:
 
 
 # ---------------------------------------------------------------------------
+# Bulk write + degree map (E8.5 / PHX-0048)
+# ---------------------------------------------------------------------------
+
+
+class TestCountNeighborsInLayer:
+    """Plan §5 E8.5 step 2: bulk node-id → degree map for one layer.
+
+    Both backends MUST satisfy the same contract:
+    - Isolated nodes (degree 0) are present in the result.
+    - Counts are symmetric: in-edges + out-edges.
+    - Cross-layer edges count toward the in-layer node's degree.
+    - Nodes in other layers are NOT in the result.
+    """
+
+    async def test_isolated_node_appears_with_degree_zero(self, store: KnowledgeStore) -> None:
+        loner = make_node("Lonely")  # no edges
+        await store.upsert_node(loner)
+        result = await store.count_neighbors_in_layer(Layer.EPHEMERA)
+        assert loner.id in result
+        assert result[loner.id] == 0
+
+    async def test_counts_in_and_out_edges_symmetrically(self, store: KnowledgeStore) -> None:
+        hub = make_node("Hub")
+        spoke_a = make_node("SpokeA")
+        spoke_b = make_node("SpokeB")
+        for n in (hub, spoke_a, spoke_b):
+            await store.upsert_node(n)
+        # hub → spoke_a (out edge for hub, in edge for spoke_a)
+        # spoke_b → hub (in edge for hub, out edge for spoke_b)
+        await store.upsert_edge(
+            KnowledgeEdge(
+                source_id=hub.id,
+                target_id=spoke_a.id,
+                relation_type="LINKS_TO",
+            )
+        )
+        await store.upsert_edge(
+            KnowledgeEdge(
+                source_id=spoke_b.id,
+                target_id=hub.id,
+                relation_type="LINKS_TO",
+            )
+        )
+        result = await store.count_neighbors_in_layer(Layer.EPHEMERA)
+        assert result[hub.id] == 2  # one in + one out
+        assert result[spoke_a.id] == 1
+        assert result[spoke_b.id] == 1
+
+    async def test_cross_layer_edge_counts_for_in_layer_node(self, store: KnowledgeStore) -> None:
+        # An EPHEMERA node connected to a MNEME node has degree 1 in
+        # the EPHEMERA result. The MNEME node is absent because we
+        # asked only for EPHEMERA.
+        eph = make_node("Eph")
+        mne = make_node("Mne")
+        mne.layer = Layer.MNEME
+        await store.upsert_node(eph)
+        await store.upsert_node(mne)
+        await store.upsert_edge(
+            KnowledgeEdge(
+                source_id=eph.id,
+                target_id=mne.id,
+                relation_type="REFERS_TO",
+            )
+        )
+        eph_result = await store.count_neighbors_in_layer(Layer.EPHEMERA)
+        assert eph_result == {eph.id: 1}
+        mne_result = await store.count_neighbors_in_layer(Layer.MNEME)
+        assert mne_result == {mne.id: 1}
+
+
+class TestBatchUpdateScores:
+    """PHX-0048 (reopened by E8.5): bulk partial-update contract.
+
+    Per row, only non-None fields are written; other fields keep
+    their existing values. Empty input is a no-op. Missing node ids
+    are silently skipped.
+    """
+
+    async def test_partial_update_writes_only_specified_fields(self, store: KnowledgeStore) -> None:
+        from theogony.core.model import ScoreUpdate
+
+        node = make_node("Hedin")
+        node.scores.confidence = 0.5
+        node.scores.relevance = 0.4
+        node.scores.connectivity = 0.3
+        node.scores.freshness = 0.6
+        await store.upsert_node(node)
+        await store.batch_update_scores(
+            [
+                ScoreUpdate(
+                    node_id=node.id,
+                    connectivity=0.9,
+                    freshness=0.1,
+                    vitality=0.42,
+                )
+            ]
+        )
+        fetched = await store.get_node(node.id)
+        assert fetched is not None
+        # Updated fields:
+        assert fetched.scores.connectivity == pytest.approx(0.9)
+        assert fetched.scores.freshness == pytest.approx(0.1)
+        # Untouched fields preserve their original values:
+        assert fetched.scores.confidence == pytest.approx(0.5)
+        assert fetched.scores.relevance == pytest.approx(0.4)
+
+    async def test_empty_input_is_silent_noop(self, store: KnowledgeStore) -> None:
+        # Must not raise. The Neo4j override skips the round-trip
+        # entirely; the InMemory store loops over zero rows.
+        await store.batch_update_scores([])
+
+    async def test_missing_node_id_is_silent_skip(self, store: KnowledgeStore) -> None:
+        from theogony.core.model import ScoreUpdate
+
+        node = make_node("ExistingNode")
+        node.scores.connectivity = 0.5
+        await store.upsert_node(node)
+        # Mix one missing id with one existing id; the missing one
+        # silently no-ops, the existing one updates.
+        await store.batch_update_scores(
+            [
+                ScoreUpdate(
+                    node_id="AKA-deadbeefdead",
+                    connectivity=0.99,
+                ),
+                ScoreUpdate(node_id=node.id, connectivity=0.77),
+            ]
+        )
+        fetched = await store.get_node(node.id)
+        assert fetched is not None
+        assert fetched.scores.connectivity == pytest.approx(0.77)
+        # The missing id did not magically materialise.
+        assert await store.get_node("AKA-deadbeefdead") is None
+
+    async def test_repeated_identical_batch_is_idempotent(self, store: KnowledgeStore) -> None:
+        from theogony.core.model import ScoreUpdate
+
+        node = make_node("Idempotent")
+        node.scores.confidence = 0.4
+        await store.upsert_node(node)
+        batch = [ScoreUpdate(node_id=node.id, confidence=0.8, vitality=0.65)]
+        for _ in range(3):
+            await store.batch_update_scores(batch)
+        fetched = await store.get_node(node.id)
+        assert fetched is not None
+        assert fetched.scores.confidence == pytest.approx(0.8)
+
+
+# ---------------------------------------------------------------------------
 # Diagnostics
 # ---------------------------------------------------------------------------
 
