@@ -160,6 +160,30 @@ The Chronik should support a dedicated advisory agent, Metis, that operates acro
 
 The Chronik must eventually represent operative knowledge: the knowledge that runs the world rather than describes it. Schedules, logistics, machine control, supply forecasts. Implies a new class of operative agents (Atlas, Hephaistos, Demeter) that act on the world. Long-horizon dimension; not part of Generation 1 or 2. The architecture should remain general enough to accommodate it. See [`OPERATIVE_KNOWLEDGE.md`](OPERATIVE_KNOWLEDGE.md).
 
+### PHX-0037: Curiosity Loop — End-to-End Implementation
+
+- **Category**: vision
+- **Priority**: high
+- **Generation Target**: 2-3
+
+The architectural coupling between attention and acquisition. Stub detection on every Constellation produces a structured `StubVerdict`; when the verdict crosses threshold a `CuriosityTrigger` is emitted; Helios dispatches Prometheus → Argus → Jason → Morpheus → Athene to acquire new content in exactly the focused region; the Constellation re-assembles progressively; a `CuriosityRunReport` is emitted per run. Cold regions may be slow, never silent. Generation 1 emits `StubVerdict` as a foothold (no trigger) so calibration data accumulates. See [`CURIOSITY.md`](CURIOSITY.md). Hard dependency on PHX-0039 (Hestia auditing) — neither ships without the other.
+
+### PHX-0038: Mind-Map Response Format
+
+- **Category**: improvement
+- **Priority**: high
+- **Generation Target**: 2
+
+Constellation responses become structured for direct Mind-Map rendering: explicit zoom-targets per node (sub-query handles), node-level source-citation glyphs, vitality and confidence summaries, edge-relation typing visible to clients, and a progressive-update protocol (`research_in_progress: true` + `CuriosityRun` ID for live subscription). The Chronik provides no GUI; this ticket specifies only the server-side response contract that makes Mind-Map clients (web, mobile, terminal-graph, voice) possible. See [`CURIOSITY.md`](CURIOSITY.md) §"Mind-Map as Interface".
+
+### PHX-0039: Hestia Curiosity Auditing
+
+- **Category**: vision
+- **Priority**: critical
+- **Generation Target**: 2-3
+
+Hestia's standing subscription to every `CuriosityTrigger`. Person-as-target check (private individuals require explicit consent or refusal); sensitive-topic rules (health, sexuality, religion, political dissent, financial distress run under tighter sourcing and confidence rules); recursion budgets (a single attention act has a bounded downstream research budget; sub-zooms inherit reduced budgets); drift audit (Hestia reviews patterns of Curiosity activation and can throttle the loop globally via the regulatory dial). Curiosity without Hestia is a profiling engine. Hard dependency partner of PHX-0037. See [`CURIOSITY.md`](CURIOSITY.md) §"Hestia and Curiosity" and [`HESTIA.md`](HESTIA.md).
+
 ---
 
 ## Open Architectural Questions
