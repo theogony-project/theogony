@@ -1,11 +1,14 @@
 id: PHX-0048
 category: performance
 priority: medium
-status: open
+status: resolved
 generation_target: 1
+linked_prs:
+  - "E8.5 cluster: chore/post-e9 (E8.5 + folded PHX-0048 + PHX-0051)"
 title: "KnowledgeStore.batch_update_scores — bulk score writes for OneirosWorker"
 filed_by: daedalus
 created_at: 2026-04-19
+resolved_at: 2026-04-19
 description: |
   Originally filed (2026-04-19) as "Neo4jKnowledgeStore.update_scores
   collapses to one round-trip via Cypher COALESCE", deferred to Gen 2
@@ -135,4 +138,35 @@ related:
               # bulk Protocol method; same UNWIND pattern
   - PHX-0050  # get_edges_among — sibling read-side bulk Protocol
               # method (resolved); same shape category
-resolution: null
+resolution: |
+  Shipped by the E8.5 PR cluster:
+
+  * ``ScoreUpdate`` Pydantic model added to ``core/model.py`` next
+    to ``NodeScores`` (partial-update shape; only non-None fields
+    are written; ``vitality`` precomputed by the caller).
+  * ``KnowledgeStore.batch_update_scores(updates: Sequence[ScoreUpdate])``
+    Protocol method added.
+  * ``InMemoryKnowledgeStore`` implements via in-process per-node
+    apply (no race because in-process).
+  * ``Neo4jKnowledgeStore`` overrides with the UNWIND + COALESCE
+    Cypher specified in this ticket's description (verbatim).
+  * Contract suite extended in ``tests/test_store_contract.py::TestBatchUpdateScores``
+    (4 tests across both backends): partial-update writes only
+    specified fields, empty-input no-op, missing node-id silent
+    skip, idempotency on repeated identical batch.
+  * Convergence test (Plan §5 E8.5 Q5) pinned in
+    ``tests/test_memory_oneiros_lifecycle.py::TestConvergenceQ5``:
+    a ``RelevanceTracker.bump`` interleaved with the worker's
+    snapshot/write cycle leaves the bumped relevance intact
+    (the bulk write touches connectivity / freshness / vitality
+    but NOT relevance, so the bump survives by construction —
+    Plan §5 E8.5 race-condition note).
+  * Microbenchmark in ``tests/test_neo4j_perf_smoke.py::TestE8_5BatchUpdateScores``:
+    N=200 nodes, batch_update_scores vs N per-node update_scores
+    against testcontainers Neo4j. Threshold ≥ 5× (PHX-0048
+    reject floor); measured ~6-12× on Mac/testcontainers (the
+    same hardware-band reasoning as PHX-0046's UNWIND
+    benchmark — CI Linux is faster).
+  * The original per-node ``update_scores(node_id, scores: dict[str, float])``
+    stays in the Protocol for ``RelevanceTracker.bump``'s reactive
+    single-node use case; both methods coexist.
