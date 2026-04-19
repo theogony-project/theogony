@@ -15,10 +15,13 @@ from theogony.extraction.embedding import (
     EmbeddingProvider,
     LocalSentenceTransformerEmbedder,
 )
+from theogony.extraction.sentence import Sentence, Sentencizer
 
 __all__ = [
     "CleanedContent",
     "EmbeddingProvider",
     "LocalSentenceTransformerEmbedder",
+    "Sentence",
+    "Sentencizer",
     "TextCleaner",
 ]
