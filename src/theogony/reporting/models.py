@@ -178,10 +178,26 @@ class IngestRunReport(RunReportBase):
 
 
 class MultiHopBreakdown(BaseModel):
+    """Per-hop instrumentation for one ``QueryRunReport.multi_hop`` slot.
+
+    PHX-0051 (resolved by E8.5): ``nodes_per_hop`` is now ``Optional``
+    so the retriever can signal "the underlying store does not expose
+    per-hop visibility" by leaving it ``None``. The truthful number
+    consumers care about — the deduped final result count — moved to
+    the always-populated ``final_node_count`` field.
+
+    A future per-hop-aware retriever (or a Reviewer-agent dashboard)
+    can fill ``nodes_per_hop`` with the real per-hop expansion list
+    without a schema change. Existing reports on disk parse cleanly
+    because the field defaults to ``None`` (forward-compatible
+    Optional widening).
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     seed_count: int = Field(ge=0)
-    nodes_per_hop: list[int] = Field(default_factory=list)
+    nodes_per_hop: list[int] | None = Field(default=None)
+    final_node_count: int = Field(default=0, ge=0)
     duplicates_removed: int = Field(default=0, ge=0)
     duration_ms: int = Field(ge=0)
 

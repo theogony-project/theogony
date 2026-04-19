@@ -1,11 +1,14 @@
 id: PHX-0051
 category: api-shape
 priority: low
-status: open
+status: resolved
 generation_target: 1
+linked_prs:
+  - "E8.5 cluster: chore/post-e9 (E8.5 + folded PHX-0051)"
 title: "MultiHopBreakdown.nodes_per_hop carries single-element approximation; pick a schema"
 filed_by: daedalus
 created_at: 2026-04-19
+resolved_at: 2026-04-19
 description: |
   MultiHopBreakdown (reporting/models.py) has a list[int] field
   `nodes_per_hop` intended to capture per-hop expansion counts
@@ -81,4 +84,27 @@ reopen_trigger: |
 
 related:
   - PHX-0035  # Reviewer agent — schema consumer
-resolution: null
+resolution: |
+  Resolved by the E8.5 PR cluster: Hesiod picked Option A
+  (Pydantic schema change, no Protocol extension). Cheap,
+  shipped alongside E8.5 because both touched
+  ``reporting/models.py``.
+
+  Concretely:
+
+      class MultiHopBreakdown(BaseModel):
+          ...
+          nodes_per_hop: list[int] | None = Field(default=None)
+          final_node_count: int = Field(default=0, ge=0)
+
+  ``MultiHopRetriever`` now writes ``nodes_per_hop=None`` (the
+  truthful "store does not expose per-hop visibility" signal) and
+  ``final_node_count=len(scored)`` (the always-populated truthful
+  number). Existing reports on disk parse cleanly because the
+  field defaults to ``None`` (forward-compatible Optional widening
+  + a regression test pins the legacy parse path).
+
+  Tests: ``tests/test_reporting_models.py::TestMultiHopBreakdownPhx0051``
+  pins the new schema (None-default, JSON round-trip, forward-compat
+  per-hop list, legacy report parse). ``tests/test_retrieval_multi_hop.py``
+  asserts the retriever signals the contract correctly.

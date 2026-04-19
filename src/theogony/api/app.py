@@ -39,6 +39,7 @@ from theogony.config.logging import get_logger, setup_logging
 from theogony.config.settings import Settings
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
+from theogony.memory.oneiros import OneirosWorker
 from theogony.reporting.writer import RunReportWriter
 from theogony.stores.neo4j_store import Neo4jKnowledgeStore
 
@@ -54,11 +55,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     keys without calling out) → Neo4j store (opens the Bolt
     connection + ensures schema) → report writer.
 
-    Shutdown reverses the order. The ``OneirosWorker`` slot
-    (``app.state.oneiros_task``) is cancelled first when populated;
-    E9 leaves both ``oneiros`` and ``oneiros_task`` as ``None`` —
-    the conditional ``if app.state.oneiros_task is not None`` makes
-    the slot a one-line wire-up for E8.5.
+    Shutdown reverses the order. The ``OneirosWorker`` background
+    task (``app.state.oneiros_task``) is cancelled first; the
+    ``contextlib.suppress(CancelledError)`` plus
+    ``asyncio.wait_for(..., timeout=5.0)`` enforce the Plan §4.4
+    graceful-shutdown budget. E8.5 fills the slot the E9 lifespan
+    wired as a conditional; the conditional shape stays for forward
+    compatibility (e.g. tests that swap the worker out).
     """
     settings = Settings()
     setup_logging(settings)
@@ -91,9 +94,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.store = store
     app.state.report_writer = report_writer
 
-    # OneirosWorker slot — wired conditionally; E8.5 will populate it.
-    app.state.oneiros = None
-    app.state.oneiros_task = None
+    # OneirosWorker slot (E8.5): owns the §4.3 write-back lifecycle.
+    # The lifespan owns the long-lived task; shutdown cancels it
+    # within the §4.4 5-second budget (see the finally block below).
+    worker = OneirosWorker(store, settings, report_writer)
+    app.state.oneiros = worker
+    app.state.oneiros_task = asyncio.create_task(worker.run())
 
     log.info(
         "api lifespan: startup complete (store=neo4j embedding_dim=%d)",

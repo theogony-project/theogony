@@ -248,10 +248,13 @@ class TestReportFields:
         pipeline = _build_pipeline(store, f"Hedin [{hedin.id}] explored Tibet [{tibet.id}].")
         result = await pipeline.ask("Wer war Sven Hedin?")
         rep = result.report
-        # MultiHop breakdown
+        # MultiHop breakdown — PHX-0051: nodes_per_hop is None
+        # (store doesn't expose per-hop visibility); final_node_count
+        # is the truthful number.
         assert rep.multi_hop.duration_ms >= 0
         assert rep.multi_hop.seed_count >= 1
-        assert len(rep.multi_hop.nodes_per_hop) >= 1
+        assert rep.multi_hop.nodes_per_hop is None
+        assert rep.multi_hop.final_node_count >= 1
         # Synthesis breakdown — StubLLM populates token counts.
         assert rep.synthesis.input_tokens > 0
         assert rep.synthesis.output_tokens > 0

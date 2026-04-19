@@ -170,7 +170,22 @@ class TestMultiHopRetrieverResult:
         # The store returned 15 (its expansion picked up extras), but the
         # initial seed count is bounded by k.
         assert result.seed_count == 10
-        assert result.nodes_per_hop == [15]
+        # PHX-0051: per-hop visibility is None (store does not expose it),
+        # final_node_count is the truthful number.
+        assert result.nodes_per_hop is None
+        assert result.final_node_count == 15
+
+    async def test_phx_0051_retriever_signals_no_per_hop_visibility(self) -> None:
+        # PHX-0051 (Option A): the retriever does NOT fabricate a
+        # synthetic ``nodes_per_hop`` list. It signals "store does
+        # not expose per-hop visibility" by leaving the field None
+        # and writes the truthful deduped count to final_node_count.
+        nodes = [ScoredNode(node=make_node(f"M{i}"), score=0.5) for i in range(5)]
+        store = _RecordingStore(scored_nodes=nodes)
+        retriever = MultiHopRetriever(store)
+        result = await retriever.retrieve([1.0, 0.0], k=10)
+        assert result.nodes_per_hop is None
+        assert result.final_node_count == 5
 
     async def test_duration_ms_is_non_negative(self) -> None:
         store = _RecordingStore()

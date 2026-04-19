@@ -1,7 +1,7 @@
 """
-Neo4j performance microbenchmarks (PHX-0046 + PHX-0050).
+Neo4j performance microbenchmarks (PHX-0046 + PHX-0050 + PHX-0048 + E8.5).
 
-Two perf assertions, both gated on ``THEOGONY_TEST_NEO4J=1``:
+All gated on ``THEOGONY_TEST_NEO4J=1``:
 
 1. **PHX-0046** — ``Neo4jKnowledgeStore.batch_upsert_nodes`` vs. a
    1000-iteration single-node ``upsert_node`` loop. Target ≥ 30×
@@ -10,10 +10,15 @@ Two perf assertions, both gated on ``THEOGONY_TEST_NEO4J=1``:
    ``KnowledgeStore.get_edges_among`` bulk Cypher vs. the legacy
    per-node ``get_neighborhood`` loop. Target ≥ 5× speedup; reject
    if < 2× (suggests the bulk Cypher is not hitting the range index).
+3. **PHX-0048 (E8.5)** — ``Neo4jKnowledgeStore.batch_update_scores``
+   vs. N per-node ``update_scores`` calls. Target ≥ 20× speedup;
+   reject if < 5× (same hardware-band reasoning as PHX-0046).
+4. **E8.5 / count_neighbors_in_layer** — db-hits ≤ 200 at the
+   2000-node demo target (Plan §5 E8.5 Risks bullet on dense graphs).
 
-Both benchmarks run against testcontainers Neo4j 5.18-community on
+All benchmarks run against testcontainers Neo4j 5.18-community on
 the production-default 384-dim embedding. Wallclock budget for the
-whole file: ~30 s on a warm container, ~60 s cold.
+whole file: ~60 s on a warm container, ~90 s cold.
 
 These tests double as the empirical evidence the PHX-0042 audit's
 ``post_e9.md`` markdown links to in the "before/after" sections.
@@ -344,6 +349,120 @@ class TestAssemblerSpeedup:
             f"PHX-0050 reject-threshold 2x suggests get_edges_among "
             f"is not hitting the range index."
         )
+
+
+# ---------------------------------------------------------------- E8.5 / PHX-0048
+
+
+class TestE8_5BatchUpdateScores:
+    """Plan §5 E8.5 + PHX-0048: bulk score writes.
+
+    The OneirosWorker tick writes N rows per tick (one per EPHEMERA
+    node). Single-call ``update_scores`` would cost N round-trips;
+    ``batch_update_scores`` collapses to one. Target ≥ 20× wall-clock
+    speedup at N=200; reject if < 5× (same hardware-band reasoning as
+    PHX-0046's UNWIND benchmark).
+    """
+
+    async def test_batch_update_scores_is_at_least_5x_faster_than_single_loop(
+        self, neo4j_store: Neo4jKnowledgeStore
+    ) -> None:
+        from theogony.core.model import ScoreUpdate
+
+        # Seed 200 nodes; pin starting score values so the per-node
+        # ``update_scores`` has work to do.
+        nodes_single = [_node(f"upd-s-{i}") for i in range(200)]
+        nodes_batch = [_node(f"upd-b-{i}") for i in range(200)]
+        await neo4j_store.batch_upsert_nodes(nodes_single + nodes_batch)
+
+        # Warm-up: drives one single update so the driver / page cache
+        # has been touched before we time anything.
+        await neo4j_store.update_scores(nodes_single[0].id, {"connectivity": 0.5})
+
+        single_started = time.perf_counter()
+        for n in nodes_single:
+            await neo4j_store.update_scores(n.id, {"connectivity": 0.7, "freshness": 0.8})
+        single_elapsed = time.perf_counter() - single_started
+
+        updates = [
+            ScoreUpdate(
+                node_id=n.id,
+                connectivity=0.7,
+                freshness=0.8,
+                vitality=0.5,
+            )
+            for n in nodes_batch
+        ]
+        batch_started = time.perf_counter()
+        await neo4j_store.batch_update_scores(updates)
+        batch_elapsed = time.perf_counter() - batch_started
+
+        speedup = single_elapsed / max(batch_elapsed, 1e-6)
+        # Hesiod-target ≥ 20× per PHX-0048 acceptance; reject < 5×
+        # (same hardware-band reasoning as PHX-0046 — Mac/testcontainers
+        # measures lower than CI Linux due to Docker-bridge overhead).
+        assert speedup >= 5.0, (
+            f"batch_update_scores speedup only {speedup:.1f}x "
+            f"(single={single_elapsed:.2f}s, batch={batch_elapsed:.2f}s); "
+            f"PHX-0048 reject-threshold 5x suggests UNWIND not collapsing "
+            f"round-trips on the score-write Cypher."
+        )
+
+
+class TestE8_5CountNeighborsInLayer:
+    """Plan §5 E8.5: bulk degree map ≤ 200 db-hits at 2000-node target.
+
+    The OneirosWorker tick reads the degree map for the entire EPHEMERA
+    layer in one Cypher round-trip. The query plan must use the
+    ``:KnowledgeNode(layer)`` range index (Plan §3.1a) and degree-count
+    via relationship projection. We assert wall-clock here (PROFILE
+    db-hits is captured by the PHX-0042 audit harness;
+    ``scripts/cypher_audit.py`` re-runs it on demand) — the wall-clock
+    is the demo-relevant signal.
+    """
+
+    async def test_count_neighbors_in_layer_is_sub_second_at_2000_nodes(
+        self, neo4j_store: Neo4jKnowledgeStore
+    ) -> None:
+        # Build a 2000-node EPHEMERA layer with sparse edges (one edge
+        # per node on average). Plan §5 E8.5 Risks bullet caps the
+        # cost at ≤ 200 db-hits; wall-clock at this size is the
+        # demo-target latency contract.
+        nodes = [_node(f"deg-{i}") for i in range(2000)]
+        await neo4j_store.batch_upsert_nodes(nodes)
+        edges: list[KnowledgeEdge] = []
+        for i in range(len(nodes) - 1):
+            edges.append(
+                KnowledgeEdge(
+                    source_id=nodes[i].id,
+                    target_id=nodes[(i + 7) % len(nodes)].id,
+                    relation_type="LINKS_TO",
+                    evidence_span=f"{i}-{(i + 7) % len(nodes)}",
+                    weight=0.5,
+                )
+            )
+        await neo4j_store.batch_upsert_edges(edges)
+
+        from theogony.core.model import Layer
+
+        started = time.perf_counter()
+        result = await neo4j_store.count_neighbors_in_layer(Layer.EPHEMERA)
+        elapsed = time.perf_counter() - started
+
+        # ≤ 1.0 s wall-clock is the demo-target contract on
+        # Mac/testcontainers; CI Linux is faster. Anything > 1.0 s
+        # at 2000 nodes signals a missed range index or a Cypher
+        # rewrite was needed (escalate per the brief).
+        assert elapsed < 1.0, (
+            f"count_neighbors_in_layer took {elapsed:.3f}s on 2000 "
+            f"nodes — Plan §5 E8.5 demo-target contract is sub-second."
+        )
+        assert len(result) == 2000
+        # Every node should have a degree entry (OPTIONAL MATCH ensures
+        # isolated nodes appear with degree 0); the average degree is
+        # ≈ 2 (in + out for the chain pattern).
+        total_degree = sum(result.values())
+        assert total_degree >= len(edges)
 
 
 _: type = asyncio.Task  # silences unused-import check

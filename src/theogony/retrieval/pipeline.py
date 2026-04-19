@@ -213,10 +213,13 @@ class QueryPipeline:
         already swallowed into an empty answer (Plan §2.11.4 — the
         writer never aborts; the verdict captures the failure mode).
         """
-        # ---- multi_hop breakdown
+        # ---- multi_hop breakdown (PHX-0051: nodes_per_hop carries the
+        # truthful "store does not expose per-hop visibility" None;
+        # final_node_count is always populated.)
         multi_hop = MultiHopBreakdown(
             seed_count=retrieval_result.seed_count,
             nodes_per_hop=retrieval_result.nodes_per_hop,
+            final_node_count=retrieval_result.final_node_count,
             duplicates_removed=retrieval_result.duplicates_removed,
             duration_ms=retrieval_result.duration_ms,
         )

@@ -9,6 +9,7 @@ post-E8 etappe per the E8 brief's scope decision.
 
 from __future__ import annotations
 
+from theogony.memory.oneiros import OneirosWorker
 from theogony.memory.relevance import DEFAULT_RELEVANCE_DELTA, RelevanceTracker
 
-__all__ = ["DEFAULT_RELEVANCE_DELTA", "RelevanceTracker"]
+__all__ = ["DEFAULT_RELEVANCE_DELTA", "OneirosWorker", "RelevanceTracker"]

@@ -1,5 +1,5 @@
 """
-FastAPI lifespan startup/shutdown (Plan §4.4; E9 brief).
+FastAPI lifespan startup/shutdown (Plan §4.4; E9/E8.5 contracts).
 
 The lifespan is the **single owner** of long-lived resources. This
 test exercises the production lifespan with mocked-out heavy
@@ -8,10 +8,10 @@ container) to verify:
 
 - every ``app.state.*`` resource is wired during startup;
 - shutdown closes everything in reverse order;
-- the absent OneirosWorker case does NOT skip the lifespan
-  (E9 ships the slot wired but unpopulated);
-- the present OneirosWorker case (mocked) DOES start + cancel
-  the worker task during shutdown.
+- E8.5 contract: ``app.state.oneiros`` is an :class:`OneirosWorker`
+  after startup; ``app.state.oneiros_task`` is a running asyncio.Task;
+- the worker task is cancelled within the §4.4 5-second budget on
+  lifespan shutdown.
 
 Why patching rather than DI overrides: the lifespan runs *before*
 DI is consulted; its job is to populate the very state DI reads.
@@ -32,6 +32,14 @@ from theogony.api.app import lifespan
 
 
 class _StubStore:
+    """KnowledgeStore stub with the surface OneirosWorker._tick() reads.
+
+    The worker runs immediately at lifespan startup (Plan §5 E8.5
+    main loop: tick first, then sleep). The stub returns empty
+    sequences so the tick is a near-no-op (it still writes a
+    "poor"-verdict report via the writer mock).
+    """
+
     async def __aenter__(self) -> _StubStore:
         return self
 
@@ -40,6 +48,24 @@ class _StubStore:
 
     async def health(self) -> dict[str, object]:
         return {"backend": "stub"}
+
+    async def export_layer(self, layer: object) -> AsyncIterator[object]:
+        # Empty layer → tick processes zero nodes.
+        if False:  # type: ignore[unreachable]
+            yield  # pragma: no cover
+        return
+
+    async def count_neighbors_in_layer(self, layer: object) -> dict[str, int]:
+        return {}
+
+    async def batch_update_scores(self, updates: object) -> None:
+        return None
+
+    async def promote(self, node_id: str) -> None:  # pragma: no cover - never called
+        return None
+
+    async def degrade(self, node_id: str) -> None:  # pragma: no cover - never called
+        return None
 
 
 class _StubEmbedder:
@@ -56,9 +82,7 @@ class _StubEmbedder:
 
 
 @asynccontextmanager
-async def _patched_lifespan(
-    app: FastAPI, oneiros_task: asyncio.Task[None] | None = None
-) -> AsyncIterator[None]:
+async def _patched_lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Production lifespan with the heavy bits stubbed out.
 
     Approach: monkey-patch the modules the lifespan imports so the
@@ -70,6 +94,13 @@ async def _patched_lifespan(
     NB: we use ``importlib.import_module`` because ``theogony.api`` re-
     exports the ``app`` FastAPI instance, which makes the bare attribute
     ``theogony.api.app`` ambiguous between submodule and FastAPI object.
+
+    E8.5: we use the **real** :class:`OneirosWorker` against the
+    :class:`_StubStore` (which returns ``[]`` for export_layer and
+    ``{}`` for count_neighbors_in_layer) so the lifespan's startup
+    actually instantiates + starts the worker, and shutdown actually
+    cancels the worker task. The worker's ``_tick`` loops harmlessly
+    over the empty store while the lifespan body runs.
     """
     import importlib
 
@@ -90,11 +121,19 @@ async def _patched_lifespan(
     # not — the conditional is doing its job).
     llm_mock = MagicMock(spec=object)
     writer_mock = MagicMock()
+
+    # OneirosSettings stub with a long-enough tick that the worker
+    # never actually completes a tick during the test (we only care
+    # that startup created it and shutdown cancelled it).
+    real_settings = app_mod.Settings()
     settings_mock = MagicMock(
         embedding=MagicMock(model_id="stub@v1", dim=4),
-        data_dir=app_mod.Settings().data_dir,
-        run_reports_dir=app_mod.Settings().run_reports_dir,
+        data_dir=real_settings.data_dir,
+        run_reports_dir=real_settings.run_reports_dir,
         neo4j=MagicMock(),
+        oneiros=MagicMock(tick_interval_s=3600.0),  # never actually wakes
+        report=real_settings.report,
+        store=real_settings.store,
     )
     app_mod.Settings = lambda: settings_mock  # type: ignore[assignment]
     app_mod.ExtractionAuditLog = lambda *a, **kw: audit_mock  # type: ignore[assignment]
@@ -105,9 +144,6 @@ async def _patched_lifespan(
 
     try:
         async with lifespan(app):
-            if oneiros_task is not None:
-                app.state.oneiros = MagicMock()
-                app.state.oneiros_task = oneiros_task
             yield
     finally:
         for name, value in original.items():
@@ -118,6 +154,8 @@ async def _patched_lifespan(
 async def test_lifespan_startup_wires_every_app_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from theogony.memory.oneiros import OneirosWorker
+
     app = FastAPI()
     async with _patched_lifespan(app):
         assert app.state.settings is not None
@@ -126,9 +164,11 @@ async def test_lifespan_startup_wires_every_app_state(
         assert app.state.llm is not None
         assert app.state.store is not None
         assert app.state.report_writer is not None
-        # OneirosWorker slot wired but unpopulated (E9 contract).
-        assert app.state.oneiros is None
-        assert app.state.oneiros_task is None
+        # E8.5 contract: oneiros slot is filled with a real worker
+        # + a running asyncio.Task (no longer None as in E9).
+        assert isinstance(app.state.oneiros, OneirosWorker)
+        assert isinstance(app.state.oneiros_task, asyncio.Task)
+        assert not app.state.oneiros_task.done()
 
 
 @pytest.mark.asyncio
@@ -143,36 +183,21 @@ async def test_lifespan_shutdown_closes_resources_in_reverse_order(
 
 
 @pytest.mark.asyncio
-async def test_lifespan_oneiros_absent_does_not_skip_lifespan() -> None:
-    """E9 contract: a missing OneirosWorker is the default state, NOT
-    a reason to abort. The slot stays None on entry and shutdown
-    proceeds without error."""
+async def test_lifespan_starts_and_cancels_oneiros_worker_within_5s() -> None:
+    """E8.5 contract: lifespan starts the worker on entry and cancels
+    it within the §4.4 5-second graceful-shutdown budget on exit."""
+    from theogony.memory.oneiros import OneirosWorker
+
     app = FastAPI()
+    captured_task: asyncio.Task[None] | None = None
     async with _patched_lifespan(app):
-        # No OneirosWorker injected — the conditional in the lifespan
-        # finally-clause must not crash.
-        assert app.state.oneiros_task is None
-    # No exception means the conditional honoured the contract.
-
-
-@pytest.mark.asyncio
-async def test_lifespan_oneiros_present_cancels_task_on_shutdown() -> None:
-    """When a future E8.5 etappe wires app.state.oneiros_task, shutdown
-    must cancel it within the 5s timeout."""
-    app = FastAPI()
-
-    async def _forever() -> None:
-        try:
-            await asyncio.sleep(3600)  # never wakes naturally
-        except asyncio.CancelledError:
-            return
-
-    task = asyncio.create_task(_forever())
-    async with _patched_lifespan(app, oneiros_task=task):
-        assert app.state.oneiros_task is task
-    # After the lifespan exits, the cancel + wait_for must have closed
-    # the task without raising.
-    assert task.cancelled() or task.done()
+        assert isinstance(app.state.oneiros, OneirosWorker)
+        captured_task = app.state.oneiros_task
+        assert captured_task is not None
+        assert not captured_task.done()
+    # Lifespan exit cancelled + waited; the task is done within 5 s.
+    assert captured_task is not None
+    assert captured_task.done() or captured_task.cancelled()
 
 
 _: type = Any  # silences unused-import check

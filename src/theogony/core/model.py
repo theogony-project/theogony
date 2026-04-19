@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Layer(StrEnum):
@@ -188,6 +188,36 @@ class NodeScores(BaseModel):
             + w_connectivity * self.connectivity
             + w_freshness * self.freshness
         )
+
+
+class ScoreUpdate(BaseModel):
+    """Partial-update payload for :meth:`KnowledgeStore.batch_update_scores` (PHX-0048).
+
+    Only non-``None`` fields are written by the store; other fields keep
+    their existing values. The bulk method exists primarily so the
+    :class:`~theogony.memory.oneiros.OneirosWorker` can collapse N
+    per-tick score writes into one Cypher round-trip; the partial-update
+    shape lets the worker write only the three fields it actually
+    recomputes (``connectivity``, ``freshness``, ``vitality``) without
+    racing :meth:`RelevanceTracker.bump`'s ``relevance`` updates.
+
+    The ``vitality`` value is **precomputed by the caller** — keeping
+    the formula in :meth:`NodeScores.vitality` and out of Cypher so
+    PHX-0009's eventual weight-tuning does not require store changes.
+
+    Other callers (a future :meth:`RelevanceTracker.bump_all`, a
+    Reviewer agent, manual fix-up scripts) can use any subset of
+    fields. The model only requires ``node_id``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    node_id: str = Field(min_length=1)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    relevance: float | None = Field(default=None, ge=0.0, le=1.0)
+    connectivity: float | None = Field(default=None, ge=0.0, le=1.0)
+    freshness: float | None = Field(default=None, ge=0.0, le=1.0)
+    vitality: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
 class KnowledgeNode(BaseModel):

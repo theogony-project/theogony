@@ -86,6 +86,29 @@ class Neo4jSettings(BaseModel):
     database: str = "neo4j"
 
 
+class OneirosSettings(BaseModel):
+    """Runtime tunables for the :class:`OneirosWorker` (Plan §4.3, §5 E8.5).
+
+    The defaults match the chosen formulas inlined in the worker
+    (Plan §5 E8.5 lifecycle math). Operators tune via
+    ``THEOGONY_ONEIROS__*`` env vars; PHX-0009 governs whether the
+    defaults are revisited empirically.
+
+    ``max_nodes_per_tick`` is **deliberately omitted** (Q9
+    refinement): the ≤ 2000-node Gen 1 demo target makes per-tick
+    batching irrelevant; "I anticipate scale" is the §3.1
+    anti-pattern. File a fresh PHX if EPHEMERA crosses ~50 K with
+    measured tick latency.
+    """
+
+    tick_interval_s: float = Field(default=60.0, ge=0.01)
+    promote_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    degrade_threshold: float = Field(default=0.25, ge=0.0, le=1.0)
+    degrade_min_idle_days: float = Field(default=7.0, ge=0.0)
+    connectivity_full_credit_edges: int = Field(default=20, ge=1)
+    freshness_horizon_days: float = Field(default=30.0, ge=1.0)
+
+
 class StoreSettings(BaseModel):
     """Storage-layer tuning that is *backend-agnostic*.
 
@@ -237,6 +260,7 @@ class Settings(BaseSettings):
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     neo4j: Neo4jSettings = Field(default_factory=Neo4jSettings)
     store: StoreSettings = Field(default_factory=StoreSettings)
+    oneiros: OneirosSettings = Field(default_factory=OneirosSettings)
     report: ReportSettings = Field(default_factory=ReportSettings)
 
     data_dir: Path = Field(

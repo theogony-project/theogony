@@ -49,7 +49,10 @@ class MultiHopResult(BaseModel):
 
     scored_nodes: list[ScoredNode] = Field(default_factory=list)
     seed_count: int = Field(default=0, ge=0)
-    nodes_per_hop: list[int] = Field(default_factory=list)
+    # PHX-0051: ``None`` signals "store does not expose per-hop visibility";
+    # ``final_node_count`` carries the truthful deduped result count.
+    nodes_per_hop: list[int] | None = Field(default=None)
+    final_node_count: int = Field(default=0, ge=0)
     duplicates_removed: int = Field(default=0, ge=0)
     duration_ms: int = Field(default=0, ge=0)
 
@@ -79,14 +82,13 @@ class MultiHopRetriever:
         ``min_weight=0.3`` — do not lower without an explicit Plan
         amendment (low-weight edges become noisy beyond this floor).
 
-        ``nodes_per_hop`` and ``duplicates_removed`` are best-effort
-        observations: the protocol does not give us per-hop visibility
-        into the store's expansion (it returns the deduped, ranked
-        list directly), so we approximate by capturing the seed count
-        (top-``k`` vector hits) and the final dedupe-already-applied
-        count. A future PHX may expose richer instrumentation; today
-        the report has enough to detect "no seeds" and "expansion
-        moved zero new nodes" failure modes.
+        PHX-0051 schema choice (Option A): the protocol does not
+        expose per-hop visibility, so ``nodes_per_hop`` is left
+        ``None`` (the truthful "store cannot tell us" signal) and the
+        always-populated ``final_node_count`` carries the deduped
+        result count. A future per-hop-aware retriever can fill
+        ``nodes_per_hop`` with the real list without touching either
+        the schema or downstream consumers.
         """
         if k <= 0:
             raise ValueError(f"k must be positive; got {k}")
@@ -108,11 +110,11 @@ class MultiHopRetriever:
         # The store's multi_hop already deduplicates internally. We
         # record the seed count as min(k, len(scored)) because the
         # store guarantees the top-k vector hits are present (or fewer
-        # if the corpus has < k embedded nodes). nodes_per_hop is a
-        # single-element list with the final count — truthful within
-        # the protocol's resolution.
+        # if the corpus has < k embedded nodes). PHX-0051: per-hop
+        # counts stay ``None`` (no protocol-level visibility);
+        # ``final_node_count`` is the truthful number.
         seed_count = min(k, len(scored))
-        nodes_per_hop = [len(scored)]
+        final_node_count = len(scored)
 
         log.debug(
             "multi_hop k=%d hops=%d min_weight=%.2f layer=%s -> %d nodes in %d ms",
@@ -127,7 +129,8 @@ class MultiHopRetriever:
         return MultiHopResult(
             scored_nodes=scored,
             seed_count=seed_count,
-            nodes_per_hop=nodes_per_hop,
+            nodes_per_hop=None,
+            final_node_count=final_node_count,
             duplicates_removed=0,
             duration_ms=duration_ms,
         )
