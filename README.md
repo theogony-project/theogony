@@ -54,47 +54,82 @@ The spark has been lit.
 
 ## Local development
 
+### What you get
+
+A working Theogony installation that ingests Project Gutenberg books, answers questions about them with cited passages, and self-reports its own run quality. The end-to-end demo (a real ingest → ten queries → one Hover-Lupe walk) runs on a developer laptop in about 10 minutes against a live Neo4j and a Gemini API key. Every node in every answer points back to its source; every run produces a structured `RunReport` the operator can inspect.
+
+See [`docs/etappes/demo_log.md`](docs/etappes/demo_log.md) for a captured run with the exact numbers — wall-clock, cost, verdict distribution, Oneiros activity.
+
+### Prerequisites
+
+- **Python 3.12+**.
+- **Docker** (or any other way to run Neo4j 5.18-community on `localhost:7687`).
+- **A Gemini API key** in `GEMINI_API_KEY` or `GOOGLE_API_KEY`. The free tier (20 RPD on `gemini-2.5-flash-lite`) is enough for the bounded demo below; the full ~7000-sentence ingest needs a paid tier.
+
+### The demo
+
+The Plan §1 demonstration moment, end to end. Six commands; ~10 min wall-clock.
+
 ```bash
-# 1. Set up Python (3.12+).
+# 1. Clone + install (~1 min).
+git clone https://github.com/theogony-project/theogony && cd theogony
 pip install -e ".[dev,gemini]"
 python -m spacy download en_core_web_sm
 
-# 2. Start the Neo4j 5.18-community store backend (Plan §3.1a).
+# 2. Start the Neo4j 5.18-community store (Plan §3.1a).
 #    Auth is disabled for local dev (see docker-compose.yml header);
 #    production deployments override THEOGONY_NEO4J__PASSWORD.
 docker compose up -d neo4j
 
-# 3. Verify the toolchain.
-theogony status                           # config + report counts
-pytest -q                                 # unit + integration suite (no Neo4j)
+# 3. Ingest one Gutenberg book end-to-end into Neo4j
+#    (~3 min wall-clock, ~0.005 EUR Gemini for the bounded slice).
+#    Requires GEMINI_API_KEY or GOOGLE_API_KEY in env.
+theogony ingest 43497 --sentences 50 --no-book-context
 
-# 4. Run the Neo4j-store contract suite + live tests.
-THEOGONY_TEST_NEO4J=1 pytest \
-  tests/test_store_contract.py \
-  tests/test_neo4j_store_live.py \
-  tests/test_retrieval_pipeline_neo4j_live.py -v
+# 4. Start the API + the Oneiros write-back worker (background).
+THEOGONY_ONEIROS__TICK_INTERVAL_S=30 theogony serve &
 
-# 5. Ingest one Project Gutenberg book end-to-end into Neo4j
-#    (~1-3 min, ~0.1 EUR Gemini). Requires GEMINI_API_KEY or
-#    GOOGLE_API_KEY in env.
-theogony ingest 43497 --sentences 50 --relations 10
+# 5. Ask the Chronik a question — the headline moment (~10 s).
+theogony ask "Was ist Trans-Himalaya?"
+
+# 6. Inspect the system's self-assessment of the answer
+#    (paste the run_id from step 5).
 theogony reports show <run_id>
+```
 
-# 6. Ask the Chronik a question (E9):
-theogony ask "Wer war Sven Hedin?"
+The answer in step 5 cites every claim with `[AKA-…]` node ids; the report in step 6 carries the multi-hop breakdown, the citation quality, the synthesis cost, and the verdict heuristic's reasoning. **Both are the demo**: the answer is the read side; the report is the system telling the truth about how it got there.
 
-# 7. Hover-Lupe one shot (E9):
-theogony node AKA-3432a578cfb0
+### Going further
 
-# 8. Manual-resolution surface (E9, Plan §3.4):
-theogony resolve --list
-theogony resolve <node-id> --non-interactive --pick=Q1234
+- `theogony status` — print configuration + report counts.
+- `theogony reports list / show` — inspect any run's self-assessment.
+- `theogony resolve --list` — surface nodes pending manual Wikidata resolution.
+- `theogony resolve <node-id> --non-interactive --pick=Q1234` — Plan §3.4 honest-failure resolution path.
+- `theogony node <AKA-…>` — Hover-Lupe: render a node's depth-1 neighbourhood; click through to a neighbour and continue.
+- `theogony serve` — the FastAPI surface (see *API reference* below).
+- `pytest -q` — unit + integration suite (no Neo4j required).
+- `THEOGONY_TEST_NEO4J=1 pytest -q` — Neo4j-store contract suite + live tests via `testcontainers`.
 
-# 9. FastAPI surface (E9):
-theogony serve                            # http://127.0.0.1:8000
+### API reference
+
+Four endpoints; same retrieval stack as the CLI. Started by `theogony serve`; default `http://127.0.0.1:8000`.
+
+```bash
 curl localhost:8000/health
-curl -X POST localhost:8000/query -H 'content-type: application/json' \
-  -d '{"q": "Wer war Sven Hedin?"}'
+# → {"status":"ok","store":"neo4j",...}
+
+curl -X POST localhost:8000/query \
+  -H 'content-type: application/json' \
+  -d '{"q":"Was ist Trans-Himalaya?","k":10,"hops":2}'
+# → {"answer":"...","cited_node_ids":["AKA-..."],...}
+
+curl localhost:8000/node/<AKA-…>
+# → {"node":{...},"neighborhood":{...}}
+
+curl -X POST localhost:8000/ingest \
+  -H 'content-type: application/json' \
+  -d '{"source_type":"gutenberg","identifier":"43497","sentences":50}'
+# → 202 Accepted; poll `theogony reports show <run_id>` for completion.
 ```
 
 Stop everything: `docker compose down`. Wipe Neo4j data: `docker compose down -v`.
