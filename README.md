@@ -137,6 +137,26 @@ curl -X POST localhost:8000/ingest \
 
 Stop everything: `docker compose down`. Wipe Neo4j data: `docker compose down -v`.
 
+### `theogony seed` — Pantheon describes itself before any external corpus
+
+Theogony ships a pre-built **Pantheon-of-Pantheon** chronicle: the project's own vision, strategy, doctrine, architecture, glossary, prompts, and agent-doctrine docs, parsed into a Chronik dump and bundled with the wheel.
+
+```bash
+theogony seed                # imports the bundled pantheon_self dump into Neo4j
+theogony seed --info         # inspect the dump header without importing
+theogony seed --store memory # import into the in-memory store (CI / tests)
+```
+
+After seeding, `theogony ask "What is the Pantheon?"` returns a cited answer drawn from the project's own self-description — no Gutenberg ingest required. An MCP-connected agent that registers Theogony as a tool can ask Theogony about Theogony from the very first call. The seed contains roughly 280 nodes (documents, sections, glossary concepts) and 1170 edges (`PART_OF`, `LINKS_TO`, `MENTIONS`); the dump was generated **without any LLM calls** by the deterministic docs-aware pipeline in `src/theogony/docs_ingest/`.
+
+Project developers regenerate the seed via:
+
+```bash
+python -m theogony.docs_ingest.regenerate
+```
+
+This walks the current repo, extracts the docs structure, embeds with the configured local embedder, and writes `src/theogony/seeds/pantheon_self.jsonl.gz`.
+
 ### MCP server (Claude Desktop, Cursor, Codex, …)
 
 Theogony ships a Model Context Protocol (MCP) server so any MCP-compatible host can discover and call the Chronik as a native tool — no custom integration code.

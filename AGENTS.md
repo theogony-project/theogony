@@ -121,10 +121,13 @@ Pantheon ships an MCP (Model Context Protocol) server so any MCP-compatible host
 
 ```bash
 pip install -e ".[mcp]"
+theogony seed          # import the bundled pantheon_self chronicle (~280 nodes)
 theogony mcp           # stdio transport
 ```
 
 Tools available: `pantheon_ask`, `pantheon_node`, `pantheon_status`, `pantheon_reports_list`, `pantheon_reports_show`. See the README's MCP section for host-specific config snippets.
+
+The bundled `pantheon_self` dump means the very first `pantheon_ask` against a freshly seeded install returns a cited answer drawn from this repository's own vision / strategy / doctrine docs — including this file, the glossary, the architecture, and the prompts. **You can ask Theogony about Theogony.** Use that to orient yourself before guessing or hallucinating about Pantheon-internal terminology.
 
 ## How to Communicate
 

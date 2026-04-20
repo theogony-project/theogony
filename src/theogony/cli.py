@@ -1071,6 +1071,151 @@ def serve(
 
 
 # ---------------------------------------------------------------------------
+# `theogony seed`  — Import a pre-built Chronicle dump into the live store
+# ---------------------------------------------------------------------------
+
+
+_SOURCE_OPT = typer.Option(
+    None,
+    "--from",
+    help=(
+        "Path to a Chronicle dump (JSONL.gz). "
+        "Default: the bundled pantheon_self seed shipped with the wheel."
+    ),
+)
+_STORE_KIND_OPT = typer.Option(
+    "neo4j",
+    "--store",
+    help="Storage backend: 'neo4j' (default) or 'memory' (for tests / CI).",
+)
+_INFO_ONLY_OPT = typer.Option(
+    False,
+    "--info",
+    help="Print the dump's header (counts, embedding model) and exit; do not import.",
+)
+
+
+@app.command()
+def seed(
+    source: Path | None = _SOURCE_OPT,
+    store_kind: str = _STORE_KIND_OPT,
+    info_only: bool = _INFO_ONLY_OPT,
+) -> None:
+    """Import a Chronicle dump into the configured KnowledgeStore.
+
+    The default source is the bundled ``pantheon_self`` dump — Theogony's
+    own vision / strategy / doctrine layer (README, AGENTS.md,
+    PHILOSOPHY, all docs/, all prompts/). After seeding, the very first
+    ``theogony ask`` against a fresh install returns a cited answer
+    drawn from the project's own self-description; an MCP-connected
+    agent can immediately learn what Theogony is by asking Theogony.
+
+    Use ``--from PATH`` to import a different dump (useful for federated
+    chronicles or for testing a regenerated seed before publishing).
+    """
+    if store_kind not in ("neo4j", "memory"):
+        _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
+        raise typer.Exit(code=2)
+
+    from theogony.docs_ingest.dump import DumpError, dump_metadata, read_dump
+    from theogony.seeds import PANTHEON_SELF_FILENAME, pantheon_self_dump_path
+
+    dump_path = source or pantheon_self_dump_path()
+    if not dump_path.exists():
+        hint = (
+            f"The bundled {PANTHEON_SELF_FILENAME} is missing from this install. "
+            "Reinstall Theogony, or regenerate it with "
+            "`python -m theogony.docs_ingest.regenerate`."
+        )
+        _console.print(
+            Panel.fit(
+                f"[red]Dump not found:[/red] {dump_path}\n\n[dim]{hint}[/dim]",
+                title="theogony seed",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        header = dump_metadata(dump_path)
+    except DumpError as exc:
+        _console.print(
+            Panel.fit(
+                f"[red]Dump unreadable:[/red] {exc}",
+                title="theogony seed",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1) from exc
+
+    _print_seed_header(dump_path=dump_path, header=header)
+    if info_only:
+        return
+
+    try:
+        _, nodes, edges = read_dump(dump_path)
+    except DumpError as exc:
+        _console.print(
+            Panel.fit(
+                f"[red]Dump body unreadable:[/red] {exc}",
+                title="theogony seed",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1) from exc
+
+    asyncio.run(_run_seed(nodes=list(nodes), edges=list(edges), store_kind=store_kind))
+
+
+def _print_seed_header(*, dump_path: Path, header: dict[str, object]) -> None:
+    table = Table(show_header=True, header_style="bold", title="Dump header")
+    table.add_column("Field")
+    table.add_column("Value")
+    for key in (
+        "schema_version",
+        "written_at",
+        "node_count",
+        "edge_count",
+        "embedding_model_id",
+        "embedding_dim",
+    ):
+        table.add_row(key, str(header.get(key)))
+    _console.print(Panel.fit(f"[bold]Dump:[/bold] {dump_path}", border_style="cyan"))
+    _console.print(table)
+
+
+async def _run_seed(
+    *,
+    nodes: list[object],
+    edges: list[object],
+    store_kind: str,
+) -> None:
+    """Import nodes + edges into the chosen KnowledgeStore.
+
+    ``nodes`` and ``edges`` are typed as ``object`` only to avoid an
+    import cycle on the CLI's lazy boundary; they are
+    :class:`KnowledgeNode` / :class:`KnowledgeEdge` instances at runtime.
+    """
+    from theogony.core.model import KnowledgeEdge, KnowledgeNode
+
+    settings = _load_settings()
+    node_objs: list[KnowledgeNode] = [n for n in nodes if isinstance(n, KnowledgeNode)]
+    edge_objs: list[KnowledgeEdge] = [e for e in edges if isinstance(e, KnowledgeEdge)]
+    async with _open_store(settings, store_kind, settings.embedding.dim) as store:
+        node_ids = await store.batch_upsert_nodes(node_objs)
+        await store.batch_upsert_edges(edge_objs)
+    _console.print(
+        Panel.fit(
+            f"[green]Imported[/green] "
+            f"{len(node_ids)} nodes / {len(edge_objs)} edges into {store_kind}.\n"
+            f'[dim]Try: [/dim][bold]theogony ask "What is the Pantheon?"[/bold]',
+            title="theogony seed",
+            border_style="green",
+        )
+    )
+
+
+# ---------------------------------------------------------------------------
 # `theogony mcp`  — Model Context Protocol server (AI-first surface)
 # ---------------------------------------------------------------------------
 
