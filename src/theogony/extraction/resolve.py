@@ -318,6 +318,26 @@ class EntityResolver:
         """Currently configured BookContext (Plan §3.4 Stage 4 input)."""
         return self._book_context
 
+    def wikidata_counters_snapshot(self) -> dict[str, int]:
+        """Snapshot the underlying :class:`WikidataClient` lifetime counters.
+
+        Returned keys mirror W6 §D: ``api_requests``, ``cache_hits``,
+        ``failures_after_retry``. The :class:`IngestionPipeline` takes
+        a delta around the resolve stage so the per-run
+        ``ResolutionSummary`` reflects this run's network use, not the
+        client's whole lifetime.
+
+        Falls back to zeros for any counter the underlying client
+        does not expose — keeps the in-memory ``FakeWikidataClient``
+        used by ``tests/test_extraction_pipeline.py`` working without
+        change.
+        """
+        return {
+            "api_requests": int(getattr(self._client, "api_requests", 0)),
+            "cache_hits": int(getattr(self._client, "cache_hits", 0)),
+            "failures_after_retry": int(getattr(self._client, "failures_after_retry", 0)),
+        }
+
     def set_book_context(self, ctx: BookContext | None) -> None:
         """Update the BookContext used for Stage 4 prompts.
 

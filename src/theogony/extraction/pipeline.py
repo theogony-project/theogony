@@ -256,6 +256,13 @@ class IngestionPipeline:
         ner_summary = _ner_summary_from(mentions_per_sentence)
 
         # ---- mentions_resolved ----
+        # Snapshot the WikidataClient counters around the resolve stage
+        # so the per-run ResolutionSummary reflects *this* run's
+        # upstream / cache use, not the client's whole lifetime
+        # (W6 §D / §E). Snapshot survives a stage failure: if resolve
+        # threw, any partial network work it managed should still be
+        # reported honestly.
+        wd_counters_before = self._entity_resolver.wikidata_counters_snapshot()
         resolved_mentions, resolved_status = await self._stage(
             stages,
             "mentions_resolved",
@@ -265,9 +272,14 @@ class IngestionPipeline:
             active_sentences,
             run_id,
         )
+        wd_counters_after = self._entity_resolver.wikidata_counters_snapshot()
         if resolved_status != "ok":
             resolved_mentions = []
-        resolution_summary = _resolution_summary_from(resolved_mentions)
+        resolution_summary = _resolution_summary_from(
+            resolved_mentions,
+            wd_counters_before=wd_counters_before,
+            wd_counters_after=wd_counters_after,
+        )
         resolved_lookup = build_resolved_lookup(resolved_mentions)
 
         # ---- relations_extracted + edge materialisation ----
@@ -711,19 +723,45 @@ def _ner_summary_from(mentions_per_sentence: list[list[Mention]]) -> NerSummary:
 
 def _resolution_summary_from(
     resolved_mentions: list[ResolvedMention],
+    *,
+    wd_counters_before: dict[str, int] | None = None,
+    wd_counters_after: dict[str, int] | None = None,
 ) -> ResolutionSummary:
-    """Aggregate resolver output into ResolutionSummary."""
+    """Aggregate resolver output into ResolutionSummary.
+
+    ``wd_counters_before`` / ``wd_counters_after`` are
+    :meth:`EntityResolver.wikidata_counters_snapshot` snapshots taken
+    around the resolve stage. Their delta populates the
+    ``wikidata_api_requests`` / ``cache_hits`` / ``failures_after_retry``
+    fields that PR #32 still hard-coded to zero (W6 §E).
+
+    Both default to ``None`` for the convenience of the early-stage
+    failure path (:meth:`IngestionPipeline._abort`), which builds a
+    summary before any network work has been done; in that case the
+    counters stay at zero — honestly so.
+    """
     tier_counts: dict[int, int] = {}
     manual = 0
     for rm in resolved_mentions:
         tier_counts[rm.tier] = tier_counts.get(rm.tier, 0) + 1
         if rm.node.manual_resolution_needed:
             manual += 1
+    if wd_counters_before is not None and wd_counters_after is not None:
+        delta_api = max(0, wd_counters_after["api_requests"] - wd_counters_before["api_requests"])
+        delta_hits = max(0, wd_counters_after["cache_hits"] - wd_counters_before["cache_hits"])
+        delta_failures = max(
+            0,
+            wd_counters_after["failures_after_retry"] - wd_counters_before["failures_after_retry"],
+        )
+    else:
+        delta_api = 0
+        delta_hits = 0
+        delta_failures = 0
     return ResolutionSummary(
         tier_counts=tier_counts,
-        wikidata_api_requests=0,  # WikidataClient does not expose a counter yet
-        cache_hits=0,
-        failures_after_retry=0,
+        wikidata_api_requests=delta_api,
+        cache_hits=delta_hits,
+        failures_after_retry=delta_failures,
         manual_resolution_needed=manual,
     )
 

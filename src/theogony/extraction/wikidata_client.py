@@ -35,25 +35,45 @@ What this module deliberately does NOT do:
   defensible projection. The full :class:`WikidataCandidate` carries
   the structural fields the resolver needs; richer reasoning lives
   in EntityResolver and (E3) the LLM disambiguator.
-- It does not cache between calls. The IngestionPipeline (E3+) will
-  add a per-run cache; persistent caching is PHX-deferred (PHX-0033
-  pre-curated subset).
 - It does not fetch biographical facts (``P569``, ``P570``, ``P106``,
   ``P19``, ``P937``). That is Stage 4 work, deferred to E3 with the
   ``BookContextExtractor`` and Stage-4 LLM disambiguation.
+
+Persistent caching (W6, PR #33)
+-------------------------------
+
+When constructed with a :class:`~theogony.extraction.wikidata_cache.WikidataCache`,
+the client transparently consults the cache before issuing any of the
+four read operations and writes successful payloads back. Partial-hit
+methods (``fetch_labels_aliases``, ``fetch_types``, ``fetch_bio_facts``)
+fan misses through to upstream while still serving cached items. The
+client also exposes lifetime counters — ``api_requests``,
+``cache_hits``, ``failures_after_retry`` — that the
+:class:`~theogony.extraction.pipeline.IngestionPipeline` snapshots into
+``IngestRunReport.resolution`` so reports finally tell the truth about
+network use rather than reporting hard-coded zeros.
+
+The cache is opt-in: passing ``cache=None`` (the default) preserves
+the no-cache behaviour the resolver tests rely on.
 """
 
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from theogony import __version__
 from theogony.config.logging import get_logger
+
+if TYPE_CHECKING:
+    # Imported lazily for typing only; ``wikidata_cache`` re-imports
+    # ``WikidataCandidate`` and ``BioFacts`` from this module, so a
+    # runtime import here would form a cycle.
+    from theogony.extraction.wikidata_cache import WikidataCache
 
 log = get_logger("extraction.wikidata_client")
 
@@ -180,6 +200,7 @@ class WikidataClient:
         self,
         *,
         client: httpx.AsyncClient | None = None,
+        cache: WikidataCache | None = None,
         api_url: str = DEFAULT_API_URL,
         sparql_url: str = DEFAULT_SPARQL_URL,
         user_agent: str = DEFAULT_USER_AGENT,
@@ -203,6 +224,24 @@ class WikidataClient:
         self._owns_client = client is None
         self._lock = asyncio.Lock()
         self._last_request_at: float | None = None
+        self._cache = cache
+        # Lifetime counters (W6 brief §D). One client instance, one
+        # set of counters; the IngestionPipeline takes a delta around
+        # the resolve stage so per-run reports stay honest even when
+        # a single client services many ingests.
+        #
+        # - api_requests:        upstream HTTP calls actually issued
+        #                        after a cache miss.
+        # - cache_hits:          *logical items* served from cache
+        #                        (one search result, one Q-ID's
+        #                        labels-aliases entry, one Q-ID's P31
+        #                        set, one (Q-ID, lang) bio-facts row),
+        #                        not raw SQL lookups.
+        # - failures_after_retry: upstream requests that still failed
+        #                        after every retry was exhausted.
+        self.api_requests: int = 0
+        self.cache_hits: int = 0
+        self.failures_after_retry: int = 0
 
     # ------------------------------------------------------------------ public
 
@@ -220,6 +259,11 @@ class WikidataClient:
         """
         if not mention.strip() or limit <= 0:
             return []
+        if self._cache is not None:
+            cached = self._cache.get_search(mention, language=language, limit=limit)
+            if cached is not None:
+                self.cache_hits += 1
+                return cached
         client = self._ensure_client()
         params = {
             "action": "wbsearchentities",
@@ -250,6 +294,12 @@ class WikidataClient:
                     language=language,
                 )
             )
+        # Cache the parsed-and-validated payload only — never the raw
+        # transport response. Empty-success ("Wikidata cleanly answered
+        # 'no hits'") is cached intentionally so identical reruns
+        # short-circuit instead of probing upstream for every miss.
+        if self._cache is not None:
+            self._cache.put_search(mention, language=language, limit=limit, candidates=candidates)
         return candidates
 
     async def search_multi_language(
@@ -295,9 +345,26 @@ class WikidataClient:
         lang_list = list(languages)
         if not qid_list or not lang_list:
             return {}
-        client = self._ensure_client()
         out: dict[str, dict[str, list[str]]] = {}
-        for batch in _chunks(qid_list, self._batch_size):
+        # Per-Q-ID cache lookup. Keying per (qid, canonical-language-set)
+        # is what makes 49-of-50 partial hits actually cheap: misses fan
+        # through to the existing batched HTTP path; hits never touch
+        # the wire. The brief calls this out explicitly under §B.
+        misses: list[str] = []
+        if self._cache is not None:
+            for qid in qid_list:
+                cached = self._cache.get_labels_aliases(qid, languages=lang_list)
+                if cached is not None:
+                    out[qid] = cached
+                    self.cache_hits += 1
+                else:
+                    misses.append(qid)
+        else:
+            misses = list(qid_list)
+        if not misses:
+            return out
+        client = self._ensure_client()
+        for batch in _chunks(misses, self._batch_size):
             params = {
                 "action": "wbgetentities",
                 "format": "json",
@@ -329,6 +396,8 @@ class WikidataClient:
                                     lang_strings.append(value)
                     per_lang[lang] = lang_strings
                 out[qid] = per_lang
+                if self._cache is not None:
+                    self._cache.put_labels_aliases(qid, languages=lang_list, per_language=per_lang)
         return out
 
     async def fetch_bio_facts(
@@ -365,12 +434,25 @@ class WikidataClient:
         qid_list = [q for q in qids if q]
         if not qid_list:
             return {}
-        client = self._ensure_client()
         out: dict[str, BioFacts] = {qid: BioFacts(qid=qid) for qid in qid_list}
+        misses: list[str] = []
+        if self._cache is not None:
+            for qid in qid_list:
+                cached = self._cache.get_bio_facts(qid, language=language)
+                if cached is not None:
+                    out[qid] = cached
+                    self.cache_hits += 1
+                else:
+                    misses.append(qid)
+        else:
+            misses = list(qid_list)
+        if not misses:
+            return out
+        client = self._ensure_client()
         # Track per-Q-ID dedup sets for multi-valued fields.
-        occupations_set: dict[str, set[str]] = {qid: set() for qid in qid_list}
-        work_locations_set: dict[str, set[str]] = {qid: set() for qid in qid_list}
-        for batch in _chunks(qid_list, self._batch_size):
+        occupations_set: dict[str, set[str]] = {qid: set() for qid in misses}
+        work_locations_set: dict[str, set[str]] = {qid: set() for qid in misses}
+        for batch in _chunks(misses, self._batch_size):
             values_clause = " ".join(f"wd:{q}" for q in batch)
             query = (
                 "SELECT ?item ?birth ?death ?occupationLabel "
@@ -397,10 +479,10 @@ class WikidataClient:
             payload = response.json()
             bindings = (payload.get("results") or {}).get("bindings", []) or []
             for binding in bindings:
-                qid = _qid_from_uri((binding.get("item") or {}).get("value", ""))
-                if not qid or qid not in out:
+                bound_qid = _qid_from_uri((binding.get("item") or {}).get("value", ""))
+                if not bound_qid or bound_qid not in out:
                     continue
-                fact = out[qid]
+                fact = out[bound_qid]
                 # Birth / death dates: literal values, take the first
                 # non-empty reading (multiple statements rare; if they
                 # exist Wikidata's ranking already gives us "preferred").
@@ -417,14 +499,18 @@ class WikidataClient:
                 # Multi-valued: dedup via set, materialise into list at end.
                 occ = (binding.get("occupationLabel") or {}).get("value")
                 if occ:
-                    occupations_set[qid].add(occ)
+                    occupations_set[bound_qid].add(occ)
                 wl = (binding.get("workLocationLabel") or {}).get("value")
                 if wl:
-                    work_locations_set[qid].add(wl)
+                    work_locations_set[bound_qid].add(wl)
         # Materialise dedup sets into sorted lists for stable output.
-        for qid in qid_list:
+        # Touch only the Q-IDs we actually fetched — cache hits keep
+        # their already-populated occupations / work_locations.
+        for qid in misses:
             out[qid].occupations = sorted(occupations_set[qid])
             out[qid].work_locations = sorted(work_locations_set[qid])
+            if self._cache is not None:
+                self._cache.put_bio_facts(qid, language=language, facts=out[qid])
         return out
 
     async def fetch_types(self, qids: Iterable[str]) -> dict[str, set[str]]:
@@ -438,11 +524,30 @@ class WikidataClient:
         qid_list = [q for q in qids if q]
         if not qid_list:
             return {}
-        client = self._ensure_client()
-        # Initialise every requested QID to an empty set so callers
+        # Initialise every *requested* QID to an empty set so callers
         # see an explicit "no P31 for this entity" rather than KeyError.
         out: dict[str, set[str]] = {qid: set() for qid in qid_list}
-        for batch in _chunks(qid_list, self._batch_size):
+        # Per-Q-ID cache lookup, partial-hit-friendly.
+        misses: list[str] = []
+        if self._cache is not None:
+            for qid in qid_list:
+                cached = self._cache.get_types(qid)
+                if cached is not None:
+                    out[qid] = set(cached)
+                    self.cache_hits += 1
+                else:
+                    misses.append(qid)
+        else:
+            misses = list(qid_list)
+        if not misses:
+            return out
+        client = self._ensure_client()
+        # Track which Q-IDs were successfully covered by upstream so we
+        # can write empty-success rows for those that came back with
+        # no P31 binding (e.g. a brand-new entity stub). This keeps
+        # reruns from re-probing them.
+        miss_set = set(misses)
+        for batch in _chunks(misses, self._batch_size):
             values_clause = " ".join(f"wd:{q}" for q in batch)
             query = (
                 "SELECT ?item ?type WHERE { "
@@ -463,10 +568,18 @@ class WikidataClient:
             for binding in bindings:
                 item_uri = (binding.get("item") or {}).get("value", "")
                 type_uri = (binding.get("type") or {}).get("value", "")
-                qid = _qid_from_uri(item_uri)
+                bound_qid = _qid_from_uri(item_uri)
                 type_qid = _qid_from_uri(type_uri)
-                if qid and type_qid and qid in out:
-                    out[qid].add(type_qid)
+                if bound_qid and type_qid and bound_qid in out:
+                    out[bound_qid].add(type_qid)
+            if self._cache is not None:
+                # Only cache Q-IDs in this batch — partial batch failure
+                # would otherwise risk caching empties for un-fetched
+                # Q-IDs. (Failures here actually raise above; this is
+                # belt-and-braces.)
+                for qid in batch:
+                    if qid in miss_set:
+                        self._cache.put_types(qid, types=out[qid])
         return out
 
     # ------------------------------------------------------------- lifecycle
@@ -515,6 +628,13 @@ class WikidataClient:
         data: Mapping[str, str] | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> httpx.Response:
+        # ``api_requests`` increments once per logical upstream attempt
+        # (per call to this method), not once per retry — the brief
+        # under §D defines it as "actual upstream HTTP calls made
+        # after cache misses", which we read as "logical operations
+        # routed to upstream", so retries of the same operation do
+        # not double-count.
+        self.api_requests += 1
         last_exc: Exception | None = None
         response: httpx.Response | None = None
         for attempt in range(1, self._retry_attempts + 1):
@@ -553,8 +673,16 @@ class WikidataClient:
                 if attempt < self._retry_attempts:
                     await asyncio.sleep(wait)
                     continue
+                # Exhausted retries on a retryable status: fall through
+                # the loop so the post-loop block increments
+                # ``failures_after_retry`` once before re-raising.
+                break
             response.raise_for_status()
             return response
+        # Either every attempt raised a transport error, or every
+        # attempt came back with a retryable status. Both are
+        # "failure_after_retry" by the brief's §D definition.
+        self.failures_after_retry += 1
         if last_exc is not None:
             raise last_exc
         # All attempts returned a retryable status; raise the most

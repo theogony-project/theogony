@@ -141,6 +141,26 @@ class OneirosSettings(BaseModel):
     freshness_horizon_days: float = Field(default=30.0, ge=1.0)
 
 
+class WikidataCacheSettings(BaseModel):
+    """Persistent Wikidata cache toggle (W6, PR #33).
+
+    The cache lives at ``settings.data_dir / "wikidata_cache.sqlite"``
+    by default. The W6 brief asks for one boolean knob and one default
+    path — no TTL matrix, no admin CLI, no warmup jobs. Set
+    ``THEOGONY_WIKIDATA_CACHE__ENABLED=false`` to bypass it for one
+    test run when you need to measure cold-cache numbers.
+    """
+
+    enabled: bool = Field(
+        default=True,
+        description=(
+            "Whether the IngestionPipeline wires a persistent "
+            "WikidataCache into its WikidataClient. Disable to "
+            "measure cold-cache behaviour."
+        ),
+    )
+
+
 class StoreSettings(BaseModel):
     """Storage-layer tuning that is *backend-agnostic*.
 
@@ -294,6 +314,7 @@ class Settings(BaseSettings):
     store: StoreSettings = Field(default_factory=StoreSettings)
     oneiros: OneirosSettings = Field(default_factory=OneirosSettings)
     report: ReportSettings = Field(default_factory=ReportSettings)
+    wikidata_cache: WikidataCacheSettings = Field(default_factory=WikidataCacheSettings)
 
     data_dir: Path = Field(
         default=Path("data"),
@@ -314,6 +335,16 @@ class Settings(BaseSettings):
         Layout (Plan §2.11.3): ``{data_dir}/run_reports/{ingest|query|oneiros}/{run_id}.json``.
         """
         return self.data_dir / "run_reports"
+
+    @property
+    def wikidata_cache_path(self) -> Path:
+        """Default on-disk location for the persistent Wikidata cache.
+
+        W6 (PR #33): one file per ``data_dir``. Removing the file is the
+        documented "invalidate the cache" lever; there is no admin
+        command intentionally.
+        """
+        return self.data_dir / "wikidata_cache.sqlite"
 
     model_config = SettingsConfigDict(
         env_file=".env",

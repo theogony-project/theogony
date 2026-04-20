@@ -28,6 +28,7 @@ import asyncio
 import contextlib
 import json
 from collections.abc import AsyncIterator
+from contextlib import AbstractContextManager, nullcontext
 from difflib import get_close_matches
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -49,6 +50,7 @@ from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
 from theogony.extraction.pipeline import IngestionPipeline, IngestionResult
 from theogony.extraction.relations import RelationExtractor
 from theogony.extraction.resolve import EntityResolver
+from theogony.extraction.wikidata_cache import WikidataCache
 from theogony.extraction.wikidata_client import WikidataClient
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.writer import RunReportWriter
@@ -475,8 +477,17 @@ async def _run_ingest(
         else None
     )
 
-    with ExtractionAuditLog(audit_path) as audit:
-        async with WikidataClient() as wd_client:
+    # Persistent Wikidata cache (W6, PR #33). The cache is opt-out via
+    # ``THEOGONY_WIKIDATA_CACHE__ENABLED=false`` for cold-cache
+    # measurements; default on so reruns of the same corpus stop
+    # paying the full Wikidata round-trip cost.
+    wd_cache_cm: AbstractContextManager[WikidataCache | None] = (
+        WikidataCache(settings.wikidata_cache_path)
+        if settings.wikidata_cache.enabled
+        else nullcontext(None)
+    )
+    with ExtractionAuditLog(audit_path) as audit, wd_cache_cm as wd_cache:
+        async with WikidataClient(cache=wd_cache) as wd_client:
             resolver = EntityResolver(client=wd_client, llm=llm, audit_log=audit)
             book_context_extractor: BookContextExtractor | None = (
                 BookContextExtractor(llm=llm, audit_log=audit) if include_book_context else None

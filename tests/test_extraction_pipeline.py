@@ -391,7 +391,78 @@ class TestBookContext:
         assert resolver.book_context.time_period == "1907"
 
 
-# ---------------------------------------------------------------- failure paths
+# ---------------------------------------------------------------- W6 counters
+
+
+class _CountingFakeWikidataClient(FakeWikidataClient):
+    """FakeWikidataClient with the lifetime counters W6 added on the
+    real :class:`WikidataClient`.
+
+    Lets the pipeline's resolver-counter snapshot logic exercise its
+    real path inside fast in-memory tests: the snapshot ``getattr``s
+    the same three attribute names off any client duck-type.
+    """
+
+    def __init__(self, responses: FakeWikidataResponses) -> None:
+        super().__init__(responses)
+        self.api_requests = 0
+        self.cache_hits = 0
+        self.failures_after_retry = 0
+
+    async def search_multi_language(self, mention, *, languages, limit=10):  # type: ignore[no-untyped-def]
+        self.api_requests += len(list(languages))
+        return await super().search_multi_language(mention, languages=languages, limit=limit)
+
+    async def fetch_labels_aliases(self, qids, *, languages):  # type: ignore[no-untyped-def]
+        self.api_requests += 1
+        return await super().fetch_labels_aliases(qids, languages=languages)
+
+    async def fetch_types(self, qids):  # type: ignore[no-untyped-def]
+        self.api_requests += 1
+        return await super().fetch_types(qids)
+
+    async def fetch_bio_facts(self, qids, *, language="en"):  # type: ignore[no-untyped-def]
+        self.api_requests += 1
+        return await super().fetch_bio_facts(qids, language=language)
+
+
+class TestResolutionSummaryCounters:
+    """W6 §E: report ``ResolutionSummary`` finally tells the truth.
+
+    PR #32 hard-coded ``wikidata_api_requests=0``, ``cache_hits=0``,
+    ``failures_after_retry=0``. After this PR the pipeline snapshots
+    real counters from the underlying WikidataClient around the resolve
+    stage and uses the delta. These tests guard against a regression
+    back to the fake-zeros.
+    """
+
+    async def test_report_reflects_real_api_requests_count(self) -> None:
+        client = _CountingFakeWikidataClient(_hedin_responses())
+        resolver = EntityResolver(client=client)  # type: ignore[arg-type]
+        pipeline = IngestionPipeline(entity_resolver=resolver)
+
+        result = await pipeline.ingest(_hedin_raw())
+
+        # The fake counts one logical "API request" per resolver call,
+        # so on the Hedin fixture we should see a believable nonzero
+        # number — not the hard-coded zero of PR #32.
+        assert result.report.resolution.wikidata_api_requests > 0
+        assert result.report.resolution.cache_hits == 0
+        assert result.report.resolution.failures_after_retry == 0
+
+    async def test_unmodified_fake_client_yields_zeros(self) -> None:
+        # Backward compatibility: existing FakeWikidataClient tests
+        # that do not expose the counter attributes must keep
+        # observing zeros — never crash with AttributeError.
+        client = FakeWikidataClient(_hedin_responses())
+        resolver = EntityResolver(client=client)  # type: ignore[arg-type]
+        pipeline = IngestionPipeline(entity_resolver=resolver)
+
+        result = await pipeline.ingest(_hedin_raw())
+
+        assert result.report.resolution.wikidata_api_requests == 0
+        assert result.report.resolution.cache_hits == 0
+        assert result.report.resolution.failures_after_retry == 0
 
 
 class TestEmbedder:
