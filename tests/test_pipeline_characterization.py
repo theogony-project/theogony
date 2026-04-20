@@ -166,9 +166,7 @@ def _build_llm() -> object:
     """Construct the active LLM, skipping when no key is in env."""
     settings = Settings()  # type: ignore[call-arg]
     if settings.active_llm_api_key() is None:
-        pytest.skip(
-            "Characterization run requires an API key for the active LLM provider in env."
-        )
+        pytest.skip("Characterization run requires an API key for the active LLM provider in env.")
     try:
         return build_llm_from_settings(settings)
     except (ValueError, NotImplementedError) as exc:

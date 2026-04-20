@@ -258,7 +258,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = Field(
         default=None,
         alias="OPENAI_API_KEY",
-        description="Used by GeminiLLMProvider only when provider=openai.",
+        description="Used by OpenAILLMProvider when provider=openai.",
     )
     anthropic_api_key: SecretStr | None = Field(
         default=None,
