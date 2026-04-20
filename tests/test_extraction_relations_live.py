@@ -1,8 +1,8 @@
 """
-Live integration smoke for :class:`RelationExtractor` against real Gemini.
+Live integration smoke for :class:`RelationExtractor` against the real LLM.
 
-Gated by ``THEOGONY_RUN_E4_INTEGRATION=1``. Requires a Gemini API key
-in the environment (``GEMINI_API_KEY`` or ``GOOGLE_API_KEY``).
+Gated by ``THEOGONY_RUN_E4_INTEGRATION=1``. Requires an API key for the
+configured LLM provider (default ``ANTHROPIC_API_KEY``).
 
 Two tests:
 
@@ -31,7 +31,7 @@ import os
 
 import pytest
 
-from theogony.agents.llm_gemini import GeminiLLMProvider
+from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
 from theogony.extraction.alias_matcher import fully_normalise
 from theogony.extraction.ner import Mention
@@ -45,12 +45,14 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _gemini() -> GeminiLLMProvider:
+def _live_llm() -> object:
     settings = Settings()  # type: ignore[call-arg]
-    api_key = settings.active_llm_api_key()
-    if api_key is None:
-        pytest.skip("no Gemini/Google API key in environment")
-    return GeminiLLMProvider(api_key=api_key, model_id=settings.llm.model_id)
+    if settings.active_llm_api_key() is None:
+        pytest.skip("no API key for the active LLM provider in environment")
+    try:
+        return build_llm_from_settings(settings)
+    except (ValueError, NotImplementedError, ImportError) as exc:
+        pytest.skip(f"could not build LLM provider: {exc}")
 
 
 def _sentence(idx: int, text: str) -> Sentence:
@@ -76,7 +78,7 @@ class TestSingleSentenceLive:
         # plausible from this sentence) — the contract is "at least
         # one relation involving Hedin and Tibet, with a vocabulary-
         # valid type and an evidence_span that lives in the sentence".
-        llm = _gemini()
+        llm = _live_llm()
         extractor = RelationExtractor(llm=llm)
         text = (
             "Sven Hedin set out from Stockholm in October 1905 and "
@@ -117,7 +119,7 @@ class TestSingleSentenceLive:
         # Sentence with two mentions but no plausible relation between
         # them. Healthy LLMs return an empty relations list rather
         # than inventing one.
-        llm = _gemini()
+        llm = _live_llm()
         extractor = RelationExtractor(llm=llm)
         sent = _sentence(0, "The sun rose. Tibet remained far away. Hedin was elsewhere.")
         mentions = [
@@ -143,7 +145,7 @@ class TestExpandWindowLive:
         # The central sentence has a pronoun ("he") whose referent is
         # established in the previous sentence. With expand_window=True
         # the LLM should still anchor evidence to central.
-        llm = _gemini()
+        llm = _live_llm()
         extractor = RelationExtractor(llm=llm, expand_window=True)
         prev = _sentence(
             0,

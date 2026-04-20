@@ -35,9 +35,9 @@ OpenAI, Anthropic) writes into developer environments by default::
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LLMProviderName = Literal["gemini", "openai", "anthropic", "stub"]
@@ -46,19 +46,46 @@ LLMProviderName = Literal["gemini", "openai", "anthropic", "stub"]
 class LLMSettings(BaseModel):
     """Selection and tuning of the active LLMProvider.
 
-    The default is Gemini 2.5 Flash Lite per Plan §3.3a: it has the most
-    generous free tier (zero-friction onboarding for new contributors),
-    a 1 M context window (hedge for PID-2 hybrid extraction), and the
-    cheapest per-token pricing of the three first-class providers.
+    The default is **Anthropic ``claude-3-5-haiku-20241022``**: prepaid
+    API credits and predictable billing are a better fit for day-to-day
+    ingest / demo runs than Gemini's free-tier daily caps, and Claude
+    3.5 Haiku follows literary entity / relation extraction
+    instructions (German names, transliteration, relation
+    directionality) qualitatively cleaner than the OpenAI alternative
+    at the same tier. OpenAI ``gpt-4o-mini`` and Gemini
+    ``gemini-2.5-flash-lite`` remain first-class options (Plan §3.3a
+    pricing table) via ``THEOGONY_LLM__PROVIDER=openai`` or
+    ``THEOGONY_LLM__PROVIDER=gemini``.
 
     Switch providers without touching code via
-    ``THEOGONY_LLM__PROVIDER=openai|anthropic|stub``.
+    ``THEOGONY_LLM__PROVIDER=gemini|openai|anthropic|stub`` (and set the
+    matching API key: ``ANTHROPIC_API_KEY``, ``OPENAI_API_KEY``, or
+    ``GEMINI_API_KEY`` / ``GOOGLE_API_KEY``).
+
+    ``model_id`` defaults per ``provider`` when left empty (e.g. env
+    sets only ``THEOGONY_LLM__PROVIDER=gemini``).
     """
 
-    provider: LLMProviderName = "gemini"
-    model_id: str = "gemini-2.5-flash-lite"
+    provider: LLMProviderName = "anthropic"
+    model_id: str = Field(
+        default="",
+        description="Model name for the active provider; empty → sensible default.",
+    )
     timeout_s: float = Field(default=30.0, gt=0.0)
     max_concurrency: int = Field(default=8, ge=1)
+
+    @model_validator(mode="after")
+    def _default_model_id_for_provider(self) -> Self:
+        if self.model_id.strip():
+            return self
+        defaults: dict[LLMProviderName, str] = {
+            "openai": "gpt-4o-mini",
+            "anthropic": "claude-3-5-haiku-20241022",
+            "gemini": "gemini-2.5-flash-lite",
+            "stub": "stub-llm",
+        }
+        object.__setattr__(self, "model_id", defaults[self.provider])
+        return self
 
 
 class EmbeddingSettings(BaseModel):
@@ -235,7 +262,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = Field(
         default=None,
         alias="OPENAI_API_KEY",
-        description="Used by GeminiLLMProvider only when provider=openai.",
+        description="Used by OpenAILLMProvider when provider=openai.",
     )
     anthropic_api_key: SecretStr | None = Field(
         default=None,

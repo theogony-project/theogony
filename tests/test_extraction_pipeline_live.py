@@ -3,8 +3,10 @@ Live integration smoke for :class:`IngestionPipeline` (E5 end-to-end).
 
 Gated by ``THEOGONY_RUN_E5_INTEGRATION=1``. Requires:
 
-- A Gemini API key (``GEMINI_API_KEY`` or ``GOOGLE_API_KEY``)
-- Network access to Project Gutenberg + Wikidata + Gemini
+- An API key for the configured LLM provider (default: ``ANTHROPIC_API_KEY``;
+  override with ``THEOGONY_LLM__PROVIDER=gemini`` + ``GEMINI_API_KEY``,
+  or ``THEOGONY_LLM__PROVIDER=openai`` + ``OPENAI_API_KEY``)
+- Network access to Project Gutenberg + Wikidata + the LLM host
 
 Drives the full E5 chain on a small slice of Hedin Trans-Himalaya
 Vol. I (Gutenberg #43497):
@@ -12,10 +14,10 @@ Vol. I (Gutenberg #43497):
   GutenbergAdapter.acquire   → real PG download
     → TextCleaner.clean      → real header/footer strip
     → Sentencizer            → real spaCy
-    → BookContextExtractor   → real Gemini (1 call)
+    → BookContextExtractor   → real LLM (1 call)
     → NerExtractor           → real spaCy en_core_web_sm
-    → EntityResolver         → real Wikidata + (sometimes) real Gemini
-    → RelationExtractor      → real Gemini (per ambiguous sentence)
+    → EntityResolver         → real Wikidata + (sometimes) real LLM
+    → RelationExtractor      → real LLM (per ambiguous sentence)
     → materialise_edges      → real KnowledgeEdge minting
     → InMemoryKnowledgeStore → real upserts (no Neo4j needed)
     → ExtractionAuditLog     → real SQLite log
@@ -30,7 +32,7 @@ the test under ~30 s and ~0.01 EUR. Verifies end-to-end:
 - At least one Tier-3-or-higher node was resolved (real Wikidata
   alignment works)
 - At least one edge was materialised
-- Audit log has rows for each Gemini call
+- Audit log has rows for each LLM call
 - IngestRunReport summaries match the result counts
 
 Run::
@@ -46,7 +48,7 @@ import os
 import pytest
 
 from theogony.acquisition.gutenberg import GutenbergAdapter
-from theogony.agents.llm_gemini import GeminiLLMProvider
+from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
 from theogony.core.model import KnowledgeEdge, KnowledgeNode
 from theogony.extraction.audit import ExtractionAuditLog
@@ -65,12 +67,14 @@ pytestmark = pytest.mark.skipif(
 HEDIN_BOOK_ID = "43497"
 
 
-def _gemini() -> GeminiLLMProvider:
+def _live_llm() -> object:
     settings = Settings()  # type: ignore[call-arg]
-    api_key = settings.active_llm_api_key()
-    if api_key is None:
-        pytest.skip("no Gemini/Google API key in environment")
-    return GeminiLLMProvider(api_key=api_key, model_id=settings.llm.model_id)
+    if settings.active_llm_api_key() is None:
+        pytest.skip("no API key for the active LLM provider in environment")
+    try:
+        return build_llm_from_settings(settings)
+    except (ValueError, NotImplementedError, ImportError) as exc:
+        pytest.skip(f"could not build LLM provider: {exc}")
 
 
 class _CollectingStore:
@@ -97,16 +101,16 @@ class TestE5LiveSmoke:
             raw_content = await gutenberg.acquire(hedin)
 
         # ---- compose pipeline ----
-        gemini = _gemini()
+        llm = _live_llm()
         with ExtractionAuditLog() as audit:
             async with WikidataClient() as wd_client:
                 resolver = EntityResolver(
                     client=wd_client,
-                    llm=gemini,
+                    llm=llm,
                     audit_log=audit,
                 )
-                book_context_extractor = BookContextExtractor(llm=gemini, audit_log=audit)
-                relation_extractor = RelationExtractor(llm=gemini, audit_log=audit)
+                book_context_extractor = BookContextExtractor(llm=llm, audit_log=audit)
+                relation_extractor = RelationExtractor(llm=llm, audit_log=audit)
                 store = _CollectingStore()
                 pipeline = IngestionPipeline(
                     entity_resolver=resolver,

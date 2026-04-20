@@ -1,16 +1,16 @@
 """
 Live integration smoke for Etappe E3 — BookContext + Stage 4 LLM disambiguation.
 
-Gated by ``THEOGONY_RUN_E3_INTEGRATION=1``. Requires a Gemini API key
-in the environment (``GEMINI_API_KEY`` or ``GOOGLE_API_KEY``).
+Gated by ``THEOGONY_RUN_E3_INTEGRATION=1``. Requires an API key for the
+configured LLM provider (default ``ANTHROPIC_API_KEY``).
 
 Two tests:
 
-1. ``BookContextExtractor`` against real Gemini 2.5 Flash Lite — fed a
+1. ``BookContextExtractor`` against the real configured LLM — fed a
    plausible Hedin / Trans-Himalaya opening, must produce a non-empty
    ``BookContext`` whose places include Tibet (or similar).
 
-2. ``EntityResolver`` Stage 4 against real Wikidata + real Gemini —
+2. ``EntityResolver`` Stage 4 against real Wikidata + real LLM —
    Heinrich Harrer disambiguation. Wikidata returns at least two Q5
    humans named "Harrer" (Q84211 the Austrian Tibet-explorer
    1912–2006; Q25726941 a 19th-century painter). With Hedin/Tibet
@@ -32,7 +32,7 @@ import os
 import pytest
 
 from theogony.acquisition.base import RawContent
-from theogony.agents.llm_gemini import GeminiLLMProvider
+from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
 from theogony.core.model import SourceRef
 from theogony.extraction.book_context import BookContextExtractor
@@ -93,21 +93,20 @@ def _hedin_opening() -> list[Sentence]:
     return out
 
 
-def _gemini() -> GeminiLLMProvider:
-    """Build a real Gemini provider from the active Settings."""
+def _live_llm() -> object:
+    """Build the real LLM from active Settings (default: Anthropic)."""
     settings = Settings()  # type: ignore[call-arg]
-    api_key = settings.active_llm_api_key()
-    if api_key is None:
-        pytest.skip("no Gemini/Google API key in environment")
-    return GeminiLLMProvider(
-        api_key=api_key,
-        model_id=settings.llm.model_id,
-    )
+    if settings.active_llm_api_key() is None:
+        pytest.skip("no API key for the active LLM provider in environment")
+    try:
+        return build_llm_from_settings(settings)
+    except (ValueError, NotImplementedError, ImportError) as exc:
+        pytest.skip(f"could not build LLM provider: {exc}")
 
 
 class TestBookContextLive:
     async def test_extracts_plausible_context_from_hedin_opening(self) -> None:
-        llm = _gemini()
+        llm = _live_llm()
         extractor = BookContextExtractor(llm=llm)
         ctx = await extractor.extract(
             raw_content=_hedin_raw(),
@@ -133,7 +132,7 @@ class TestStage4LiveDisambiguation:
         # Two surviving Q5 humans called "Harrer": Q84211 (Tibet
         # explorer, 1912-2006) and Q25726941 (19th-century painter).
         # Stage 4 with Hedin/Tibet context must pick Q84211.
-        llm = _gemini()
+        llm = _live_llm()
         # BookContext fixed by hand — keeps this test independent of
         # the BookContext extraction quality (tested separately above).
         from theogony.extraction.book_context import BookContext

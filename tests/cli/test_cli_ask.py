@@ -143,7 +143,7 @@ def test_ask_missing_llm_exits_with_red_panel(
     import theogony.cli as cli_mod
 
     def _explode(_settings: object) -> object:
-        raise ValueError("no API key for provider 'gemini'")
+        raise ValueError("no API key for provider 'openai'")
 
     monkeypatch.setattr(cli_mod, "build_llm_from_settings", _explode)
     result = cli_runner.invoke(app, ["ask", "anything", "--store", "memory"])
