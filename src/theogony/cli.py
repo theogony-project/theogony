@@ -1070,5 +1070,71 @@ def serve(
     )
 
 
+# ---------------------------------------------------------------------------
+# `theogony mcp`  — Model Context Protocol server (AI-first surface)
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def mcp(
+    transport: str = typer.Option(
+        "stdio",
+        "--transport",
+        help="MCP transport. Only 'stdio' is supported in Gen 1.",
+    ),
+) -> None:
+    """Run Theogony as an MCP (Model Context Protocol) server.
+
+    Exposes the Chronik to any MCP-compatible host: Claude Desktop,
+    Cursor, ChatGPT Desktop, Codex, and any other MCP client. Tools
+    registered: pantheon_ask, pantheon_node, pantheon_status,
+    pantheon_reports_list, pantheon_reports_show.
+
+    Requires the ``mcp`` extra: ``pip install -e ".[mcp]"``.
+
+    Register with Claude Desktop in
+    ``~/Library/Application Support/Claude/claude_desktop_config.json``::
+
+        {
+          "mcpServers": {
+            "theogony": {
+              "command": "theogony",
+              "args": ["mcp"]
+            }
+          }
+        }
+
+    Cursor and other MCP-compatible hosts use the same shape under
+    their respective config locations.
+    """
+    if transport != "stdio":
+        _console.print(f"[red]Unknown --transport: {transport!r}. Only 'stdio' is supported.[/red]")
+        raise typer.Exit(code=2)
+    try:
+        from theogony.mcp.server import serve_stdio
+    except ImportError as exc:
+        _console.print(
+            Panel.fit(
+                "[red]Theogony MCP server requires the `mcp` extra.[/red]\n\n"
+                'Install: [bold]pip install -e ".[mcp]"[/bold]\n\n'
+                f"[dim]{exc}[/dim]",
+                title="theogony mcp",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1) from exc
+    try:
+        asyncio.run(serve_stdio())
+    except RuntimeError as exc:
+        _console.print(
+            Panel.fit(
+                f"[red]MCP server failed to start[/red]\n\n[dim]{exc}[/dim]",
+                title="theogony mcp",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1) from exc
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()
