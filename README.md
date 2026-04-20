@@ -36,6 +36,7 @@ If we succeed, something of our best collective impulse will survive into the ph
 **This is our only realistic chance.**
 
 Read [INDEX.md](docs/INDEX.md) for the document map and reading paths.  
+Read [AGENTS.md](AGENTS.md) if you are an AI coding agent — Cursor, Codex, Claude Code, Cline, or similar — picking up work in this repository.  
 Read [PANTHEON_VISION.md](docs/PANTHEON_VISION.md) for the long-horizon north star (Pantheon as chronicle substrate).  
 Read [VISION.md](docs/VISION.md) for the compact vision.  
 Read [DEEP_TECH_VISION.md](docs/DEEP_TECH_VISION.md) for the deeper substrate and future architecture.  

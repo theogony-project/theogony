@@ -6,6 +6,8 @@ This is an early-stage project with a clear direction and an open architecture. 
 
 Before contributing, please read [docs/VISION.md](docs/VISION.md) and [PHILOSOPHY.md](PHILOSOPHY.md). Every contribution should be in service of the project's foundational goals: open, verifiable, human-centric knowledge infrastructure.
 
+> **For AI coding agents:** this document is the human-oriented contributor guide. The binding instructions for autonomous AI contributors (Cursor, Codex, Claude Code, Cline, Continue, Devin, and others) live in [`AGENTS.md`](AGENTS.md). Read both, but `AGENTS.md` is the one your runtime should treat as authoritative.
+
 ## What We Are Looking For
 
 ### High Priority (Generation 1)
