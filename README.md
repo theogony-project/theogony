@@ -56,7 +56,7 @@ The spark has been lit.
 
 ### What you get
 
-A working Theogony installation that ingests Project Gutenberg books, answers questions about them with cited passages, and self-reports its own run quality. The end-to-end demo (a real ingest → ten queries → one Hover-Lupe walk) runs on a developer laptop in about 10 minutes against a live Neo4j and a Gemini API key. Every node in every answer points back to its source; every run produces a structured `RunReport` the operator can inspect.
+A working Theogony installation that ingests Project Gutenberg books, answers questions about them with cited passages, and self-reports its own run quality. The end-to-end demo (a real ingest → ten queries → one Hover-Lupe walk) runs on a developer laptop in about 10 minutes against a live Neo4j and an **OpenAI** API key (default LLM: `gpt-4o-mini`). Every node in every answer points back to its source; every run produces a structured `RunReport` the operator can inspect.
 
 See [`docs/etappes/demo_log.md`](docs/etappes/demo_log.md) for a captured run with the exact numbers — wall-clock, cost, verdict distribution, Oneiros activity.
 
@@ -64,7 +64,7 @@ See [`docs/etappes/demo_log.md`](docs/etappes/demo_log.md) for a captured run wi
 
 - **Python 3.12+**.
 - **Docker** (or any other way to run Neo4j 5.18-community on `localhost:7687`).
-- **A Gemini API key** in `GEMINI_API_KEY` or `GOOGLE_API_KEY`. The free tier (20 RPD on `gemini-2.5-flash-lite`) is enough for the bounded demo below; the full ~7000-sentence ingest needs a paid tier.
+- **An OpenAI API key** in `OPENAI_API_KEY` (default provider). Prepaid credits work well for bounded demos. To use **Gemini** instead: `pip install -e ".[dev,gemini]"` and set `THEOGONY_LLM__PROVIDER=gemini` plus `GEMINI_API_KEY` or `GOOGLE_API_KEY`. For **Anthropic**: `THEOGONY_LLM__PROVIDER=anthropic` and `ANTHROPIC_API_KEY`.
 
 ### The demo
 
@@ -73,7 +73,7 @@ The Plan §1 demonstration moment, end to end. Six commands; ~10 min wall-clock.
 ```bash
 # 1. Clone + install (~1 min).
 git clone https://github.com/theogony-project/theogony && cd theogony
-pip install -e ".[dev,gemini]"
+pip install -e ".[dev]"
 python -m spacy download en_core_web_sm
 
 # 2. Start the Neo4j 5.18-community store (Plan §3.1a).
@@ -82,8 +82,8 @@ python -m spacy download en_core_web_sm
 docker compose up -d neo4j
 
 # 3. Ingest one Gutenberg book end-to-end into Neo4j
-#    (~3 min wall-clock, ~0.005 EUR Gemini for the bounded slice).
-#    Requires GEMINI_API_KEY or GOOGLE_API_KEY in env.
+#    (~3 min wall-clock, ~0.005 EUR OpenAI for the bounded slice).
+#    Requires OPENAI_API_KEY in env (default provider).
 theogony ingest 43497 --sentences 50 --no-book-context
 
 # 4. Start the API + the Oneiros write-back worker (background).

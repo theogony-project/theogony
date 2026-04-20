@@ -192,11 +192,11 @@ class TestIngestCommand:
 
         monkeypatch.setattr(gb.GutenbergAdapter, "get_by_id", fake_get)
         monkeypatch.setattr(gb.GutenbergAdapter, "acquire", fake_acquire)
-        # Default provider is "gemini" but no key in env → factory raises.
+        # Default provider is "openai" but no key in env → factory raises.
         result = CliRunner().invoke(app, ["ingest", "1"])
         assert result.exit_code == 1
         assert "LLM provider unavailable" in result.stdout
-        assert "GEMINI_API_KEY" in result.stdout
+        assert "OPENAI_API_KEY" in result.stdout
 
 
 class TestStatus:
@@ -205,7 +205,7 @@ class TestStatus:
         result = CliRunner().invoke(app, ["status"])
         assert result.exit_code == 0
         assert "Theogony" in result.stdout
-        assert "gemini" in result.stdout
+        assert "openai" in result.stdout
         assert "BAAI/bge-small-en-v1.5" in result.stdout
 
     def test_status_reports_missing_api_key(self) -> None:
@@ -214,12 +214,12 @@ class TestStatus:
         assert "missing" in result.stdout.lower()
 
     def test_status_reports_present_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("GEMINI_API_KEY", "g-fake")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-fake-openai")
         result = CliRunner().invoke(app, ["status"])
         assert result.exit_code == 0
         assert "set" in result.stdout
         # The actual key must NOT appear (Plan §3.6 secret discipline).
-        assert "g-fake" not in result.stdout
+        assert "sk-fake-openai" not in result.stdout
 
     def test_status_counts_existing_reports(self, tmp_path: Path) -> None:
         for _ in range(3):

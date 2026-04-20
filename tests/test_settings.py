@@ -47,10 +47,10 @@ def _isolate_environment(
 
 
 class TestSettingsDefaults:
-    def test_default_llm_provider_is_gemini_2_5_flash_lite(self) -> None:
+    def test_default_llm_provider_is_openai_gpt_4o_mini(self) -> None:
         s = Settings()
-        assert s.llm.provider == "gemini"
-        assert s.llm.model_id == "gemini-2.5-flash-lite"
+        assert s.llm.provider == "openai"
+        assert s.llm.model_id == "gpt-4o-mini"
 
     def test_default_embedding_is_bge_small(self) -> None:
         s = Settings()

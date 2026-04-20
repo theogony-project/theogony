@@ -7,30 +7,35 @@ from pydantic import SecretStr
 
 from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.llm import StubLLMProvider
+from theogony.agents.llm_anthropic import AnthropicLLMProvider
 from theogony.agents.llm_gemini import GeminiLLMProvider
+from theogony.agents.llm_openai import OpenAILLMProvider
 from theogony.config.settings import LLMSettings, Settings
 
 
 def _settings(
     *,
-    provider: str = "gemini",
-    model_id: str = "gemini-2.5-flash-lite",
+    provider: str = "stub",
+    model_id: str | None = None,
     gemini_key: str | None = None,
     openai_key: str | None = None,
     anthropic_key: str | None = None,
 ) -> Settings:
+    llm_kw: dict[str, object] = {"provider": provider}
+    if model_id is not None:
+        llm_kw["model_id"] = model_id
     return Settings(  # type: ignore[call-arg]
         OPENAI_API_KEY=SecretStr(openai_key) if openai_key else None,  # type: ignore[arg-type]
         ANTHROPIC_API_KEY=SecretStr(anthropic_key) if anthropic_key else None,  # type: ignore[arg-type]
         GEMINI_API_KEY=SecretStr(gemini_key) if gemini_key else None,  # type: ignore[arg-type]
         GOOGLE_API_KEY=None,
-        llm=LLMSettings(provider=provider, model_id=model_id),  # type: ignore[arg-type]
+        llm=LLMSettings(**llm_kw),  # type: ignore[arg-type]
     )
 
 
 class TestStubProvider:
     def test_stub_returns_stub_provider(self) -> None:
-        s = _settings(provider="stub", model_id="stub-llm")
+        s = _settings(provider="stub")
         provider = build_llm_from_settings(s)
         assert isinstance(provider, StubLLMProvider)
         assert provider.model_id == "stub-llm"
@@ -40,6 +45,36 @@ class TestStubProvider:
         s = _settings(provider="stub")
         provider = build_llm_from_settings(s)
         assert isinstance(provider, StubLLMProvider)
+
+
+class TestOpenAIProvider:
+    def test_openai_returns_openai_provider_with_key(self) -> None:
+        s = _settings(provider="openai", openai_key="sk-x", model_id="gpt-4o-mini")
+        provider = build_llm_from_settings(s)
+        assert isinstance(provider, OpenAILLMProvider)
+        assert provider.model_id == "gpt-4o-mini"
+
+    def test_openai_without_key_raises_value_error(self) -> None:
+        s = _settings(provider="openai", openai_key=None, model_id="gpt-4o-mini")
+        with pytest.raises(ValueError, match="OPENAI_API_KEY"):
+            build_llm_from_settings(s)
+
+
+class TestAnthropicProvider:
+    def test_anthropic_returns_anthropic_provider_with_key(self) -> None:
+        s = _settings(
+            provider="anthropic",
+            anthropic_key="sk-ant-x",
+            model_id="claude-3-5-haiku-20241022",
+        )
+        provider = build_llm_from_settings(s)
+        assert isinstance(provider, AnthropicLLMProvider)
+        assert provider.model_id == "claude-3-5-haiku-20241022"
+
+    def test_anthropic_without_key_raises_value_error(self) -> None:
+        s = _settings(provider="anthropic", anthropic_key=None)
+        with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
+            build_llm_from_settings(s)
 
 
 class TestGeminiProvider:
@@ -64,14 +99,6 @@ class TestGeminiProvider:
         )
         provider = build_llm_from_settings(s)
         assert isinstance(provider, GeminiLLMProvider)
-
-
-class TestReservedProviders:
-    @pytest.mark.parametrize("name", ["openai", "anthropic"])
-    def test_reserved_providers_raise_not_implemented(self, name: str) -> None:
-        s = _settings(provider=name, openai_key="x", anthropic_key="x")
-        with pytest.raises(NotImplementedError, match="PHX-0027"):
-            build_llm_from_settings(s)
 
 
 class TestUnknownProvider:
