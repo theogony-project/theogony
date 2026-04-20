@@ -4,21 +4,52 @@ build-backend = "hatchling.build"
 
 [project]
 name = "theogony"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A living vector-graph knowledge network — separating knowledge from reasoning so that AI may serve humanity."
-readme = "README.md"
+readme = {file = "README.md", content-type = "text/markdown"}
 license = {file = "LICENSE"}
 requires-python = ">=3.12"
-keywords = ["knowledge-graph", "rag", "ai", "llm", "graph-rag", "knowledge-base", "open-source"]
+keywords = [
+    "knowledge-graph",
+    "rag",
+    "ai",
+    "llm",
+    "graph-rag",
+    "knowledge-base",
+    "open-source",
+    "vector-database",
+    "memory",
+    "agents",
+    "mcp",
+    "model-context-protocol",
+    "provenance",
+    "neo4j",
+    "pantheon",
+    "chronik",
+]
+authors = [
+    {name = "Jakob Reinehr"},
+]
+maintainers = [
+    {name = "Jakob Reinehr"},
+]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
     "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Linguistic",
+    "Typing :: Typed",
 ]
 
 dependencies = [
@@ -83,7 +114,18 @@ theogony = "theogony.cli:app"
 Homepage = "https://github.com/theogony-project/theogony"
 Documentation = "https://github.com/theogony-project/theogony/tree/main/docs"
 Repository = "https://github.com/theogony-project/theogony"
+Changelog = "https://github.com/theogony-project/theogony/releases"
 "Bug Tracker" = "https://github.com/theogony-project/theogony/issues"
+"Pantheon Vision" = "https://github.com/theogony-project/theogony/blob/main/docs/PANTHEON_VISION.md"
+
+# --- Hatchling build configuration ---------------------------------------
+
+# Single source of truth for the version: ``src/theogony/__init__.py``.
+# ``__version__`` is parsed by hatchling at build-time so we never have
+# to bump the same number in two places. The release workflow expects a
+# git tag of ``v<version>`` matching what ``__version__`` already holds.
+[tool.hatch.version]
+path = "src/theogony/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/theogony"]
@@ -95,6 +137,45 @@ packages = ["src/theogony"]
 # from non-editable installs and the synthesizer raises FileNotFoundError
 # on first use.
 "src/theogony/retrieval/prompts/answer_synthesizer.md" = "theogony/retrieval/prompts/answer_synthesizer.md"
+
+[tool.hatch.build.targets.sdist]
+# Source distribution: ship the package + the docs / prompts / phoenix
+# backlog the package metadata references, plus the standard project
+# files. Exclude transient artefacts (data/, dist/, etc. — those are in
+# .gitignore but we double-belt them here so a fresh checkout sdist
+# never accidentally bakes in a developer's local Neo4j data.)
+include = [
+    "src/theogony",
+    "docs",
+    "prompts",
+    "phoenix-backlog",
+    "tests",
+    "scripts",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
+    "PHILOSOPHY.md",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+    "docker-compose.yml",
+    ".env.example",
+]
+exclude = [
+    "data/",
+    "dist/",
+    "build/",
+    "venv/",
+    ".venv/",
+    "**/__pycache__",
+    "**/*.pyc",
+    "**/.pytest_cache",
+    "**/.mypy_cache",
+    "**/.ruff_cache",
+    "neo4j_data/",
+    "genesis_conversation_log.md",
+    "cursor_theogony_project_introduction.md",
+]
 
 [tool.ruff]
 line-length = 100

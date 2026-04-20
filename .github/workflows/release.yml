@@ -1,0 +1,115 @@
+name: Release
+
+# Two trigger modes:
+#
+# 1. Tag push ``v*`` — builds the distribution and (subject to the
+#    ``pypi`` environment approval gate) publishes to PyPI.
+# 2. Manual ``workflow_dispatch`` — always builds; only publishes when
+#    the operator opts in via the ``publish`` input. Useful for
+#    pre-release verification: build artefacts are uploaded as workflow
+#    artefacts and can be downloaded for local testing without ever
+#    touching PyPI.
+#
+# Publication itself is **double-gated**: the ``publish-pypi`` job uses
+# the ``pypi`` GitHub Environment (which the repository owner configures
+# with manual approvers), and PyPI itself only accepts the upload if a
+# Trusted Publisher mapping for this repository + workflow exists. Until
+# both are set up, the publish job either waits for approval or fails
+# gracefully without affecting the build artefacts.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Also publish to PyPI (still requires environment approval)'
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: Build wheel + sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so any future hatch-vcs / setuptools-scm
+          # version derivation has the tag context to read from.
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade build twine
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: Verify metadata with twine
+        # Catches malformed long descriptions, missing required fields,
+        # invalid classifiers — the same gate PyPI itself runs on upload.
+        run: python -m twine check dist/*
+
+      - name: List distribution contents
+        # Easy-to-eyeball summary in the action log so the operator can
+        # confirm the wheel + sdist contain what they expect before
+        # approving the publish step.
+        run: |
+          ls -la dist/
+          echo ""
+          echo "=== Wheel contents (top 30) ==="
+          python -m zipfile -l dist/*.whl | head -30
+          echo ""
+          echo "=== Sdist top-level entries ==="
+          tar tzf dist/*.tar.gz | head -30
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+
+    # Only attempt to publish on a tag push, or when the operator
+    # explicitly opted in via workflow_dispatch with ``publish=true``.
+    if: |
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish == true)
+
+    # The ``pypi`` GitHub Environment is the manual approval gate. The
+    # repository owner configures required reviewers on it; the job
+    # waits for an approval before any token-bearing step runs.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/theogony
+
+    # PyPI Trusted Publishing uses OIDC — no long-lived API token is
+    # ever stored in the repository. ``id-token: write`` is the only
+    # permission required for ``pypa/gh-action-pypi-publish``.
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+
+      - name: Publish to PyPI
+        # Pinned to the upstream-recommended ``release/v1`` tracking ref;
+        # see https://github.com/pypa/gh-action-pypi-publish for the
+        # security model and the Trusted Publisher setup.
+        uses: pypa/gh-action-pypi-publish@release/v1
