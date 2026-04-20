@@ -37,6 +37,18 @@ The Pantheon therefore aims to become:
 - the provenance-first substrate beneath reasoning systems,
 - the place where claims, evidence, plans, and contradictions can coexist without being flattened into propaganda or amnesia.
 
+## Rails, Not Vehicles
+
+Foundation models are vehicles. They will improve, split, consolidate, and age out. The Pantheon should not aim to become another vehicle.
+
+It should aim to become the **rail layer** beneath them: the shared substrate for how meaningful knowledge is identified, evidenced, contested, governed, and audited across many models and many operators.
+
+Two distinctions follow.
+
+**Politically neutral.** The Pantheon should remain neutral about which model vendor is used, where deployment lives, who operates a chronicle, and which sector-specific extensions sit on top. Vendor neutrality is not a marketing posture; it is a precondition for becoming infrastructure.
+
+**Normatively non-negotiable.** The Pantheon should not bend on provenance-first memory, structured contestability, intrinsic time, governed visibility, exportability, agent write discipline, and the refusal of silent ungrounded insertion. These are not preferences. They are the reason the Pantheon deserves to exist.
+
 ## What the Pantheon Is
 
 The Pantheon is a **living chronicle**, not merely a fact table.
