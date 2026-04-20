@@ -47,10 +47,10 @@ def _isolate_environment(
 
 
 class TestSettingsDefaults:
-    def test_default_llm_provider_is_anthropic_claude_3_5_haiku(self) -> None:
+    def test_default_llm_provider_is_anthropic_claude_haiku_4_5(self) -> None:
         s = Settings()
         assert s.llm.provider == "anthropic"
-        assert s.llm.model_id == "claude-3-5-haiku-20241022"
+        assert s.llm.model_id == "claude-haiku-4-5-20251001"
 
     def test_default_embedding_is_bge_small(self) -> None:
         s = Settings()
@@ -108,12 +108,12 @@ class TestSettingsFromEnv:
 
     def test_nested_settings_use_double_underscore(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("THEOGONY_LLM__PROVIDER", "anthropic")
-        monkeypatch.setenv("THEOGONY_LLM__MODEL_ID", "claude-3-5-haiku")
+        monkeypatch.setenv("THEOGONY_LLM__MODEL_ID", "claude-haiku-4-5")
         monkeypatch.setenv("THEOGONY_NEO4J__PASSWORD", "from-env")
         monkeypatch.setenv("THEOGONY_LOG_LEVEL", "DEBUG")
         s = Settings()
         assert s.llm.provider == "anthropic"
-        assert s.llm.model_id == "claude-3-5-haiku"
+        assert s.llm.model_id == "claude-haiku-4-5"
         assert s.neo4j.password.get_secret_value() == "from-env"
         assert s.log_level == "DEBUG"
 

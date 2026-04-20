@@ -56,7 +56,7 @@ The spark has been lit.
 
 ### What you get
 
-A working Theogony installation that ingests Project Gutenberg books, answers questions about them with cited passages, and self-reports its own run quality. The end-to-end demo (a real ingest → ten queries → one Hover-Lupe walk) runs on a developer laptop in about 10 minutes against a live Neo4j and an **Anthropic** API key (default LLM: `claude-3-5-haiku-20241022`). Every node in every answer points back to its source; every run produces a structured `RunReport` the operator can inspect.
+A working Theogony installation that ingests Project Gutenberg books, answers questions about them with cited passages, and self-reports its own run quality. The end-to-end demo (a real ingest → ten queries → one Hover-Lupe walk) runs on a developer laptop in about 10 minutes against a live Neo4j and an **Anthropic** API key (default LLM: `claude-haiku-4-5-20251001`). Every node in every answer points back to its source; every run produces a structured `RunReport` the operator can inspect.
 
 See [`docs/etappes/demo_log.md`](docs/etappes/demo_log.md) for a captured run with the exact numbers — wall-clock, cost, verdict distribution, Oneiros activity.
 
