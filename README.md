@@ -136,3 +136,34 @@ curl -X POST localhost:8000/ingest \
 
 Stop everything: `docker compose down`. Wipe Neo4j data: `docker compose down -v`.
 
+### MCP server (Claude Desktop, Cursor, Codex, …)
+
+Theogony ships a Model Context Protocol (MCP) server so any MCP-compatible host can discover and call the Chronik as a native tool — no custom integration code.
+
+```bash
+pip install -e ".[mcp]"
+theogony mcp           # runs over stdio; this is what MCP hosts launch
+```
+
+Tools exposed (Gen 1, read-side):
+
+- `pantheon_ask` — cited answer + verdict + the slim Constellation that produced it.
+- `pantheon_node` — Hover-Lupe: a node + its depth-1 neighborhood.
+- `pantheon_status` — current LLM, store, embedding model, and report counts.
+- `pantheon_reports_list` / `pantheon_reports_show` — honest retrospective surface.
+
+Register with Claude Desktop in `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "theogony": {
+      "command": "theogony",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Cursor and other MCP hosts use the same shape under their respective config locations. Once registered, the host renders Theogony alongside its other tools and any agent in that host can call `pantheon_ask` / `pantheon_node` directly — that is the AI-first distribution path.
+

@@ -55,6 +55,9 @@ dev = [
     # CI runs the Neo4j matrix when THEOGONY_TEST_NEO4J=1; locally
     # `docker compose up neo4j` is the no-testcontainers path.
     "testcontainers[neo4j]>=4.0",
+    # MCP SDK so test_mcp_server.py runs inside the dev matrix without
+    # forcing humans to install the optional ``mcp`` extra by hand.
+    "mcp>=1.0.0",
 ]
 gemini = [
     "google-genai>=1.0.0",
@@ -64,6 +67,13 @@ openai = [
 ]
 anthropic = [
     "anthropic>=0.30.0",
+]
+# Optional Model Context Protocol (MCP) server integration so any
+# MCP-compatible host (Claude Desktop, Cursor, ChatGPT Desktop, Codex,
+# etc.) can discover and call Theogony as a tool. Required for the
+# ``theogony mcp`` CLI command.
+mcp = [
+    "mcp>=1.0.0",
 ]
 
 [project.scripts]
