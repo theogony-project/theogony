@@ -16,15 +16,12 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import SecretStr
 
 from theogony.agents.llm import LLMResult
 from theogony.config.logging import get_logger
-
-if TYPE_CHECKING:
-    pass
 
 log = get_logger("agents.llm_openai")
 

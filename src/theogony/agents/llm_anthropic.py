@@ -18,15 +18,12 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import SecretStr
 
 from theogony.agents.llm import LLMResult
 from theogony.config.logging import get_logger
-
-if TYPE_CHECKING:
-    pass
 
 log = get_logger("agents.llm_anthropic")
 
@@ -140,6 +137,12 @@ class AnthropicLLMProvider:
                 ):
                     text = json.dumps(block.input)
                     break
+            else:
+                raise RuntimeError(
+                    f"AnthropicLLMProvider: forced tool {_TOOL_NAME!r} not found in response "
+                    f"for model_id={self._model_id}; got block types "
+                    f"{[getattr(b, 'type', None) for b in message.content]}"
+                )
         else:
             parts: list[str] = []
             for block in message.content:
