@@ -3,8 +3,9 @@ Live integration smoke for :class:`IngestionPipeline` (E5 end-to-end).
 
 Gated by ``THEOGONY_RUN_E5_INTEGRATION=1``. Requires:
 
-- An API key for the configured LLM provider (default: ``OPENAI_API_KEY``;
-  override with ``THEOGONY_LLM__PROVIDER=gemini`` + ``GEMINI_API_KEY``)
+- An API key for the configured LLM provider (default: ``ANTHROPIC_API_KEY``;
+  override with ``THEOGONY_LLM__PROVIDER=gemini`` + ``GEMINI_API_KEY``,
+  or ``THEOGONY_LLM__PROVIDER=openai`` + ``OPENAI_API_KEY``)
 - Network access to Project Gutenberg + Wikidata + the LLM host
 
 Drives the full E5 chain on a small slice of Hedin Trans-Himalaya

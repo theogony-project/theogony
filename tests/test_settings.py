@@ -47,10 +47,10 @@ def _isolate_environment(
 
 
 class TestSettingsDefaults:
-    def test_default_llm_provider_is_openai_gpt_4o_mini(self) -> None:
+    def test_default_llm_provider_is_anthropic_claude_3_5_haiku(self) -> None:
         s = Settings()
-        assert s.llm.provider == "openai"
-        assert s.llm.model_id == "gpt-4o-mini"
+        assert s.llm.provider == "anthropic"
+        assert s.llm.model_id == "claude-3-5-haiku-20241022"
 
     def test_default_embedding_is_bge_small(self) -> None:
         s = Settings()

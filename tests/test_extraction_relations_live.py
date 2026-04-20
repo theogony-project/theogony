@@ -2,7 +2,7 @@
 Live integration smoke for :class:`RelationExtractor` against the real LLM.
 
 Gated by ``THEOGONY_RUN_E4_INTEGRATION=1``. Requires an API key for the
-configured LLM provider (default ``OPENAI_API_KEY``).
+configured LLM provider (default ``ANTHROPIC_API_KEY``).
 
 Two tests:
 

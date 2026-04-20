@@ -46,23 +46,27 @@ LLMProviderName = Literal["gemini", "openai", "anthropic", "stub"]
 class LLMSettings(BaseModel):
     """Selection and tuning of the active LLMProvider.
 
-    The default is **OpenAI ``gpt-4o-mini``**: prepaid API credits and
-    predictable billing are a better fit for day-to-day ingest / demo
-    runs than Gemini's free-tier daily caps. Gemini remains a
-    first-class option (Plan §3.3a pricing table) via
-    ``THEOGONY_LLM__PROVIDER=gemini`` when you want the 1 M context
-    window or Google's rate card.
+    The default is **Anthropic ``claude-3-5-haiku-20241022``**: prepaid
+    API credits and predictable billing are a better fit for day-to-day
+    ingest / demo runs than Gemini's free-tier daily caps, and Claude
+    3.5 Haiku follows literary entity / relation extraction
+    instructions (German names, transliteration, relation
+    directionality) qualitatively cleaner than the OpenAI alternative
+    at the same tier. OpenAI ``gpt-4o-mini`` and Gemini
+    ``gemini-2.5-flash-lite`` remain first-class options (Plan §3.3a
+    pricing table) via ``THEOGONY_LLM__PROVIDER=openai`` or
+    ``THEOGONY_LLM__PROVIDER=gemini``.
 
     Switch providers without touching code via
     ``THEOGONY_LLM__PROVIDER=gemini|openai|anthropic|stub`` (and set the
-    matching API key: ``OPENAI_API_KEY``, ``ANTHROPIC_API_KEY``, or
+    matching API key: ``ANTHROPIC_API_KEY``, ``OPENAI_API_KEY``, or
     ``GEMINI_API_KEY`` / ``GOOGLE_API_KEY``).
 
     ``model_id`` defaults per ``provider`` when left empty (e.g. env
     sets only ``THEOGONY_LLM__PROVIDER=gemini``).
     """
 
-    provider: LLMProviderName = "openai"
+    provider: LLMProviderName = "anthropic"
     model_id: str = Field(
         default="",
         description="Model name for the active provider; empty → sensible default.",

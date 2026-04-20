@@ -2,7 +2,7 @@
 Live integration smoke for Etappe E3 — BookContext + Stage 4 LLM disambiguation.
 
 Gated by ``THEOGONY_RUN_E3_INTEGRATION=1``. Requires an API key for the
-configured LLM provider (default ``OPENAI_API_KEY``).
+configured LLM provider (default ``ANTHROPIC_API_KEY``).
 
 Two tests:
 
@@ -94,7 +94,7 @@ def _hedin_opening() -> list[Sentence]:
 
 
 def _live_llm() -> object:
-    """Build the real LLM from active Settings (default: OpenAI)."""
+    """Build the real LLM from active Settings (default: Anthropic)."""
     settings = Settings()  # type: ignore[call-arg]
     if settings.active_llm_api_key() is None:
         pytest.skip("no API key for the active LLM provider in environment")
