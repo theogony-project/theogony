@@ -5,7 +5,7 @@ Mandate: [`prompts/daedalus.md`](../prompts/daedalus.md)
 Status: **Draft v5 — Hesiod patch round (anchor commit pre-E7)**  
 Date: 2026-04-19
 
-This document translates the existing vision (`README.md`, `VISION.md`, `PHILOSOPHY.md`, `ARCHITECTURE.md`, `DEEP_TECH_VISION.md`, `CHRONESE.md`, `METIS.md`, `HESTIA.md`, `HIVE.md`, `COGNITIVE_ARCHITECTURE.md`, `OPERATIVE_KNOWLEDGE.md`, `PHOENIX_BACKLOG.md`) into a concrete, buildable plan for the first four weeks of work.
+This document translates the existing vision (`README.md`, `PANTHEON_VISION.md`, `CHRONICLE_PRINCIPLES.md`, `VISION.md`, `PHILOSOPHY.md`, `ARCHITECTURE.md`, `DEEP_TECH_VISION.md`, `CHRONESE.md`, `METIS.md`, `HESTIA.md`, `HIVE.md`, `COGNITIVE_ARCHITECTURE.md`, `OPERATIVE_KNOWLEDGE.md`, `PHOENIX_BACKLOG.md`) into a concrete, buildable plan for the first four weeks of work.
 
 It deliberately under-builds. Generation 1 must reach one demonstrable moment, not the full vision. Anything not necessary for that moment is deferred to a Phoenix Backlog ticket.
 
@@ -156,28 +156,26 @@ A single-machine, single-tenant pipeline that ingests one English book from Proj
 
 **The single demonstration moment (end of Week 4).**
 
+Canonical **recording-grade** path after W5 / PR #32: bounded ingest of **Gutenberg #43497** (*Trans-Himalaya, Vol. 1*, Sven Hedin), **`--sentences 500`**, BookContextExtractor **on** (not `--no-book-context`). Default LLM: **`claude-haiku-4-5-20251001`**. Unbounded full-book ingest remains gated by Wikidata free-tier SPARQL throttling (**PHX-0033**); see the reconciliation block at the top of this document.
+
 ```
 $ theogony serve &
-$ theogony ingest 944
-[10–15 min: download, clean, extract, embed, store]
+$ theogony ingest 43497 --sentences 500
+[~20 min: download, clean, extract, embed, store — recording-grade slice per W5]
 
-$ theogony ask "Welche Ethnien beschreibt Heinrich Harrer in seinen Erlebnissen, und auf welchen Wegen begegnet er ihnen?"
-[under 5 s]
+$ theogony ask "Was ist Trans-Himalaya?"
+[under ~10 s typical; synthesis-dominated]
 
 Answer:
-  Heinrich Harrer beschreibt … [Tibeter, Khampas, …]
-  Er begegnet ihnen während seiner Wanderung von … nach Lhasa.
-  Quellen: [Q806463 Uttarkashi], [AKA-…], [AKA-…]
+  … cited claims with [AKA-…] node ids pointing into Neo4j …
 
-$ theogony node Q806463
-Uttarkashi (place)
-  layer: mneme        confidence: 0.78        connectivity: 0.41
-  source: Gutenberg:944, chapter 3, offset 18433–18601
+$ theogony node <AKA-…>
+Sven Hedin (person)   …   external_ids: wikidata=Q154759, …
   edges:
-    REACHED_BY → AKA-… (Heinrich Harrer)        weight 0.72
-    LOCATED_IN → Q1499  (Uttarakhand)            weight 0.95
-    NEAR        → AKA-…                          weight 0.43
+    … TRAVELED_TO / LOCATED_IN / … → other AKA-… or Wikidata-linked nodes …
 ```
+
+Historical note: early Plan drafts cited **Gutenberg #944** as “Seven Years in Tibet”; #944 is *The Voyage of the Beagle* (Darwin), and Harrer’s book is not on Gutenberg. **#43497** is the agreed demo corpus; **PHX-0033** / **PHX-0055** track Wikidata scale and live-default CI smoke, respectively.
 
 This single sequence proves: acquisition works, extraction produces structured knowledge, the store performs combined vector+graph retrieval, the agent synthesizes citation-anchored answers, and the Hover-Lupe is real (you can step into any cited entity).
 
@@ -877,29 +875,26 @@ The v2 strategy (top-3 candidates → spaCy-type filter → LLM with sentence co
     | `P19` | place of birth | German-Austrian space vs. Swiss vs. unrelated |
     | `P937` | work location | Tibet/India vs. unrelated |
 
-    The book itself provides context: "Seven Years in Tibet" is set 1939–1951, in Tibet/India/Nepal, with German-speaking Austrian protagonists. We extract this context once at ingest start (a small structured prompt against the book's metadata + opening pages: "What time period is this book set in? What places? What kinds of people are central?"). The result is a `BookContext` Pydantic model passed into every disambiguation.
+    The book itself provides context: e.g. *Trans-Himalaya* (Sven Hedin, early-20th-century Central Asian travel) is set across Tibet, India, Xinjiang, with European explorer protagonists. We extract this context once at ingest start (a small structured prompt against the book's metadata + opening pages: "What time period is this book set in? What places? What kinds of people are central?"). The result is a `BookContext` Pydantic model passed into every disambiguation.
 
     The LLM is then asked the disambiguation with full evidence:
 
     ```text
-    Mention: "Aufschnaiter"
-    Source sentence: "After many days of climbing, Aufschnaiter and I reached..."
-    Source: Gutenberg #944 ("Seven Years in Tibet"), set 1939-1951, in Tibet/India,
-            German-speaking Austrian protagonists.
+    Mention: "Younghusband"
+    Source sentence: "… the Younghusband expedition had left its mark on the capital …"
+    Source: Gutenberg #43497 ("Trans-Himalaya"), Edwardian-era Tibet / British India frontier
+            (values come from live BookContext at ingest).
 
     Candidate Q-IDs with biographical facts:
-      Q1: Q123456 — Peter Aufschnaiter
-          born 1899 (Kitzbühel, AT), died 1973
-          occupation: mountaineer, engineer, agronomist
-          worked in: Tibet, Nepal
-      Q2: Q789012 — Hans Aufschnaiter
-          born 1950 (Munich, DE), died (alive)
-          occupation: footballer
-          worked in: Germany
+      Q1: Q185720 — Francis Younghusband
+          born 1863, died 1942
+          occupation: British Army officer, explorer
+          notable for: British mission to Tibet, 1903–1904
+      Q2: Q789012 — (hypothetical unrelated namesake for the worked example)
 
     Which Q-ID best matches this mention, given the source context?
     Respond with one of:
-      {"chosen": "Q123456", "confidence": 0.0–1.0, "reasoning": "..."}
+      {"chosen": "Q185720", "confidence": 0.0–1.0, "reasoning": "..."}
       {"chosen": null, "confidence": 0.0–1.0, "reasoning": "..."}
     ```
 
@@ -1188,7 +1183,7 @@ These two decisions together define: one node per (sentence, mention), one edge 
 
 ```text
                                                                     ┌──────────────┐
-CLI/API: theogony ingest 944                                        │  Wikidata    │
+CLI/API: theogony ingest 43497 --sentences 500                      │  Wikidata    │
         │                                                           │  SPARQL +    │
         ▼                                                           │  search API  │
 ┌──────────────────┐    ┌──────────────────┐   ┌──────────────────┐ └──────┬───────┘
@@ -1224,7 +1219,7 @@ CLI/API: theogony ingest 944                                        │  Wikidat
                         └──────────────────┘
 ```
 
-Concrete numbers for "Seven Years in Tibet" (Gutenberg #944, ~110 k words), v3 (after §3.4 v3 deeper Wikidata pipeline):
+Concrete numbers for **Trans-Himalaya, Vol. 1** (Gutenberg **#43497**, full-book scale ~110 k words — order-of-magnitude), v3 (after §3.4 v3 deeper Wikidata pipeline). The **sanctioned Gen 1 demo** is a **bounded** slice: `theogony ingest 43497 --sentences 500` (recording-grade timings in the reconciliation block at the top of this doc).
 
 - Acquisition: 1 HTTPS request, ~2 s
 - Cleaning + sentencizing: ~5 s (local)
@@ -1780,7 +1775,7 @@ Per OQ-10 / PHX-0041, the Detective default-on decision is reopened only after `
 
 **Deliverables.** (Reconciled 2026-04-20 against the captured run in [`etappes/demo_log.md`](etappes/demo_log.md).)
 
-- ✅ **Full ingest of a Gutenberg book.** Captured in [`demo_log.md`](etappes/demo_log.md). The brief specified "Seven Years in Tibet (Gutenberg #944)"; the run surfaced two corrections: (a) Gutenberg #944 is *The Voyage of the Beagle* (Darwin) — Harrer's *Seven Years in Tibet* is post-1945 and not on Gutenberg; (b) The Voyage of the Beagle exceeds spaCy's default `nlp.max_length` of 1,000,000 chars (known Gen-1 limitation). Switched to **#43497 — Sven Hedin's *Trans-Himalaya, Vol. 1*** (the corpus all earlier smoke tests use), bounded to 50 sentences because the Gemini free-tier 20-RPD cap was already eaten by an earlier full-book attempt that day. Result: **106 nodes, 39 edges, 73 manual_resolution_needed, 0.00404 EUR, 191 s wall-clock**, verdict `poor` (honest: `parse_error_rate=0.51`, `low_tier_ratio=0.72`).
+- ✅ **Bounded ingest of a representative Gutenberg book (recording-grade).** Captured in [`demo_log.md`](etappes/demo_log.md). Historical W4 brief text cited "Seven Years in Tibet (Gutenberg #944)"; runs surfaced that #944 is *The Voyage of the Beagle* and Harrer is not on Gutenberg — **#43497 — Sven Hedin's *Trans-Himalaya, Vol. 1*** is the agreed corpus. **W5 path (canonical):** `theogony ingest 43497 --sentences 500` with BookContext on, Anthropic Haiku 4.5 — **756 nodes / 139 edges / €0.68 / ~20 min**, 100 % parse-OK (see reconciliation block + `demo_log.md` W5). Earlier W4 **50-sentence** Gemini-bounded capture (**106 nodes / 39 edges / €0.004 / 191 s**, harsher verdict) remains in `demo_log.md` as an honest historical slice, not the headline demo command.
 - ✅ **`memory/oneiros.py`** (E8.5, PR #27) + **`memory/relevance.py`** (E8, PR #20) — worker active in `theogony serve`. **10 ticks captured during the demo session**; sample tick in `demo_log.md` shows 104 nodes evaluated in 75 ms, no promotions/degradations (correct: seed nodes too fresh + too low-confidence to cross thresholds).
 - ✅ **`agents/hestia.py`** — `HestiaReview` Pydantic schema (W4 PR). Schema-only per Plan §1; sub-models (`HestiaConcern`, `HestiaRecommendation`) + four literal vocabularies (`HestiaCategory` ×7, `HestiaSeverity` ×4, `HestiaUrgency` ×3, `HestiaVerdict` ×4). 7 unit tests green.
 - ✅ **`prompts/hestia_sentinel.md`** + **`prompts/hestia_auditor.md`** (W4 PR). Production-ready prompts lifted from `docs/HESTIA.md`; both reference the schema + close with the "Produce ONE HestiaReview as JSON" instruction.
@@ -1794,7 +1789,7 @@ Per OQ-10 / PHX-0041, the Detective default-on decision is reopened only after `
 **Success criteria — the demonstration moment.** (Reconciled.)
 
 1. ✅ Cold start: `docker compose up neo4j` + `theogony serve &` — works; lifespan logs `startup complete` + `OneirosWorker.run start` cleanly.
-2. 🟡 **`theogony ingest 944` budget.** The brief's #944 was a typo (see deliverable #1). Against the actual demo target #43497 with `--sentences 50` cap: **191 s wall-clock, 0.004 EUR**. Comfortably under both budgets, but at 50/7000 sentences the comparison to "ingest in under 10 min" is not apples-to-apples — full-book ingest needs a paid Gemini tier (the free-tier 20-RPD cap is the binding constraint, not wall-clock). PHX-0037/0039/0040 already track the rate-limit work; PHX-0041 the Detective re-measurement.
+2. 🟡 **Ingest wall-clock vs. original "under 10 min" framing.** The headline demo is **`theogony ingest 43497 --sentences 500`** (W5): **~20 min wall-clock, ~€0.68** on Anthropic Haiku 4.5 — within Hesiod's W5 budget, but not the original v1 "10–15 min full book" fantasy. Full-book unbounded ingest is **gated by Wikidata SPARQL throttling** (**PHX-0033**), not by Anthropic. Gemini free-tier 20-RPD caps are tracked under PHX-0037/0039/0040; Detective default-on waits on PHX-0041.
 3. 🟡 **Store cardinality.** Brief target was 1500–2500 nodes / 2500–4000 edges. W4 bounded (50 sentences, Gemini): **106 nodes, 39 edges**. W5 bounded (500 sentences, Anthropic Haiku 4.5): **756 nodes, 139 edges** with a populated 12-edge geopolitical neighbourhood around Tibet (recording-grade, see `demo_log.md` W5 Q5). Refined explanation post-W5: full-book unbounded ingest is gated by Wikidata's free-tier SPARQL throttling, not by anything in our pipeline (W5 measured 5.6 LLM calls / min, projected ~7.5 h for full Hedin Vol. 1; killed at 45 min per Hesiod decision — `demo_log.md` W5 Demo-time finding §2). The brief's 1500–2500-nodes target requires either (a) PHX-0033 (pre-curated Wikidata travel-literature subset, Gen-2) lifting the throttle, or (b) running over multiple sessions / days against the live endpoint. **The bounded `--sentences 500` path IS the demonstrable cardinality and IS recording-grade.** 🟡 stays because the absolute brief target isn't met today; the explanation is now structural-not-pipeline.
 4. 🟡 **Query latency** at p50 ~9 s on Mac/Gemini-Flash-Lite (synthesis-dominated), above the brief's < 5 s target. The brief notes the < 5 s target is for bare-metal Linux; on Mac with Gemini Flash Lite p50 is dominated by the LLM synthesis call, not by the multi-hop retrieval (`multi_hop` typically < 200 ms; `synthesis` ~1-2 s LLM + ~7 s of audit + report write overhead). Captured in `demo_log.md` per-query.
 5. ✅ **Hover-Lupe walk works.** `theogony node AKA-529bb2882bfe` (Tibet, tier-4, `wikidata=Q2444884`) → `theogony node AKA-26e37c60a426` (Viceroy, tier-3, `wikidata=Q1476332`) round-trip captured in `demo_log.md` Q10. Tier + external_ids surface as designed.
@@ -2092,7 +2087,7 @@ So the edge identity is the *claim about reality*: source node, relation type, t
 - A way to ask "what would the chronicle look like if we removed everything Gemini Flash Lite produced?" That requires querying the audit log to find affected edges and re-aggregating. Workable. Not a Gen 1 use case.
 - Per-extractor versioning of edge weights. The aggregation collapses model-specific signals. Acceptable for Gen 1; PHX-0027 (LLM provider re-evaluation) will need a richer model when measuring relative provider quality.
 
-**Trade-off.** Deterministic IDs are no longer URL-opaque — a sufficiently motivated reader can reverse-engineer "this node came from Gutenberg #944, chapter 3, the label was 'Uttarkashi'". For Gen 1's public-source-only data this is a feature, not a leak. For Lethe Vaults (Gen 2+), deterministic IDs over private content would be a privacy issue and the constructor must mint UUIDs there. Recorded in PHX-0021 (Lethe Vaults & Hades).
+**Trade-off.** Deterministic IDs are no longer URL-opaque — a sufficiently motivated reader can reverse-engineer "this node came from Gutenberg #43497, chapter 3, the label was 'Lhasa'". For Gen 1's public-source-only data this is a feature, not a leak. For Lethe Vaults (Gen 2+), deterministic IDs over private content would be a privacy issue and the constructor must mint UUIDs there. Recorded in PHX-0021 (Lethe Vaults & Hades).
 
 **Required by:** OQ-7 (resumable ingest). Cheaper now than after the first ingest run pollutes the store with ghost duplicates.
 

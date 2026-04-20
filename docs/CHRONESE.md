@@ -1,6 +1,6 @@
 # Chronese
 
-`Chronese` is the proposed canonical semantic language of the Chronik.
+`Chronese` is the proposed canonical semantic language of the **Chronik** — the operational semantic layer of Theogony *today*. In the **Pantheon** framing, Chronese is also the strongest candidate for the chronicle's **native semantic tongue** over time: language-neutral, event-centric, provenance-bound assertions from which graph, vector, and text are *projections*, not the deepest truth.
 
 It is not a human language.
 It is not a replacement for source text.
@@ -8,7 +8,7 @@ It is not merely a triple format.
 
 It is a structured, language-neutral, event-centric representation for distilled knowledge.
 
-At full maturity, the Chronik should exist simultaneously in multiple representational layers:
+At full maturity, the system (Chronik now; Pantheon-scale chronicle later) should exist simultaneously in multiple representational layers:
 
 - source-preserving verbatim text
 - canonical semantic form
@@ -88,6 +88,10 @@ Chronese structures should evolve over time without destroying historical audita
 The deepest primitive in Chronese is not the entity and not the edge.
 It is the **assertion frame**.
 
+### Identity in Chronese
+
+**Mature Chronese** should reference entities by **native Pantheon / Chronik identifiers** (`AKA-…` in Gen 1, richer native ids later), with **Wikidata Q-ids and other catalog keys** carried as **secondary links** inside `EntityRef.external_ids` — not as the sole center of meaning. Early examples in this document may still show Q-ids inline where they illustrate interoperability; the architectural direction is native-first (see [`PANTHEON_VISION.md`](PANTHEON_VISION.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md)).
+
 An assertion frame captures that:
 
 - something happened, existed, was claimed, or was inferred
@@ -108,14 +112,13 @@ Represents a stable referent in the world.
 
 ```yaml
 entity:
-  id: Q806463
+  id: AKA-529bb2882bfe              # native Chronik / Pantheon-path id (Gen 1 shape)
   kind: place
-  label: Uttarkashi
+  label: Tibet
   aliases:
-    - Uttar Kashi
-    - Uttarkashi
+    - Thibet
   external_ids:
-    wikidata: Q806463
+    wikidata: Q2444884              # bootstrap link, not the philosophical root id
 ```
 
 ### 2. `AssertionFrame`
@@ -128,12 +131,12 @@ assertion:
   type: event
   event_kind: arrival
   participants:
-    - entity: Q78477
+    - entity: AKA-traveler-example
       role: traveler
-    - entity: AKA_marchese_0001
+    - entity: AKA-companion-example
       role: companion
   location:
-    entity: Q806463
+    entity: AKA-place-example
   time:
     mode: approximate
     expression: midnight
@@ -163,11 +166,11 @@ Grounds the assertion in the source world.
 ```yaml
 source_anchor:
   source_type: gutenberg
-  identifier: "Gutenberg:12345"
+  identifier: "Gutenberg:43497"
   location: chapter_03:offset_18433_18601
   language: en
   snippet: >
-    After long wandering we reached the temple city of Uttar Kashi around midnight...
+    After many marches we made camp within sight of the holy city...
 ```
 
 ### 5. `RelationProjection`
@@ -176,40 +179,40 @@ Allows Chronese to be projected into graph form when useful.
 
 ```yaml
 relation_projection:
-  source: Q78477
+  source: AKA-traveler-example
   relation: REACHED
-  target: Q806463
+  target: AKA-place-example
   weight: 0.72
   derived_from: asr_01J0...
 ```
 
 ## Example: Historical Narrative
 
-Source sentence:
+Source sentence (illustrative travel prose):
 
-> After long wandering we reached the temple city of Uttar Kashi around midnight.
+> After many marches we made camp within sight of the holy city.
 
-Possible Chronese representation:
+Possible Chronese representation (schematic ids — a live ingest mints real `AKA-…` values):
 
 ```yaml
 assertion:
-  id: asr_arrival_uttarkashi_0001
+  id: asr_arrival_holy_city_0001
   type: event
   event_kind: arrival
   participants:
-    - entity: Q78477
+    - entity: AKA-narrator-expedition
       role: narrator_traveler
-    - entity: AKA_marchese_0001
+    - entity: AKA-companion-expedition
       role: companion
   location:
-    entity: Q806463
+    entity: AKA-holy-city-node
     role: destination
   time:
     mode: approximate
-    expression: midnight
+    expression: nightfall
   qualifiers:
     - key: path_condition
-      value: after_long_wandering
+      value: after_long_marching
   epistemic_state:
     status: observed_claim
     confidence: 0.72
@@ -217,11 +220,11 @@ assertion:
     derivation_depth: 0
   source_anchor:
     source_type: gutenberg
-    identifier: "Gutenberg:SevenYearsInTibet"
+    identifier: "Gutenberg:43497"
     location: chapter_03:offset_18433_18601
     language: en
     snippet: >
-      After long wandering we reached the temple city of Uttar Kashi around midnight.
+      After many marches we made camp within sight of the holy city.
 ```
 
 ## Example: Scientific Claim
@@ -283,7 +286,7 @@ Chronese should borrow from existing traditions without being trapped by them.
 ### What Chronese can inherit
 
 - from RDF: graph interoperability
-- from Wikidata: identifiers, properties, qualifiers, references
+- from Wikidata: property shapes, qualifiers, references — **as interoperability**, while native entity identity stays primary (see *Identity in Chronese* above)
 - from event sourcing: immutable append-only semantics
 - from provenance models: traceability
 - from knowledge graphs: relational navigation
@@ -330,7 +333,7 @@ Chronese raises several deep questions that should remain explicit:
 
 ## Final Thesis
 
-If `VISION.md` is the civilizational bet, and `ARCHITECTURE.md` is the system blueprint, then Chronese is the likely candidate for the Chronik's native semantic tongue.
+If `VISION.md` is the civilizational bet, and `ARCHITECTURE.md` is the system blueprint, then Chronese is the likely candidate for the **Chronik's** native semantic tongue — and, in the Pantheon framing, for the **chronicle's** canonical internal form as the substrate matures (`PANTHEON_VISION.md`).
 
 Not a language for humans to speak.
 Not a language for marketing.

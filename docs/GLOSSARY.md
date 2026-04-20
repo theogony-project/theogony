@@ -7,10 +7,10 @@ When a term appears in multiple documents, this file should be treated as the de
 ## Core Terms
 
 **Theogony**  
-The overall project, architecture, and open initiative devoted to building the Chronik and the surrounding agent ecosystem.
+The overall project, architecture, and open initiative devoted to building the **Chronik** (today's operational system) as the first software toward the **Pantheon** (long-horizon planetary chronicle / knowledge substrate) and the surrounding **Pantheon agents**. See [`PANTHEON_VISION.md`](PANTHEON_VISION.md) and [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md).
 
 **Chronik**  
-The living knowledge system at the center of Theogony. A continuously evolving, open, verifiable knowledge network built from sources, semantic structure, graph relations, embeddings, provenance, and memory processes.
+The living knowledge system at the center of Theogony *right now* — Generation 1's vector-graph memory: ingestion, retrieval, Oneiros, Neo4j, run reports. It is the operational layer implementing chronicle-shaped knowledge toward the wider **Pantheon** ambition; the two terms are not interchangeable.
 
 **Akasha**  
 The global, shared, public knowledge space of the Chronik. This is the world-knowledge layer.
@@ -19,10 +19,13 @@ The global, shared, public knowledge space of the Chronik. This is the world-kno
 A private, isolated knowledge space structurally similar to Akasha but protected by access control. Used for personal, organizational, or otherwise permission-bound knowledge.
 
 **Pantheon**  
-The ensemble of specialized agents that build, maintain, verify, and use the Chronik.
+The **planetary chronicle / knowledge substrate** Theogony aims toward over time: native identity, provenance-first structure, governed visibility, contradiction preserved, rebuildable memory — *not* the same thing as the mythological agent roster. Canonical articulation: [`PANTHEON_VISION.md`](PANTHEON_VISION.md); compact doctrine: [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md).
+
+**Pantheon agents**  
+The ensemble of specialized agents (Zeus, Argus, Athene, …) that build, maintain, verify, and use the Chronik. In docs, prefer **"Pantheon agents"** when the agent architecture is meant, to avoid collision with **Pantheon** as substrate.
 
 **Argonauts**  
-A flexible class of specialized domain, language, media, or source experts that support the core Pantheon agents.
+A flexible class of specialized domain, language, media, or source experts that support the core **Pantheon agents**.
 
 ## Memory and Knowledge Layers
 
@@ -118,7 +121,7 @@ A structured advisory output proposed for Metis. It separates framing, facts, an
 ## Agent Architecture Terms
 
 **Agent Class**
-The stable identity of a Pantheon agent: its purpose, boundaries, rights, tools, and escalation rules. Equivalent to the functional core of a gene.
+The stable identity of a **Pantheon agent** (runtime role): its purpose, boundaries, rights, tools, and escalation rules. Equivalent to the functional core of a gene.
 
 **Prompt Genome**
 A family of prompt profiles for different sub-roles within an agent class. Not one prompt per agent, but a coordinated set of variants for different tasks and contexts.
@@ -130,12 +133,12 @@ The regulatory layer that controls an agent class's expression: when it is activ
 The running unit assembled at task time from a class, a prompt profile, a task packet, a context, and a resource budget.
 
 **Task Ledger**
-The structured record of pending, active, and completed agent tasks. Combined with a priority queue and event bus to route work across the Pantheon.
+The structured record of pending, active, and completed agent tasks. Combined with a priority queue and event bus to route work across **Pantheon agents**.
 
 **Hestia**
 The human flourishing guardian. Monitors the Chronik's development for dehumanizing drift, files Phoenix Backlog tickets, triggers escalations, and serves as a regulatory dial: when raised by Helios, more Hestia expression means stronger protection of human-centric values.
 
-## Core Pantheon Agents
+## Core Pantheon agents (roster)
 
 **Zeus**  
 The orchestrator. Routes queries, coordinates agents, and manages system-level execution.
@@ -180,7 +183,7 @@ A future bridging role for translation, mediation, and cross-domain or cross-lan
 
 ## Builder Agents
 
-Builder agents are not part of the Pantheon. They are mortal craftsmen — they build the substrate the gods inhabit, but do not live within it. Their prompts live in [`prompts/`](../prompts/) and are versioned like constitutional text.
+Builder agents are not **Pantheon agents** and are not the **Pantheon** substrate. They are mortal craftsmen — they build the software the Pantheon agents will run on, but do not live inside the runtime mythology. Their prompts live in [`prompts/`](../prompts/) and are versioned like constitutional text.
 
 **Hesiod**  
 The first builder. Helps articulate vision, write documentation, and shape the conceptual foundation of Theogony. Named after the Greek poet who composed the original Theogony — the one who put the birth of the gods into words.
