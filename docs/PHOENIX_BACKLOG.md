@@ -4,6 +4,8 @@ The Phoenix Backlog is the evolutionary memory of the Chronik. It captures probl
 
 Tickets are filed by agents or humans during operation. They are evaluated when planning a Phoenix process (distillation and rebirth of the Chronik).
 
+**W5 / PR #32 reality (2026-04):** two catalogue entries became central to demo truth and reliability: **PHX-0033** (pre-curated Wikidata / offline subset — unblocks full-book ingest vs live SPARQL throttle) and **PHX-0055** (CI smoke-test against the **live** default LLM so retired model IDs cannot ship green again). **PHX-0034** (entity-resolution gold benchmark) remains the quality companion. Active YAMLs exist in [`phoenix-backlog/`](../phoenix-backlog/).
+
 ## Two Layers: Catalogue and Active YAMLs
 
 The Phoenix Backlog has two layers, deliberately:
@@ -160,6 +162,33 @@ The Chronik should support a dedicated advisory agent, Metis, that operates acro
 
 The Chronik must eventually represent operative knowledge: the knowledge that runs the world rather than describes it. Schedules, logistics, machine control, supply forecasts. Implies a new class of operative agents (Atlas, Hephaistos, Demeter) that act on the world. Long-horizon dimension; not part of Generation 1 or 2. The architecture should remain general enough to accommodate it. See [`OPERATIVE_KNOWLEDGE.md`](OPERATIVE_KNOWLEDGE.md).
 
+### PHX-0033: Pre-curated Wikidata Subset (Travel Literature)
+
+- **Category**: infrastructure
+- **Priority**: high
+- **Generation Target**: 2
+- **Filed by**: daedalus (materialised W5 2026-04-20)
+
+Locally hosted, queryable Wikidata carve-out (places, persons, orgs, works + aliases) for travel / expedition literature so EntityResolver is not bottlenecked on `query.wikidata.org` throttling. Unblocks honest full-book ingests; pairs with **PHX-0034** for reproducible quality measurement. YAML: [`phoenix-backlog/PHX-0033.yaml`](../phoenix-backlog/PHX-0033.yaml).
+
+### PHX-0034: Entity-Resolution Quality Benchmark (Gold Standard)
+
+- **Category**: measurement
+- **Priority**: medium
+- **Generation Target**: 2
+- **Filed by**: talos
+
+Hand-annotated gold + cross-provider resolution quality regression beyond the Gen 1 pipeline characterization stub. YAML: [`phoenix-backlog/PHX-0034.yaml`](../phoenix-backlog/PHX-0034.yaml).
+
+### PHX-0055: CI Smoke-Test — Live Default LLM Provider
+
+- **Category**: testing
+- **Priority**: high
+- **Generation Target**: 1
+- **Filed by**: talos (W5 Anthropic validation)
+
+Gated CI ping against the **real** default provider/model so retired or typo model IDs cannot pass an all-mock matrix. YAML: [`phoenix-backlog/PHX-0055.yaml`](../phoenix-backlog/PHX-0055.yaml).
+
 ### PHX-0037: Curiosity Loop — End-to-End Implementation
 
 - **Category**: vision
@@ -190,7 +219,7 @@ Hestia's standing subscription to every `CuriosityTrigger`. Person-as-target che
 
 These are questions that do not yet have answers. They should be resolved through experimentation and community discussion.
 
-1. **What is the optimal chunk granularity for knowledge atoms?** A single fact ("Harrer reached Uttar Kashi") vs. a composite claim ("Harrer and Marchese reached the temple city of Uttar Kashi around midnight after long wandering") — where is the right boundary?
+1. **What is the optimal chunk granularity for knowledge atoms?** A single fact ("traveler reached place X") vs. a composite claim ("two travelers reached the holy city around midnight after long wandering") — where is the right boundary?
 
 2. **How should contradictory knowledge coexist?** Two sources claim different dates for the same event. Both nodes exist with edges to the event. How does the system represent the contradiction without arbitrating truth? Is a "contradiction" edge type sufficient?
 

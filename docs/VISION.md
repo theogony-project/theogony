@@ -1,8 +1,10 @@
 # Vision
 
-**Theogony builds the Chronik** — a living, open, verifiable vector-graph knowledge network that externalizes all factual knowledge from large language models.
+**Theogony** is the deliberate attempt to **separate knowledge from reasoning** at civilizational scale.
 
-It is the deliberate attempt to **separate knowledge from reasoning** at civilizational scale.
+Long term, it aims at the **Pantheon** — a planetary chronicle / knowledge substrate (native identity, provenance, governed visibility, chronicle over encyclopedia). Read [`PANTHEON_VISION.md`](PANTHEON_VISION.md) and the seven-point [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md).
+
+**Today, Theogony builds the Chronik** — a living, open, verifiable vector-graph knowledge network that externalizes factual knowledge from large language models. The Chronik is Generation 1's operational system: the first real software toward that Pantheon shape, not the final name for the whole ambition.
 
 ## The Core Idea
 
@@ -14,16 +16,16 @@ Like a spacecraft under constant acceleration, we can still set the initial head
 
 Theogony exists to encode our best collective impulse into the foundational knowledge infrastructure that future AI will depend upon.
 
-The Chronik is that infrastructure.
+The Chronik is that infrastructure *for now* — the engine room.
 
-It is not a database of text chunks. It is a **living network of meaning** — entities connected by weighted, typed, provenance-anchored relations, with semantic embeddings and dynamic vitality scores.
+It is not a database of text chunks. It is a **living network of meaning** — entities connected by weighted, typed, provenance-anchored relations, with semantic embeddings and dynamic vitality scores. The Pantheon vision is the reason that network must eventually support private and contested knowledge as first-class, not only public Akasha-scale material (see Pantheon vision doc).
 
 At maturity, this network is not monolingual. Source text remains preserved in its original language, but the Chronik also develops its own canonical semantic tongue: **Chronese** — a language-neutral, event-centric form in which distilled knowledge can live, be compared, be versioned, and be projected back into graph, vector, and textual form.
 
-When new content enters the system — a book like *Seven Years in Tibet*, a scientific paper, a web page — it is not merely chunked. It is **digested**:
+When new content enters the system — a book like *Trans-Himalaya*, a scientific paper, a web page — it is not merely chunked. It is **digested**:
 
-- Entities are extracted (Heinrich Harrer, Uttar Kashi, the Marchese…)
-- Relations are identified and typed (Harrer → REACHED → Uttar Kashi, with confidence and provenance)
+- Entities are extracted (people, places, expeditions, institutions…)
+- Relations are identified and typed (e.g. traveler → REACHED → place, with confidence and provenance)
 - Each knowledge atom receives an embedding, a short label, a source reference (for exact citation), and multiple scores (confidence, relevance, connectivity, freshness)
 - New atoms land in **Ephemera** — raw, high-detail, low-confidence
 - A continuous background process called **Oneiros** ("the permanent dream") works on this fresh knowledge. Agents associate, verify, infer, deduplicate, and strengthen or weaken connections.
@@ -33,7 +35,7 @@ Old, contradicted, redundant or unused knowledge is gracefully degraded. The sys
 
 ## How Agents Use the Chronik
 
-An agent or LLM does not do flat vector search across the entire internet. It **navigates** the network like a mind recalls:
+**Pantheon agents** (and other callers) do not do flat vector search across the entire internet. They **navigate** the network like a mind recalls:
 
 1. It begins with trained **intuition** (vector similarity to the query)
 2. It follows **weighted paths** through the graph (typed relations with minimum weight thresholds)
@@ -41,7 +43,7 @@ An agent or LLM does not do flat vector search across the entire internet. It **
 4. It assembles a **Constellation** — a relevant, context-aware subgraph of nodes, edges, scores, and source references
 5. It interprets this constellation into human language
 
-Every entity mentioned in the generated answer links back to its node in the Chronik. This creates the **Hover-Lupe** — the ability to dynamically explore any concept: What exactly is meant by "Uttar Kashi" here? How confident are we? What other connected knowledge is still "hot" for the original question? Which paths lead deeper?
+Every entity mentioned in the generated answer links back to its node in the Chronik. This creates the **Hover-Lupe** — the ability to dynamically explore any concept: What exactly is meant by a cited place or person here? How confident are we? What other connected knowledge is still "hot" for the original question? Which paths lead deeper?
 
 There are no static Wikipedia-style articles anymore. Only dynamic, query-dependent knowledge landscapes.
 
@@ -49,7 +51,7 @@ There are no static Wikipedia-style articles anymore. Only dynamic, query-depend
 
 The Hover-Lupe is more than a way to read what is already there. It is the eye through which the Chronik becomes *aware of its own gaps*.
 
-When a query, a zoom, or a contextual ask reaches a region of knowledge the Chronik does not yet know well, the system does not silently shrug. It dispatches research. Prometheus formalises the gap; Argus searches; Jason acquires; Morpheus extracts; Athene verifies. The Mind-Map fills in progressively, with honest progress updates. Cold regions are allowed to be slow — but never silent.
+When a query, a zoom, or a contextual ask reaches a region of knowledge the Chronik does not yet know well, the system does not silently shrug. It dispatches research. **Pantheon agents** carry that work: Prometheus formalises the gap; Argus searches; Jason acquires; Morpheus extracts; Athene verifies. The Mind-Map fills in progressively, with honest progress updates. Cold regions are allowed to be slow — but never silent.
 
 This is the **Curiosity Loop**: attention is a first-class architectural input, and the Chronik grows organically in exactly the directions that turn out to matter. Hestia stands beside it as guardian, because curiosity without restraint is surveillance.
 

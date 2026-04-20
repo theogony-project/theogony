@@ -18,13 +18,13 @@ We choose the second path. Not because we are certain it will work, but because 
 
 ### 1. Knowledge Belongs to Everyone
 
-No corporation, government, or individual should own the world's structured knowledge. The Chronik is a commons — like the air, like mathematics, like language. Open source is not a strategy here. It is the point.
+No corporation, government, or individual should own the world's **public** structured knowledge — the part that forms a shared civilizational layer. The **Pantheon** ambition (see [`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md)) is a chronicle that can also hold **private, contested, and institution-bound** truth; those regions are not "post on the commons," but they must still be built with the same **rebuildable, provenance-bearing** discipline, inside governed visibility. Open source is not a strategy here. It is the point for the **software and protocols** that implement the Chronik.
 
-This means: Apache 2.0 license. Anyone can use it, build on it, profit from it. The more entities that depend on the Chronik, the more resilient and complete it becomes. Companies benefit without the Chronik becoming proprietary — exactly as they benefit from Linux, Kubernetes, or React without owning them.
+This means: Apache 2.0 license. Anyone can use it, build on it, profit from it. The more entities that depend on the Chronik, the more resilient and complete it becomes. Companies benefit without the Chronik *code* becoming proprietary — exactly as they benefit from Linux, Kubernetes, or React without owning them. That does **not** imply every atom of knowledge in every deployment must be world-readable; it implies the **substrate** must not be captured by a single rent-seeking gatekeeper.
 
 ### 2. Transparency Is Architecture, Not Policy
 
-Every fact in the Chronik has a source. Every connection has a provenance. Every confidence score has a basis. This is not enforced by a content policy that someone can change — it is enforced by the data model itself. You cannot insert a knowledge atom without a source reference. You cannot create an edge without a provenance tag. The system's architecture makes opacity structurally impossible.
+**Provenance** is mandatory: every claim the system treats as operational should be traceable to evidence, process, and revision — enforced by the data model, not by a hand-wavy "trust us" policy. **Public world-readability** is *not* the same thing. Lethe-scale and organizational knowledge must remain **accountable inside its boundary** (auditors, owners, regulators, downstream agents) without being published to humanity at large. The architecture must make **silent, unanchored insertion** structurally hard; it must **not** confuse that with "every embedding must be visible on the open web." Opacity of *content* where access control requires it is compatible with transparency of *lineage* to those who are authorized to see it.
 
 ### 3. Verification Over Authority
 
@@ -73,7 +73,7 @@ And when that memory is used for advice, strategy, or judgment, the advisory lay
 
 ### 7. The Permanent Dream (Oneiros)
 
-There is no nightly batch job. Instead, a continuous, low-priority dreaming process — Oneiros — runs at all times. Specialized agents (Morpheus, Athene, Chronos and others) work on the boundary between fresh Ephemera and trusted Mneme.
+There is no nightly batch job. Instead, a continuous, low-priority dreaming process — Oneiros — runs at all times. **Pantheon agents** (Morpheus, Athene, Chronos, and others — see [`docs/GLOSSARY.md`](docs/GLOSSARY.md)) work on the boundary between fresh Ephemera and trusted Mneme.
 
 This is the heart of the system. It is where new knowledge is woven into the existing fabric, where contradictions are surfaced, where associations are formed and the network becomes wiser over time. Oneiros never sleeps.
 
@@ -99,7 +99,7 @@ We do not know what AI will become. We do not know whether artificial general in
 
 But we know this: the knowledge layer that future AI builds upon will shape what AI becomes.
 
-If that layer is open, honest, transparent, continuously self-correcting and built in the service of humanity, then something of our best collective wisdom will travel forward — even into a future we can no longer steer.
+If that layer is **open where the commons requires openness**, **honest about evidence and limits**, **inspectable by legitimate governance**, **continuously self-correcting**, and **built in the service of humanity**, then something of our best collective wisdom will travel forward — even into a future we can no longer steer.
 
 **Theogony is that initial impulse.**
 

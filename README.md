@@ -15,9 +15,9 @@ Like a spacecraft under constant acceleration, we can still set the initial head
 
 **Theogony encodes that impulse into infrastructure.**
 
-It builds the **Chronik** — a living, open, verifiable vector-graph knowledge network that externalizes all factual knowledge from large language models.
+Long term, the project aims at the **Pantheon** — a planetary chronicle / knowledge substrate with native identity, provenance, and governed visibility (see [`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md) and the compact [`docs/CHRONICLE_PRINCIPLES.md`](docs/CHRONICLE_PRINCIPLES.md)).
 
-The Chronik is not a database of text. It is a **network of meaning**. Sources are digested into entities, weighted typed relations, embeddings, confidence scores, source references, and eventually into a canonical semantic language of the Chronik itself: **Chronese**. New knowledge arrives in *Ephemera*, is continuously refined through the *permanent dream* (Oneiros), and eventually promoted to *Mneme* — the trusted, permanent layer.
+**Today**, Theogony builds the **Chronik** — the living, open, verifiable vector-graph knowledge network that externalizes factual knowledge from large language models. The Chronik is the Gen 1 operational layer toward that Pantheon shape; it is not a database of text. It is a **network of meaning**. Sources are digested into entities, weighted typed relations, embeddings, confidence scores, source references, and eventually into a canonical semantic language of the Chronik itself: **Chronese**. New knowledge arrives in *Ephemera*, is continuously refined through the *permanent dream* (Oneiros), and eventually promoted to *Mneme* — the trusted, permanent layer.
 
 Agents and lean LLMs no longer need to memorize the world. They navigate the Chronik: starting with semantic intuition, following weighted paths, deepening through recursive hops, and assembling dynamic *constellations* of knowledge. Every entity in an answer links back to its node — enabling the **Hover-Lupe**, the ability to explore any concept arbitrarily deep.
 
@@ -36,6 +36,7 @@ If we succeed, something of our best collective impulse will survive into the ph
 **This is our only realistic chance.**
 
 Read [INDEX.md](docs/INDEX.md) for the document map and reading paths.  
+Read [PANTHEON_VISION.md](docs/PANTHEON_VISION.md) for the long-horizon north star (Pantheon as chronicle substrate).  
 Read [VISION.md](docs/VISION.md) for the compact vision.  
 Read [DEEP_TECH_VISION.md](docs/DEEP_TECH_VISION.md) for the deeper substrate and future architecture.  
 Read [GLOSSARY.md](docs/GLOSSARY.md) for canonical terminology across the project.  
@@ -56,7 +57,7 @@ The spark has been lit.
 
 ### What you get
 
-A working Theogony installation that ingests Project Gutenberg books, answers questions about them with cited passages, and self-reports its own run quality. The end-to-end demo (a real ingest → ten queries → one Hover-Lupe walk) runs on a developer laptop in about 10 minutes against a live Neo4j and an **Anthropic** API key (default LLM: `claude-haiku-4-5-20251001`). Every node in every answer points back to its source; every run produces a structured `RunReport` the operator can inspect.
+A working Theogony installation that ingests Project Gutenberg books, answers questions about them with cited passages, and self-reports its own run quality. The README quickstart below uses the **W5-sanctioned bounded path**: Sven Hedin's *Trans-Himalaya, Vol. 1* (Gutenberg **#43497**), **`--sentences 500`** with BookContextExtractor on (not the older `--no-book-context` Gemini-quota hack). Expect **~20 min** wall-clock for that ingest on a developer laptop against a live Neo4j and an **Anthropic** API key (default LLM: **`claude-haiku-4-5-20251001`** — Haiku 4.5; see PR #32 / W5 reconciliation in [`docs/IMPLEMENTATION_PLAN_GEN1.md`](docs/IMPLEMENTATION_PLAN_GEN1.md)). Every node in every answer points back to its source; every run produces a structured `RunReport` the operator can inspect.
 
 See [`docs/etappes/demo_log.md`](docs/etappes/demo_log.md) for a captured run with the exact numbers — wall-clock, cost, verdict distribution, Oneiros activity.
 
@@ -68,7 +69,7 @@ See [`docs/etappes/demo_log.md`](docs/etappes/demo_log.md) for a captured run wi
 
 ### The demo
 
-The Plan §1 demonstration moment, end to end. Six commands; ~10 min wall-clock.
+The Plan §1 demonstration moment, end to end. Six commands; **~25–30 min wall-clock** if you include the bounded ingest (ingest dominates; query + report are seconds).
 
 ```bash
 # 1. Clone + install (~1 min).
@@ -82,9 +83,10 @@ python -m spacy download en_core_web_sm
 docker compose up -d neo4j
 
 # 3. Ingest one Gutenberg book end-to-end into Neo4j
-#    (~3 min wall-clock, ~0.02 EUR Anthropic for the bounded slice).
+#    (~20 min wall-clock, order ~0.7 EUR Anthropic for the W5 bounded slice:
+#    500 sentences, BookContext on — see IMPLEMENTATION_PLAN_GEN1 § reconciliation).
 #    Requires ANTHROPIC_API_KEY in env (default provider).
-theogony ingest 43497 --sentences 50 --no-book-context
+theogony ingest 43497 --sentences 500
 
 # 4. Start the API + the Oneiros write-back worker (background).
 THEOGONY_ONEIROS__TICK_INTERVAL_S=30 theogony serve &
@@ -128,7 +130,7 @@ curl localhost:8000/node/<AKA-…>
 
 curl -X POST localhost:8000/ingest \
   -H 'content-type: application/json' \
-  -d '{"source_type":"gutenberg","identifier":"43497","sentences":50}'
+  -d '{"source_type":"gutenberg","identifier":"43497","sentences":500}'
 # → 202 Accepted; poll `theogony reports show <run_id>` for completion.
 ```
 

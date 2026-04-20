@@ -12,10 +12,12 @@ The documents were written for different depths and different kinds of readers.
 For someone who wants to understand the project quickly:
 
 1. [`README.md`](../README.md)
-2. [`VISION.md`](VISION.md)
-3. [`GLOSSARY.md`](GLOSSARY.md)
+2. [`PANTHEON_VISION.md`](PANTHEON_VISION.md) — long-horizon north star (Pantheon as planetary chronicle substrate)
+3. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — seven non-negotiables in one page
+4. [`VISION.md`](VISION.md)
+5. [`GLOSSARY.md`](GLOSSARY.md)
 
-This path explains what Theogony is, why it exists, and the core language used to describe it.
+This path explains what Theogony is, why it exists, how **Pantheon** (substrate) relates to **Chronik** (Gen 1 system), and the core language used to describe it.
 
 ### 2. Philosophical Foundation
 
@@ -85,7 +87,9 @@ This path is about open problems, future directions, and the original conceptual
 ### Core Vision Documents
 
 - [`README.md`](../README.md): the manifesto
-- [`VISION.md`](VISION.md): the compact vision
+- [`PANTHEON_VISION.md`](PANTHEON_VISION.md): Pantheon as planetary chronicle / knowledge substrate (long horizon)
+- [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md): compact doctrine companion to the Pantheon vision
+- [`VISION.md`](VISION.md): the compact vision (Chronik-forward; links upward to Pantheon)
 - [`PHILOSOPHY.md`](../PHILOSOPHY.md): the civilizational and ethical foundation
 
 ### Deep Concept Documents
@@ -108,10 +112,11 @@ This path is about open problems, future directions, and the original conceptual
 
 - [`PHOENIX_BACKLOG.md`](PHOENIX_BACKLOG.md): future generations, open problems, and improvement tickets
 - [`genesis_conversation_log.md`](../genesis_conversation_log.md): local, non-repo genesis record of the project's conceptual development
+- [`HISTORICAL_MD_INTENTIONALLY_UNTOUCHED.md`](HISTORICAL_MD_INTENTIONALLY_UNTOUCHED.md): which etappe / demo markdown stayed historical in the Pantheon doc pass
 
 ### Builder Agent Prompts
 
-The [`prompts/`](../prompts/) directory holds the constitutional prompts for builder agents — the mortal craftsmen who design and implement Theogony, distinct from the Pantheon agents documented above. See [`GLOSSARY.md`](GLOSSARY.md#builder-agents) for the list.
+The [`prompts/`](../prompts/) directory holds the constitutional prompts for **builder agents** — the mortal craftsmen who design and implement Theogony. They are distinct from **Pantheon agents** (Argus, Athene, …), which are mythological *roles* in the runtime/agent architecture, not the Pantheon-as-substrate meaning. See [`GLOSSARY.md`](GLOSSARY.md#builder-agents) for the builder list and the Pantheon disambiguation.
 
 Current prompts:
 
@@ -121,6 +126,6 @@ Current prompts:
 ## Suggested Use
 
 - When writing new documents, align your terminology with [`GLOSSARY.md`](GLOSSARY.md).
-- When proposing new architectural ideas, cross-check them against [`VISION.md`](VISION.md), [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md), and [`ARCHITECTURE.md`](ARCHITECTURE.md).
+- When proposing new architectural ideas, cross-check them against [`PANTHEON_VISION.md`](PANTHEON_VISION.md), [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md), [`VISION.md`](VISION.md), [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md), and [`ARCHITECTURE.md`](ARCHITECTURE.md).
 - When an idea belongs to a future generation rather than the current one, add it to the Phoenix backlog.
 - When in doubt about the spirit of the project, return to [`README.md`](../README.md) and [`PHILOSOPHY.md`](../PHILOSOPHY.md).

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Theogony is a four-layer system with a cross-cutting agent framework (the Pantheon). The central component is **the Chronik** — a living vector-graph knowledge network that stores the world's knowledge as interconnected embeddings, relations, and provenance rather than as static text. At maturity, the graph and vector layers are operational projections of a deeper canonical semantic layer: **Chronese**.
+Theogony is a four-layer system with a cross-cutting **Pantheon agents** framework (Zeus, Argus, Athene, … — see [`GLOSSARY.md`](GLOSSARY.md)). The central component is **the Chronik** — Generation 1's living vector-graph knowledge network that stores knowledge as interconnected embeddings, relations, and provenance rather than as static text. Long-horizon direction for the *substrate* itself is the **Pantheon** (planetary chronicle); the Chronik is the first operational instantiation. At maturity, the graph and vector layers are operational projections of a deeper canonical semantic layer: **Chronese**.
 
 ## Terminology Alignment
 
@@ -11,7 +11,9 @@ Canonical terminology for this document is defined in [`GLOSSARY.md`](GLOSSARY.m
 For consistency across the project, this architecture document uses the following meanings:
 
 - **Theogony** = the overall project, architecture, and open initiative
-- **Chronik** = the living knowledge system at the center of Theogony
+- **Pantheon** = long-horizon planetary chronicle / knowledge substrate (not the agent roster)
+- **Pantheon agents** = mythological-role agent architecture (Zeus, Argus, …)
+- **Chronik** = the living knowledge system at the center of Theogony (Gen 1 operational layer)
 - **Akasha** = the global public knowledge space
 - **Lethe Vaults** = private, permission-bound knowledge spaces
 - **Ephemera** = the fresh, unverified memory layer
@@ -40,7 +42,7 @@ For consistency across the project, this architecture document uses the followin
 │  Adapters for content sources                               │
 └─────────────────────────────────────────────────────────────┘
 
-Cross-cutting: The Pantheon (agent system)
+Cross-cutting: Pantheon agents (agent system)
 ```
 
 ## Layer 0: Acquisition
@@ -82,7 +84,7 @@ RawContent
   │
   ├─ Relation Extraction ─── identify typed relations between entities
   │
-  ├─ Entity Resolution ─── align entities with Wikidata (Q-IDs) or assign Akasha-IDs (AKA-IDs)
+  ├─ Entity Resolution ─── align entities with Wikidata (Q-IDs) and/or assign native Chronik ids (`AKA-…`); see *Identity: bootstrap vs maturity* under KnowledgeNode
   │
   ├─ Embedding Generation ─── compute semantic vectors for each knowledge atom
   │
@@ -131,17 +133,23 @@ The core of the system. A navigable vector-graph knowledge network.
 
 In the long view, nodes and edges are operational projections from richer Chronese assertion frames. They remain the practical unit for retrieval, indexing, and agent access, while the deeper semantic form preserves event structure and epistemic detail.
 
+#### Identity: bootstrap vs maturity
+
+**Bootstrap (Gen 1):** Entities are minted with **native `AKA-…` ids** in the store. **Wikidata Q-ids** (and other catalog ids) live in `external_ids` when resolution succeeds. That gives deduplication, linking, and migration safety without pretending Wikidata is the philosophical center of the system.
+
+**Maturity (Pantheon direction):** The north-star model is **Pantheon-native identity first**, external registries second — including entities public systems will never enumerate. The Chronik's current shape is a deliberate down-payment on that story, not its final form. See [`PANTHEON_VISION.md`](PANTHEON_VISION.md) § "From Imported IDs to Native Identity".
+
 The scope of a knowledge node is unbounded. It represents everything from a macro-concept (Quantum Mechanics) to the minute details of a specific individual (a "digital twin"). Every person, place, thing, event, and timestamp that exists in the source material becomes a node.
 
 ```python
 class KnowledgeNode:
-    id: str                       # AKA-{uuid} or Q-{wikidata_id}
+    id: str                       # Gen 1: AKA-{…} native Chronik id (primary key in store)
     embedding: list[float]        # semantic vector (768-4096 dimensions)
     node_type: NodeType           # person | place | concept | event | claim | ...
     label: str                    # short human-readable label
     layer: Layer                  # ephemera | mneme
     cluster_id: str | None        # knowledge region membership
-    external_ids: dict[str, str]  # {"wikidata": "Q806463", "gutenberg": "944", ...}
+    external_ids: dict[str, str]  # {"wikidata": "Q2444884", "gutenberg": "43497", ...}
     source_ref: SourceRef         # provenance anchor for citation
     scores: NodeScores            # confidence, relevance, connectivity, freshness
     vitality: float               # computed lifecycle score
@@ -230,7 +238,7 @@ This makes the Chronik queryable in milliseconds, regardless of total size. The 
 The hierarchical cluster structure maps naturally to distributed deployment:
 
 - Each major knowledge region can live on a separate shard (server/cluster)
-- Cross-shard edges connect regions (e.g., "Harrer" in Literature shard connects to "Tibet" in Geography shard)
+- Cross-shard edges connect regions (e.g., an explorer biography in Literature connects to "Tibet" in Geography)
 - A routing layer directs queries to the right shard based on cluster centroids
 - The Phoenix process can reorganize shards as the knowledge landscape evolves
 
@@ -360,7 +368,7 @@ Its function is to transform constellations into structured counsel. A serious M
 
 This keeps advisory output inspectable and prevents guidance from collapsing into hidden ideology.
 
-## The Pantheon: Agent System
+## Pantheon agents: agent system
 
 Agents are async workers that operate across all layers. Each implements a common protocol:
 
@@ -372,7 +380,7 @@ class Agent(Protocol):
 
 ### Agent Model: Class, Genome, Promotor, Instance
 
-An agent in the Pantheon is not simply a prompt. It is a four-part structure modelled on metagenetics:
+An agent in the **Pantheon agent** roster is not simply a prompt. It is a four-part structure modelled on metagenetics:
 
 **Agent Class** — the stable identity: purpose, boundaries, rights, tools, escalation rules. The equivalent of a gene's functional core. Example: `HestiaClass`, `ChronosClass`.
 
@@ -414,7 +422,7 @@ Two distinct orchestration roles:
 
 **Zeus (operative orchestration)** — handles running traffic: receives tasks, assigns agent instances, distributes budgets, tracks dependencies, manages Fast/Slow path routing, monitors latency and cost.
 
-**Helios (regulatory orchestration)** — changes the expression state of the Pantheon: which agent classes run more or less, which prompt profiles are preferred, which thresholds apply, when Hestia gets more resources, when Phoenix should be prepared. If Zeus is the conductor, Helios is the endocrine regulator.
+**Helios (regulatory orchestration)** — changes the expression state of the **Pantheon agents**: which agent classes run more or less, which prompt profiles are preferred, which thresholds apply, when Hestia gets more resources, when Phoenix should be prepared. If Zeus is the conductor, Helios is the endocrine regulator.
 
 ### Agent Roster
 
@@ -517,7 +525,7 @@ theogony/
     core/                      # data model, store interface, vitality
     stores/                    # KnowledgeStore implementations (Neo4j, ...)
     memory/                    # Ephemera, Mneme, Oneiros process
-    agents/                    # Pantheon agent implementations
+    agents/                    # Pantheon agents (runtime roles) — not "the Pantheon substrate"
     extraction/                # text → knowledge atoms pipeline
     acquisition/               # source adapters (Gutenberg, web, ...)
     retrieval/                 # multi-hop search, constellation assembly

@@ -1,6 +1,6 @@
 # Operative Knowledge
 
-The Chronik is not only a memory of the world. It must also represent the knowledge that *runs* the world.
+The Chronik is not only a memory of the world. It must also represent the knowledge that *runs* the world. In the **Pantheon** framing, operative knowledge is part of the same chronicle substrate as descriptive knowledge — often **high-stakes and non-public**, which makes governance, access control, and audit *more* important, not less.
 
 This document outlines a forward-looking dimension of Theogony: operative knowledge — the kind of knowledge that is not merely stored or retrieved, but executed.
 
@@ -43,7 +43,7 @@ It needs different representational properties:
 
 ### Operative Agents
 
-The current Pantheon agents are knowledge agents: they collect, connect, verify, advise. Operative knowledge requires a different class of agents: agents that act in the world.
+The current **Pantheon agents** (mythological runtime roles — see [`GLOSSARY.md`](GLOSSARY.md)) are knowledge agents: they collect, connect, verify, advise. Operative knowledge requires a different class of agents: agents that act in the world.
 
 Possible future operative roles (none of these are part of Generation 1):
 
@@ -69,9 +69,9 @@ Each completed execution makes the operative knowledge richer. This is a feedbac
 
 Operative knowledge is power. Whoever writes the schedules controls work. Whoever plans logistics controls supply. Whoever steers machines controls production.
 
-If this kind of knowledge becomes proprietary, the operational substrate of civilization becomes a private asset. If it remains open, transparent, and auditable, it remains accountable.
+If this kind of knowledge becomes **opaque to the societies that depend on it** — locked in silos with no lineage, no contestability, no portability — the operational substrate of civilization becomes a private asset. The goal is not naive "publish every shift roster to the internet." The goal is **accountable, interoperable operative knowledge**: owners and regulators can trace *why* a plan ran, *what* changed, and *who* is responsible, inside governed visibility; systems can be rebuilt or challenged without mystique.
 
-This is exactly why operative knowledge belongs in the Chronik, and exactly why it requires Hestia's strongest oversight.
+This is exactly why operative knowledge belongs in the Chronik (and, long term, in the Pantheon-shaped substrate), and exactly why it requires Hestia's strongest oversight.
 
 ### Hestia's Operative Mandate
 
@@ -92,4 +92,4 @@ Operative knowledge is **not part of Generation 1 or Generation 2** of Theogony.
 
 This document exists to make sure the architecture is not designed in ways that would later prevent this dimension from being added. The KnowledgeStore protocol, the agent model, the Chronese semantic layer, and the audit infrastructure should all remain general enough to accommodate operative knowledge when the time comes.
 
-Concretely: in the long arc of Theogony, the Chronik should be capable of representing not only what humanity knows, but also how humanity (and eventually its machines) keep the world running — openly, accountably, and in service of human flourishing.
+Concretely: in the long arc of Theogony, the Chronik should be capable of representing not only what humanity knows, but also how humanity (and eventually its machines) keep the world running — **with the same provenance discipline as public knowledge**, **with visibility bounded by legitimate access rules**, and **in service of human flourishing** (see [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md)).

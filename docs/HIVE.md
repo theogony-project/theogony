@@ -1,6 +1,6 @@
 # Hive
 
-The Chronik is built by agents working together like bees building a hive.
+The Chronik is built by **Pantheon agents** (the mythological runtime roles — not "the Pantheon" planetary substrate; see [`GLOSSARY.md`](GLOSSARY.md)) working together like bees building a hive.
 
 No single agent sees the whole picture. No single agent carries the full burden. Each does what it does best, and through their coordination, something emerges that no individual agent could produce alone: distilled, stable, high-energy knowledge — Honig.
 
@@ -8,7 +8,7 @@ No single agent sees the whole picture. No single agent carries the full burden.
 
 The production chain is analogous to a real hive:
 
-| Bee Role | Pantheon Agent | Action |
+| Bee Role | Pantheon agent (role) | Action |
 |----------|---------------|--------|
 | Scout | Argus, Prometheus | find sources, identify gaps |
 | Forager | Argus, Jason, Iris | acquire raw content |
@@ -20,13 +20,13 @@ The production chain is analogous to a real hive:
 | Queen | Helios | oversee strategy and colony health |
 | Advisor | Metis | counsel based on what the hive knows |
 
-The key insight: **no agent produces honey alone**. Honey is the emergent product of many agents working on the same substrate.
+The key insight: **no agent produces honey alone**. Honey is the emergent product of many **Pantheon agents** working on the same **Chronik** substrate — the living graph the project is building today toward the wider **Pantheon** chronicle vision ([`PANTHEON_VISION.md`](PANTHEON_VISION.md)).
 
 ## The Promotor Principle
 
 In genetics, a promotor does not change the gene — it controls how strongly it is expressed.
 
-The Pantheon works the same way.
+The **Pantheon agent roster** works the same way.
 
 Each agent class (Hestia, Chronos, Athene, Morpheus…) stays stable. What changes is its **expression**: how many instances run, how often, at what priority, with what budget, in response to which signals.
 
