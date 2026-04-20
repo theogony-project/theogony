@@ -1,0 +1,122 @@
+id: PHX-0033
+category: infrastructure
+priority: high
+status: open
+generation_target: 2
+title: "Pre-curated Wikidata subset for travel literature — remove live-SPARQL dependency"
+filed_by: daedalus
+created_at: 2026-04-17
+updated_at: 2026-04-20
+description: |
+  The §3.4 v3 EntityResolver pipeline depends on the live Wikidata
+  SPARQL endpoint (``query.wikidata.org``) plus ``wbsearchentities``
+  for every mention. The free public endpoint is rate-limited and
+  bursty; for any non-trivial corpus the resolver throughput is
+  bottlenecked by Wikidata, not by anything in our pipeline.
+
+  A curated, locally-hosted subset (~10 GB of places + persons +
+  organisations + works relevant to travel literature, plus
+  alias-tables) would (a) remove the rate-limit ceiling entirely,
+  (b) eliminate cold-network latency, (c) give us deterministic
+  reproducible offline ingest, (d) unblock the W5-style "full
+  unbounded book" runs that are currently structurally infeasible.
+
+  Originally filed as a Plan §11 forward-looking item (Daedalus,
+  2026-04-17). Updated 2026-04-20 with measured Wikidata-throttle
+  evidence from the W5 Anthropic full-ingest validation run — see
+  the *Measured evidence* block below.
+
+related:
+  - PHX-0024  # self-hosted Wikidata mirror (parent superset; this is the travel-literature carve-out)
+  - PHX-0034  # entity-resolution quality benchmark (depends on this for offline reproducibility)
+  - PHX-0027  # LLM provider re-evaluation (independently bottlenecked when running cross-provider sweeps)
+
+measured_evidence_w5_anthropic_full_ingest:
+  date: 2026-04-20
+  run_id: 01KPMG4TR1WDTWPPMB8R34TYFJ
+  corpus: "gutenberg:43497 — Sven Hedin, Trans-Himalaya, Vol. 1 (1909), 7697 sentences (frontmatter-heavy)"
+  context: |
+    Hesiod's W5 brief (2026-04-20) called for a full unbounded ingest
+    of #43497 on the new Anthropic Haiku 4.5 default. The run was
+    killed at 37 min 35 s with the cumulative state below.
+  observed_at_kill:
+    # Initial SIGTERM hit the shell wrapper at 06:27:42; the python
+    # runtime kept draining its async work for ~8 more minutes before
+    # actually exiting. The "final tally" below is the truth recorded
+    # in data/audit.sqlite after the runtime stopped writing.
+    wall_clock_min: 45.0
+    llm_calls_total: 254
+    llm_calls_book_context: 1
+    llm_calls_stage4_disambiguation: 253
+    llm_cost_eur_total: 0.5079
+    parse_success_rate: 1.00         # 254 of 254 LLM calls
+    pipeline_phase: "EntityResolver Stages 1-4 still in progress; relation_extraction, embedding, store stages NOT reached"
+    nodes_persisted_neo4j: 0          # store stage hadn't started
+  bottleneck:
+    primary: "Wikidata SPARQL endpoint throttling (502s + transport_errors with 1.0 s backoff/retry, observed every few seconds throughout the run)"
+    secondary: null
+    not_a_bottleneck:
+      - "Anthropic API (208/208 successful, mean Stage-4 latency 2114 ms — well within concurrency budget)"
+      - "spaCy NER (CPU-bound but completed early)"
+      - "Neo4j (idle, store stage not reached)"
+  pace_extrapolation:
+    stage4_calls_per_minute_observed: 5.6
+    stage4_mentions_remaining_estimate: ~2200       # smoke ratio: 12 % of mentions hit Stage-4; full doc ~20 000 mentions est.
+    stage4_remaining_minutes_at_observed_pace: ~390
+    full_ingest_total_minutes_estimate: "~480 (8 hours)"
+    hesiod_w5_brief_estimate: "~15-30 min for ~5000 LLM calls"
+    deviation_factor: ~16x slower than the brief's mental model
+  conclusion_for_w5: |
+    Hesiod's W5 decision (relayed via User, 2026-04-20):
+      "Kill the run now. The Anthropic-path validation goal is met
+       by the 254 perfect-parse calls already in audit; we have
+       what we needed there. The full-unbounded target is
+       structurally infeasible on Wikidata's free tier for this
+       corpus — that's the honest finding to document."
+
+    Demo recording will use ``--sentences 500`` (~30-45 min, ~€2-3,
+    ~400-600 nodes, ~200-400 edges, with BookContextExtractor on).
+    Full-unbounded-ingest moves to "post-PHX-0033 capability".
+
+acceptance_criteria:
+  - A documented procedure to download / install / serve the curated
+    Wikidata subset locally (Docker or systemd, both acceptable).
+  - The subset covers, at minimum:
+    1. All entities of type ``Q5`` (human) with at least one
+       ``P19/P20/P119`` (place of birth/death/burial) **or** a
+       ``P106`` (occupation) in {explorer, geographer, surveyor,
+       cartographer, mountaineer, naturalist, missionary,
+       diplomat, military officer, head of state}.
+    2. All entities of type ``Q515`` (city), ``Q3957`` (town),
+       ``Q486972`` (human settlement), ``Q6256`` (country),
+       ``Q15642541`` (historical region), ``Q8502`` (mountain),
+       ``Q4022`` (river), ``Q23397`` (lake), ``Q165`` (sea),
+       ``Q4421`` (forest), ``Q39594`` (desert), ``Q7777019`` (pass).
+    3. All entities of type ``Q43229`` (organization) with the
+       ``P31/P279`` chain leading to "scientific society",
+       "geographic society", "expedition", or "publishing house".
+    4. All entities of type ``Q571`` (book) and ``Q47461344``
+       (written work) published before 1950 with a P407 (language)
+       in {en, de, fr, it, sv, ru, zh, hi}.
+    5. All ``P460`` (said-to-be-the-same), ``P1889`` (different-from)
+       edges between members of the above sets, plus ``P31``,
+       ``P279``, ``P361``, ``P527`` (taxonomic ancestry).
+    6. Multi-language labels + aliases for sets 1-4 in
+       {en, de, fr, it, sv, ru} (the AliasMatcher + Tier 2 path
+       depends on these).
+  - ``WikidataClient`` switches transparently between live
+    ``query.wikidata.org`` and the local subset behind a
+    ``Settings.wikidata.endpoint = "live" | "local"`` toggle
+    (default ``"local"`` once the subset is provisioned).
+  - The W5 reference run (Hedin #43497 full unbounded) completes
+    in ≤ 60 min wall-clock against the local subset (vs. the
+    measured ~480 min projection against the live endpoint).
+  - The travel-literature subset is reproducible: a single
+    versioned shell script regenerates it from a public Wikidata
+    dump in ≤ 6 hours of one-time work.
+
+referenced_in:
+  - "Plan §11 (forward-looking PHX list)"
+  - "src/theogony/extraction/wikidata_client.py module docstring"
+  - "PHX-0034 (related)"
+  - "docs/etappes/demo_log.md (W5 'Anthropic Haiku 4.5 full-ingest run' — kill rationale)"
