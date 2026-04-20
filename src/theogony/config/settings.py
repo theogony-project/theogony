@@ -46,16 +46,21 @@ LLMProviderName = Literal["gemini", "openai", "anthropic", "stub"]
 class LLMSettings(BaseModel):
     """Selection and tuning of the active LLMProvider.
 
-    The default is **Anthropic ``claude-3-5-haiku-20241022``**: prepaid
+    The default is **Anthropic ``claude-haiku-4-5-20251001``**: prepaid
     API credits and predictable billing are a better fit for day-to-day
     ingest / demo runs than Gemini's free-tier daily caps, and Claude
-    3.5 Haiku follows literary entity / relation extraction
+    Haiku 4.5 follows literary entity / relation extraction
     instructions (German names, transliteration, relation
     directionality) qualitatively cleaner than the OpenAI alternative
     at the same tier. OpenAI ``gpt-4o-mini`` and Gemini
     ``gemini-2.5-flash-lite`` remain first-class options (Plan §3.3a
     pricing table) via ``THEOGONY_LLM__PROVIDER=openai`` or
     ``THEOGONY_LLM__PROVIDER=gemini``.
+
+    The PR #30 default ``claude-3-5-haiku-20241022`` was retired by
+    Anthropic between SDK 0.30 (the original pin) and current accounts
+    — the W5 validation run discovered it returns 404 on new keys.
+    Haiku 4.5 is the spiritual successor at +25% list price.
 
     Switch providers without touching code via
     ``THEOGONY_LLM__PROVIDER=gemini|openai|anthropic|stub`` (and set the
@@ -80,7 +85,7 @@ class LLMSettings(BaseModel):
             return self
         defaults: dict[LLMProviderName, str] = {
             "openai": "gpt-4o-mini",
-            "anthropic": "claude-3-5-haiku-20241022",
+            "anthropic": "claude-haiku-4-5-20251001",
             "gemini": "gemini-2.5-flash-lite",
             "stub": "stub-llm",
         }

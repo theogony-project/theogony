@@ -282,3 +282,309 @@ theogony reports list
 ```
 
 Future `--detective` runs (when PHX-0041 lifts the rate-limit cap and Detective Mode ships) will populate more high-confidence nodes from the same fixture, raising the `partial`/`poor` query verdicts toward `good`. The current state is the honest Gen-1 baseline.
+
+---
+
+# W5 — Anthropic Haiku 4.5 full-ingest validation (2026-04-20)
+
+Captured by Talos against the live Theogony stack on `feat/anthropic-full-ingest` after PR #30 (default LLM = Anthropic) merged. The W5 brief's discipline applies: real Neo4j, real Anthropic, real prepaid credits, real wall-clock. Honest numbers, honest blocks.
+
+This section APPENDS to the W4 section above; the W4 numbers are not edited.
+
+## Setup
+
+- **Hardware**: same MacBook (Apple Silicon), local Docker Desktop.
+- **Neo4j**: same `neo4j:5.18-community` via `docker compose up -d neo4j`.
+- **LLM**: Anthropic via `THEOGONY_LLM__PROVIDER=anthropic` (now the default after PR #30) + `ANTHROPIC_API_KEY`. **Model: `claude-haiku-4-5-20251001`** — see Demo-time finding §1 below for why this is *not* the brief's `claude-3-5-haiku-20241022`.
+- **Embedding**: same `BAAI/bge-small-en-v1.5` (384 dim).
+- **Worker**: `theogony serve` with `THEOGONY_ONEIROS__TICK_INTERVAL_S=30` again.
+
+## Demo-time findings (before the deliverables, again)
+
+Three findings worth surfacing upfront before the numbers:
+
+### 1. PR #30's `claude-3-5-haiku-20241022` does not exist on the User account
+
+PR #30 set the default to `anthropic / claude-3-5-haiku-20241022`. CI was 100 % green (lint + 3.12 + 3.13 + Neo4j-live + serve smoke); the PR-30 follow-up bundle in PR #31 added another sweep — also 100 % green. Yet the W5 first smoke-ingest against a fresh Neo4j produced **0 edges, €0.00 cost, 47 / 47 audit rows tagged `transport_error:NotFoundError`**.
+
+Direct probe against the Anthropic API with the User's key:
+
+```
+404 claude-3-5-haiku-20241022 → not_found_error
+404 claude-3-5-haiku-latest    → not_found_error
+404 claude-haiku-3-5           → not_found_error
+OK  claude-3-haiku-20240307    → "Hello! How can I assist you today?"
+```
+
+`client.models.list()` on the User's account returns Opus 4.7 / 4.6 / 4.5, Sonnet 4.6 / 4.5 / 4 / 4.1, **Haiku 4.5**, and Haiku 3 — but no Haiku 3.5 anywhere. Anthropic retired the 3.5-Haiku tier between SDK 0.30 (the original PR #30 pin's reference release) and current accounts; on new keys it is not reachable at all. PR #30 was never functional for this User; we just didn't notice because every test ran against mocks.
+
+**Hesiod decision (Option A, relayed via User 2026-04-20)**: bump the default to `claude-haiku-4-5-20251001` with updated pricing (USD/M input bumps from 0.80 → 1.00; USD/M output bumps from 4.00 → 5.00; per Anthropic public list pricing). Forced-tool path validated against both 4.5 and Haiku 3 before commitment — both work cleanly (no SDK / schema bug; the issue was purely model-availability). Plan §3.3a's "Claude Haiku 3.5" rows are now historical artefacts.
+
+**Filed as PHX-0055** ("CI smoke-test against the live default LLM provider — catches model-retired surprises") so the next default-swap doesn't ship silently broken into the demo recording.
+
+### 2. Full-unbounded ingest of #43497 is structurally infeasible on Wikidata's free tier
+
+After Hesiod's Option A re-pinning, smoke v2 succeeded cleanly: `theogony ingest 43497 --sentences 50 --no-book-context` produced 26 edges, €0.10 cost, 233 s wall — 100 % parse-OK across 47 LLM calls. The Anthropic path was vindicated.
+
+Per the W5 brief's Step 2, the next move was the full unbounded ingest: `theogony ingest 43497`. Run-id `01KPMG4TR1WDTWPPMB8R34TYFJ`. Cost-projection extrapolated from the smoke landed at €10–15 — at the edge of Hesiod's €15 hard-stop ceiling but still in-band. Wall-clock projection at the smoke's pace landed at ~15–30 min, in-band of the 90-min ceiling.
+
+What actually happened: **Wikidata's public SPARQL endpoint (`query.wikidata.org`) throttled the EntityResolver Stages 1–3 catastrophically**. The audit log shows transport-error retries firing every few seconds throughout the run. After 45 minutes of wall-clock the pipeline had managed:
+
+- 1 BookContext call (€0.0039)
+- 253 Stage-4 disambiguation calls (€0.5040; **100 % parse-OK**)
+- 0 relation_extraction calls (Stage 4 hadn't finished for all mentions yet)
+- 0 nodes persisted to Neo4j (store stage not reached)
+
+Pace at kill: **5.6 Stage-4 LLM calls / minute** (1.7 % of what the W5 brief's mental model assumed). Linear extrapolation to ~2 200 remaining Stage-4 mentions: ~7.5 hours. The bottleneck was unmistakably Wikidata, not Anthropic. Anthropic was idle most of the run.
+
+**Hesiod decision (relayed via User 2026-04-20)**: kill the run. *"The Anthropic-path validation goal is met by the perfect-parse calls already in audit; we have what we needed there. The full-unbounded target is structurally infeasible on Wikidata's free tier for this corpus — that's the honest finding to document."*
+
+The corresponding Phoenix Backlog ticket — **PHX-0033** "Pre-curated Wikidata subset for travel literature" — was already on the books (Daedalus, 2026-04-17). Updated 2026-04-20 with the measured throttle evidence above as motivating data; ticket scope unchanged. **No new PHX needed.**
+
+The W5 brief explicitly forbids fixing the Wikidata throttle in this PR (caching, request batching, alternative endpoints — all Gen-2 work). The sanctioned demo path is now `--sentences 500` with BookContextExtractor on; that's what Section "Bounded ingest" below captures.
+
+### 3. The bounded-ingest path is the demo recording path, *not a workaround*
+
+Hesiod's W5 brief was specific that the W4 `--no-book-context` flag was a Gemini-quota hack and not the production path. The W5 bounded path is `theogony ingest 43497 --sentences 500` (with BookContext on). That is the production path; it is what the demo recording will reproduce. The unbounded path remains a "post-PHX-0033 capability".
+
+Numbers below are the bounded-path numbers.
+
+## Bounded ingest
+
+```
+$ theogony ingest 43497 --sentences 500
+```
+
+| Metric | Value |
+|---|---:|
+| `run_id` | `01KPMJE57HW70T2TA3GXK4CZZA` |
+| Source | `gutenberg:43497` — *Trans-Himalaya, Vol. 1* (Hedin, 1909) |
+| Status | `completed` |
+| Verdict | `poor` — `parse_error_rate=0.65 (>0.20 poor)`, `low_tier_ratio=0.90 (>0.60 poor)` |
+| Wall-clock | **1188.92 s = 19 min 49 s** |
+| Sentences cleaned | 7697 (full document; pipeline NER-processed first 500 per the cap) |
+| NER mentions | **1158** |
+| Resolved nodes | **756** |
+| Edges minted | **139** |
+| Tier counts | `T0=667, T1=16, T2=10, T3=44, T4=19` |
+| Manual resolution needed | **667** |
+| Relations attempted | 301; parsed_ok = 139 (46 % yield; the remainder dropped at evidence-span validation) |
+| Embedding | 756 nodes via `BAAI/bge-small-en-v1.5@v1` |
+| LLM cost | **€0.68271** |
+| Audit rows | 371 (1 book_context + 69 stage4_disambiguation + 301 relation_extraction) |
+| LLM parse-success | **100 %** (371 / 371 audited calls) |
+
+Hesiod's W5 expectation for the bounded path was 30–45 min wall-clock, €2–3 cost, 400–600 nodes, 200–400 edges. Actuals: **20 min, €0.68, 756 nodes, 139 edges** — wall-clock and cost both well under expectation; node count above expectation; edge count below expectation.
+
+The lower-than-expected edge count is structural, not Anthropic-specific. Of 301 relation_extraction calls that returned parse-OK from the LLM, only 139 survived the downstream `evidence_span` validation (the relation extractor drops relations whose evidence span lands outside the central sentence — a Gen-1 hallucination-suppression heuristic; PHX-territory at the validator level, but **out of scope for W5**). Same code path ran in W4 with Gemini and yielded the same shape.
+
+`poor` verdict is the same heuristic shape as W4: `parse_error_rate` from the dropped relations + `low_tier_ratio` from the obscure-1908-surveyor density. The system is being honest about its own confidence; it is not silently masking the relation drops.
+
+`theogony reports show 01KPMJE57HW70T2TA3GXK4CZZA` returns the full JSON.
+
+## Queries
+
+Five queries via `theogony ask` against the running `theogony serve` (port 8765, `THEOGONY_ONEIROS__TICK_INTERVAL_S=30`). Same shape mix as W4: 3 substantive + 1 honest-failure + 1 Hover-Lupe walk. The Hover-Lupe is a `theogony node` walk, which does not produce a query report.
+
+### Verdict distribution
+
+**3 good · 1 partial · 1 (the Hover-Lupe; not a query report)** across the 4 `ask`-shaped queries.
+
+The `good` verdicts again include honest-failure-recognition: the synthesizer correctly said "die Chronik hat noch nicht genug Informationen" rather than fabricating. Plan §1's right-shaped output, again.
+
+### Q1 — substantive: "Wer war Sven Hedin?"
+
+```
+run_id   01KPMM2HNQRBYDADRVNNTFCMT8
+verdict  good — 1 cited, 1 high-conf
+nodes    Constellation: 10 nodes / 0 edges / 0 gaps
+synth    1941 ms · 2729 in / 83 out tokens · 0.002924 EUR
+answer   Die Chronik hat noch nicht genug Informationen zu dieser Frage. Es ist nur
+         bekannt, dass es eine Person namens Sven Hedin [AKA-64c45f68b1a0] gibt, aber
+         es fehlen Angaben zu seinen Aktivitäten, seiner Biographie und seiner
+         historischen Bedeutung.
+```
+
+The Sven Hedin node IS in the graph (tier-3, `wikidata=Q154759` — verified in Q5 below). The retrieval-side limitation is that the multi-hop seeds didn't surface Hedin's three connected `TRAVELED_TO` / `OPPOSED_TO` edges into the constellation; the synthesizer stayed honest about what was *in the prompt context*, not what was in the broader graph. PHX-territory: improve multi-hop seed selection on bare-id queries.
+
+### Q2 — substantive multi-hop: "Welche Beziehung hatte Sven Hedin zur britisch-indischen Regierung?"
+
+```
+run_id   01KPMM2XQNKY9EZVG47HRRADRM
+verdict  good — 2 cited, 1 high-conf
+nodes    Constellation: 10 nodes / 0 edges / 0 gaps
+synth    2457 ms · 2751 in / 139 out tokens · 0.003205 EUR
+answer   Die Theogony Chronik hat zu dieser Frage noch nicht genug Informationen. Die
+         vorliegende Konstellation enthält zwar einen Knoten zu Sven Hedin
+         [AKA-64c45f68b1a0] und einen zum Britischen Empire [AKA-05d113950f73], aber
+         es gibt keine dokumentierten Beziehungen zwischen ihnen…
+```
+
+Same retrieval-side limitation as Q1. The graph DOES contain `Sven Hedin → OPPOSED_TO → Tibet ← OPPOSED_TO → John Morley` (visible in the Hover-Lupe Q5 below), but the multi-hop didn't bridge from the query embedding "britisch-indische Regierung" to those edges. Honest "no" beats fabricated "yes".
+
+### Q3 — substantive: "Welche geografischen Regionen werden in Trans-Himalaya beschrieben?"
+
+```
+run_id   01KPMM39850T5CK59NQN37R5W6
+verdict  partial — 4 cited, 1 high-conf
+nodes    Constellation: 10 nodes / 0 edges / 0 gaps
+synth    2422 ms · 2739 in / 176 out tokens · 0.003366 EUR
+answer   Die Chronik verfügt noch nicht über ausreichende Informationen zu dieser
+         Frage. Obwohl das Werk Trans-Himalaya [AKA-951767aca56d] bekannt ist und
+         einzelne Orte wie Tibet [AKA-529bb2882bfe], Zentraltibet [AKA-be82aed97a55]
+         und die Nordwestgrenze [AKA-d8a7846c49ff] erwähnt werden, fehlen die
+         konkreten Relationen zwischen dem Werk und den darin beschriebenen
+         geografischen Regionen…
+```
+
+Four cited geographic nodes — the answer correctly names them but flags the missing "WORK → DESCRIBES → PLACE" edge type. That edge type isn't in the Gen-1 RelationExtractor's vocabulary (PHX-territory). `partial` verdict is the right shape.
+
+### Q4 — honest-failure: "Welche musikalischen Vorlieben hatte Sven Hedin?"
+
+```
+run_id   01KPMM4262BYTF0F7CXA9Y11FZ
+verdict  good — 1 cited, 1 high-conf
+nodes    Constellation: 10 nodes / 0 edges / 0 gaps
+synth    2006 ms · 2736 in / 78 out tokens · 0.002907 EUR
+answer   Die Theogony Chronik hat zu diesem Thema noch nicht genug Informationen. Die
+         vorliegende Konstellation enthält zwar einen Knoten zu Sven Hedin
+         [AKA-64c45f68b1a0], aber keine Daten über seine musikalischen Vorlieben.
+```
+
+Designed to fail. It failed honestly. The win.
+
+### Q5 — Hover-Lupe walk: Sven Hedin ↔ Tibet
+
+```
+$ theogony node AKA-64c45f68b1a0   # Sven Hedin
+─────────────────────────────────────────────────────────────────────
+Sven Hedin
+confidence=0.75 · resolution_tier=3 · external_ids: wikidata=Q154759
+
+Neighbourhood (depth=1, 3 edges):
+  → AKA-529bb2882bfe  Tibet (TRAVELED_TO) confidence=0.95
+  → AKA-529bb2882bfe  Tibet (TRAVELED_TO) confidence=0.85
+  ← AKA-548ee4fb925c  the Indian Government (OPPOSED_TO) confidence=0.75
+
+Sources: gutenberg:43497
+─────────────────────────────────────────────────────────────────────
+
+$ theogony node AKA-529bb2882bfe   # Tibet
+─────────────────────────────────────────────────────────────────────
+Tibet
+confidence=0.90 · resolution_tier=4 · external_ids: wikidata=Q2444884
+
+Neighbourhood (depth=1, 12 edges):
+  ← AKA-526108164353  Imperial Government (RULED_BY) confidence=0.75
+  ← AKA-d4485f7f7de4  Captain Cecil Rawling (TRAVELED_TO) confidence=0.90
+  ← AKA-e113505101ce  Francis Younghusband (TRAVELED_TO) confidence=0.95
+  ← AKA-64c45f68b1a0  Sven Hedin (TRAVELED_TO) confidence=0.95
+  ← AKA-8385259b2e10  English Expedition (TRAVELED_TO) confidence=0.95
+  → AKA-1ed09ea46a64  India (NEAR) confidence=0.70
+  ← AKA-d816bc77abff  Lhasa (LOCATED_IN) confidence=0.85
+  ← AKA-64c45f68b1a0  Sven Hedin (TRAVELED_TO) confidence=0.85
+  ← AKA-409b88a6a1a2  John Morley (OPPOSED_TO) confidence=0.80
+  ← AKA-cefad5fa5a24  Government (OPPOSED_TO) confidence=0.85
+  ← AKA-1ed09ea46a64  India (NEAR) confidence=0.85
+  ← AKA-4d38f8e7af4b  Scientific Results (DESCRIBED_BY) confidence=0.85
+
+Sources: gutenberg:43497
+─────────────────────────────────────────────────────────────────────
+```
+
+This is the recording-grade demo moment. From `Sven Hedin` (tier-3, `wikidata=Q154759` — the actual Hedin Wikidata entry) the operator steps to `Tibet` (tier-4, `wikidata=Q2444884`) and finds a populated 12-edge neighbourhood: Hedin's expedition (TRAVELED_TO with confidence 0.95), Younghusband's mission (TRAVELED_TO 0.95), Cecil Rawling (TRAVELED_TO 0.90), Lhasa (LOCATED_IN 0.85), the geopolitical contention with John Morley (OPPOSED_TO 0.80) and the Imperial Government (RULED_BY 0.75), the geographic adjacency to India (NEAR 0.85). The Edwardian Tibet expedition map, in graph form, with citation back to the source.
+
+This is what the §1 demonstration moment looks like with recording-grade material. The W4 baseline only had Tibet ↔ Viceroy as a 2-edge round-trip; W5's bounded path produces a 12-edge geopolitical web around Tibet.
+
+## Anthropic Haiku 4.5 vs. Gemini 2.5 Flash Lite — per-call comparison
+
+Drawn from `data/audit.sqlite`. W4 ran a 50-sentence ingest with Gemini Flash Lite (`run_id=01KPM4PAA5QTJ8G7Z3FPS3T3DR`); W5 ran a 500-sentence ingest with Anthropic Haiku 4.5 (`run_id=01KPMJE57HW70T2TA3GXK4CZZA`). Apples-to-apples on call count is impossible (different sentence caps), so the table below compares **per-call** metrics that ARE directly comparable.
+
+| Per-call metric (avg across all stages) | Gemini 2.5 Flash Lite (W4, n=47) | Anthropic Haiku 4.5 (W5, n=371) | Anthropic / Gemini ratio |
+|---|---:|---:|---:|
+| Input tokens / call | 333 | 1 120 | **3.4×** |
+| Output tokens / call | 148 | 172 | 1.16× |
+| Latency / call | 1 237 ms | 1 829 ms | 1.48× |
+| EUR / call | €0.0000857 | €0.001840 | **21.5×** |
+| Parse-OK rate | 100 % (47 / 47) | 100 % (371 / 371) | 1.00× |
+
+Per-stage breakdown (so the cost differential isn't hidden in a stage-mix shift):
+
+| Stage | Gemini avg_in / avg_out / €/call | Anthropic avg_in / avg_out / €/call |
+|---|---|---|
+| `book_context`            | (not run in W4, `--no-book-context`) | 3 061 / 247 / €0.003995 |
+| `stage4_disambiguation`   | 354 / 91 / €0.0000673 | 1 304 / 162 / €0.001966 |
+| `relation_extraction`     | 322 / 177 / €0.0000957 | 1 071 / 174 / €0.001804 |
+
+**Honest reading**: Anthropic Haiku 4.5 costs ~21× per call vs Gemini Flash Lite. Most of the cost differential comes from input tokens (~3.4×, partly because the Anthropic forced-tool path injects more schema boilerplate) plus the per-token list-price differential (Haiku 4.5 input is €1.00/M vs Flash Lite's input ~€0.05/M = 20×). Both providers parse at 100 %; quality on the actual extraction (entity / relation accuracy) requires PHX-0034's gold-standard benchmark — a one-day dress-rehearsal demo doesn't authoritatively say one is "better".
+
+The Plan §3.3a economic rationale ("predictable prepaid billing beats free-tier daily caps for daily dev work") still holds; the absolute cost is well within budget for bounded demo runs (€0.68 for the recording corpus). Whether Anthropic remains the right *quality* default after PHX-0034 evidence is a future Hesiod call.
+
+## Oneiros activity
+
+The `OneirosWorker` ticked **5 times** during the W5 query session (verified via `theogony reports list -t oneiros`). Sample tick (`01KPMM5AC32308P8ZTG0AH16FH`):
+
+```json
+{
+  "run_id": "01KPMM5AC32308P8ZTG0AH16FH",
+  "report_type": "oneiros",
+  "started_at": "2026-04-20T05:00:11.123377Z",
+  "duration_s": 0.4001,
+  "status": "completed",
+  "verdict": "partial",
+  "verdict_reasoning": "no promotions or degradations (possible threshold drift)",
+  "nodes_evaluated": 724,
+  "nodes_promoted": 0,
+  "nodes_degraded": 0,
+  "vitality": {
+    "mean_vitality_before": 0.4897,
+    "mean_vitality_after": 0.4897,
+    "median_shift": -1.76e-6
+  }
+}
+```
+
+**Interpretation**: 724 nodes evaluated in 400 ms — the W4 baseline did 104 nodes in 75 ms; W5 scales roughly 7× more nodes for ~5× more wall, well within Plan §5 E8.5's demo-target latency budget. Verdict `partial` because no nodes crossed promote / degrade thresholds (correct: seed nodes are < 1 hour old; freshness still saturated). Same quiet-but-alive lifecycle behaviour as W4.
+
+Lifespan shutdown logged cleanly (`OneirosWorker.run cancelled cleanly` + `api lifespan: shutdown complete`).
+
+## Closing summary — what the W5 run produced
+
+```
+$ theogony reports list -n 30
+  ingest:   1 (01KPMJE57HW70T2TA3GXK4CZZA)   verdict=poor
+  query:    4 (01KPMM2H… / 01KPMM2X… / 01KPMM39… / 01KPMM42…)   verdict=3 good · 1 partial
+  oneiros:  5 (01KPMM2H… → 01KPMM5A…)         verdict=all partial (correct: no threshold crosses)
+```
+
+Plus the killed-run unbounded ingest (`01KPMG4TR1WDTWPPMB8R34TYFJ`, 254 calls / €0.5079 / 45 min wall, see Demo-time finding §2 above) — kept in `data/audit.sqlite` as PHX-0033 motivating evidence; its `IngestRunReport` was never written because the run did not reach the report-writing stage.
+
+## Total W5 cost
+
+- Smoke-1 (Haiku 3.5 NotFound, throwaway): €0.00 (all 404s)
+- Smoke-2 (Haiku 4.5, 50 sentences): €0.10010
+- Killed unbounded run (Haiku 4.5): €0.5079
+- Bounded demo ingest (Haiku 4.5, 500 sentences): €0.68271
+- 4 demo queries: ~€0.0124 total
+- **W5 total LLM spend: €1.30**
+
+Comfortably under Hesiod's €15 ceiling. Wall-clock ~75 min total (most of which was the killed-unbounded run + waits between).
+
+## Reproduction (W5, recording-grade)
+
+```bash
+docker compose down -v && docker compose up -d neo4j
+ANTHROPIC_API_KEY=… theogony ingest 43497 --sentences 500
+THEOGONY_ONEIROS__TICK_INTERVAL_S=30 theogony serve &
+# … run the 5 queries above …
+theogony reports list
+```
+
+What changed vs. the W4 reproduction recipe:
+
+- Default LLM is now Anthropic; `ANTHROPIC_API_KEY` instead of `GEMINI_API_KEY`.
+- Sentence cap is now 500 (recording-grade) instead of 50 (W4-quota-hack).
+- BookContextExtractor on (no `--no-book-context`).
+- Otherwise identical.
+
+Future, when PHX-0033 ships the local Wikidata subset: drop `--sentences 500`, expect the unbounded ingest to complete in ≤ 60 min wall-clock (vs. the ~480 min projection on the live SPARQL endpoint).

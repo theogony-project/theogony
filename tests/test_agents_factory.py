@@ -65,11 +65,11 @@ class TestAnthropicProvider:
         s = _settings(
             provider="anthropic",
             anthropic_key="sk-ant-x",
-            model_id="claude-3-5-haiku-20241022",
+            model_id="claude-haiku-4-5-20251001",
         )
         provider = build_llm_from_settings(s)
         assert isinstance(provider, AnthropicLLMProvider)
-        assert provider.model_id == "claude-3-5-haiku-20241022"
+        assert provider.model_id == "claude-haiku-4-5-20251001"
 
     def test_anthropic_without_key_raises_value_error(self) -> None:
         s = _settings(provider="anthropic", anthropic_key=None)

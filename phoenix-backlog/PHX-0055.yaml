@@ -1,0 +1,81 @@
+id: PHX-0055
+category: testing
+priority: high
+status: open
+generation_target: 1
+title: "CI smoke-test against the live default LLM provider — catches model-retired surprises"
+filed_by: talos
+created_at: 2026-04-20
+description: |
+  Surfaced during the W5 Anthropic full-ingest validation etappe.
+
+  PR #30 switched the default LLM provider/model to
+  ``anthropic / claude-3-5-haiku-20241022``. CI was 100 % green
+  (lint + 3.12 + 3.13 + Neo4j-live + serve smoke), and the PR-30
+  follow-up bundle in PR #31 added another sweep — also 100 % green.
+  Yet the W5 first smoke-ingest against a fresh Neo4j with real
+  ``ANTHROPIC_API_KEY`` produced **0 edges, 0 cost, 47 / 47 audit
+  rows tagged ``transport_error:NotFoundError``**. Root cause: the
+  pinned Haiku-3.5 model was retired by Anthropic between SDK 0.30
+  (the original pin's reference release) and current accounts —
+  ``client.models.list()`` on the User's account does not contain
+  any Haiku-3.5 variant. The default was never reachable.
+
+  The whole class of test we run against ``LLMProvider``
+  implementations is mock-based: ``StubLLMProvider``, ``respx``
+  cassettes, hand-rolled fakes in unit tests. None of them probe
+  whether the model name we pin in
+  ``LLMSettings._default_model_id_for_provider`` is actually
+  reachable on a real account. A 1-token ping per default model
+  would have caught this in seconds.
+
+  The W5 run was an explicit live-validation step driven by
+  Hesiod's W5 brief. Without it, the broken default would have
+  shipped silently into the demo recording.
+
+  This is exactly the gap a CI smoke-test against the live default
+  provider would close: cheap (single 1-token ``complete`` call per
+  default model, ~€0.0001 per invocation), gated (env-var lock so
+  CI without keys skips), informative (a 404 surfaces immediately
+  with the model_id and a request-id from the provider).
+
+  The W5 etappe self-mitigated by switching to
+  ``claude-haiku-4-5-20251001`` (Hesiod Option A); the Plan §3.3a
+  evaluation block + the PR-30 follow-up brief are now slightly
+  out of date as historical artefacts, but the operational paths
+  (settings default, README, .env.example, factory test, settings
+  test) all carry the new model. The next time someone changes the
+  default — by Plan §3.3 PHX-0027 re-evaluation, by an Anthropic
+  retirement, or by a quality finding — this ticket should be
+  closed first so the surprise never recurs.
+
+acceptance_criteria:
+  - A new ``tests/test_llm_provider_live_smoke.py`` (or section of
+    an existing live-test file) issues one 1-token ``complete``
+    call against the model_id returned by
+    ``Settings()._default_model_id_for_provider(provider)`` for
+    each of ``{anthropic, openai, gemini}`` for which the matching
+    API key is in env.
+  - Gated by ``THEOGONY_TEST_LLM_LIVE=1`` plus the per-provider
+    key in env (skip cleanly when either is missing — same idiom
+    as the existing ``test_extraction_*_live.py`` files).
+  - Asserts: HTTP 200, non-empty ``LLMResult.text``, ``input_tokens > 0``,
+    ``output_tokens > 0``. Surface the model_id + provider in the
+    test name so a CI failure reads
+    ``test_default_model_reachable[anthropic-claude-haiku-4-5-20251001]``.
+  - Wired into the existing ``neo4j`` CI job (the slot that already
+    has the most-permissive secret access) under a job-level env
+    flip ``THEOGONY_TEST_LLM_LIVE: "1"`` only on the ``main`` branch
+    push event (not on PR runs — secret-rotation hygiene; PRs from
+    forks must not see the keys).
+  - Documented in the contributor README quickstart's "Going further"
+    block as a one-line ``THEOGONY_TEST_LLM_LIVE=1 pytest -k
+    default_model_reachable`` recipe.
+
+related:
+  - PHX-0027  # LLM provider re-evaluation (this is its precondition)
+  - PHX-0034  # Cross-provider benchmark (reuses the same per-provider gating idiom)
+
+referenced_in:
+  - "docs/etappes/demo_log.md (W5 'Anthropic Haiku 4.5 full-ingest run' — Demo-time finding #1)"
+  - "Plan top-of-doc reconciliation block (W5 PR)"
