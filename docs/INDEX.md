@@ -87,6 +87,7 @@ This path is about open problems, future directions, and the original conceptual
 ### Core Vision Documents
 
 - [`README.md`](../README.md): the manifesto
+- [`AGENTS.md`](../AGENTS.md): binding instructions for AI coding agents contributing to this repo
 - [`PANTHEON_VISION.md`](PANTHEON_VISION.md): Pantheon as planetary chronicle / knowledge substrate (long horizon)
 - [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md): compact doctrine companion to the Pantheon vision
 - [`VISION.md`](VISION.md): the compact vision (Chronik-forward; links upward to Pantheon)
