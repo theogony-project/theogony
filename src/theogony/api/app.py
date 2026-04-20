@@ -39,6 +39,7 @@ from theogony.config.logging import get_logger, setup_logging
 from theogony.config.settings import Settings
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
+from theogony.extraction.wikidata_cache import WikidataCache
 from theogony.memory.oneiros import OneirosWorker
 from theogony.reporting.writer import RunReportWriter
 from theogony.stores.neo4j_store import Neo4jKnowledgeStore
@@ -71,6 +72,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     audit = ExtractionAuditLog(settings.data_dir / "audit.sqlite")
     audit.__enter__()
 
+    # Wikidata cache (W6, PR #33): one persistent SQLite per data_dir,
+    # opt-out via THEOGONY_WIKIDATA_CACHE__ENABLED=false. Same lifespan
+    # ownership pattern as the audit log so background ingest tasks
+    # share one connection.
+    wd_cache: WikidataCache | None = None
+    if settings.wikidata_cache.enabled:
+        wd_cache = WikidataCache(settings.wikidata_cache_path)
+        wd_cache.__enter__()
+
     embedder = LocalSentenceTransformerEmbedder(
         model_id=settings.embedding.model_id,
         dim=settings.embedding.dim,
@@ -89,6 +99,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     app.state.settings = settings
     app.state.audit = audit
+    app.state.wikidata_cache = wd_cache
     app.state.embedder = embedder
     app.state.llm = llm
     app.state.store = store
@@ -115,6 +126,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await app.state.store.__aexit__(None, None, None)
         if hasattr(app.state.llm, "aclose"):
             await app.state.llm.aclose()
+        if app.state.wikidata_cache is not None:
+            app.state.wikidata_cache.__exit__(None, None, None)
         app.state.audit.__exit__(None, None, None)
         log.info("api lifespan: shutdown complete")
 

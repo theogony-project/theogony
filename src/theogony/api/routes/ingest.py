@@ -54,6 +54,9 @@ async def _run_background_ingest(
     store = state.store
     embedder = state.embedder
     report_writer = state.report_writer
+    # Wikidata cache is owned by the lifespan (W6); may be ``None``
+    # when ``settings.wikidata_cache.enabled`` is false.
+    wd_cache = getattr(state, "wikidata_cache", None)
     log.info("background ingest start run_id=%s identifier=%s", run_id, body.identifier)
 
     try:
@@ -61,7 +64,7 @@ async def _run_background_ingest(
             cand = await gutenberg.get_by_id(body.identifier)
             raw = await gutenberg.acquire(cand)
 
-        async with WikidataClient() as wd_client:
+        async with WikidataClient(cache=wd_cache) as wd_client:
             resolver = EntityResolver(client=wd_client, llm=llm, audit_log=audit)
             book_ctx = (
                 None if body.no_book_context else BookContextExtractor(llm=llm, audit_log=audit)
