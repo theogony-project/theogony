@@ -114,6 +114,7 @@ This path is about open problems, future directions, and the original conceptual
 - [`PHOENIX_BACKLOG.md`](PHOENIX_BACKLOG.md): future generations, open problems, and improvement tickets
 - [`genesis_conversation_log.md`](../genesis_conversation_log.md): local, non-repo genesis record of the project's conceptual development
 - [`HISTORICAL_MD_INTENTIONALLY_UNTOUCHED.md`](HISTORICAL_MD_INTENTIONALLY_UNTOUCHED.md): which etappe / demo markdown stayed historical in the Pantheon doc pass
+- [`RELEASING.md`](RELEASING.md): how to cut a Theogony release to PyPI (single-source version, double-gated publish workflow)
 
 ### Builder Agent Prompts
 
