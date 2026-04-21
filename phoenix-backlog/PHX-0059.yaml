@@ -1,0 +1,165 @@
+id: PHX-0059
+category: vision
+priority: high
+status: open
+generation_target: 2
+title: "Morpheus-as-Associator + multi-layer connectivity — the dreamer worker that actually creates new edges, with depth strata beyond Ephemera/Mneme"
+filed_by: hesiod
+created_at: 2026-04-20
+description: |
+  Today's ``OneirosWorker`` is **a lifecycle worker, not an
+  associator**. Its tick:
+
+  1. Snapshot Ephemera
+  2. Bulk-count neighbours per node
+  3. Recompute connectivity / freshness / vitality client-side
+  4. Bulk-write the new scores
+  5. Promote nodes that crossed the promotion threshold
+  6. Sweep Mneme for idle low-vitality nodes; degrade
+
+  No new edges are created. The vision documents
+  (``HIVE.md``, ``VISION.md §"How Agents Use the Chronik"``,
+  ``CURIOSITY.md §"Curiosity and Oneiros"``) describe Morpheus
+  as the **dreamer / associator / inferencer** who finds new
+  links, weaves new connections, surfaces contradictions.
+  That role is unimplemented.
+
+  Two structural problems flow from the gap:
+
+  A. **The chronicle never enriches itself internally.** All
+     edges come from extraction-time relation extraction; once
+     a node is in the store, no further graph structure
+     accrues to it from the system's own background work. New
+     ingest sits in Ephemera as an island until something
+     external mentions it.
+
+  B. **Promotion is a binary cliff.** A node is either Ephemera
+     or Mneme. The user's image (conversation 2026-04-20) is
+     much finer: knowledge sits in *layers* of varying
+     embeddedness, and use + dreaming pushes it deeper. Today
+     ``connectivity`` is a continuous score [0,1], but the
+     *layer* representation is binary, so the graph cannot
+     reflect the gradation the user describes.
+
+  This ticket is two coupled pieces of work:
+
+  **Part 1 — Morpheus-as-Associator.** A new worker (or a new
+  phase inside ``OneirosWorker._tick``) that, per tick:
+
+  - Snapshots a small batch of recently-arrived Ephemera nodes
+    (those without much connectivity yet).
+  - For each, computes candidate new edges via cheap
+    deterministic signals first:
+    1. Embedding similarity to other nodes within a configurable
+       Jaccard / cosine band (high enough to be meaningful,
+       low enough to leave room for surprise).
+    2. Source co-occurrence (two nodes mentioned within the
+       same paragraph / sentence / chapter of the same source).
+    3. Temporal proximity (when both nodes have observation
+       timestamps in their evidence).
+    4. Glossary-mention overlap (a node and a glossary concept
+       both appear in the same section).
+  - Proposes the candidate edges as ``KnowledgeEdge`` records
+    with ``epistemic_type=EdgeType.INFERENCE`` and a flag in
+    ``properties["proposed_by"]="morpheus"``.
+  - Athene (when implemented as a verifier) reviews and either
+    confirms (commit), rejects (drop), or flags (set
+    ``epistemic_status=DISPUTED``). In the meantime — until
+    Athene exists — proposed edges land in EPHEMERA layer with
+    ``confidence=0.4`` so the retrieval stack can use them at
+    low weight without elevating them to first-class status.
+
+  Honest scope: deterministic associators only in this
+  ticket. LLM-driven associative dreaming (which would let
+  Morpheus *propose links it cannot mechanically derive*) is
+  PHX-0004 (Crystallized Inference); the two tickets together
+  span the full vision.
+
+  **Part 2 — Multi-layer connectivity (depth strata).** Replace
+  / extend the binary ``Layer = {EPHEMERA, MNEME}`` with a
+  **gradient of depth strata**. Concrete proposal: keep the two
+  named layers as semantic boundaries (raw vs. trusted), but
+  add a continuous-but-discretised ``depth_band: int [0..5]``
+  on every node, derived from a combination of connectivity,
+  vitality, citation history, and time-since-promotion.
+  Specifically:
+
+  - Band 0 = raw Ephemera, very low connectivity (< 5 edges).
+  - Band 1 = settling Ephemera, edges starting to form.
+  - Band 2 = promotable Ephemera (above the
+    ``can_be_promoted`` threshold).
+  - Band 3 = freshly promoted Mneme.
+  - Band 4 = well-embedded Mneme (high connectivity, used in
+    many citations).
+  - Band 5 = canonical Mneme (heart of the chronicle, rarely
+    moves, frequently cited as the central anchor of a
+    constellation).
+
+  Mneme-to-Ephemera degradation still uses the existing
+  threshold mechanism but now operates *between bands* rather
+  than across the binary cliff: a Band-3 node that goes idle
+  drops to Band-2 first, not all the way to Band-0. The
+  Mind-Map (``PHX-0038``) can render bands as visual depth.
+
+  The sickern-durch-Benutzung effect the user described
+  ("Benutzung von Wissen und Träumen fördert das Durchsickern
+  von Wissen in die tieferen, besser eingebundenen Schichten")
+  becomes literal: cited nodes incrementally rise through
+  bands; idle nodes incrementally descend; new associative
+  edges (Part 1) accelerate the rise of associated nodes by
+  improving their connectivity.
+
+acceptance_criteria:
+  - |
+    Part 1: New ``MorpheusAssociator`` (own module
+    ``src/theogony/memory/morpheus.py``); single async
+    ``propose_associations(batch_size)`` method returning an
+    ``AssociationProposal``. Generates candidate edges via at
+    least the four deterministic signals listed above.
+  - |
+    Proposed edges land with ``epistemic_type = INFERENCE``,
+    ``confidence = 0.4``, ``properties["proposed_by"] = "morpheus"``,
+    EPHEMERA layer.
+  - |
+    The ``OneirosWorker._tick`` invokes
+    ``MorpheusAssociator.propose_associations`` after the
+    score-recompute / promote / degrade phases (the associator
+    should see the freshest connectivity numbers).
+  - |
+    One ``MorpheusTickReport`` (or extension of
+    ``OneirosTickReport``) records per tick: candidates
+    considered, candidates accepted, candidates rejected, cost.
+  - |
+    Part 2: ``KnowledgeNode`` schema gains a
+    ``depth_band`` integer field, range 0..5.
+  - |
+    The OneirosWorker's score-recompute phase derives
+    ``depth_band`` from connectivity + vitality + citation
+    history + idle-days; new field travels through every
+    store backend (InMemory + Neo4j).
+  - |
+    Promotion / degradation are now band-step transitions
+    (one band per tick, not direct cross-layer jumps).
+  - |
+    At least one integration test: ingest 100 nodes with
+    varied edge density; tick the worker 10 times; assert
+    that depth_band distribution stratifies correctly and
+    that no node skips a band on a single tick.
+  - |
+    ``ARCHITECTURE.md`` Memory Architecture section updated
+    to describe the band gradient. ``GLOSSARY.md`` learns
+    "depth_band" and "Morpheus associator" entries.
+
+related:
+  - PHX-0004  # Crystallized Inference — LLM-driven associative dreaming, the next step beyond deterministic Morpheus
+  - PHX-0007  # Scientific Workbench Agents — Athene-style verification of proposed edges
+  - PHX-0009  # Vitality Function Tuning — depth_band derivation reuses the lifecycle math
+  - PHX-0011  # Knowledge Condensation at Scale — sister problem; bands inform when condensation is warranted
+  - PHX-0056  # Activation Engine — multi-layer connectivity changes the semantics of "min_weight" propagation across bands
+  - PHX-0057  # Edge-Pheromone — pheromone bumps should accelerate band ascent for the bumped path
+
+referenced_in:
+  - "docs/HIVE.md — Morpheus as Builder ('association, inference, edge creation')"
+  - "docs/VISION.md §'How Agents Use the Chronik' — Mneme is the trusted layer; bands extend the gradient"
+  - "docs/CURIOSITY.md §'Curiosity and Oneiros' — Oneiros makes the Chronik wiser about what it has"
+  - "Composer conversation 2026-04-20 — user introduced the layered-knowledge image and the use+dream Durchsickern mechanic"

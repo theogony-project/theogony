@@ -1,0 +1,122 @@
+id: PHX-0058
+category: vision
+priority: medium
+status: open
+generation_target: 2
+title: "Aggregated stub detection — recurring blind spots prioritised for outward research"
+filed_by: hesiod
+created_at: 2026-04-20
+description: |
+  ``CURIOSITY.md`` already specifies per-query stub detection: a
+  ``StubVerdict`` is computed for every query, recording which
+  thinness signals fired (low node count, low edge density, low
+  vitality, narrow source diversity, low confidence aggregate,
+  unresolved named entities). Generation 1 emits these verdicts
+  to disk as part of every ``QueryRunReport`` for later
+  calibration; the full Curiosity Loop (PHX-0037) consumes them
+  in Gen 2-3 to dispatch outward research.
+
+  What is missing — surfaced by the user's conversation
+  2026-04-20 — is **aggregation across queries over time**. Per-
+  query stub detection sees only the current call. It cannot
+  distinguish between:
+
+  - a one-off question that happened to land in an unimportant
+    sparse region, and
+  - a region of the chronicle that has been queried 10+ times
+    in the last 30 days and *every single time* came back thin.
+
+  The second pattern is a **persistent blind spot** — a
+  high-priority signal that the chronicle is missing knowledge
+  the world is asking it for. The Curiosity Loop's ad-hoc
+  reactive trigger (PHX-0037) handles individual sparse hits;
+  this ticket handles the *strategic* layer: which thin regions
+  are worth investing in, given how often attention falls there.
+
+  The mechanism, in short:
+
+  1. A new periodic worker (call it ``BlindSpotAggregator`` or
+     bind it into the existing reporting writer) scans
+     ``QueryRunReports`` from the last N days at a fixed
+     cadence — daily for production, configurable per env.
+  2. For each report, extract the ``StubVerdict`` (when it
+     fired) and the *region descriptor* — a small projection of
+     the constellation that landed: clusters of seed nodes,
+     dominant ``node_type``, dominant ``cluster_id``, and the
+     embedding centroid of the seed set. Embedding centroid is
+     the key; it lets us compare regions by similarity rather
+     than by exact id-match.
+  3. Cluster the stub-firing region descriptors by embedding
+     proximity (HDBSCAN or simple k-means over the centroids).
+     Each cluster of ≥ K thin queries within the window is a
+     **blind-spot candidate**.
+  4. Emit one ``BlindSpotReport`` per candidate, capturing:
+     queries that hit it (run_ids), aggregate signal strength,
+     suggested research scope. The report is what Prometheus
+     consumes when the full Curiosity Loop ships (PHX-0037);
+     in Gen 1 it lives on disk as evidence.
+  5. Helios (when implemented as a regulator) raises
+     Prometheus's promotor in proportion to the number and
+     intensity of active blind spots, so research effort
+     follows real attention rather than one-off curiosity.
+
+  Honest scope: the aggregator does not itself dispatch
+  outward research. It produces reports. The dispatch belongs
+  to PHX-0037 (Curiosity Loop). This ticket is the *priority
+  signal* PHX-0037 currently lacks.
+
+  Hestia interaction: aggregated blind spots inherit the same
+  person-as-target / sensitive-topic checks as individual
+  Curiosity triggers. A pattern of "many queries about a
+  private individual that came back thin" must be flagged
+  before it becomes a research target — exactly the surveillance
+  failure mode PHX-0039 is designed to prevent at the per-trigger
+  level. Aggregation amplifies that risk; the aggregator must
+  consult Hestia before promoting a candidate to Prometheus.
+
+acceptance_criteria:
+  - |
+    New ``BlindSpotAggregator`` worker (or a
+    ``ReportingDigest`` extension; design decision at pickup):
+    runs at a configurable cadence, scans
+    ``settings.run_reports_dir/query/*.json`` for the last N
+    days, returns a list of ``BlindSpotCandidate`` records.
+  - |
+    New Pydantic ``BlindSpotReport`` (and ``BlindSpotCandidate``)
+    in ``src/theogony/reporting/models.py`` with: list of
+    contributing run_ids, embedding centroid of the region,
+    aggregate stub-signal strength, suggested research
+    scope (named entities to acquire, topic seeds, source
+    diversity targets), Hestia review marker.
+  - |
+    Reports persist to
+    ``settings.run_reports_dir/blindspots/<run_id>.json``;
+    ``theogony reports list`` and ``theogony reports show``
+    learn the new ``blindspot`` type.
+  - |
+    At least one integration test: synthesise 10 query
+    reports with ``StubVerdict`` firing in similar embedding
+    regions; assert one ``BlindSpotCandidate`` is emitted with
+    the correct contributing run_ids.
+  - |
+    Hestia hook: ``BlindSpotAggregator`` calls a ``HestiaReview``
+    pass on each candidate before persisting it as
+    actionable; person-as-target / sensitive-topic candidates
+    persist with status ``hestia_review_required`` rather
+    than ``actionable``.
+  - |
+    Settings:
+    ``Settings.curiosity.blindspot_window_days`` (default 30),
+    ``Settings.curiosity.blindspot_min_hits`` (default 3),
+    ``Settings.curiosity.blindspot_aggregation_interval_s``
+    (default 86400 — daily).
+
+related:
+  - PHX-0037  # Curiosity Loop — this is its strategic priority signal
+  - PHX-0039  # Hestia Curiosity Auditing — aggregation amplifies the risks Hestia must catch
+  - PHX-0035  # Reviewer Agent — both consume the report layer; coordinate the disk format
+  - PHX-0038  # Mind-Map Response Format — visualisation of blind spots could land in the same client
+
+referenced_in:
+  - "docs/CURIOSITY.md §'Stub Detection' — per-query basis this ticket extends"
+  - "Composer conversation 2026-04-20 — user explicitly distinguished single thin-query handling from the aggregation pattern"

@@ -213,6 +213,42 @@ Constellation responses become structured for direct Mind-Map rendering: explici
 
 Hestia's standing subscription to every `CuriosityTrigger`. Person-as-target check (private individuals require explicit consent or refusal); sensitive-topic rules (health, sexuality, religion, political dissent, financial distress run under tighter sourcing and confidence rules); recursion budgets (a single attention act has a bounded downstream research budget; sub-zooms inherit reduced budgets); drift audit (Hestia reviews patterns of Curiosity activation and can throttle the loop globally via the regulatory dial). Curiosity without Hestia is a profiling engine. Hard dependency partner of PHX-0037. See [`CURIOSITY.md`](CURIOSITY.md) §"Hestia and Curiosity" and [`HESTIA.md`](HESTIA.md).
 
+### PHX-0056: Activation Engine v1 — Pluggable Retrieval Strategies
+
+- **Category**: vision
+- **Priority**: high
+- **Generation Target**: 2
+- **Filed by**: hesiod (2026-04-20 design conversation)
+
+Today's `MultiHopRetriever` is statically parametrised (`k=10, hops=2, min_weight=0.3`). [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md) §5 describes the mature shape: a query injects energy that propagates over a multi-relational graph under an explicit budget, with strategies pluggable by Fast/Slow path. This ticket lands a `RetrievalStrategy` Protocol + a `RetrievalBudget` model + a refactor of today's behaviour into a default `FixedDepthStrategy`, plus the second concrete strategy `EdgeProductBreadthFirst` (path-product threshold, top-N best paths). `VectorSimilarityBreadthFirst` and `LLMHeuristicGuided` follow as sub-tickets when empirical signals justify them. YAML: [`phoenix-backlog/PHX-0056.yaml`](../phoenix-backlog/PHX-0056.yaml).
+
+### PHX-0057: Edge-Pheromone Trails + Slow-Path Emancipation
+
+- **Category**: vision
+- **Priority**: high
+- **Generation Target**: 2
+- **Filed by**: hesiod (2026-04-20 design conversation)
+
+Today's pheromone signal is node-only (`RelevanceTracker.bump`). This ticket extends it to edges: cited paths bump edge weights; OneirosWorker decays edges that go untraversed; `RetrievalBudget` gains `pheromone_mode: follow|ignore|invert` so Slow-Path strategies can deliberately walk against the well-trodden trail (the cognitive-bias-correction the user introduced as the "Ameisenstraße"-Bild, conversation 2026-04-20). Without this, well-trodden paths become permanent autobahns and Slow-Path collapses into "same path, more tokens". YAML: [`phoenix-backlog/PHX-0057.yaml`](../phoenix-backlog/PHX-0057.yaml).
+
+### PHX-0058: Aggregated Stub Detection — Recurring Blind Spots
+
+- **Category**: vision
+- **Priority**: medium
+- **Generation Target**: 2
+- **Filed by**: hesiod (2026-04-20 design conversation)
+
+[`CURIOSITY.md`](CURIOSITY.md) §"Stub Detection" covers per-query detection. This ticket adds the *aggregation across queries over time* that the user explicitly distinguished (conversation 2026-04-20): a periodic worker scans recent `QueryRunReports`, clusters thin-firing region descriptors by embedding centroid, and emits `BlindSpotReport` records for clusters that recur ≥ K times in N days. These reports are the strategic priority signal PHX-0037's reactive Curiosity Loop currently lacks. Hestia review is mandatory before promotion to actionable status (aggregation amplifies the surveillance risk PHX-0039 catches at the per-trigger level). YAML: [`phoenix-backlog/PHX-0058.yaml`](../phoenix-backlog/PHX-0058.yaml).
+
+### PHX-0059: Morpheus-as-Associator + Multi-Layer Connectivity
+
+- **Category**: vision
+- **Priority**: high
+- **Generation Target**: 2
+- **Filed by**: hesiod (2026-04-20 design conversation)
+
+Today's `OneirosWorker` is a lifecycle worker, not an associator. It recomputes scores and shuffles between Ephemera and Mneme, but never creates new edges. The vision ([`HIVE.md`](HIVE.md), [`VISION.md`](VISION.md), [`CURIOSITY.md`](CURIOSITY.md) §"Curiosity and Oneiros") describes Morpheus as the dreamer/associator/inferencer who weaves new connections — that role is unimplemented. This ticket lands two coupled pieces: (1) a `MorpheusAssociator` worker that proposes new edges via deterministic signals (embedding similarity, source co-occurrence, temporal proximity, glossary-mention overlap), with Athene-style verification before commit; (2) a multi-layer `depth_band [0..5]` gradient on top of the binary Ephemera/Mneme cliff, so the user's "Schichten neuen Wissens, das durch Benutzung und Träumen in tiefere Schichten sickert" image (conversation 2026-04-20) is literally representable. LLM-driven associative dreaming is PHX-0004 (Crystallized Inference); this ticket is the deterministic foundation. YAML: [`phoenix-backlog/PHX-0059.yaml`](../phoenix-backlog/PHX-0059.yaml).
+
 ---
 
 ## Open Architectural Questions

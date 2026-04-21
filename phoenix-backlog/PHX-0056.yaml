@@ -1,0 +1,112 @@
+id: PHX-0056
+category: vision
+priority: high
+status: open
+generation_target: 2
+title: "Activation Engine v1 — pluggable retrieval strategies (edge-product, vector-similarity, LLM-heuristic with budget)"
+filed_by: hesiod
+created_at: 2026-04-20
+description: |
+  Today's ``MultiHopRetriever.retrieve()`` is statically parametrised:
+  fixed ``k=10``, ``hops=2``, ``min_weight=0.3``. Vector seed →
+  fixed-depth hop expansion → min-weight filter → dedupe → top-k.
+  No edge-weight-product threshold, no top-N-best-paths, no
+  resource-budget-aware heuristic. That is the bare minimum
+  ``Plan §4.2`` defaults — Gen 1 deliberately under-built.
+
+  ``DEEP_TECH_VISION.md §5 "Activation Engine"`` already specifies
+  the mature shape: a query injects energy that propagates over
+  semantic, temporal, causal, analogical, contradiction edges;
+  decays with distance; can be amplified, inhibited, split by
+  contradiction; **is budget-constrained**. The result is an
+  activation field, not a flat top-k list. The Constellation is
+  the readable slice.
+
+  The user's design proposal (2026-04, conversation) crystallises
+  three concrete strategies that should sit behind a common
+  ``RetrievalStrategy`` Protocol so callers (or Helios) can pick
+  per query / per Fast / per Slow path:
+
+  1. **EdgeProductBreadthFirst** — breadth-first walk along edges
+     with a confidence-product threshold (multiply edge weights
+     along the path; abort when product falls below the floor).
+     Plus an alternative shape: walk to a fixed depth, then
+     select the top-N best paths by accumulated weight. Two
+     parameter knobs that the same backend can present.
+
+  2. **VectorSimilarityBreadthFirst** — at each frontier node,
+     expand to neighbours by embedding-distance threshold and/or
+     top-K; walk continues until similarity floor or budget
+     exhaustion. Different from today's "vector seed only at
+     query time" pattern: vectors steer the walk continuously.
+
+  3. **LLMHeuristicGuided** — a Slow-Path strategy. Both prior
+     strategies as substrate; an LLM evaluates intermediate
+     constellations and proposes new search vectors / next hops
+     under an explicit resource budget (token cap + depth cap +
+     wall-clock cap). Mirrors the way LLMs themselves expose
+     reasoning depth.
+
+  The retrieval pipeline becomes Strategy-of-strategies:
+  ``QueryPipeline`` chooses a default strategy from settings or
+  a per-call override; Helios (when implemented as a regulator)
+  can promote a strategy under load, drift, or specific
+  query-class signals. The contract surface stays the same —
+  callers receive a ``MultiHopResult``; the strategy decides how
+  to populate it.
+
+  This ticket is the **structural seam**, not the full
+  implementation of all three strategies. Land the Protocol +
+  refactor today's behaviour into a default
+  ``FixedDepthStrategy``, add at least
+  ``EdgeProductBreadthFirst`` as the second concrete strategy
+  (proves the design holds), and leave
+  ``VectorSimilarityBreadthFirst`` and ``LLMHeuristicGuided`` as
+  follow-up sub-tickets when the empirical signals justify them.
+
+acceptance_criteria:
+  - |
+    New Protocol ``RetrievalStrategy`` in
+    ``src/theogony/retrieval/strategies.py`` with one async method
+    ``async def retrieve(embedding, *, budget, layer) -> MultiHopResult``.
+  - |
+    ``RetrievalBudget`` Pydantic model with at minimum:
+    ``max_nodes``, ``max_depth``, ``min_edge_weight``,
+    ``min_path_product`` (Optional float), ``token_cap``
+    (Optional int), ``wall_clock_ms_cap`` (Optional int).
+  - |
+    Refactor today's ``MultiHopRetriever`` into a default
+    ``FixedDepthStrategy`` that preserves the ``k=10, hops=2,
+    min_weight=0.3`` Plan §4.2 behaviour byte-for-byte.
+    Existing tests stay green.
+  - |
+    New ``EdgeProductBreadthFirstStrategy`` implementation with
+    contract tests that assert it (a) prunes paths below
+    ``min_path_product`` and (b) returns top-N best paths when
+    ``max_nodes`` truncates.
+  - |
+    ``QueryPipeline`` accepts a ``RetrievalStrategy`` injection;
+    default is the FixedDepthStrategy. CLI / API gain an
+    ``--strategy`` flag (Settings field
+    ``retrieval.strategy = "fixed_depth"`` is the migration path).
+  - |
+    ``MultiHopResult`` extended (or wrapped) to carry which
+    strategy ran and the budget remaining at finish, so
+    ``QueryRunReport`` records the trade-off the strategy made.
+  - |
+    Documentation: ``docs/ARCHITECTURE.md`` retrieval-stack
+    section gains a "RetrievalStrategy" subsection naming the
+    three strategies and stating that Slow-Path / Fast-Path
+    selection is the future Helios responsibility.
+
+related:
+  - PHX-0001  # Custom Knowledge Store Engine — Activation Engine is its read-side counterpart
+  - PHX-0009  # Vitality Function Tuning — strategies share the lifecycle scores
+  - PHX-0037  # Curiosity Loop — outward propagation when activation hits sparse regions
+  - PHX-0057  # Edge-Pheromone — Slow-Path strategies must emancipate from pheromone trails
+  - PHX-0059  # Morpheus-as-Associator — VectorSimilarityBreadthFirst leans on associator output
+
+referenced_in:
+  - "docs/DEEP_TECH_VISION.md §5 'Activation Engine' — the mature spec this ticket starts implementing"
+  - "docs/COGNITIVE_ARCHITECTURE.md Fast/Slow Path — the strategy-selection split is the runtime expression of this distinction"
+  - "Composer conversation 2026-04-20 — user articulated the three-strategy split"
