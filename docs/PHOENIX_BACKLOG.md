@@ -249,6 +249,15 @@ Today's pheromone signal is node-only (`RelevanceTracker.bump`). This ticket ext
 
 Today's `OneirosWorker` is a lifecycle worker, not an associator. It recomputes scores and shuffles between Ephemera and Mneme, but never creates new edges. The vision ([`HIVE.md`](HIVE.md), [`VISION.md`](VISION.md), [`CURIOSITY.md`](CURIOSITY.md) §"Curiosity and Oneiros") describes Morpheus as the dreamer/associator/inferencer who weaves new connections — that role is unimplemented. This ticket lands two coupled pieces: (1) a `MorpheusAssociator` worker that proposes new edges via deterministic signals (embedding similarity, source co-occurrence, temporal proximity, glossary-mention overlap), with Athene-style verification before commit; (2) a multi-layer `depth_band [0..5]` gradient on top of the binary Ephemera/Mneme cliff, so the user's "Schichten neuen Wissens, das durch Benutzung und Träumen in tiefere Schichten sickert" image (conversation 2026-04-20) is literally representable. LLM-driven associative dreaming is PHX-0004 (Crystallized Inference); this ticket is the deterministic foundation. YAML: [`phoenix-backlog/PHX-0059.yaml`](../phoenix-backlog/PHX-0059.yaml).
 
+### PHX-0060: Domain Clusters / Cognitive Centers
+
+- **Category**: vision
+- **Priority**: high
+- **Generation Target**: 2
+- **Filed by**: hesiod (2026-04-20 design conversation)
+
+[`ARCHITECTURE.md`](ARCHITECTURE.md) §"The Knowledge Network as Its Own Index" spec'd hierarchical clustering since Gen 1: the schema slot exists (`KnowledgeNode.cluster_id`), the store protocol exposes `get_cluster_centroid` / `assign_cluster`, both backends implement them. **But nothing ever populates `cluster_id`** — the whole machinery is wired structurally and never triggered. This ticket fills the gap and extends it into the brain-region direction the user proposed (Sprachzentrum / Sehzentrum / Code-/Places-/Fiction-cluster, conversation 2026-04-20): emergent clusters as **cognitive centers** with the potential for domain-specialised processing per cluster. Three Phase-1 design knobs locked: (a) hard clustering (single-valued `cluster_id`, soft as a Phase-2 sub-ticket); (b) hybrid trigger (periodic OneirosWorker re-pass + nearest-centroid assignment on new-node insert); (c) HDBSCAN default, k-means fallback above 100k nodes. Four open knobs flagged in the YAML for design conversation before pickup: hierarchy depth, cluster-identity stability across re-clusterings, specialised sub-agents per cluster (Argonauts), cross-cluster edge classification. Reshapes PHX-0056..0059 substantially — without it, those four bake in a flat-world assumption. YAML: [`phoenix-backlog/PHX-0060.yaml`](../phoenix-backlog/PHX-0060.yaml).
+
 ---
 
 ## Open Architectural Questions
