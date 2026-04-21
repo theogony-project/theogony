@@ -1,0 +1,124 @@
+id: PHX-0063
+category: improvement
+priority: medium
+status: open
+generation_target: 2
+title: "Chronik-Diff — structured time-window diff over the chronicle (Git-log for living memory)"
+filed_by: hesiod
+created_at: 2026-04-21
+description: |
+  The chronicle changes constantly: ingestion adds nodes, Oneiros
+  promotes / degrades / reclassifies, Curiosity (when it runs)
+  acquires new evidence, Athene flips edges from supported to
+  contradicted. Today this evolution is **invisible** unless an
+  operator manually inspects the audit log or scrolls through
+  RunReports.
+
+  This ticket adds **Chronik-Diff**: a structured "what changed
+  in this window" report. Conceptually a Git-log for living
+  memory.
+
+  Output shape (``ChronikDiffReport``): given a time window
+  ``[from, to]``, produce:
+
+  - new nodes (count + sample, grouped by cluster)
+  - new edges (count + sample, grouped by relation_type)
+  - layer transitions (Ephemera → Mneme promotions; Mneme →
+    Ephemera degradations; depth_band shifts when PHX-0059 lands)
+  - contradiction events (CONTRADICTS edges added — when PHX-0062
+    lands)
+  - manual-resolution candidates resolved
+  - blind-spot regions identified (when PHX-0058 lands)
+  - cluster restructurings (when PHX-0060 reclusters)
+  - cost summary (LLM tokens spent, wall-clock time)
+
+  Three consumption surfaces:
+
+  1. ``theogony reports diff --from <ts> --to <ts>`` — operator
+     CLI surface, Rich-rendered to terminal.
+  2. JSON report on disk (``run_reports/diff/<run_id>.json``) so
+     the Reviewer Agent (PHX-0035) can consume it.
+  3. Optional Atom / RSS feed for subscribers (a chronicle that
+     wants to publish what it learned this week).
+
+  This is also a key building block for federation (PHX-0061): a
+  remote chronicle that has subscribed to ours can pull the
+  latest diff to know what to re-query.
+
+cost_benefit_guardrails:
+  - |
+    Diff is computed **on-demand**, not pre-materialised. No
+    background worker continuously rolling up diffs. Cost is paid
+    only when a diff is requested.
+  - |
+    Default frequency for any subscribed feed is **weekly, not
+    real-time**. The chronicle is not a Twitter timeline.
+  - |
+    Diff scope cap: ``Settings.diff.max_window_days`` (default
+    365). Diffing over multi-year windows requires opt-in, because
+    the cost of replaying the audit log over years is not
+    bounded.
+  - |
+    Output is a structured summary, not the full event stream.
+    Sample sizes per category capped (e.g. show the 10 most
+    significant new nodes per cluster, not all 5000). Full
+    detail is reachable via drill-down (the slim diff carries
+    handle ids the operator can use to ``theogony node`` into).
+  - |
+    No LLM calls in the default diff path. A separate optional
+    ``--summarise`` flag uses an LLM to produce a natural-language
+    summary on top of the structured diff; that is opt-in and
+    its cost is reported in the diff itself.
+
+service_to_humanity: |
+  Makes the chronicle's evolution visible. Contributors can see
+  what changed without having to inspect the database. Civic
+  inspectors can verify the substrate is being maintained
+  honestly. Researchers can subscribe to the diff of a domain
+  they care about. Without this, the chronicle drifts silently
+  — a violation of the "transparency is architecture, not policy"
+  principle. Diff makes transparency operational.
+
+acceptance_criteria:
+  - |
+    Pydantic ``ChronikDiffReport`` (and supporting
+    ``DiffSection``, ``DiffSample``) in
+    ``src/theogony/reporting/models.py``. Schema covers the
+    seven categories named in the description.
+  - |
+    New ``ChronikDiffWriter`` (or extension of
+    ``RunReportWriter``): given a time window, queries the
+    store and the existing run reports to construct the diff.
+    Returns a ``ChronikDiffReport``.
+  - |
+    Deterministic: two runs of the diff against the same store
+    state and same window produce byte-identical reports
+    (modulo the ``written_at`` timestamp).
+  - |
+    CLI: ``theogony reports diff --from <ts> --to <ts>``
+    (defaults: ``--from`` = 7 days ago, ``--to`` = now). Rich-
+    rendered output for humans; ``--json`` flag for machine
+    consumption.
+  - |
+    Settings: ``Settings.diff.max_window_days`` (default 365),
+    ``Settings.diff.sample_size_per_category`` (default 10).
+  - |
+    Integration test: synthesise a small chronicle, take a
+    snapshot, perform a known set of changes (add nodes,
+    promote some to Mneme, add contradictions), assert the
+    diff report contains exactly those changes.
+  - |
+    ``docs/CHRONIK_DIFF.md`` (small companion doc) explains
+    the diff schema, the three consumption surfaces, and the
+    relationship to PHX-0035 (Reviewer Agent) and PHX-0061
+    (Federation).
+
+related:
+  - PHX-0035  # Reviewer Agent — primary consumer of the diff
+  - PHX-0058  # Aggregated Stub Detection — diff surfaces blind-spot regions when present
+  - PHX-0061  # Federation — diff is the natural payload for chronicle-to-chronicle update propagation
+  - PHX-0062  # Negative Knowledge — contradiction events are a first-class diff category
+
+referenced_in:
+  - "Composer conversation 2026-04-21 — user accepted Chronik-Diff as a marketing primitive AND a federation building block"
+  - "docs/CHRONICLE_PRINCIPLES.md — 'Rebuildability over mystique' implies the chronicle's evolution is visible to inspectors"

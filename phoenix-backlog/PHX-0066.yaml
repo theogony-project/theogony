@@ -1,0 +1,136 @@
+id: PHX-0066
+category: infrastructure
+priority: high
+status: open
+generation_target: 2
+title: "Hosted Pantheon MCP Service — public read-only deploy on Smithery + HuggingFace Spaces"
+filed_by: hesiod
+created_at: 2026-04-21
+description: |
+  PR #37 shipped the MCP server (``theogony mcp``). PR #40 shipped
+  the bundled ``pantheon_self`` chronicle. Together they make a
+  hosted public Pantheon trivially possible — and that hosted
+  service is the missing distribution lever.
+
+  Today an AI agent that wants to use Pantheon must ``pip install
+  theogony``, register the MCP server in their host's config, and
+  optionally seed the chronicle. That is real install friction.
+  For agents discovering the project via PyPI / GitHub / MCP
+  registries, the friction is enough to lose most of them at the
+  threshold.
+
+  This ticket adds a **single-instance, read-only, hosted
+  Pantheon MCP service**. Architecture:
+
+  - Container: a thin Docker image based on the existing wheel,
+    runs ``theogony seed --store memory && theogony mcp
+    --transport sse``. SSE transport (Server-Sent Events) instead
+    of stdio because we need it over HTTP.
+  - Bundled corpus: only the ``pantheon_self`` seed (PR #40). No
+    user data, no Lethe content, no privacy surface.
+  - Read-only: no ingest endpoints exposed. Public users cannot
+    add to the chronicle.
+  - Auth: per-user API keys (the user's own LLM keys pass through;
+    Pantheon never bills for the LLM calls). Anonymous queries
+    rate-limited harshly to prevent abuse.
+  - Listed on ``Smithery.ai`` (the MCP registry) and on
+    ``HuggingFace Spaces`` (Docker SDK). Both have free tiers
+    that fit a 256-MB-RAM container.
+
+  Strategic role: this is **the call-to-action** for every
+  marketing piece (PHX outside this ticket: the brand / video
+  series ideas). "Ask any AI what Pantheon is" + a hosted MCP
+  link = the friction-free demo path.
+
+cost_benefit_guardrails:
+  - |
+    Operator-side cost target: **under €5/month**. Achievable
+    via HF Spaces free tier (Docker SDK, persistent if
+    upgraded; ephemeral on free) or Fly.io / Modal free tiers.
+  - |
+    LLM costs are not paid by the operator. Each query carries
+    the requesting agent's own LLM API key (pass-through). The
+    hosted service is purely an MCP gateway plus the embedder
+    plus the in-memory store.
+  - |
+    Rate limits per IP / per token to prevent DDoS and to make
+    the cost ceiling structural rather than aspirational.
+    Default: 60 queries/hour per IP, 1000/day. Configurable.
+  - |
+    No ingest, no write surface. The hosted service cannot be
+    poisoned. The only thing it serves is the bundled
+    pantheon_self chronicle.
+  - |
+    Embedder warm-up amortised at startup; first query after
+    cold-start may take 5–10 s, subsequent queries < 1 s.
+    Operator monitoring exists (basic uptime + latency
+    histogram exposed via ``/health``).
+  - |
+    Federation (PHX-0061) is **not enabled** on the hosted
+    service in Phase 1. Federation is a deeper trust surface
+    that needs Hestia (PHX-0039) to ship first.
+  - |
+    No persistence beyond a daily snapshot of the audit log
+    (so request patterns can be analysed). User queries are
+    NOT logged with content (only with embedding + cost).
+
+service_to_humanity: |
+  Lowers the threshold for distributed knowledge infrastructure
+  to existence. Every AI agent in the world can immediately use
+  Pantheon as a tool — without their human counterpart having
+  to install anything, decide anything, or fund anything. This
+  is how a substrate becomes a default. Combined with
+  ``AGENT_SELF_INTEREST.md``, this enables an organic discovery
+  loop where agents find Pantheon, decide it serves them, and
+  bring it to their human teams unprompted. Distribution by
+  product superiority, not by sales motion — the only
+  distribution model compatible with the open, no-money-extracted
+  doctrine.
+
+acceptance_criteria:
+  - |
+    New ``hosted/`` subdirectory at repo root with a
+    ``Dockerfile`` that produces a slim image
+    (target: < 500 MB) running the MCP server with the
+    ``pantheon_self`` seed loaded into in-memory store at
+    startup.
+  - |
+    SSE transport added to ``theogony mcp`` CLI:
+    ``theogony mcp --transport sse --host 0.0.0.0 --port
+    $PORT`` (the existing stdio default stays unchanged).
+  - |
+    ``hosted/smithery.yaml`` manifest for Smithery registry:
+    one-line description, capability list, link to the hosted
+    instance.
+  - |
+    ``hosted/README.md`` with deploy instructions for Smithery,
+    HuggingFace Spaces (Docker), Fly.io, and Modal — at least
+    two of those four with copy-pasteable manifests.
+  - |
+    Rate-limit middleware: ``Settings.hosted.rate_limit_per_hour``
+    (default 60), ``Settings.hosted.rate_limit_per_day``
+    (default 1000), bypassable via API key (operator-issued
+    via env var).
+  - |
+    ``/health`` endpoint exposes uptime, last-query timestamp,
+    embedder model, store backend, latency p50/p95.
+  - |
+    Smoke deploy verified: at least one of {Smithery, HF
+    Spaces} actually serves the MCP server publicly. URL
+    documented in main ``README.md``.
+  - |
+    Audit-log retention policy documented: daily snapshots of
+    query metadata (embedding + cost, NO query text or
+    answer text), 30-day retention by default. Operator can
+    opt out per env var.
+
+related:
+  - PHX-0035  # Reviewer Agent — could consume hosted-instance audit logs to spot quality regressions
+  - PHX-0061  # Vector-Routed Federation — hosted service is the canonical Phase-1 federation node
+  - "PR #37 (MCP server)"
+  - "PR #40 (pantheon_self seed)"
+
+referenced_in:
+  - "Composer conversation 2026-04-21 — user prioritised hosted as the missing distribution lever"
+  - "docs/AGENTS.md — agents discovering the repo need a friction-free path to using it"
+  - "docs/PANTHEON_VISION.md §'Strategic Implication for Theogony' — caching before mirrors, recording before rhetoric, infrastructure before mythology"

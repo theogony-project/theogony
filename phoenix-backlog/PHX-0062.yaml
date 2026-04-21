@@ -1,0 +1,137 @@
+id: PHX-0062
+category: vision
+priority: high
+status: open
+generation_target: 2
+title: "Negative Knowledge / Anti-Bullshit Layer — first-class representation of what is false, retracted, or misleading"
+filed_by: hesiod
+created_at: 2026-04-21
+description: |
+  Today's chronicle stores what is asserted. ``EpistemicStatus``
+  has values like ``OBSERVED``, ``REPORTED``, ``INFERRED``,
+  ``DISPUTED``, ``DEPRECATED`` — but those describe how the
+  asserting node was acquired, not the structural relationship
+  "this claim X is **false** because of evidence Y".
+
+  This ticket adds **negative knowledge as first-class data**.
+  Two structural pieces:
+
+  1. **Negation edges.** A new ``relation_type`` family —
+     ``CONTRADICTS``, ``RETRACTS``, ``MISREPRESENTS``,
+     ``SUPERSEDED_BY`` — that explicitly link a claim to its
+     refutation, with the same provenance discipline as positive
+     claims (evidence_span, source_ref, confidence). When the
+     retrieval pipeline surfaces a node, the assembler also
+     surfaces its strongest contradictors.
+
+  2. **Negation nodes.** A separate ``KnowledgeNode`` shape for
+     things like "the claim that vaccines cause autism" — a
+     well-formed claim that is being *tracked as a falsehood
+     in the chronicle*. The node has an ``epistemic_status =
+     DISPUTED`` (or a new ``REFUTED``) and is itself the target
+     of contradiction edges from supporting evidence. This is
+     how the chronicle handles persistent misinformation that
+     keeps re-surfacing — it has a permanent home with the
+     refutations attached.
+
+  Architectural alternative considered: store only positive
+  claims and treat every contradiction as new positive claims
+  ("Source Z asserts X is false"). Rejected because it makes
+  retrieval noisy: a query about vaccines would surface both
+  the false claim and the refutations as siblings, leaving
+  the synthesizer to reconstruct the relationship. The
+  explicit ``CONTRADICTS`` typing makes the relationship
+  machine-readable and the synthesizer's job clean.
+
+  Athene's role (when implemented as the verifier agent in a
+  later ticket): periodically scan for contradiction patterns
+  using Athene-side prompts; when an LLM-confirmed contradiction
+  is found, emit the negation edge with ``epistemic_type =
+  INFERENCE`` and ``proposed_by = athene`` so it is
+  distinguishable from extraction-time contradictions.
+
+cost_benefit_guardrails:
+  - |
+    Only mark as negation when contradicting evidence has
+    provenance + confidence above a configurable threshold
+    (default ``Settings.negation.min_evidence_confidence = 0.65``).
+    Weak counter-claims do not pollute the chronicle; they
+    remain ordinary nodes that may or may not reach the
+    threshold over time.
+  - |
+    Dual-display in answers is configurable per query: default
+    surfaces only the strongest position with a "contradictions
+    available" flag. Slow-Path queries (PHX-0057 pheromone_mode
+    or an explicit flag) surface both sides equally.
+  - |
+    Athene-driven contradiction detection is opt-in
+    (``Settings.negation.athene_scan_enabled``, default false in
+    Phase 1; deterministic source-marked contradictions only
+    initially). LLM-driven negation generation comes later
+    when token cost is justified by quality.
+  - |
+    Negation nodes have a maximum density per region
+    (``Settings.negation.max_negations_per_cluster``) so a
+    misinformation campaign cannot drown out a domain by
+    flooding it with negative-knowledge entries.
+  - |
+    Performance: contradiction-edge lookup uses the existing
+    ``get_neighborhood`` path with a ``relation_type`` filter;
+    no new Cypher index needed in Phase 1. Scale check at the
+    point where contradiction volume crosses 5% of total edges.
+
+service_to_humanity: |
+  This is anti-hallucination infrastructure. A system that
+  knows what is false is structurally more useful than one
+  that pretends every claim is provisionally true. As AI agents
+  increasingly drive what reaches humans, the inheritance of
+  silent biases via "everything is just a probability"
+  representations is a real civilisational risk. Pantheon's
+  doctrine — provenance-first, contradiction-first-class — is
+  exactly the antidote. This ticket realises that doctrine in
+  the schema rather than leaving it as a principle on paper.
+
+acceptance_criteria:
+  - |
+    New ``relation_type`` literals: ``CONTRADICTS``, ``RETRACTS``,
+    ``MISREPRESENTS``, ``SUPERSEDED_BY``. Documented in
+    ``docs/CHRONESE.md`` next to the existing relation taxonomy.
+  - |
+    Optional new ``EpistemicStatus.REFUTED`` value (decision in
+    pickup: extend the enum or rely on ``DISPUTED`` plus the
+    presence of an incoming ``CONTRADICTS`` edge).
+  - |
+    ``ConstellationAssembler`` extended: when a node is
+    surfaced, its top-K incoming ``CONTRADICTS`` edges (above
+    the confidence threshold) are also surfaced, marked as
+    contradictions in the slim DTO.
+  - |
+    ``AnswerSynthesizer`` prompt updated: when contradictions
+    are present, the synthesizer is required to acknowledge
+    them in the answer (e.g., "this is widely cited but is
+    contradicted by [source]").
+  - |
+    Settings: ``Settings.negation`` group with the four
+    thresholds named in the guardrails section.
+  - |
+    Two integration tests: (a) a node with two strong
+    ``CONTRADICTS`` incoming edges produces an answer that
+    mentions both contradictions; (b) a node with only weak
+    contradictions (below threshold) produces an unannotated
+    answer — the threshold actually gates surfacing.
+  - |
+    ``docs/CHRONESE.md`` updated with the negation primitives.
+    Optional ``docs/NEGATIVE_KNOWLEDGE.md`` collects the
+    misinformation-tracking pattern with worked examples.
+
+related:
+  - PHX-0004  # Crystallized Inference — Athene-driven negation generation belongs in the same ticket family
+  - PHX-0007  # Scientific Workbench Agents — Athene's verification role, of which contradiction-detection is one mode
+  - PHX-0011  # Knowledge Condensation — coexistence with negation: contradicted clusters need different condensation rules
+  - PHX-0013  # Chronese Canonical Semantic Layer — negation primitives are part of Chronese
+  - PHX-0058  # Aggregated Stub Detection — opposite signal; together they form "what we know vs what we don't vs what we know is false"
+
+referenced_in:
+  - "Composer conversation 2026-04-21 — user accepted negation-as-first-class as architecturally aligned with the chronicle-vs-encyclopedia distinction"
+  - "docs/CHRONICLE_PRINCIPLES.md — 'Contradiction is first-class' principle; this ticket is its structural realisation"
+  - "docs/PANTHEON_VISION.md §'Chronicle Over Encyclopedia' — 'preserve weakly supported, disputed, superseded' is the doctrine; this ticket is the schema"
