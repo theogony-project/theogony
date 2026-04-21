@@ -1,0 +1,124 @@
+id: PHX-0057
+category: vision
+priority: high
+status: open
+generation_target: 2
+title: "Edge-Pheromone trails + Slow-Path emancipation — used edges strengthen, unused ones decay, Slow Path ignores both"
+filed_by: hesiod
+created_at: 2026-04-20
+description: |
+  Today's pheromone signal is **node-level only**:
+  ``RelevanceTracker.bump`` raises ``relevance`` and
+  ``last_accessed`` on every cited *node* by δ=0.05 per
+  retrieval. Three structural gaps relative to a real
+  pheromone-trail model (the user's "Ameisenstraße" framing,
+  conversation 2026-04-20):
+
+  1. **Edges are not strengthened.** When an answer travels
+     through path A → B → C, today only the *nodes* A, B, C
+     receive a bump. The *edges* (A,B) and (B,C) — which are
+     the actual conduit the next query will follow — keep their
+     original weight. The trail is invisible to the graph
+     itself.
+
+  2. **No symmetric decay on edges.** Nodes have ``freshness``
+     that decays with idle days (``Settings.oneiros.freshness_horizon_days``).
+     Edges have no analogous erosion. Without it, the first
+     successes become permanent autobahns — every future query
+     gets pulled along the same paths whether they are still the
+     best routes or not. Concept lock-in by attention bias.
+
+  3. **No Slow-Path emancipation.** ``COGNITIVE_ARCHITECTURE.md``
+     names Fast Path and Slow Path; the actual mechanism by
+     which Slow Path *resists* the accumulated pheromone is
+     unspecified. Without resistance, "deliberate reasoning"
+     reduces to "the same well-trodden path, just with more
+     LLM tokens spent on it" — exactly what cognitive
+     bias-correction is supposed to prevent.
+
+  This ticket is the design + implementation of the three
+  missing pieces.
+
+  Pheromone model:
+
+  - Every cited path (the literal sequence of edges that the
+    constellation traversed to ground a citation) gets one
+    ``edge.weight += δ`` bump per retrieval, capped at 1.0.
+    δ should be smaller than the node-relevance δ — edges
+    accumulate signal across multiple node bumps along the
+    same trail, so a per-edge δ of 0.01–0.02 is a reasonable
+    starting band.
+  - The OneirosWorker tick gains an edge-decay step: any edge
+    whose ``last_traversed`` (new field) exceeds N days idle
+    has its weight pulled toward an equilibrium midpoint. Like
+    node freshness but for the conduit. Settings:
+    ``Settings.oneiros.edge_pheromone_horizon_days``,
+    ``Settings.oneiros.edge_pheromone_equilibrium`` (default
+    0.5 — the prior).
+
+  Slow-Path emancipation:
+
+  - The ``RetrievalBudget`` (PHX-0056) gains a
+    ``ignore_pheromone: bool`` (or richer:
+    ``pheromone_mode: "follow" | "ignore" | "invert"``).
+    Slow-Path strategies set this to ``"ignore"`` (uses the
+    original / equilibrium weight instead of the pheromone-
+    mutated weight) or ``"invert"`` (deliberately under-weights
+    well-trodden paths to surface neglected ones).
+  - This requires the store to keep both the pheromone-mutated
+    weight (``weight_observed``) and the pre-pheromone weight
+    (``weight_baseline``) per edge — or a single ``weight`` plus
+    a ``pheromone_delta`` so the original is reconstructible.
+    Schema decision belongs in the design phase of this ticket.
+
+  Risk: pheromone decay is a write-amplification source on the
+  edge table. The OneirosWorker is already the single owner of
+  freshness writes; adding edge-decay there avoids contention
+  with RelevanceTracker (which only writes node fields) — same
+  separation-of-concerns pattern that Plan §5 E8.5 used to
+  resolve the original race-condition note.
+
+acceptance_criteria:
+  - |
+    ``KnowledgeEdge`` schema gains ``last_traversed`` (Optional
+    datetime) and either a ``pheromone_delta`` (float) field or a
+    ``weight_baseline`` companion (design decision in the
+    ticket; pick before code).
+  - |
+    New ``EdgePheromoneTracker`` (mirrors ``RelevanceTracker``):
+    given a citation path, bumps each edge's weight by δ and
+    sets ``last_traversed = now()``. δ comes from
+    ``Settings.relevance.edge_pheromone_delta`` (default 0.015).
+  - |
+    ``QueryPipeline`` calls ``EdgePheromoneTracker`` after the
+    answer synthesizer succeeds, in parallel with the existing
+    ``RelevanceTracker.bump_all`` for nodes.
+  - |
+    ``OneirosWorker._tick`` gains an edge-decay step: any edge
+    whose ``last_traversed`` is older than
+    ``Settings.oneiros.edge_pheromone_horizon_days`` has its
+    weight pulled 5–10 percent toward the equilibrium per tick
+    (small so it does not erase real signal, but visible over weeks).
+  - |
+    ``RetrievalBudget`` gains ``pheromone_mode`` Literal
+    (``follow`` / ``ignore`` / ``invert``), default ``follow``.
+    Strategies consult it before applying weights.
+  - |
+    At least one Slow-Path test demonstrates that
+    ``pheromone_mode = invert`` returns a different
+    constellation than ``follow`` for a corpus where one path
+    has been bumped 100 times.
+  - |
+    ``CHRONICLE_PRINCIPLES.md`` (or a small ``docs/PHEROMONE.md``)
+    documents the principle: trails strengthen the graph;
+    Slow-Path is allowed to walk against them.
+
+related:
+  - PHX-0009  # Vitality Function Tuning — pheromone δ enters the same lifecycle math
+  - PHX-0056  # Activation Engine — pheromone_mode lives on RetrievalBudget
+  - PHX-0058  # Aggregated Stub Detection — pheromone heat-maps and stub heat-maps both inform Helios
+  - PHX-0048  # batch_update_scores — same bulk-write idiom for edge weights
+
+referenced_in:
+  - "docs/COGNITIVE_ARCHITECTURE.md Fast/Slow Path — gives this ticket its conceptual home"
+  - "Composer conversation 2026-04-20 — user introduced the Ameisenstraße/pheromone framing and explicitly named the Slow-Path-emancipation requirement"
