@@ -65,6 +65,10 @@ dependencies = [
     "python-ulid>=2.2",
     "rich>=13.0.0",
     "typer>=0.12.0",
+    # Used by the docs-aware ingest path (src/theogony/docs_ingest/) that
+    # regenerates the bundled pantheon_self Chronicle seed. Small, pure
+    # Python, no compiled deps; safe core dependency.
+    "markdown-it-py>=3.0",
 ]
 
 [project.optional-dependencies]
@@ -137,6 +141,11 @@ packages = ["src/theogony"]
 # from non-editable installs and the synthesizer raises FileNotFoundError
 # on first use.
 "src/theogony/retrieval/prompts/answer_synthesizer.md" = "theogony/retrieval/prompts/answer_synthesizer.md"
+# Same reason: the bundled pantheon_self Chronicle seed is a data file
+# that hatchling would otherwise skip. Without the force-include,
+# ``theogony seed`` would fail with FileNotFoundError on a fresh wheel
+# install. Regenerate via ``python -m theogony.docs_ingest.regenerate``.
+"src/theogony/seeds/pantheon_self.jsonl.gz" = "theogony/seeds/pantheon_self.jsonl.gz"
 
 [tool.hatch.build.targets.sdist]
 # Source distribution: ship the package + the docs / prompts / phoenix
