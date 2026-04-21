@@ -1,0 +1,205 @@
+id: PHX-0060
+category: vision
+priority: high
+status: open
+generation_target: 2
+title: "Domain Clusters / Cognitive Centers — brain-region-style clustering, centroid-narrowed retrieval, per-cluster lifecycle"
+filed_by: hesiod
+created_at: 2026-04-20
+description: |
+  ``ARCHITECTURE.md`` §"The Knowledge Network as Its Own Index"
+  has spec'd hierarchical clustering since Gen 1: nodes belong
+  to semantic clusters, each cluster has a centroid vector,
+  centroids form meta-levels, retrieval starts at centroids
+  and narrows. The schema slot exists
+  (``KnowledgeNode.cluster_id: str | None``); the store
+  protocol exposes ``get_cluster_centroid`` and
+  ``assign_cluster``; both backends implement them. **But
+  nothing ever populates ``cluster_id``.** The whole
+  hierarchical-index machinery is wired structurally and
+  never triggered.
+
+  This ticket fills the gap and extends it in the direction
+  the user proposed (2026-04-20 conversation): treat
+  emergent clusters as **cognitive centers** — analogues of
+  brain regions like a Sprachzentrum or Sehzentrum, with the
+  potential for domain-specialised processing pipelines per
+  cluster (Code-cluster, Places-cluster, Fiction-cluster,
+  Science-cluster, etc.).
+
+  Why now, before the architecture audit
+  --------------------------------------
+
+  Clusters as a primitive change the answer to "is the
+  architecture incrementally extendable?". They reshape every
+  one of the four already-filed tickets:
+
+  - PHX-0056 (Activation Engine): cluster-narrowing becomes a
+    first-class ``RetrievalStrategy`` (find top-N centroids,
+    then graph-traverse inside each).
+  - PHX-0057 (Edge-Pheromone): pheromone trails live in
+    per-cluster spaces; well-trodden code paths do not bias
+    fiction queries.
+  - PHX-0058 (Aggregated Stub Detection): blind-spot
+    detection becomes per-cluster-statistical, much sharper
+    than a global aggregation.
+  - PHX-0059 (Morpheus-as-Associator): Morpheus associates
+    primarily *within* a cluster; cross-cluster bridges
+    become a special edge class with elevated provenance
+    (analogue of the Corpus Callosum).
+
+  Without this ticket, those four would each silently bake
+  in a "flat-world, no special regions" assumption that we'd
+  later have to unwind. With this ticket, they sharpen.
+
+  Pre-decided design choices
+  --------------------------
+
+  Three knobs were locked in conversation 2026-04-20 to keep
+  this ticket actionable rather than open-ended:
+
+  1. **Hard clustering as Phase 1.** ``cluster_id: str | None``
+     stays single-valued for now; one node belongs to one
+     cluster. Soft clustering (multi-membership with weights)
+     is a Phase 2 sub-ticket once Phase 1 demonstrates the
+     routing-efficiency value.
+  2. **Hybrid trigger:** the OneirosWorker re-clusters
+     periodically (full re-pass on a configurable cadence,
+     default monthly), but **new nodes get rough assignment
+     at insert-time** via nearest-centroid against the
+     current centroid set. New nodes therefore land
+     immediately in roughly the right place; the periodic
+     re-cluster catches drift.
+  3. **HDBSCAN as default, k-means as large-corpus fallback.**
+     HDBSCAN finds natural cluster count without K-vorgabe
+     (matches the "let it emerge" intent); switches to
+     k-means above a corpus-size threshold (default 100k
+     nodes) where HDBSCAN's quadratic memory cost bites.
+
+  Open design knobs (to be decided before Part 2 / 3 pickup)
+  -----------------------------------------------------------
+
+  Four follow-on knobs are intentionally left open in this
+  ticket — they need a design conversation, not a Hesiod
+  default:
+
+  4. **Hierarchy depth.** Flat clustering (one level) or
+     true hierarchy with centroids-of-centroids? ARCHITECTURE.md
+     spec'd hierarchy; this ticket can land flat and a sub-
+     ticket adds the meta-level later, OR land hierarchy
+     directly. Trade-off: hierarchy adds implementation
+     surface but matches the long-horizon ARCHITECTURE.md
+     vision.
+  5. **Cluster identity stability across re-clusterings.**
+     If today's "code cluster" gets re-numbered after the next
+     monthly run, every Mind-Map and every external reference
+     breaks. Likely fix: split into two fields — a stable
+     ``cluster_label`` (semantic name, possibly LLM-named on
+     first creation) plus a re-cluster-volatile ``cluster_id``
+     (technical handle). Schema decision; needs to land
+     before persistence is built.
+  6. **Specialised sub-agents per cluster (Argonauts).**
+     ``HIVE.md`` already names Argonauts as "domain experts".
+     The brain-region analogy makes them concrete: a
+     CodeArgonaut for the code cluster, a NarrativeArgonaut
+     for fiction, etc. Big new agent class with its own
+     lifecycle — separate sub-ticket, but the Phase-1 design
+     must not block it (e.g., reserve ``cluster_metadata``
+     property hooks for agent registration).
+  7. **Cross-cluster edge classification.** Edges that span
+     two clusters are often the most valuable (they bridge
+     otherwise separate domains — Heinrich Harrer is both
+     mountaineer and Nazi-era figure). Should they have a
+     special marker (``properties["cross_cluster"]: bool``,
+     a ``bridge_score: float``, an explicit
+     ``relation_type="BRIDGES"``)? Decision needed before
+     edge schema changes.
+
+  Honest scope: this ticket is the **Phase 1 foundation** —
+  populate ``cluster_id`` via the hybrid trigger, expose
+  centroids, narrow retrieval at the strategy level, prove
+  the routing-efficiency win on the bundled
+  ``pantheon_self`` seed. The four open knobs become
+  follow-on sub-tickets.
+
+acceptance_criteria:
+  - |
+    New ``ClusteringWorker`` (or a new phase inside
+    ``OneirosWorker._tick``; design decision in pickup):
+    runs HDBSCAN over node embeddings on a configurable
+    cadence (default monthly), assigns each node a
+    ``cluster_id``, computes and persists centroids.
+  - |
+    Insert path: every new node gets a rough
+    ``cluster_id`` assignment via nearest-centroid against
+    the current centroid set. Falls back to ``None`` when
+    no centroids exist yet (cold-start corpus). The
+    OneirosWorker's periodic re-cluster will reassign.
+  - |
+    Algorithm switch: HDBSCAN default, k-means activated
+    when ``Settings.clustering.corpus_size_kmeans_threshold``
+    (default 100_000) is exceeded. Both behind a
+    ``ClusteringStrategy`` Protocol so future strategies
+    (Spectral, Louvain, Hybrid) can plug in.
+  - |
+    New ``ClusterNarrowingRetrievalStrategy`` (lives in
+    PHX-0056's strategy directory): two-phase retrieval —
+    first find top-N centroids by query-embedding
+    similarity, then run a within-cluster
+    multi-hop. Recovers gracefully when ``cluster_id`` is
+    null on too many nodes (falls back to today's
+    flat retrieval).
+  - |
+    ``KnowledgeStore`` protocol gains
+    ``list_clusters() -> list[ClusterSummary]`` and
+    ``get_cluster_members(cluster_id) -> AsyncIterator[node_id]``.
+    Both backends implement them. ``ClusterSummary`` carries:
+    cluster_id, optional cluster_label, member_count,
+    centroid embedding, dominant node_type, dominant
+    source_type.
+  - |
+    ``Settings.clustering`` group:
+    ``algorithm`` (literal hdbscan / kmeans / auto, default auto),
+    ``recluster_interval_days`` (default 30),
+    ``min_cluster_size`` (default 5),
+    ``corpus_size_kmeans_threshold`` (default 100_000),
+    ``new_node_assignment`` (literal nearest_centroid / skip,
+    default nearest_centroid).
+  - |
+    A new ``ClusteringRunReport`` (similar to
+    ``OneirosTickReport``): per re-cluster pass, records
+    nodes processed, clusters formed, mean cluster size,
+    cluster-size distribution, runtime, algorithm chosen.
+  - |
+    Integration test against the bundled ``pantheon_self``
+    seed: run the clustering worker once, assert that at
+    least 3 clusters emerge, that the largest cluster has
+    a sensible dominant ``node_type=concept``, and that
+    cluster-narrowing retrieval returns a result set that
+    includes the same key citations as today's flat
+    retrieval (no precision regression on a known-good
+    query).
+  - |
+    Documentation: ``docs/ARCHITECTURE.md`` §"The Knowledge
+    Network as Its Own Index" updated from "Gen 2 concern"
+    to "implemented in PHX-0060". New short
+    ``docs/CLUSTERING.md`` documents the brain-region
+    framing, the four open knobs, and the
+    cluster_label-vs-cluster_id stability discussion as
+    captured here.
+
+related:
+  - PHX-0001  # Custom Knowledge Store Engine — clusters become first-class storage primitives there
+  - PHX-0002  # Hierarchical Embedding Spaces — sister concept; per-cluster embedding choices live here
+  - PHX-0003  # Federated Chronik Instances — clusters are the natural federation unit
+  - PHX-0011  # Knowledge Condensation — runs per-cluster, much more efficient
+  - PHX-0056  # Activation Engine — ClusterNarrowingRetrievalStrategy is one of its concrete strategies
+  - PHX-0057  # Edge-Pheromone — pheromone spaces become per-cluster
+  - PHX-0058  # Aggregated Stub Detection — per-cluster blind-spot statistics are much sharper
+  - PHX-0059  # Morpheus-as-Associator — primary scope is within-cluster; cross-cluster bridges get special status
+
+referenced_in:
+  - "docs/ARCHITECTURE.md §'The Knowledge Network as Its Own Index' — original spec, never implemented"
+  - "docs/IMPLEMENTATION_PLAN_GEN1.md (line 611, 1106) — schema slot reserved as 'Gen 2 (PHX-0011)' but PHX-0011 only covers near-duplicate compression, not cognitive-center clustering"
+  - "docs/HIVE.md §'Argonauts' — domain experts that map to cluster specialisations once cognitive centers exist"
+  - "Composer conversation 2026-04-20 — user introduced the brain-region framing (Sprachzentrum, Sehzentrum, Code-/Places-/Fiction-cluster) and locked the three Phase-1 design knobs"
