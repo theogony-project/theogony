@@ -248,7 +248,9 @@ Implementation plugs into the TickPhase pipeline introduced by F2; Slow-path ret
 
 [`CURIOSITY.md`](CURIOSITY.md) §"Stub Detection" covers per-query detection. This ticket adds the *aggregation across queries over time* that the user explicitly distinguished (conversation 2026-04-20): a periodic worker scans recent `QueryRunReports`, clusters thin-firing region descriptors by embedding centroid, and emits `BlindSpotReport` records for clusters that recur ≥ K times in N days. These reports are the strategic priority signal PHX-0037's reactive Curiosity Loop currently lacks. Hestia review is mandatory before promotion to actionable status (aggregation amplifies the surveillance risk PHX-0039 catches at the per-trigger level). YAML: [`phoenix-backlog/PHX-0058.yaml`](../phoenix-backlog/PHX-0058.yaml).
 
-Implementation will plug into the TickPhase pipeline introduced by F2.
+**Phase 1 closed (W3 / PHX-0058, PR [#57](https://github.com/theogony-project/theogony/pull/57)):** per-query `StubVerdict` + `RegionDescriptor` on `QueryRunReport`; `ConstellationNode.cluster_id`; `Settings.curiosity`; `BlindSpotAggregationPhase` registered on `DEFAULT_PHASE_REGISTRY` (default-off in `enabled_phases`); HDBSCAN reuse; `RunReportWriter` + CLI (`theogony curiosity blindspots`) + MCP `blindspot` type; [`docs/BLIND_SPOTS.md`](BLIND_SPOTS.md). Phase 2 sub-tickets: NER-fed entity coverage, Hestia review (PHX-0039), differential bump intensity, per-cluster stub statistics.
+
+Implementation plugs into the TickPhase pipeline introduced by F2.
 
 ### PHX-0059: Morpheus-as-Associator + Multi-Layer Connectivity
 

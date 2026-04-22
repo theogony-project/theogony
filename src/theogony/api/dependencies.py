@@ -20,6 +20,7 @@ from fastapi import Request
 
 from theogony.config.settings import Settings
 from theogony.core.store import KnowledgeStore
+from theogony.curiosity.stub_detector import StubDetector
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.retrieval.constellation import ConstellationAssembler
@@ -51,6 +52,9 @@ def get_query_pipeline(request: Request) -> QueryPipeline:
     request gets isolated synthesizer audit-run-id flow.
     """
     state = request.app.state
+    stub_detector = getattr(state, "stub_detector", None)
+    if stub_detector is None:
+        stub_detector = StubDetector(state.settings.curiosity.stub_thresholds)
     return QueryPipeline(
         embedder=state.embedder,
         retriever=MultiHopRetriever(
@@ -69,6 +73,7 @@ def get_query_pipeline(request: Request) -> QueryPipeline:
             state.store,
             delta=state.settings.relevance.edge_pheromone_delta,
         ),
+        stub_detector=stub_detector,
     )
 
 

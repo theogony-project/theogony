@@ -1,7 +1,7 @@
 id: PHX-0058
 category: vision
 priority: medium
-status: in_progress  # W3 brief landed 2026-04-22 — see docs/etappes/W3_blind_spot_aggregation_brief.md
+status: resolved  # Phase 1: PR https://github.com/theogony-project/theogony/pull/57 — docs/BLIND_SPOTS.md
 generation_target: 2
 title: "Aggregated stub detection — recurring blind spots prioritised for outward research"
 filed_by: hesiod

@@ -475,6 +475,10 @@ class ConstellationNode(BaseModel):
     layer: Layer
     confidence: float = Field(ge=0.0, le=1.0)
     source_ref: SourceRef
+    cluster_id: str | None = Field(
+        default=None,
+        description="Technical cluster handle for blind-spot aggregation (PHX-0058 / W3).",
+    )
 
     @classmethod
     def from_knowledge_node(cls, node: KnowledgeNode) -> ConstellationNode:
@@ -486,6 +490,7 @@ class ConstellationNode(BaseModel):
             layer=node.layer,
             confidence=node.scores.confidence,
             source_ref=node.source_ref,
+            cluster_id=node.cluster_id,
         )
 
 

@@ -59,6 +59,7 @@ from theogony.agents.llm import LLMProvider, StubLLMProvider
 from theogony.config.logging import get_logger, setup_logging
 from theogony.config.settings import Settings
 from theogony.core.store import KnowledgeStore
+from theogony.curiosity.stub_detector import StubDetector
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
 from theogony.extraction.wikidata_cache import WikidataCache
@@ -244,6 +245,7 @@ def _build_query_pipeline(res: McpResources) -> QueryPipeline:
             res.store,
             delta=settings.relevance.edge_pheromone_delta,
         ),
+        stub_detector=StubDetector(settings.curiosity.stub_thresholds),
     )
 
 
@@ -346,7 +348,8 @@ async def tool_status(res: McpResources) -> dict[str, Any]:
         "embedding_model": res.settings.embedding.model_id,
         "embedding_dim": res.settings.embedding.dim,
         "report_counts": {
-            rtype: _count_reports(res, rtype) for rtype in ("ingest", "query", "oneiros")
+            rtype: _count_reports(res, rtype)
+            for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot")
         },
     }
 
@@ -355,7 +358,9 @@ def tool_reports_list(
     res: McpResources, *, report_type: str = "", last: int = 20
 ) -> list[dict[str, Any]]:
     """Run :func:`pantheon_reports_list` and return the row list."""
-    types_to_scan = [report_type] if report_type else ["ingest", "query", "oneiros"]
+    types_to_scan = (
+        [report_type] if report_type else ["ingest", "query", "oneiros", "clustering", "blindspot"]
+    )
     rows: list[dict[str, Any]] = []
     for rtype in types_to_scan:
         d = res.settings.run_reports_dir / rtype
@@ -385,7 +390,7 @@ def tool_reports_list(
 
 def tool_reports_show(res: McpResources, *, run_id: str) -> dict[str, Any]:
     """Run :func:`pantheon_reports_show` and return the report JSON or an error."""
-    for rtype in ("ingest", "query", "oneiros"):
+    for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot"):
         d = res.settings.run_reports_dir / rtype
         if not d.exists():
             continue
@@ -500,9 +505,10 @@ def _tool_descriptors() -> list[dict[str, Any]]:
         {
             "name": "pantheon_reports_list",
             "description": (
-                "List recent run reports (ingest, query, oneiros). The "
-                "Chronik's honest retrospective surface — every answer it "
-                "produced, every ingest it ran, every Oneiros tick."
+                "List recent run reports (ingest, query, oneiros, clustering, blindspot). "
+                "The Chronik's honest retrospective surface — every answer it "
+                "produced, every ingest it ran, every Oneiros tick, clustering "
+                "and blind-spot aggregation passes."
             ),
             "inputSchema": {
                 "type": "object",
@@ -510,10 +516,10 @@ def _tool_descriptors() -> list[dict[str, Any]]:
                     "report_type": {
                         "type": "string",
                         "description": (
-                            "Filter by type. One of 'ingest', 'query', 'oneiros'. "
-                            "Empty string = all types."
+                            "Filter by type. One of 'ingest', 'query', 'oneiros', "
+                            "'clustering', 'blindspot'. Empty string = all types."
                         ),
-                        "enum": ["", "ingest", "query", "oneiros"],
+                        "enum": ["", "ingest", "query", "oneiros", "clustering", "blindspot"],
                         "default": "",
                     },
                     "last": {

@@ -22,6 +22,7 @@ from pathlib import Path
 
 from theogony.config.logging import get_logger
 from theogony.reporting.models import (
+    BlindSpotReport,
     ClusteringRunReport,
     IngestRunReport,
     OneirosTickReport,
@@ -36,6 +37,7 @@ ReportType = (
     | type[QueryRunReport]
     | type[OneirosTickReport]
     | type[ClusteringRunReport]
+    | type[BlindSpotReport]
 )
 
 
@@ -138,4 +140,6 @@ class RunReportWriter:
             return OneirosTickReport.model_validate(raw)
         if rt == "clustering":
             return ClusteringRunReport.model_validate(raw)
+        if rt == "blindspot":
+            return BlindSpotReport.model_validate(raw)
         return None

@@ -48,6 +48,8 @@ from theogony.clustering.cluster_index import ClusterIndex
 from theogony.clustering.runner import run_one_recluster_pass
 from theogony.config import Settings, setup_logging
 from theogony.core.store import KnowledgeStore
+from theogony.curiosity.runner import run_one_aggregation_pass
+from theogony.curiosity.stub_detector import StubDetector
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.book_context import BookContextExtractor
 from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
@@ -56,6 +58,7 @@ from theogony.extraction.relations import RelationExtractor
 from theogony.extraction.resolve import EntityResolver
 from theogony.extraction.wikidata_cache import WikidataCache
 from theogony.extraction.wikidata_client import WikidataClient
+from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
@@ -94,6 +97,13 @@ reports_app = typer.Typer(
     help="Inspect run reports written by IngestionPipeline / QueryPipeline / OneirosWorker.",
 )
 app.add_typer(reports_app, name="reports")
+
+curiosity_app = typer.Typer(
+    name="curiosity",
+    no_args_is_help=True,
+    help="Curiosity signals: blind-spot aggregation over stub QueryRunReports (PHX-0058).",
+)
+app.add_typer(curiosity_app, name="curiosity")
 
 _console = Console()
 
@@ -141,6 +151,8 @@ def _format_paths_summary(settings: Settings) -> Table:
         (settings.run_reports_dir / "ingest", "ingest reports"),
         (settings.run_reports_dir / "query", "query reports"),
         (settings.run_reports_dir / "oneiros", "oneiros reports"),
+        (settings.run_reports_dir / "clustering", "clustering reports"),
+        (settings.run_reports_dir / "blindspot", "blind-spot reports"),
     ]
     for path, note in rows:
         status_marker = "[green]exists[/green]" if path.exists() else "[yellow]not yet[/yellow]"
@@ -183,7 +195,7 @@ def status() -> None:
     counts_table = Table(title="Run reports", show_header=True, header_style="bold")
     counts_table.add_column("Type")
     counts_table.add_column("Count", justify="right")
-    for rtype in ("ingest", "query", "oneiros", "clustering"):
+    for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot"):
         counts_table.add_row(rtype, str(_count_reports(settings, rtype)))
     _console.print(counts_table)
 
@@ -199,7 +211,10 @@ def reports_list(
         None,
         "--type",
         "-t",
-        help="Filter by report type: ingest | query | oneiros | clustering. Default: all.",
+        help=(
+            "Filter by report type: ingest | query | oneiros | clustering | blindspot. "
+            "Default: all."
+        ),
     ),
     last: int = typer.Option(
         20,
@@ -212,7 +227,9 @@ def reports_list(
     """List recent run reports across types, newest first."""
     settings = _load_settings()
     types = (
-        [report_type] if report_type is not None else ["ingest", "query", "oneiros", "clustering"]
+        [report_type]
+        if report_type is not None
+        else ["ingest", "query", "oneiros", "clustering", "blindspot"]
     )
 
     rows: list[tuple[str, str, str, str, str]] = []  # (run_id, type, verdict, status, duration)
@@ -277,7 +294,7 @@ def reports_show(run_id: str = typer.Argument(..., help="The run_id (ULID).")) -
     """
     settings = _load_settings()
     matches: list[Path] = []
-    for rtype in ("ingest", "query", "oneiros", "clustering"):
+    for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot"):
         d = settings.run_reports_dir / rtype
         if not d.exists():
             continue
@@ -417,6 +434,50 @@ def recluster(
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     asyncio.run(_run_recluster(force=force, store_kind=store_kind))
+
+
+@curiosity_app.command("blindspots")
+def curiosity_blindspots(
+    force: bool = typer.Option(False, "--force", help="Skip cadence check."),
+    store_kind: str = typer.Option(
+        "neo4j",
+        "--store",
+        help="Storage backend: neo4j (default) or memory.",
+    ),
+) -> None:
+    """Aggregate recurring stub regions and write BlindSpotReport JSON files."""
+    if store_kind not in ("neo4j", "memory"):
+        _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
+        raise typer.Exit(code=2)
+    asyncio.run(_run_blind_spot_aggregation(force=force, store_kind=store_kind))
+
+
+async def _run_blind_spot_aggregation(*, force: bool, store_kind: str) -> None:
+    settings = _load_settings()
+    report_writer = RunReportWriter(settings.run_reports_dir)
+    async with _open_store(settings, store_kind, settings.embedding.dim) as store:
+        written = await run_one_aggregation_pass(store, settings, report_writer, force=force)
+    if not written:
+        _console.print(
+            Panel.fit(
+                "[yellow]No blind-spot reports written[/yellow] "
+                "(cadence, below min_hits, or no qualifying clusters).",
+                title="theogony curiosity blindspots",
+            )
+        )
+        return
+    table = Table(title="Blind-spot candidates", show_header=True, header_style="bold")
+    table.add_column("run_id")
+    table.add_column("hits", justify="right")
+    table.add_column("stub_strength", justify="right")
+    for rep in written:
+        c = rep.candidate
+        table.add_row(
+            rep.run_id,
+            str(len(c.contributing_run_ids)),
+            f"{c.stub_signal_strength:.3f}",
+        )
+    _console.print(Panel.fit(table, title="theogony curiosity blindspots", border_style="green"))
 
 
 async def _run_recluster(*, force: bool, store_kind: str) -> None:
@@ -767,6 +828,11 @@ async def _run_ask(
                 ),
                 settings=settings,
                 report_writer=report_writer,
+                edge_pheromone=EdgePheromoneTracker(
+                    store,
+                    delta=settings.relevance.edge_pheromone_delta,
+                ),
+                stub_detector=StubDetector(settings.curiosity.stub_thresholds),
             )
             result = await pipeline.ask(
                 query,

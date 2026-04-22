@@ -343,7 +343,9 @@ The LLM does not need to know facts. It needs to know how to navigate the Chroni
 
 Retrieval and acquisition are not separate phases in maturity. They are coupled by attention.
 
-Every query, every zoom into a Constellation node, and every contextual ask runs a structured **stub check** on the assembled Constellation: node count, edge density, vitality scores, source diversity, confidence aggregate, and named-entity coverage of the question. The check produces a structured `StubVerdict` recorded in the `QueryRunReport`.
+Every query, every zoom into a Constellation node, and every contextual ask runs a structured **stub check** on the assembled Constellation: node count, edge density, vitality scores, source diversity, confidence aggregate, and named-entity coverage of the question. The check produces a structured `StubVerdict` recorded in the `QueryRunReport`, together with a compact `RegionDescriptor` (query embedding plus dominant cluster / type) for later clustering.
+
+An optional Oneiros tick phase (`blind_spot_aggregation`, **off** by default) scans recent stub-firing query reports and emits `BlindSpotReport` candidates using the same HDBSCAN path as periodic re-clustering — see [`BLIND_SPOTS.md`](BLIND_SPOTS.md).
 
 When the verdict crosses the stub threshold, a **Curiosity Trigger** is emitted. The trigger is a typed event consumed by Helios (orchestrator), which dispatches a directional research run:
 
@@ -359,7 +361,7 @@ A `CuriosityRunReport` is emitted for every run, alongside the existing `IngestR
 
 **Hestia subscribes to every Curiosity Trigger.** Person-as-target checks, sensitive-topic rules, recursion budgets, and drift audit are part of the loop, not optional add-ons. Curiosity without Hestia is a profiling engine. See [`HESTIA.md`](HESTIA.md) and the full mechanism in [`CURIOSITY.md`](CURIOSITY.md).
 
-This is a Generation 2-3 capability. Generation 1 emits the `StubVerdict` (so calibration data accumulates) but does not yet dispatch the trigger. See PHX-0037, PHX-0038, PHX-0039.
+This is a Generation 2-3 capability for the outward loop. Generation 1 emits `StubVerdict` + `RegionDescriptor` on every query and can persist aggregated blind-spot candidates when operators enable the phase — it still does **not** dispatch the Curiosity trigger automatically. See PHX-0037, PHX-0038, PHX-0039, and [`BLIND_SPOTS.md`](BLIND_SPOTS.md).
 
 ### Advisory Layer (Metis)
 

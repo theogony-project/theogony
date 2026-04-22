@@ -14,7 +14,6 @@ from theogony.retrieval.constellation import (
     ConstellationAssembler,
 )
 from theogony.retrieval.multi_hop import MultiHopResult, MultiHopRetriever
-from theogony.retrieval.pipeline import HIGH_CONFIDENCE_FLOOR, QueryPipeline, QueryResult
 from theogony.retrieval.synthesize import Answer, AnswerSynthesizer
 
 __all__ = [
@@ -30,3 +29,22 @@ __all__ = [
     "QueryPipeline",
     "QueryResult",
 ]
+
+
+def __getattr__(name: str) -> object:
+    """Lazy exports from ``pipeline`` — avoids cycles with ``curiosity.stub_detector``."""
+
+    if name == "QueryPipeline":
+        from theogony.retrieval.pipeline import QueryPipeline
+
+        return QueryPipeline
+    if name == "QueryResult":
+        from theogony.retrieval.pipeline import QueryResult
+
+        return QueryResult
+    if name == "HIGH_CONFIDENCE_FLOOR":
+        from theogony.retrieval.pipeline import HIGH_CONFIDENCE_FLOOR
+
+        return HIGH_CONFIDENCE_FLOOR
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)

@@ -38,6 +38,7 @@ from theogony.api.routes import (
 from theogony.clustering.cluster_index import ClusterIndex
 from theogony.config.logging import get_logger, setup_logging
 from theogony.config.settings import Settings
+from theogony.curiosity.stub_detector import StubDetector
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
 from theogony.extraction.wikidata_cache import WikidataCache
@@ -109,6 +110,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.store = store
     app.state.report_writer = report_writer
     app.state.cluster_index = cluster_index
+    app.state.stub_detector = StubDetector(settings.curiosity.stub_thresholds)
 
     # OneirosWorker slot (E8.5): owns the §4.3 write-back lifecycle.
     # The lifespan owns the long-lived task; shutdown cancels it
