@@ -139,6 +139,23 @@ class OneirosSettings(BaseModel):
     degrade_min_idle_days: float = Field(default=7.0, ge=0.0)
     connectivity_full_credit_edges: int = Field(default=20, ge=1)
     freshness_horizon_days: float = Field(default=30.0, ge=1.0)
+    enabled_phases: list[str] = Field(
+        default_factory=lambda: [
+            "snapshot_ephemera",
+            "count_neighbors",
+            "recompute_scores",
+            "write_scores",
+            "promote",
+            "degrade_mneme",
+        ],
+        description=(
+            "Ordered list of TickPhase names to run per tick. Default = "
+            "all six built-in phases in their canonical order. Operators "
+            "can disable phases (e.g. omit 'promote' for read-only test "
+            "deployments) or reorder. Future phases from PHX-0057/0058/"
+            "0059/0060 are added via custom phase_registry injection."
+        ),
+    )
 
 
 class HostedSettings(BaseModel):
@@ -289,6 +306,16 @@ class ReportSettings(BaseModel):
     )
 
 
+class RetrievalSettings(BaseModel):
+    """Tunables for the retrieval stack (PHX-0056 Phase 1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    strategy: Literal["fixed_depth", "edge_product"] = "fixed_depth"
+    edge_product_min_path_product: float | None = Field(default=None, ge=0.0, le=1.0)
+    edge_product_top_n_paths: int | None = Field(default=None, ge=1, le=200)
+
+
 class Settings(BaseSettings):
     """Top-level Theogony settings.
 
@@ -331,6 +358,7 @@ class Settings(BaseSettings):
     report: ReportSettings = Field(default_factory=ReportSettings)
     wikidata_cache: WikidataCacheSettings = Field(default_factory=WikidataCacheSettings)
     hosted: HostedSettings = Field(default_factory=HostedSettings)
+    retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
 
     data_dir: Path = Field(
         default=Path("data"),

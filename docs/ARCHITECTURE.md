@@ -213,6 +213,8 @@ Knowledge flows through three phases:
 
 This mirrors hippocampal replay in the human brain — the process by which daily experiences are consolidated into long-term memory during sleep. Except the Chronik never sleeps. Oneiros runs continuously, constantly firing connections into existing areas of knowledge.
 
+The Gen-1 **OneirosWorker** tick is implemented as an ordered **TickPhase** pipeline (`src/theogony/memory/tick_phase.py`, `tick_phases.py`): each lifecycle step (snapshot, neighbour counts, score recompute, bulk write, promote, degrade) is a small async phase sharing a mutable `TickContext`. Operators can disable or reorder phases via `Settings.oneiros.enabled_phases`; future tickets (PHX-0057–0060) add phases instead of extending a single god-method.
+
 **Mneme** — Promoted knowledge. High confidence, well-connected, verified. This is "known" knowledge. Promotion requires crossing a confidence threshold AND a minimum connectivity threshold — an isolated high-confidence fact is still suspect.
 
 **Degradation** flows the other way: Mneme nodes whose vitality drops below the dynamic threshold are demoted back toward Ephemera, compressed, archived, or deleted.
