@@ -114,6 +114,8 @@ Knowledge extracted from a German source and knowledge extracted from a Japanese
 
 The vitality function weights (w1, w2, w3, w4) and the dynamic threshold need empirical tuning based on real usage data. Initial values will be heuristic. A feedback loop should be established where Helios adjusts these parameters based on system performance metrics.
 
+Phase 1 of PHX-0009 closed by F1 (this PR): math consolidated under `core/vitality.py`. Future tuning rounds touch one file.
+
 ### PHX-0010: Physical Library Acquisition
 
 - **Category**: vision
