@@ -280,6 +280,13 @@ class KnowledgeNode(BaseModel):
 
     layer: Layer = Layer.EPHEMERA
     cluster_id: str | None = None  # knowledge region membership
+    cluster_label: str | None = Field(
+        default=None,
+        description=(
+            "Persistent semantic name; survives re-clustering when membership "
+            "is stable. See PHX-0060 knob 5."
+        ),
+    )
 
     external_ids: dict[str, str] = Field(
         default_factory=dict, description="e.g. {'wikidata': 'Q806463', 'gutenberg': '12345'}"
@@ -359,6 +366,21 @@ class KnowledgeNode(BaseModel):
             self.scores.confidence >= confidence_threshold
             and self.scores.connectivity >= connectivity_threshold
         )
+
+
+class ClusterSummary(BaseModel):
+    """Persisted summary of one knowledge cluster (PHX-0060 Phase 1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cluster_id: str
+    cluster_label: str | None = None
+    member_count: int = Field(ge=0)
+    centroid: list[float]
+    dominant_node_type: NodeType | None = None
+    dominant_source_type: str | None = None
+    # Reserved for Argonaut sub-ticket (PHX-0060 Phase 2).
+    properties: dict[str, Any] = Field(default_factory=dict)
 
 
 class KnowledgeEdge(BaseModel):

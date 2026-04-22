@@ -17,13 +17,19 @@ nodes that happen to retrieve in a given order.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
 import pytest
 
 from tests.conftest import make_node
-from theogony.core.model import Constellation, KnowledgeEdge, KnowledgeNode, Layer
+from theogony.core.model import (
+    Constellation,
+    KnowledgeEdge,
+    KnowledgeNode,
+    Layer,
+    ScoreUpdate,
+)
 from theogony.core.store import Path, ScoredNode
 from theogony.retrieval.multi_hop import MultiHopResult, MultiHopRetriever
 
@@ -95,8 +101,43 @@ class _RecordingStore:
     async def get_cluster_centroid(self, cluster_id: str) -> list[float]:
         raise AssertionError("retriever should not touch clusters")
 
-    async def assign_cluster(self, node_id: str, cluster_id: str) -> None:
+    async def assign_cluster(
+        self,
+        node_id: str,
+        cluster_id: str | None,
+        *,
+        cluster_label: str | None = None,
+    ) -> None:
         raise AssertionError("retriever should not touch clusters")
+
+    async def list_clusters(self) -> list:
+        raise AssertionError("retriever should not touch clusters")
+
+    async def get_cluster_members(self, cluster_id: str) -> AsyncIterator[str]:
+        if False:  # pragma: no cover - empty async generator
+            yield ""
+
+    async def batch_upsert_nodes(self, nodes: Sequence[KnowledgeNode]) -> list[str]:
+        raise AssertionError("retriever should not write")
+
+    async def batch_upsert_edges(self, edges: Sequence[KnowledgeEdge]) -> None:
+        raise AssertionError("retriever should not write")
+
+    async def get_edges_among(
+        self,
+        node_ids: Sequence[str],
+        min_weight: float = 0.0,
+    ) -> list[KnowledgeEdge]:
+        raise AssertionError("retriever should not call get_edges_among")
+
+    async def batch_update_scores(self, updates: Sequence[ScoreUpdate]) -> None:
+        raise AssertionError("retriever should not update scores")
+
+    async def count_neighbors_in_layer(self, layer: Layer) -> dict[str, int]:
+        raise AssertionError("retriever should not count neighbors")
+
+    async def resolve_node(self, node_id: str, wikidata_id: str | None) -> bool:
+        raise AssertionError("retriever should not resolve")
 
     def export_layer(self, layer: Layer) -> AsyncIterator[KnowledgeNode]:
         raise AssertionError("retriever should not export")

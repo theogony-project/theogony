@@ -20,16 +20,18 @@ is BFS — both fine for that range.
 from __future__ import annotations
 
 import math
-from collections import deque
+from collections import defaultdict, deque
 from collections.abc import AsyncIterator, Sequence
 
 from theogony.core.model import (
+    ClusterSummary,
     Constellation,
     ConstellationEdge,
     ConstellationNode,
     KnowledgeEdge,
     KnowledgeNode,
     Layer,
+    NodeType,
     ScoreUpdate,
 )
 from theogony.core.store import Path, ScoredNode
@@ -385,14 +387,80 @@ class InMemoryKnowledgeStore:
         n = len(embeddings)
         return [sum(e[i] for e in embeddings) / n for i in range(dim)]
 
-    async def assign_cluster(self, node_id: str, cluster_id: str) -> None:
+    async def assign_cluster(
+        self,
+        node_id: str,
+        cluster_id: str | None,
+        *,
+        cluster_label: str | None = None,
+    ) -> None:
         if node_id not in self._nodes:
             return
         node = self._nodes[node_id]
         if node.cluster_id and node.cluster_id in self._clusters:
             self._clusters[node.cluster_id].discard(node_id)
         node.cluster_id = cluster_id
-        self._clusters.setdefault(cluster_id, set()).add(node_id)
+        node.cluster_label = cluster_label if cluster_id is not None else None
+        if cluster_id:
+            self._clusters.setdefault(cluster_id, set()).add(node_id)
+
+    async def list_clusters(self) -> list[ClusterSummary]:
+        groups: dict[str, set[str]] = defaultdict(set)
+        for nid, node in self._nodes.items():
+            if node.cluster_id:
+                groups[node.cluster_id].add(nid)
+        summaries: list[ClusterSummary] = []
+        for cid in sorted(groups.keys()):
+            members = groups[cid]
+            embeddings = [
+                self._nodes[mid].embedding
+                for mid in members
+                if mid in self._nodes and self._nodes[mid].embedding
+            ]
+            if not embeddings:
+                centroid: list[float] = []
+            else:
+                dim = len(embeddings[0])
+                if any(len(e) != dim for e in embeddings):
+                    centroid = []
+                else:
+                    nemb = len(embeddings)
+                    centroid = [sum(e[i] for e in embeddings) / nemb for i in range(dim)]
+                    norm = math.sqrt(sum(x * x for x in centroid))
+                    if norm > 0.0:
+                        centroid = [x / norm for x in centroid]
+            types: list[NodeType] = []
+            sources: list[str] = []
+            for mid in members:
+                n = self._nodes.get(mid)
+                if n is None:
+                    continue
+                types.append(n.node_type)
+                sources.append(n.source_ref.source_type)
+            dom_type: NodeType | None = None
+            if types:
+                dom_type = max(set(types), key=lambda t: sum(1 for x in types if x == t))
+            dom_src: str | None = None
+            if sources:
+                dom_src = max(set(sources), key=lambda s: sum(1 for x in sources if x == s))
+            any_node = next((self._nodes[mid] for mid in members if mid in self._nodes), None)
+            clabel = any_node.cluster_label if any_node is not None else None
+            summaries.append(
+                ClusterSummary(
+                    cluster_id=cid,
+                    cluster_label=clabel,
+                    member_count=len(members),
+                    centroid=centroid,
+                    dominant_node_type=dom_type,
+                    dominant_source_type=dom_src,
+                    properties={},
+                )
+            )
+        return summaries
+
+    async def get_cluster_members(self, cluster_id: str) -> AsyncIterator[str]:
+        for mid in sorted(self._clusters.get(cluster_id, ())):
+            yield mid
 
     # -------------------------------------------------------------------------
     # Bulk operations

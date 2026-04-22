@@ -11,11 +11,12 @@ from typing import Literal
 
 from theogony.config.settings import Settings
 from theogony.core.store import KnowledgeStore
+from theogony.retrieval.strategies.cluster_narrowing import ClusterNarrowingRetrievalStrategy
 from theogony.retrieval.strategies.edge_product import EdgeProductBreadthFirstStrategy
 from theogony.retrieval.strategies.fixed_depth import FixedDepthStrategy
 from theogony.retrieval.strategies.protocol import RetrievalStrategy
 
-StrategyName = Literal["fixed_depth", "edge_product"]
+StrategyName = Literal["fixed_depth", "edge_product", "cluster_narrow"]
 
 
 def build_retrieval_strategy(
@@ -33,6 +34,21 @@ def build_retrieval_strategy(
             store,
             default_min_path_product=settings.retrieval.edge_product_min_path_product,
             default_top_n_paths=settings.retrieval.edge_product_top_n_paths,
+        )
+    if name == "cluster_narrow":
+        inner_name = settings.retrieval.cluster_narrow_inner_strategy
+        if inner_name == "edge_product":
+            inner: RetrievalStrategy = EdgeProductBreadthFirstStrategy(
+                store,
+                default_min_path_product=settings.retrieval.edge_product_min_path_product,
+                default_top_n_paths=settings.retrieval.edge_product_top_n_paths,
+            )
+        else:
+            inner = FixedDepthStrategy(store)
+        return ClusterNarrowingRetrievalStrategy(
+            store,
+            top_n_clusters=settings.retrieval.cluster_narrow_top_n_clusters,
+            inner_strategy=inner,
         )
     raise ValueError(f"unknown retrieval strategy: {name!r}")
 

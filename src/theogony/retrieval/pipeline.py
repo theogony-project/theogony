@@ -109,7 +109,7 @@ class QueryPipeline:
         layer: Layer | None = None,
         k: int = 10,
         hops: int = 2,
-        strategy: Literal["fixed_depth", "edge_product"] | None = None,
+        strategy: Literal["fixed_depth", "edge_product", "cluster_narrow"] | None = None,
     ) -> QueryResult:
         """Run the retrieval loop for ``query`` and return answer + constellation + report.
 

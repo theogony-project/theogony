@@ -311,9 +311,25 @@ class RetrievalSettings(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    strategy: Literal["fixed_depth", "edge_product"] = "fixed_depth"
+    strategy: Literal["fixed_depth", "edge_product", "cluster_narrow"] = "fixed_depth"
     edge_product_min_path_product: float | None = Field(default=None, ge=0.0, le=1.0)
     edge_product_top_n_paths: int | None = Field(default=None, ge=1, le=200)
+    cluster_narrow_inner_strategy: Literal["fixed_depth", "edge_product"] = "fixed_depth"
+    cluster_narrow_top_n_clusters: int = Field(default=3, ge=1, le=20)
+
+
+class ClusteringSettings(BaseModel):
+    """Tunables for the clustering stack (PHX-0060 Phase 1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    algorithm: Literal["auto", "hdbscan", "kmeans"] = "auto"
+    recluster_interval_days: float = Field(default=30.0, ge=0.0)
+    min_cluster_size: int = Field(default=5, ge=2)
+    min_corpus_size: int = Field(default=20, ge=2)
+    corpus_size_kmeans_threshold: int = Field(default=100_000, ge=1_000)
+    identity_jaccard_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    new_node_assignment: Literal["nearest_centroid", "skip"] = "nearest_centroid"
 
 
 class Settings(BaseSettings):
@@ -359,6 +375,7 @@ class Settings(BaseSettings):
     wikidata_cache: WikidataCacheSettings = Field(default_factory=WikidataCacheSettings)
     hosted: HostedSettings = Field(default_factory=HostedSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
+    clustering: ClusteringSettings = Field(default_factory=ClusteringSettings)
 
     data_dir: Path = Field(
         default=Path("data"),

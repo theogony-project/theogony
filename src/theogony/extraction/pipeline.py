@@ -59,6 +59,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from theogony.acquisition.base import RawContent
+from theogony.clustering.cluster_index import ClusterIndex
 from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
 from theogony.core.model import KnowledgeEdge, SourceRef
@@ -130,6 +131,7 @@ class IngestionPipeline:
         audit_log: ExtractionAuditLog | None = None,
         store: KnowledgeStore | None = None,
         settings: Settings | None = None,
+        cluster_index: ClusterIndex | None = None,
         ner_sentence_limit: int | None = None,
         max_relation_sentences: int | None = None,
     ) -> None:
@@ -143,6 +145,7 @@ class IngestionPipeline:
         self._audit_log = audit_log
         self._store = store
         self._settings = settings or Settings()
+        self._cluster_index = cluster_index if cluster_index is not None else ClusterIndex()
         # Optional bounds for cheap dev / test runs against full books.
         # ``ner_sentence_limit`` clips the sentence list before NER;
         # ``max_relation_sentences`` clips the per-sentence relation
@@ -168,6 +171,9 @@ class IngestionPipeline:
 
         identifier = f"{raw_content.source_type}:{raw_content.identifier}"
         log.info("ingest start run_id=%s source=%s", run_id, identifier)
+
+        if self._store is not None:
+            await self._cluster_index.rebuild_from_store(self._store)
 
         # ---- acquired ----
         # Plan §2.11.1 reports the acquired stage even though the
@@ -494,9 +500,20 @@ class IngestionPipeline:
             return StoreSummary(nodes_upserted=0, edges_upserted=0)
         batch_size = self._settings.store.batch_size
         node_list = [rm.node for rm in resolved_mentions]
+        if self._settings.clustering.new_node_assignment == "nearest_centroid":
+            for node in node_list:
+                if node.embedding:
+                    cid = self._cluster_index.assign(node.embedding)
+                    if cid is not None:
+                        node.cluster_id = cid
         for node_chunk in _chunks(node_list, batch_size):
             await self._store.batch_upsert_nodes(node_chunk)
+        clusters_by_id = {n.id: n.cluster_id for n in node_list}
         for edge_chunk in _chunks(edges, batch_size):
+            for edge in edge_chunk:
+                sc = clusters_by_id.get(edge.source_id)
+                tc = clusters_by_id.get(edge.target_id)
+                edge.properties["cross_cluster"] = bool(sc and tc and sc != tc)
             await self._store.batch_upsert_edges(edge_chunk)
         return StoreSummary(
             nodes_upserted=len(node_list),

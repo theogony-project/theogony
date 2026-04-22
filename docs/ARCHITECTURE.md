@@ -213,7 +213,7 @@ Knowledge flows through three phases:
 
 This mirrors hippocampal replay in the human brain — the process by which daily experiences are consolidated into long-term memory during sleep. Except the Chronik never sleeps. Oneiros runs continuously, constantly firing connections into existing areas of knowledge.
 
-The Gen-1 **OneirosWorker** tick is implemented as an ordered **TickPhase** pipeline (`src/theogony/memory/tick_phase.py`, `tick_phases.py`): each lifecycle step (snapshot, neighbour counts, score recompute, bulk write, promote, degrade) is a small async phase sharing a mutable `TickContext`. Operators can disable or reorder phases via `Settings.oneiros.enabled_phases`; future tickets (PHX-0057–0060) add phases instead of extending a single god-method.
+The Gen-1 **OneirosWorker** tick is implemented as an ordered **TickPhase** pipeline (`src/theogony/memory/tick_phase.py`, `tick_phases.py`): each lifecycle step (snapshot, neighbour counts, score recompute, bulk write, promote, degrade, optional **recluster**) is a small async phase sharing a mutable `TickContext`. Operators can disable or reorder phases via `Settings.oneiros.enabled_phases`; future tickets (PHX-0057+) add phases instead of extending a single god-method.
 
 **Mneme** — Promoted knowledge. High confidence, well-connected, verified. This is "known" knowledge. Promotion requires crossing a confidence threshold AND a minimum connectivity threshold — an isolated high-confidence fact is still suspect.
 
@@ -223,15 +223,17 @@ The Gen-1 **OneirosWorker** tick is implemented as an ordered **TickPhase** pipe
 
 At exabyte scale, flat vector search is impossible. The Chronik solves this by making the graph structure itself the navigational index:
 
-1. **Hierarchical clustering**: Nodes belong to semantic clusters. Each cluster has a centroid vector. Centroids form a meta-level. Centroids of centroids form a meta-meta-level. This creates a navigable tree of abstraction.
+1. **Clustering (PHX-0060 Phase 1, implemented)**: Nodes carry a single-valued `cluster_id` (technical handle, re-minted when cluster membership shifts beyond a Jaccard threshold) and an optional `cluster_label` (stable semantic name when inherited across passes). Each cluster has a centroid vector. **Phase 1 is flat** (one level of clusters); centroids-of-centroids and deeper hierarchy are explicitly deferred to Phase 2. Periodic **recluster** runs inside `OneirosWorker` (opt-in via `enabled_phases`); **insert-time** assignment uses an in-memory `ClusterIndex` (nearest centroid) so new nodes land in roughly the right region before the next full pass.
 
-2. **Entry via vector similarity**: A query embedding is compared against cluster centroids (fast, approximate), narrowing down to the relevant knowledge region.
+2. **Entry via vector similarity**: A query embedding can be compared against cluster centroids (fast, approximate), narrowing to the top-N regions — this is the optional `cluster_narrow` retrieval strategy, which composes with the default `fixed_depth` graph walk (see [`RETRIEVAL_STRATEGIES.md`](RETRIEVAL_STRATEGIES.md) and [`CLUSTERING.md`](CLUSTERING.md)).
 
 3. **Navigation via graph traversal**: Within the region, the query follows weighted edges. Traversal cost is O(depth × branching factor), not O(n).
 
 4. **Weight thresholds prune the search space**: Only edges above a dynamic weight threshold are followed. The product of weights along a path must exceed a minimum — weak paths are abandoned.
 
 5. **Multi-hop recursive search**: From each discovered node, another similarity search can be initiated, finding related knowledge that the initial entry point might have missed. Deduplication prevents combinatorial explosion.
+
+**Cross-cluster edges:** every `KnowledgeEdge` may carry `properties["cross_cluster"]: bool`, set at insert time from endpoint `cluster_id`s and recomputed after each recluster sweep.
 
 This makes the Chronik queryable in milliseconds, regardless of total size. The complexity of a query depends on the *depth* of the question, not the *size* of the knowledge base.
 
@@ -283,11 +285,11 @@ class KnowledgeStore(Protocol):
 
 Gen 1 implementation: `Neo4jKnowledgeStore` — leverages Neo4j's native vector indexes and Cypher for combined graph+vector queries.
 
-**Retrieval strategies (PHX-0056 Phase 1).** Graph+vector navigation is not
+**Retrieval strategies (PHX-0056 Phase 1 + PHX-0060 Phase 1).** Graph+vector navigation is not
 hard-wired to a single algorithm: a `RetrievalStrategy` protocol turns a query
 embedding plus a `RetrievalBudget` into a `MultiHopResult`. The default
 `FixedDepthStrategy` preserves the original `multi_hop_search` behaviour; optional
-strategies (e.g. `EdgeProductBreadthFirstStrategy`) plug in via settings, HTTP,
+strategies (`EdgeProductBreadthFirstStrategy`, `ClusterNarrowingRetrievalStrategy`) plug in via settings, HTTP,
 or pipeline construction. See [`RETRIEVAL_STRATEGIES.md`](RETRIEVAL_STRATEGIES.md).
 
 ## Layer 3: Retrieval API

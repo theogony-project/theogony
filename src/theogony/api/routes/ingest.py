@@ -72,6 +72,7 @@ async def _run_background_ingest(
             relation_extractor = (
                 None if body.no_relations else RelationExtractor(llm=llm, audit_log=audit)
             )
+            cluster_index = getattr(state, "cluster_index", None)
             pipeline = IngestionPipeline(
                 entity_resolver=resolver,
                 relation_extractor=relation_extractor,
@@ -80,6 +81,7 @@ async def _run_background_ingest(
                 audit_log=audit,
                 store=store,
                 settings=settings,
+                cluster_index=cluster_index,
                 ner_sentence_limit=body.sentences,
                 max_relation_sentences=body.relations,
             )

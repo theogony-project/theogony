@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
 
 import pytest
 from pydantic import BaseModel
@@ -76,6 +77,25 @@ class InMemoryStore:
     async def batch_upsert_edges(self, edges: list[KnowledgeEdge]) -> None:
         for edge in edges:
             await self.upsert_edge(edge)
+
+    async def list_clusters(self) -> list:
+        return []
+
+    async def get_cluster_members(self, cluster_id: str) -> AsyncIterator[str]:
+        if False:  # pragma: no cover
+            yield ""
+
+    async def assign_cluster(
+        self,
+        node_id: str,
+        cluster_id: str | None,
+        *,
+        cluster_label: str | None = None,
+    ) -> None:
+        return None
+
+    async def get_cluster_centroid(self, cluster_id: str) -> list[float]:
+        return []
 
 
 # ---------------------------------------------------------------- raw content fixture

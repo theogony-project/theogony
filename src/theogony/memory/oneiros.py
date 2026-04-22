@@ -36,7 +36,10 @@ import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from theogony.clustering.cluster_index import ClusterIndex
+from theogony.clustering.recluster_phase import ClusteringRunReportPayload, ReclusterPhase
 from theogony.config.logging import get_logger
+from theogony.core.model import ClusterSummary
 from theogony.memory.tick_phase import TickContext, TickPhase, _aware
 from theogony.memory.tick_phases import (
     CountNeighborsPhase,
@@ -47,6 +50,7 @@ from theogony.memory.tick_phases import (
     WriteScoresPhase,
 )
 from theogony.reporting.models import (
+    ClusteringRunReport,
     OneirosTickReport,
     VitalityShift,
     new_run_id,
@@ -67,6 +71,7 @@ DEFAULT_PHASE_REGISTRY: dict[str, type[TickPhase]] = {
     "write_scores": WriteScoresPhase,
     "promote": PromotePhase,
     "degrade_mneme": DegradeMnemePhase,
+    "recluster": ReclusterPhase,
 }
 
 
@@ -97,10 +102,12 @@ class OneirosWorker:
         *,
         tick_interval_s: float | None = None,
         phase_registry: dict[str, type[TickPhase]] | None = None,
+        cluster_index: ClusterIndex | None = None,
     ) -> None:
         self._store = store
         self._settings = settings
         self._writer = report_writer
+        self._cluster_index = cluster_index
         self._tick_interval_s = (
             tick_interval_s if tick_interval_s is not None else settings.oneiros.tick_interval_s
         )
@@ -157,6 +164,8 @@ class OneirosWorker:
             perf_started=perf_started,
             cfg=cfg,
             store=self._store,
+            app_settings=self._settings,
+            writer=self._writer,
         )
 
         try:
@@ -181,6 +190,39 @@ class OneirosWorker:
                     raised=raised,
                 )
                 self._writer.write(report)
+                if not raised:
+                    raw_refresh = ctx.extras.get("cluster_index_refresh")
+                    if (
+                        raw_refresh is not None
+                        and self._cluster_index is not None
+                        and isinstance(raw_refresh, list)
+                        and all(isinstance(x, ClusterSummary) for x in raw_refresh)
+                    ):
+                        self._cluster_index.replace(raw_refresh)
+                    cp = ctx.extras.get("clustering_run")
+                    if isinstance(cp, ClusteringRunReportPayload):
+                        fin = datetime.now(UTC)
+                        algo = cp.algorithm if cp.algorithm in ("hdbscan", "kmeans") else "hdbscan"
+                        self._writer.write(
+                            ClusteringRunReport(
+                                run_id=new_run_id(),
+                                started_at=started,
+                                finished_at=fin,
+                                duration_s=max((fin - started).total_seconds(), 0.0),
+                                status="completed",
+                                verdict="good",
+                                verdict_reasoning="recluster pass",
+                                algorithm=algo,
+                                nodes_processed=cp.nodes_processed,
+                                clusters_formed=cp.clusters_formed,
+                                clusters_inherited=cp.clusters_inherited,
+                                clusters_minted=cp.clusters_minted,
+                                noise_node_count=cp.noise_node_count,
+                                mean_cluster_size=cp.mean_cluster_size,
+                                cluster_size_distribution=cp.cluster_size_distribution,
+                                runtime_ms=cp.runtime_ms,
+                            )
+                        )
             except Exception:  # pragma: no cover - defensive
                 log.exception("oneiros tick report write failed")
 

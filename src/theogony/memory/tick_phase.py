@@ -13,9 +13,10 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
 
-from theogony.config.settings import OneirosSettings
+from theogony.config.settings import OneirosSettings, Settings
 from theogony.core.model import KnowledgeNode, ScoreUpdate
 from theogony.core.store import KnowledgeStore
+from theogony.reporting.writer import RunReportWriter
 
 
 def _aware(dt: datetime) -> datetime:
@@ -58,6 +59,8 @@ class TickContext:
     perf_started: float
     cfg: OneirosSettings
     store: KnowledgeStore
+    app_settings: Settings = field(default_factory=Settings)
+    writer: RunReportWriter | None = None
 
     nodes_ephemera: list[KnowledgeNode] = field(default_factory=list)
     edge_counts: dict[str, int] = field(default_factory=dict)

@@ -59,7 +59,7 @@ class QueryRequest(BaseModel):
     layer: Layer | None = None
     k: int = Field(default=10, ge=1, le=50)
     hops: int = Field(default=2, ge=0, le=4)
-    strategy: Literal["fixed_depth", "edge_product"] | None = None
+    strategy: Literal["fixed_depth", "edge_product", "cluster_narrow"] | None = None
 
 
 class ConstellationDTO(BaseModel):
