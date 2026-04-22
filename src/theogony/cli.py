@@ -704,9 +704,7 @@ async def _run_ask(
                 settings=settings,
                 report_writer=report_writer,
             )
-            result = await pipeline.ask(
-                query, layer=layer, k=k, hops=hops, strategy=strategy
-            )
+            result = await pipeline.ask(query, layer=layer, k=k, hops=hops, strategy=strategy)
 
     _print_ask_result(query=query, result=result)
 

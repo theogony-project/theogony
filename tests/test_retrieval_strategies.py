@@ -266,9 +266,7 @@ async def test_query_pipeline_falls_back_to_settings_strategy_when_no_injection(
     store = InMemoryKnowledgeStore()
     await _populate_two_node_chronik(store)
     settings = Settings(retrieval=RetrievalSettings(strategy="edge_product"))
-    retriever = MultiHopRetriever(
-        store, strategy=build_retrieval_strategy(store, settings)
-    )
+    retriever = MultiHopRetriever(store, strategy=build_retrieval_strategy(store, settings))
     pipeline = QueryPipeline(
         embedder=_ConstEmbedder(),
         retriever=retriever,

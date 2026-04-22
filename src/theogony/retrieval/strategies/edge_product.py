@@ -54,9 +54,7 @@ class EdgeProductBreadthFirstStrategy:
             budget.top_n_paths if budget.top_n_paths is not None else self._default_top_n_paths
         )
 
-        seeds = await self._store.vector_search(
-            embedding, k=budget.max_nodes, layer=layer
-        )
+        seeds = await self._store.vector_search(embedding, k=budget.max_nodes, layer=layer)
         if not seeds:
             duration_ms = int((time.perf_counter() - started) * 1000)
             return MultiHopResult(

@@ -112,9 +112,7 @@ class MultiHopRetriever:
             hops=hops,
             min_edge_weight=min_weight,
         )
-        result = await self._strategy.retrieve(
-            query_embedding, budget=budget, layer=layer
-        )
+        result = await self._strategy.retrieve(query_embedding, budget=budget, layer=layer)
 
         log.debug(
             "multi_hop k=%d hops=%d min_weight=%.2f layer=%s -> %d nodes in %d ms",

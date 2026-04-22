@@ -156,9 +156,7 @@ class QueryPipeline:
                     self._retriever.store, self._settings, override=strategy
                 ),
             )
-        retrieval_result = await retriever.retrieve(
-            query_embedding, k=k, hops=hops, layer=layer
-        )
+        retrieval_result = await retriever.retrieve(query_embedding, k=k, hops=hops, layer=layer)
 
         # ---- 3. assemble
         constellation = await self._assembler.assemble(
