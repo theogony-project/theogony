@@ -107,6 +107,10 @@ The three-tier digital twin model (public, consensual private, shadow) is the et
 
 The Right to Opacity remains a core principle.
 
+## Argonauts
+
+**Argonauts** (cluster-specialised sub-agents) are reserved by PHX-0060: `ClusterSummary.properties["agent_class"]` is the extension slot. No Argonaut lifecycle ships in Phase 1 — that lands in a dedicated Phase-2 sub-ticket once clusters are stable in production.
+
 ## Hardware Evolution
 
 Current GPUs are optimized for transformer-style matrix multiplication. The Chronik's core operations are different:

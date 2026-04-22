@@ -270,7 +270,9 @@ Implementation will plug into the TickPhase pipeline introduced by F2.
 
 Implementation will plug into the TickPhase pipeline introduced by F2.
 
-**F3 note:** `ClusterNarrowingRetrievalStrategy` will ship as a further `RetrievalStrategy` implementation on the protocol introduced in Phase 1.
+**F3 note:** `ClusterNarrowingRetrievalStrategy` ships as a further `RetrievalStrategy` on the F3 protocol.
+
+**Phase 1 (W1) status:** implemented — `ClusteringStrategy` + HDBSCAN/k-means + `ReclusterPhase` + `ClusterIndex` + `ClusterNarrowingRetrievalStrategy`, `cluster_label`, `cross_cluster` on edges, `ClusteringRunReport`. Details: [`CLUSTERING.md`](CLUSTERING.md). Phase 2 sub-tickets: hierarchical centroids, LLM cluster naming, Argonaut sub-agents, soft clustering, `bridge_score`.
 
 ### PHX-0061: Vector-Routed Federation
 

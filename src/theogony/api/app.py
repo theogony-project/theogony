@@ -35,6 +35,7 @@ from theogony.api.routes import (
     node_router,
     query_router,
 )
+from theogony.clustering.cluster_index import ClusterIndex
 from theogony.config.logging import get_logger, setup_logging
 from theogony.config.settings import Settings
 from theogony.extraction.audit import ExtractionAuditLog
@@ -97,6 +98,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     report_writer = RunReportWriter(settings.run_reports_dir)
 
+    cluster_index = ClusterIndex()
+    await cluster_index.rebuild_from_store(store)
+
     app.state.settings = settings
     app.state.audit = audit
     app.state.wikidata_cache = wd_cache
@@ -104,11 +108,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.llm = llm
     app.state.store = store
     app.state.report_writer = report_writer
+    app.state.cluster_index = cluster_index
 
     # OneirosWorker slot (E8.5): owns the §4.3 write-back lifecycle.
     # The lifespan owns the long-lived task; shutdown cancels it
     # within the §4.4 5-second budget (see the finally block below).
-    worker = OneirosWorker(store, settings, report_writer)
+    worker = OneirosWorker(store, settings, report_writer, cluster_index=cluster_index)
     app.state.oneiros = worker
     app.state.oneiros_task = asyncio.create_task(worker.run())
 

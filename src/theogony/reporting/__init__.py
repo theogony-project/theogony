@@ -20,6 +20,7 @@ from theogony.reporting.anomaly import (
 )
 from theogony.reporting.models import (
     CitationQuality,
+    ClusteringRunReport,
     EmbeddingSummary,
     IngestRunReport,
     IngestStageReport,
@@ -46,6 +47,7 @@ from theogony.reporting.writer import RunReportWriter
 
 __all__ = [
     "CitationQuality",
+    "ClusteringRunReport",
     "EmbeddingSummary",
     "IngestRunReport",
     "IngestStageReport",

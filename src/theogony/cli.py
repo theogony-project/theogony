@@ -44,6 +44,8 @@ from rich.table import Table
 from theogony import __version__
 from theogony.acquisition.gutenberg import GutenbergAdapter
 from theogony.agents.factory import build_llm_from_settings
+from theogony.clustering.cluster_index import ClusterIndex
+from theogony.clustering.runner import run_one_recluster_pass
 from theogony.config import Settings, setup_logging
 from theogony.core.store import KnowledgeStore
 from theogony.extraction.audit import ExtractionAuditLog
@@ -181,7 +183,7 @@ def status() -> None:
     counts_table = Table(title="Run reports", show_header=True, header_style="bold")
     counts_table.add_column("Type")
     counts_table.add_column("Count", justify="right")
-    for rtype in ("ingest", "query", "oneiros"):
+    for rtype in ("ingest", "query", "oneiros", "clustering"):
         counts_table.add_row(rtype, str(_count_reports(settings, rtype)))
     _console.print(counts_table)
 
@@ -197,7 +199,7 @@ def reports_list(
         None,
         "--type",
         "-t",
-        help="Filter by report type: ingest | query | oneiros. Default: all.",
+        help="Filter by report type: ingest | query | oneiros | clustering. Default: all.",
     ),
     last: int = typer.Option(
         20,
@@ -209,7 +211,9 @@ def reports_list(
 ) -> None:
     """List recent run reports across types, newest first."""
     settings = _load_settings()
-    types = [report_type] if report_type is not None else ["ingest", "query", "oneiros"]
+    types = (
+        [report_type] if report_type is not None else ["ingest", "query", "oneiros", "clustering"]
+    )
 
     rows: list[tuple[str, str, str, str, str]] = []  # (run_id, type, verdict, status, duration)
     for rtype in types:
@@ -267,13 +271,13 @@ def reports_list(
 def reports_show(run_id: str = typer.Argument(..., help="The run_id (ULID).")) -> None:
     """Pretty-print one report's full JSON.
 
-    Searches all three subdirectories. If no exact match is found,
+    Searches all report-type subdirectories. If no exact match is found,
     falls back to prefix matching so you can paste the first few
     characters of a ULID and still find the file.
     """
     settings = _load_settings()
     matches: list[Path] = []
-    for rtype in ("ingest", "query", "oneiros"):
+    for rtype in ("ingest", "query", "oneiros", "clustering"):
         d = settings.run_reports_dir / rtype
         if not d.exists():
             continue
@@ -399,6 +403,40 @@ def ingest(
     )
 
 
+@app.command()
+def recluster(
+    force: bool = typer.Option(False, "--force", help="Skip cadence check."),
+    store_kind: str = typer.Option(
+        "neo4j",
+        "--store",
+        help="Storage backend: neo4j (default) or memory.",
+    ),
+) -> None:
+    """Run one full-store re-cluster pass and write a ClusteringRunReport."""
+    if store_kind not in ("neo4j", "memory"):
+        _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
+        raise typer.Exit(code=2)
+    asyncio.run(_run_recluster(force=force, store_kind=store_kind))
+
+
+async def _run_recluster(*, force: bool, store_kind: str) -> None:
+    settings = _load_settings()
+    report_writer = RunReportWriter(settings.run_reports_dir)
+    async with _open_store(settings, store_kind, settings.embedding.dim) as store:
+        report = await run_one_recluster_pass(store, settings, report_writer, force=force)
+    if report is None:
+        _console.print(Panel.fit("[yellow]Re-cluster skipped[/yellow]", title="theogony recluster"))
+        return
+    _console.print(
+        Panel.fit(
+            f"[green]clusters={report.clusters_formed}[/green] "
+            f"algorithm={report.algorithm} nodes={report.nodes_processed}",
+            title="theogony recluster",
+            border_style="green",
+        )
+    )
+
+
 @contextlib.asynccontextmanager
 async def _open_store(
     settings: Settings, store_kind: str, embedding_dim: int
@@ -499,6 +537,8 @@ async def _run_ingest(
                 RelationExtractor(llm=llm, audit_log=audit) if include_relations else None
             )
             async with _open_store(settings, store_kind, settings.embedding.dim) as store:
+                cluster_index = ClusterIndex()
+                await cluster_index.rebuild_from_store(store)
                 pipeline = IngestionPipeline(
                     entity_resolver=resolver,
                     relation_extractor=relation_extractor,
@@ -507,6 +547,7 @@ async def _run_ingest(
                     audit_log=audit,
                     store=store,
                     settings=settings,
+                    cluster_index=cluster_index,
                     ner_sentence_limit=ner_sentence_limit,
                     max_relation_sentences=max_relation_sentences,
                 )
@@ -608,7 +649,7 @@ def ask(
     strategy: str | None = typer.Option(
         None,
         "--strategy",
-        help="Override retrieval strategy: fixed_depth | edge_product (default: settings).",
+        help="Override retrieval strategy: fixed_depth | edge_product | cluster_narrow.",
     ),
 ) -> None:
     """Ask the Chronik a question and render the cited answer.
@@ -636,14 +677,17 @@ def ask(
     )
 
 
-def _parse_strategy(value: str | None) -> Literal["fixed_depth", "edge_product"] | None:
+def _parse_strategy(
+    value: str | None,
+) -> Literal["fixed_depth", "edge_product", "cluster_narrow"] | None:
     """Validate ``--strategy``; ``None`` means use settings default."""
     if value is None:
         return None
-    if value in ("fixed_depth", "edge_product"):
+    if value in ("fixed_depth", "edge_product", "cluster_narrow"):
         return value
     _console.print(
-        f"[red]Unknown --strategy value: {value!r}. Valid: fixed_depth, edge_product[/red]"
+        f"[red]Unknown --strategy value: {value!r}. "
+        "Valid: fixed_depth, edge_product, cluster_narrow[/red]"
     )
     raise typer.Exit(code=2)
 
@@ -669,7 +713,7 @@ async def _run_ask(
     hops: int,
     layer: Layer | None,
     store_kind: str,
-    strategy: Literal["fixed_depth", "edge_product"] | None,
+    strategy: Literal["fixed_depth", "edge_product", "cluster_narrow"] | None,
 ) -> None:
     settings = _load_settings()
     audit_path = settings.data_dir / "audit.sqlite"

@@ -67,6 +67,25 @@ class _StubStore:
     async def degrade(self, node_id: str) -> None:  # pragma: no cover - never called
         return None
 
+    async def list_clusters(self) -> list:
+        return []
+
+    async def get_cluster_members(self, cluster_id: str) -> AsyncIterator[str]:
+        if False:  # pragma: no cover
+            yield ""
+
+    async def assign_cluster(
+        self,
+        node_id: str,
+        cluster_id: str | None,
+        *,
+        cluster_label: str | None = None,
+    ) -> None:
+        return None
+
+    async def get_cluster_centroid(self, cluster_id: str) -> list[float]:
+        return []
+
 
 class _StubEmbedder:
     @property
@@ -134,6 +153,8 @@ async def _patched_lifespan(app: FastAPI) -> AsyncIterator[None]:
         oneiros=MagicMock(tick_interval_s=3600.0),  # never actually wakes
         report=real_settings.report,
         store=real_settings.store,
+        clustering=real_settings.clustering,
+        retrieval=real_settings.retrieval,
     )
     app_mod.Settings = lambda: settings_mock  # type: ignore[assignment]
     app_mod.ExtractionAuditLog = lambda *a, **kw: audit_mock  # type: ignore[assignment]
@@ -164,6 +185,7 @@ async def test_lifespan_startup_wires_every_app_state(
         assert app.state.llm is not None
         assert app.state.store is not None
         assert app.state.report_writer is not None
+        assert app.state.cluster_index is not None
         # E8.5 contract: oneiros slot is filled with a real worker
         # + a running asyncio.Task (no longer None as in E9).
         assert isinstance(app.state.oneiros, OneirosWorker)

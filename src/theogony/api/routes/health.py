@@ -43,7 +43,8 @@ async def health(
         embedding_model=settings.embedding.model_id,
         embedding_dim=settings.embedding.dim,
         report_counts={
-            rtype: _count_reports(settings, rtype) for rtype in ("ingest", "query", "oneiros")
+            rtype: _count_reports(settings, rtype)
+            for rtype in ("ingest", "query", "oneiros", "clustering")
         },
     )
 

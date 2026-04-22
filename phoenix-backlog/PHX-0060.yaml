@@ -1,7 +1,7 @@
 id: PHX-0060
 category: vision
 priority: high
-status: in_progress  # W1 brief landed 2026-04-21 — see docs/etappes/W1_cluster_v1_brief.md
+status: open  # Phase 1 (W1) delivered 2026-04-22; Phase 2 sub-tickets (hierarchy, naming, Argonauts, soft, bridge_score) remain — see docs/CLUSTERING.md
 generation_target: 2
 title: "Domain Clusters / Cognitive Centers — brain-region-style clustering, centroid-narrowed retrieval, per-cluster lifecycle"
 filed_by: hesiod

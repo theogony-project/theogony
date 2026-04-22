@@ -16,6 +16,7 @@ from typing import Protocol, runtime_checkable
 from pydantic import BaseModel, Field
 
 from theogony.core.model import (
+    ClusterSummary,
     Constellation,
     KnowledgeEdge,
     KnowledgeNode,
@@ -63,6 +64,7 @@ class KnowledgeStore(Protocol):
     - node and edge CRUD with full provenance
     - lifecycle management (promote, degrade, delete)
     - cluster management for hierarchical organization
+      (:class:`ClusterSummary`, centroids, membership)
     - bulk export/import for the Phoenix process
     """
 
@@ -259,8 +261,26 @@ class KnowledgeStore(Protocol):
         """Return the centroid embedding for a knowledge cluster."""
         ...
 
-    async def assign_cluster(self, node_id: str, cluster_id: str) -> None:
-        """Assign a node to a knowledge cluster."""
+    async def assign_cluster(
+        self,
+        node_id: str,
+        cluster_id: str | None,
+        *,
+        cluster_label: str | None = None,
+    ) -> None:
+        """Assign a node to a cluster, or clear membership when ``cluster_id`` is None."""
+        ...
+
+    async def list_clusters(self) -> list[ClusterSummary]:
+        """Return one summary per cluster (non-null ``cluster_id``)."""
+        ...
+
+    def get_cluster_members(self, cluster_id: str) -> AsyncIterator[str]:
+        """Yield node ids belonging to ``cluster_id``.
+
+        Async generator — sync ``def`` on the Protocol (same convention
+        as :meth:`export_layer`).
+        """
         ...
 
     # -------------------------------------------------------------------------

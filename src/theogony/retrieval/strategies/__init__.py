@@ -14,6 +14,7 @@ from theogony.retrieval.strategies.budget import RetrievalBudget
 from theogony.retrieval.strategies.protocol import RetrievalStrategy
 
 __all__ = [
+    "ClusterNarrowingRetrievalStrategy",
     "EdgeProductBreadthFirstStrategy",
     "FixedDepthStrategy",
     "RetrievalBudget",
@@ -32,4 +33,10 @@ def __getattr__(name: str) -> Any:
         )
 
         return EdgeProductBreadthFirstStrategy
+    if name == "ClusterNarrowingRetrievalStrategy":
+        from theogony.retrieval.strategies.cluster_narrowing import (
+            ClusterNarrowingRetrievalStrategy,
+        )
+
+        return ClusterNarrowingRetrievalStrategy
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

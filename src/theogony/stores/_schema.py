@@ -86,6 +86,14 @@ RANGE_INDEX_CYPHER: tuple[str, ...] = (
     CREATE INDEX knowledge_node_last_accessed IF NOT EXISTS
       FOR (n:KnowledgeNode) ON (n.last_accessed)
     """,
+    """
+    CREATE INDEX knowledge_node_cluster_id IF NOT EXISTS
+      FOR (n:KnowledgeNode) ON (n.cluster_id)
+    """,
+    """
+    CREATE INDEX knowledge_node_cluster_label IF NOT EXISTS
+      FOR (n:KnowledgeNode) ON (n.cluster_label)
+    """,
     # Edge side — 2 indexes.
     """
     CREATE INDEX relation_relation_type IF NOT EXISTS

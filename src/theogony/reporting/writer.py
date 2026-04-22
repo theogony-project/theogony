@@ -16,11 +16,13 @@ kinds later if it wants.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
 from theogony.config.logging import get_logger
 from theogony.reporting.models import (
+    ClusteringRunReport,
     IngestRunReport,
     OneirosTickReport,
     QueryRunReport,
@@ -29,7 +31,12 @@ from theogony.reporting.models import (
 
 log = get_logger("reporting.writer")
 
-ReportType = type[IngestRunReport] | type[QueryRunReport] | type[OneirosTickReport]
+ReportType = (
+    type[IngestRunReport]
+    | type[QueryRunReport]
+    | type[OneirosTickReport]
+    | type[ClusteringRunReport]
+)
 
 
 class RunReportWriter:
@@ -110,3 +117,25 @@ class RunReportWriter:
             except OSError as exc:  # pragma: no cover - filesystem race / permission
                 log.warning("failed to prune stale report %s: %s", stale, exc)
         return len(to_remove)
+
+    def most_recent(self, report_type: str) -> RunReportBase | None:
+        """Return the newest on-disk report of ``report_type``, or ``None``."""
+        d = self.directory_for(report_type)
+        candidates = sorted(
+            (p for p in d.iterdir() if p.is_file() and p.suffix == ".json"),
+            key=lambda p: p.stem,
+            reverse=True,
+        )
+        if not candidates:
+            return None
+        raw = json.loads(candidates[0].read_text(encoding="utf-8"))
+        rt = raw.get("report_type")
+        if rt == "ingest":
+            return IngestRunReport.model_validate(raw)
+        if rt == "query":
+            return QueryRunReport.model_validate(raw)
+        if rt == "oneiros":
+            return OneirosTickReport.model_validate(raw)
+        if rt == "clustering":
+            return ClusteringRunReport.model_validate(raw)
+        return None

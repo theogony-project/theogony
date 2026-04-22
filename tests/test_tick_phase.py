@@ -12,7 +12,7 @@ from theogony.config.settings import OneirosSettings, Settings
 from theogony.memory.oneiros import OneirosWorker
 from theogony.memory.tick_phase import TickContext, TickPhase
 from theogony.memory.tick_phases import SnapshotEphemeraPhase
-from theogony.reporting.models import OneirosTickReport
+from theogony.reporting.models import RunReportBase
 from theogony.stores import InMemoryKnowledgeStore
 
 
@@ -26,6 +26,7 @@ def test_tick_context_default_field_initialisation() -> None:
         perf_started=0.0,
         cfg=OneirosSettings(),
         store=MagicMock(),
+        app_settings=Settings(),
     )
     assert ctx.nodes_ephemera == []
     assert ctx.edge_counts == {}
@@ -57,6 +58,7 @@ async def test_phase_pipeline_runs_in_registered_order() -> None:
         perf_started=0.0,
         cfg=OneirosSettings(),
         store=MagicMock(),
+        app_settings=Settings(),
     )
     for phase in (PhaseA(), PhaseB()):
         await phase.run(ctx)
@@ -65,14 +67,17 @@ async def test_phase_pipeline_runs_in_registered_order() -> None:
 
 class _CaptureWriter:
     def __init__(self) -> None:
-        self.written: list[OneirosTickReport] = []
+        self.written: list[RunReportBase] = []
 
-    def write(self, report: OneirosTickReport) -> Path:
+    def write(self, report: RunReportBase) -> Path:
         self.written.append(report)
         return Path("/tmp/x.json")
 
     def directory_for(self, report_type: str) -> Path:  # pragma: no cover
         return Path("/tmp") / report_type
+
+    def most_recent(self, report_type: str) -> RunReportBase | None:  # pragma: no cover
+        return None
 
 
 @pytest.mark.asyncio

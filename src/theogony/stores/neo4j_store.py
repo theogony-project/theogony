@@ -61,6 +61,7 @@ What this module deliberately does NOT do
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import AsyncIterator, Mapping, Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -68,6 +69,7 @@ from typing import TYPE_CHECKING, Any
 from theogony.config.logging import get_logger
 from theogony.config.settings import Neo4jSettings
 from theogony.core.model import (
+    ClusterSummary,
     Constellation,
     ConstellationEdge,
     ConstellationNode,
@@ -128,6 +130,7 @@ def _node_to_props(node: KnowledgeNode, embedding_dim: int) -> dict[str, Any]:
         "epistemic_status": node.epistemic_status.value,
         "layer": node.layer.value,
         "cluster_id": node.cluster_id,
+        "cluster_label": node.cluster_label,
         # ``embedding`` is the only list-of-float we set; Neo4j stores it
         # as a list and the HNSW index reads it directly.
         "embedding": list(node.embedding) if node.embedding else None,
@@ -203,6 +206,7 @@ def _node_from_record(props: Mapping[str, Any]) -> KnowledgeNode:
         description=props.get("description"),
         layer=Layer(props.get("layer", Layer.EPHEMERA.value)),
         cluster_id=props.get("cluster_id"),
+        cluster_label=props.get("cluster_label"),
         external_ids=external_ids,
         source_ref=source_ref,
         scores=scores,
@@ -858,13 +862,136 @@ class Neo4jKnowledgeStore:
         n = len(embeddings)
         return [sum(e[i] for e in embeddings) / n for i in range(dim)]
 
-    async def assign_cluster(self, node_id: str, cluster_id: str) -> None:
+    async def assign_cluster(
+        self,
+        node_id: str,
+        cluster_id: str | None,
+        *,
+        cluster_label: str | None = None,
+    ) -> None:
         cypher = """
         MATCH (n:KnowledgeNode {id: $node_id})
-        SET n.cluster_id = $cluster_id
+        SET n.cluster_id = $cluster_id,
+            n.cluster_label = $cluster_label
         """
         async with self._session() as session:
-            await session.run(cypher, node_id=node_id, cluster_id=cluster_id)
+            await session.run(
+                cypher,
+                node_id=node_id,
+                cluster_id=cluster_id,
+                cluster_label=cluster_label,
+            )
+
+    async def list_clusters(self) -> list[ClusterSummary]:
+        cypher = """
+        MATCH (n:KnowledgeNode)
+        WHERE n.cluster_id IS NOT NULL
+          AND n.embedding IS NOT NULL
+          AND size(n.embedding) > 0
+        WITH n.cluster_id AS cid,
+             collect(DISTINCT n.cluster_label) AS labels,
+             collect(n.embedding) AS embeddings,
+             collect(n.node_type) AS node_types,
+             collect(n.source_ref_json) AS source_jsons
+        RETURN cid,
+               labels,
+               size(embeddings) AS member_count,
+               embeddings,
+               node_types,
+               source_jsons
+        """
+        async with self._session() as session:
+            result = await session.run(cypher)
+            records = await result.data()
+        summaries: list[ClusterSummary] = []
+        for rec in records:
+            cid = str(rec["cid"])
+            embeddings_raw = [list(e) for e in (rec.get("embeddings") or []) if e]
+            embeddings_raw = [e for e in embeddings_raw if e]
+            centroid: list[float] = []
+            if embeddings_raw:
+                dim = len(embeddings_raw[0])
+                if all(len(e) == dim for e in embeddings_raw):
+                    nemb = len(embeddings_raw)
+                    centroid = [sum(e[i] for e in embeddings_raw) / nemb for i in range(dim)]
+                    norm = math.sqrt(sum(x * x for x in centroid))
+                    if norm > 0.0:
+                        centroid = [x / norm for x in centroid]
+            types: list[NodeType] = []
+            for nt in rec.get("node_types") or []:
+                if nt:
+                    types.append(NodeType(str(nt)))
+            dom_type: NodeType | None = None
+            if types:
+                dom_type = max(set(types), key=lambda t: sum(1 for x in types if x == t))
+            sources: list[str] = []
+            for sj in rec.get("source_jsons") or []:
+                if sj:
+                    sr = SourceRef.model_validate_json(str(sj))
+                    sources.append(sr.source_type)
+            dom_src: str | None = None
+            if sources:
+                dom_src = max(set(sources), key=lambda s: sum(1 for x in sources if x == s))
+            raw_labels = rec.get("labels") or []
+            clabel = next((x for x in raw_labels if x is not None), None)
+            if clabel is not None and not isinstance(clabel, str):
+                clabel = str(clabel)
+            summaries.append(
+                ClusterSummary(
+                    cluster_id=cid,
+                    cluster_label=clabel,
+                    member_count=int(rec["member_count"]),
+                    centroid=centroid,
+                    dominant_node_type=dom_type,
+                    dominant_source_type=dom_src,
+                    properties={},
+                )
+            )
+        summaries.sort(key=lambda s: s.cluster_id)
+        return summaries
+
+    async def get_cluster_members(self, cluster_id: str) -> AsyncIterator[str]:
+        cypher = """
+        MATCH (n:KnowledgeNode {cluster_id: $cluster_id})
+        RETURN n.id AS id
+        """
+        async with self._session() as session:
+            result = await session.run(cypher, cluster_id=cluster_id)
+            async for record in result:
+                yield str(record["id"])
+
+    async def refresh_cross_cluster_edge_flags(self) -> None:
+        """Recompute ``properties.cross_cluster`` on every RELATION (PHX-0060)."""
+        cypher = """
+        MATCH (s:KnowledgeNode)-[r:RELATION]->(t:KnowledgeNode)
+        RETURN r.id AS id, r.properties_json AS properties_json,
+               s.cluster_id AS sc, t.cluster_id AS tc
+        """
+        rows: list[dict[str, Any]] = []
+        async with self._session() as session:
+            result = await session.run(cypher)
+            async for record in result:
+                raw = record.get("properties_json") or "{}"
+                props: dict[str, Any] = json.loads(raw) if raw else {}
+                sc = record.get("sc")
+                tc = record.get("tc")
+                props["cross_cluster"] = bool(sc and tc and sc != tc)
+                rows.append(
+                    {
+                        "id": record["id"],
+                        "properties_json": json.dumps(props, sort_keys=True, default=str),
+                    }
+                )
+        if not rows:
+            return
+        upd = """
+        UNWIND $rows AS row
+        MATCH ()-[r:RELATION]->()
+        WHERE r.id = row.id
+        SET r.properties_json = row.properties_json
+        """
+        async with self._session() as session:
+            await session.run(upd, rows=rows)
 
     # ----- bulk operations ---------------------------------------------------
 

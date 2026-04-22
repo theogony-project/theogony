@@ -48,7 +48,7 @@ class RunReportBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     run_id: str = Field(default_factory=new_run_id)
-    report_type: Literal["ingest", "query", "oneiros"]
+    report_type: Literal["ingest", "query", "oneiros", "clustering"]
     started_at: datetime
     finished_at: datetime
     duration_s: float = Field(ge=0.0)
@@ -253,3 +253,21 @@ class OneirosTickReport(RunReportBase):
     nodes_promoted: int = Field(default=0, ge=0)
     nodes_degraded: int = Field(default=0, ge=0)
     vitality: VitalityShift
+
+
+# ---------------------------------------------------------------------------
+# Clustering report (PHX-0060 Phase 1)
+# ---------------------------------------------------------------------------
+
+
+class ClusteringRunReport(RunReportBase):
+    report_type: Literal["clustering"] = "clustering"
+    algorithm: Literal["hdbscan", "kmeans"]
+    nodes_processed: int = Field(default=0, ge=0)
+    clusters_formed: int = Field(default=0, ge=0)
+    clusters_inherited: int = Field(default=0, ge=0)
+    clusters_minted: int = Field(default=0, ge=0)
+    noise_node_count: int = Field(default=0, ge=0)
+    mean_cluster_size: float = Field(default=0.0, ge=0.0)
+    cluster_size_distribution: list[int] = Field(default_factory=list)
+    runtime_ms: int = Field(default=0, ge=0)
