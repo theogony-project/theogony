@@ -1,7 +1,9 @@
 # Fly.io MCP SSE — canonical config at repository root.
 #
-# This file exists so `fly deploy -a theogony-mcp` (without `-c`) uses the
-# correct Dockerfile. A Dockerfile that only copies `pyproject.toml` before
+# This file pins `[build].dockerfile` to `hosted/Dockerfile`. Some Fly /
+# Depot paths still default to `./Dockerfile`, so the repo also ships a
+# **root `Dockerfile` symlink** to `hosted/Dockerfile` (same bytes as the
+# canonical image). A Dockerfile that only copies `pyproject.toml` before
 # `pip install .` will fail: hatchling reads `__version__` from
 # `src/theogony/__init__.py` at metadata time (see pyproject.toml).
 #
