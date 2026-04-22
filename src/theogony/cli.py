@@ -33,7 +33,7 @@ from collections.abc import AsyncIterator
 from contextlib import AbstractContextManager, nullcontext
 from difflib import get_close_matches
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import typer
 import uvicorn
@@ -59,6 +59,7 @@ from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
+from theogony.retrieval.strategy_factory import build_retrieval_strategy
 from theogony.retrieval.synthesize import AnswerSynthesizer
 from theogony.stores.memory import InMemoryKnowledgeStore
 from theogony.stores.neo4j_store import Neo4jKnowledgeStore
@@ -604,6 +605,11 @@ def ask(
         "--store",
         help="Storage backend: 'neo4j' (default) or 'memory' (offline / CI tests).",
     ),
+    strategy: str | None = typer.Option(
+        None,
+        "--strategy",
+        help="Override retrieval strategy: fixed_depth | edge_product (default: settings).",
+    ),
 ) -> None:
     """Ask the Chronik a question and render the cited answer.
 
@@ -617,6 +623,7 @@ def ask(
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     layer_enum = _parse_layer(layer)
+    strategy_override = _parse_strategy(strategy)
     asyncio.run(
         _run_ask(
             query=query,
@@ -624,8 +631,21 @@ def ask(
             hops=hops,
             layer=layer_enum,
             store_kind=store_kind,
+            strategy=strategy_override,
         )
     )
+
+
+def _parse_strategy(value: str | None) -> Literal["fixed_depth", "edge_product"] | None:
+    """Validate ``--strategy``; ``None`` means use settings default."""
+    if value is None:
+        return None
+    if value in ("fixed_depth", "edge_product"):
+        return value
+    _console.print(
+        f"[red]Unknown --strategy value: {value!r}. Valid: fixed_depth, edge_product[/red]"
+    )
+    raise typer.Exit(code=2)
 
 
 def _parse_layer(layer: str | None) -> Layer | None:
@@ -649,6 +669,7 @@ async def _run_ask(
     hops: int,
     layer: Layer | None,
     store_kind: str,
+    strategy: Literal["fixed_depth", "edge_product"] | None,
 ) -> None:
     settings = _load_settings()
     audit_path = settings.data_dir / "audit.sqlite"
@@ -673,14 +694,17 @@ async def _run_ask(
         async with _open_store(settings, store_kind, settings.embedding.dim) as store:
             pipeline = QueryPipeline(
                 embedder=embedder,
-                retriever=MultiHopRetriever(store),
+                retriever=MultiHopRetriever(
+                    store,
+                    strategy=build_retrieval_strategy(store, settings),
+                ),
                 assembler=ConstellationAssembler(store),
                 synthesizer=AnswerSynthesizer(llm, audit_log=audit),
                 relevance=RelevanceTracker(store),
                 settings=settings,
                 report_writer=report_writer,
             )
-            result = await pipeline.ask(query, layer=layer, k=k, hops=hops)
+            result = await pipeline.ask(query, layer=layer, k=k, hops=hops, strategy=strategy)
 
     _print_ask_result(query=query, result=result)
 

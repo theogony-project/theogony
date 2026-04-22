@@ -67,6 +67,7 @@ from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
+from theogony.retrieval.strategy_factory import build_retrieval_strategy
 from theogony.retrieval.synthesize import AnswerSynthesizer
 from theogony.stores.memory import InMemoryKnowledgeStore
 from theogony.stores.neo4j_store import Neo4jKnowledgeStore
@@ -225,7 +226,10 @@ async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpR
 def _build_query_pipeline(res: McpResources) -> QueryPipeline:
     return QueryPipeline(
         embedder=res.embedder,
-        retriever=MultiHopRetriever(res.store),
+        retriever=MultiHopRetriever(
+            res.store,
+            strategy=build_retrieval_strategy(res.store, res.settings),
+        ),
         assembler=ConstellationAssembler(res.store),
         synthesizer=AnswerSynthesizer(res.llm, audit_log=res.audit),
         relevance=RelevanceTracker(res.store),

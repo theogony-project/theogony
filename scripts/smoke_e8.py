@@ -37,6 +37,7 @@ from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
+from theogony.retrieval.strategy_factory import build_retrieval_strategy
 from theogony.retrieval.synthesize import AnswerSynthesizer
 from theogony.stores import Neo4jKnowledgeStore
 
@@ -88,7 +89,10 @@ async def main() -> int:
                 writer = RunReportWriter(settings.run_reports_dir)
                 ask_pipeline = QueryPipeline(
                     embedder=embedder,
-                    retriever=MultiHopRetriever(store),
+                    retriever=MultiHopRetriever(
+                        store,
+                        strategy=build_retrieval_strategy(store, settings),
+                    ),
                     assembler=ConstellationAssembler(store),
                     synthesizer=AnswerSynthesizer(llm, audit_log=audit),
                     relevance=RelevanceTracker(store),

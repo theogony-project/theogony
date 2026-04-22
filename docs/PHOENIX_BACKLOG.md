@@ -224,6 +224,8 @@ Hestia's standing subscription to every `CuriosityTrigger`. Person-as-target che
 
 Today's `MultiHopRetriever` is statically parametrised (`k=10, hops=2, min_weight=0.3`). [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md) §5 describes the mature shape: a query injects energy that propagates over a multi-relational graph under an explicit budget, with strategies pluggable by Fast/Slow path. This ticket lands a `RetrievalStrategy` Protocol + a `RetrievalBudget` model + a refactor of today's behaviour into a default `FixedDepthStrategy`, plus the second concrete strategy `EdgeProductBreadthFirst` (path-product threshold, top-N best paths). `VectorSimilarityBreadthFirst` and `LLMHeuristicGuided` follow as sub-tickets when empirical signals justify them. YAML: [`phoenix-backlog/PHX-0056.yaml`](../phoenix-backlog/PHX-0056.yaml).
 
+**Phase 1 closed by F3 (PR #48):** Protocol + `RetrievalBudget` + `FixedDepthStrategy` + `EdgeProductBreadthFirstStrategy`. Phase 2 ships `VectorSimilarityBreadthFirst` and `LLMHeuristicGuided` when measured signals justify them.
+
 ### PHX-0057: Edge-Pheromone Trails + Slow-Path Emancipation
 
 - **Category**: vision
@@ -233,7 +235,7 @@ Today's `MultiHopRetriever` is statically parametrised (`k=10, hops=2, min_weigh
 
 Today's pheromone signal is node-only (`RelevanceTracker.bump`). This ticket extends it to edges: cited paths bump edge weights; OneirosWorker decays edges that go untraversed; `RetrievalBudget` gains `pheromone_mode: follow|ignore|invert` so Slow-Path strategies can deliberately walk against the well-trodden trail (the cognitive-bias-correction the user introduced as the "Ameisenstraße"-Bild, conversation 2026-04-20). Without this, well-trodden paths become permanent autobahns and Slow-Path collapses into "same path, more tokens". YAML: [`phoenix-backlog/PHX-0057.yaml`](../phoenix-backlog/PHX-0057.yaml).
 
-Implementation will plug into the TickPhase pipeline introduced by F2.
+Implementation will plug into the TickPhase pipeline introduced by F2. Slow-path retrieval work will also register a new `RetrievalStrategy` alongside the F3 protocol.
 
 ### PHX-0058: Aggregated Stub Detection — Recurring Blind Spots
 
@@ -268,6 +270,8 @@ Implementation will plug into the TickPhase pipeline introduced by F2.
 
 Implementation will plug into the TickPhase pipeline introduced by F2.
 
+**F3 note:** `ClusterNarrowingRetrievalStrategy` will ship as a further `RetrievalStrategy` implementation on the protocol introduced in Phase 1.
+
 ### PHX-0061: Vector-Routed Federation
 
 - **Category**: vision
@@ -276,6 +280,8 @@ Implementation will plug into the TickPhase pipeline introduced by F2.
 - **Filed by**: hesiod (2026-04-21 design conversation)
 
 PHX-0003 is the generic federation ticket. This one captures the user's specific architectural innovation: federated chronicles find each other through **exposed vector signatures, not DNS**. Each chronicle publishes a small set of domain signature vectors (the cluster centroids from PHX-0060) plus a capability manifest. Routing per query: vector similarity against known peers' signatures; top-N most-similar peers receive the federated query (user opt-in required). Trust profile travels with each answer (transitive provenance). Cost guardrails keep signature publishing cheap (≤1000 vectors per chronicle), routing LLM-free, and cross-chronicle queries opt-in. Service to humanity: enables sovereign multi-operator pantheons; preserves data sovereignty across jurisdictions; supports political plurality without central authority — the technical realisation of "Pantheon is rails, not empire". YAML: [`phoenix-backlog/PHX-0061.yaml`](../phoenix-backlog/PHX-0061.yaml).
+
+**F3 note:** Federation routing sits above `RetrievalStrategy` selection but depends on the same extension surface for per-chronicle retrieval behaviour.
 
 ### PHX-0062: Negative Knowledge / Anti-Bullshit Layer
 

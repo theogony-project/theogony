@@ -52,6 +52,8 @@ from theogony.reporting.verdict import query_verdict
 from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopResult, MultiHopRetriever
+from theogony.retrieval.strategies.protocol import RetrievalStrategy
+from theogony.retrieval.strategy_factory import build_retrieval_strategy
 from theogony.retrieval.synthesize import Answer, AnswerSynthesizer
 
 log = get_logger("retrieval.pipeline")
@@ -85,11 +87,15 @@ class QueryPipeline:
         synthesizer: AnswerSynthesizer,
         relevance: RelevanceTracker,
         *,
+        strategy: RetrievalStrategy | None = None,
         settings: Settings | None = None,
         report_writer: RunReportWriter | None = None,
     ) -> None:
         self._embedder = embedder
-        self._retriever = retriever
+        if strategy is not None:
+            self._retriever = MultiHopRetriever(retriever.store, strategy=strategy)
+        else:
+            self._retriever = retriever
         self._assembler = assembler
         self._synthesizer = synthesizer
         self._relevance = relevance
@@ -103,6 +109,7 @@ class QueryPipeline:
         layer: Layer | None = None,
         k: int = 10,
         hops: int = 2,
+        strategy: Literal["fixed_depth", "edge_product"] | None = None,
     ) -> QueryResult:
         """Run the retrieval loop for ``query`` and return answer + constellation + report.
 
@@ -126,7 +133,14 @@ class QueryPipeline:
         run_id = new_run_id()
         started_at = datetime.now(UTC)
         run_perf = time.perf_counter()
-        log.info("ask start run_id=%s query=%r k=%d hops=%d", run_id, query, k, hops)
+        log.info(
+            "ask start run_id=%s query=%r k=%d hops=%d strategy=%s",
+            run_id,
+            query,
+            k,
+            hops,
+            strategy or "default",
+        )
 
         # ---- 1. embed
         embed_perf = time.perf_counter()
@@ -134,9 +148,15 @@ class QueryPipeline:
         embedding_duration_ms = int((time.perf_counter() - embed_perf) * 1000)
 
         # ---- 2. retrieve
-        retrieval_result = await self._retriever.retrieve(
-            query_embedding, k=k, hops=hops, layer=layer
-        )
+        retriever = self._retriever
+        if strategy is not None:
+            retriever = MultiHopRetriever(
+                self._retriever.store,
+                strategy=build_retrieval_strategy(
+                    self._retriever.store, self._settings, override=strategy
+                ),
+            )
+        retrieval_result = await retriever.retrieve(query_embedding, k=k, hops=hops, layer=layer)
 
         # ---- 3. assemble
         constellation = await self._assembler.assemble(
