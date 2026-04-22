@@ -26,8 +26,16 @@ class HDBSCANStrategy:
 
     name = "hdbscan"
 
-    def __init__(self, *, min_cluster_size: int = 5) -> None:
+    def __init__(
+        self,
+        *,
+        min_cluster_size: int = 5,
+        min_samples: int | None = None,
+        allow_single_cluster: bool = False,
+    ) -> None:
         self._min_cluster_size = min_cluster_size
+        self._min_samples = min_samples if min_samples is not None else min_cluster_size
+        self._allow_single_cluster = allow_single_cluster
 
     def cluster(
         self,
@@ -43,7 +51,12 @@ class HDBSCANStrategy:
                 runtime_ms=int((time.perf_counter() - started) * 1000),
             )
         x = _row_normalise(embeddings)
-        clusterer = HDBSCAN(min_cluster_size=self._min_cluster_size, metric="euclidean")
+        clusterer = HDBSCAN(
+            min_cluster_size=self._min_cluster_size,
+            min_samples=self._min_samples,
+            metric="euclidean",
+            allow_single_cluster=self._allow_single_cluster,
+        )
         labels = cast(np.ndarray, clusterer.fit_predict(x))
         assignments = {nid: int(lbl) for nid, lbl in zip(node_ids, labels.tolist(), strict=True)}
         centroids: dict[int, list[float]] = {}

@@ -115,7 +115,7 @@ The Curiosity Loop is only as good as its ability to recognise that a region is 
 
 Each signal is heuristic. The verdict is structured (which signals fired, what their values were) and emitted as a `StubVerdict` in the `QueryRunReport` (for retrospective analysis by the Reviewer Agent). Thresholds are tunable per `theogony` config and per tenant.
 
-Generation 1 should already emit `StubVerdict` even though it does not yet trigger research on it. This builds the data foundation needed to calibrate thresholds before the loop goes live in a later generation.
+**Gen 1 (W3 / PHX-0058 Phase 1)** ships `StubVerdict` plus a `RegionDescriptor` on every `QueryRunReport`, and an optional, default-off Oneiros phase that clusters recurring thin regions into `BlindSpotReport` JSON under `run_reports/blindspot/`. See [`BLIND_SPOTS.md`](BLIND_SPOTS.md) for mechanics, cadence, and privacy notes. Outward research dispatch remains a later-generation capability (PHX-0037); W3 only lays down the signal.
 
 ---
 

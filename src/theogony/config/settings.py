@@ -163,7 +163,8 @@ class OneirosSettings(BaseModel):
             "all six built-in phases in their canonical order. Operators "
             "can disable phases (e.g. omit 'promote' for read-only test "
             "deployments) or reorder. Future phases from PHX-0057/0058/"
-            "0059/0060 are added via custom phase_registry injection."
+            "0059/0060 are added via custom phase_registry injection "
+            "(e.g. blind_spot_aggregation, PHX-0058)."
         ),
     )
     edge_pheromone: EdgePheromoneSettings = Field(default_factory=EdgePheromoneSettings)
@@ -352,6 +353,30 @@ class ClusteringSettings(BaseModel):
     new_node_assignment: Literal["nearest_centroid", "skip"] = "nearest_centroid"
 
 
+class StubThresholds(BaseModel):
+    """Per-query stub-detection thresholds (CURIOSITY.md §Stub Detection; W3)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    min_node_count: int = Field(default=3, ge=0)
+    min_edge_density: float = Field(default=0.5, ge=0.0)
+    min_mean_vitality: float = Field(default=0.3, ge=0.0, le=1.0)
+    min_distinct_source_types: int = Field(default=2, ge=0)
+    min_mean_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    min_named_entities_resolved_ratio: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class CuriositySettings(BaseModel):
+    """Stub detection + blind-spot aggregation (PHX-0058 Phase 1 / W3)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    stub_thresholds: StubThresholds = Field(default_factory=StubThresholds)
+    window_days: float = Field(default=30.0, ge=0.0)
+    min_hits: int = Field(default=3, ge=2)
+    aggregation_interval_s: float = Field(default=86400.0, ge=0.0)
+
+
 class Settings(BaseSettings):
     """Top-level Theogony settings.
 
@@ -397,6 +422,7 @@ class Settings(BaseSettings):
     relevance: RelevanceSettings = Field(default_factory=RelevanceSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     clustering: ClusteringSettings = Field(default_factory=ClusteringSettings)
+    curiosity: CuriositySettings = Field(default_factory=CuriositySettings)
 
     data_dir: Path = Field(
         default=Path("data"),

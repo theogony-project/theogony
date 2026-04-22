@@ -41,6 +41,8 @@ from pydantic import BaseModel, ConfigDict
 from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
 from theogony.core.model import Constellation, Layer
+from theogony.curiosity.region_descriptor import compute_region_descriptor
+from theogony.curiosity.stub_detector import StubDetector
 from theogony.extraction.embedding import EmbeddingProvider
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
@@ -48,6 +50,8 @@ from theogony.reporting.models import (
     CitationQuality,
     MultiHopBreakdown,
     QueryRunReport,
+    RegionDescriptor,
+    StubVerdict,
     SynthesisBreakdown,
     new_run_id,
 )
@@ -111,6 +115,7 @@ class QueryPipeline:
         settings: Settings | None = None,
         report_writer: RunReportWriter | None = None,
         edge_pheromone: EdgePheromoneTracker | None = None,
+        stub_detector: StubDetector | None = None,
     ) -> None:
         self._embedder = embedder
         if strategy is not None:
@@ -125,6 +130,9 @@ class QueryPipeline:
         self._edge_pheromone = edge_pheromone or EdgePheromoneTracker(
             retriever.store,
             delta=self._settings.relevance.edge_pheromone_delta,
+        )
+        self._stub_detector = stub_detector or StubDetector(
+            self._settings.curiosity.stub_thresholds,
         )
 
     async def ask(
@@ -214,6 +222,7 @@ class QueryPipeline:
             constellation=constellation,
             answer=answer,
             synthesis_total_latency_ms=synthesis_total_latency_ms,
+            query_embedding=query_embedding,
         )
 
         # ---- 6. persist (optional)
@@ -261,6 +270,7 @@ class QueryPipeline:
         constellation: Constellation,
         answer: Answer,
         synthesis_total_latency_ms: int,
+        query_embedding: list[float],
     ) -> QueryRunReport:
         """Compose ``QueryRunReport`` from accumulated observations.
 
@@ -328,6 +338,18 @@ class QueryPipeline:
             thresholds=self._settings.report.thresholds.query,
         )
 
+        stub_verdict: StubVerdict = self._stub_detector.detect(
+            query=query,
+            constellation=constellation,
+            answer=answer,
+            named_entities_in_query=None,
+        )
+        region_descriptor: RegionDescriptor = compute_region_descriptor(
+            query_embedding=query_embedding,
+            constellation=constellation,
+            retrieval_result=retrieval_result,
+        )
+
         return QueryRunReport(
             run_id=run_id,
             started_at=started_at,
@@ -350,6 +372,8 @@ class QueryPipeline:
             gaps_identified=len(constellation.gaps),
             synthesis=synthesis,
             citation_quality=citation_quality,
+            stub_verdict=stub_verdict,
+            region_descriptor=region_descriptor,
         )
 
 

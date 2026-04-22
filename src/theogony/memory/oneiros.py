@@ -40,6 +40,7 @@ from theogony.clustering.cluster_index import ClusterIndex
 from theogony.clustering.recluster_phase import ClusteringRunReportPayload, ReclusterPhase
 from theogony.config.logging import get_logger
 from theogony.core.model import ClusterSummary
+from theogony.curiosity.blind_spot_aggregation_phase import BlindSpotAggregationPhase
 from theogony.memory.pheromone_decay_phase import PheromoneDecayPhase
 from theogony.memory.tick_phase import TickContext, TickPhase, _aware
 from theogony.memory.tick_phases import (
@@ -74,6 +75,7 @@ DEFAULT_PHASE_REGISTRY: dict[str, type[TickPhase]] = {
     "degrade_mneme": DegradeMnemePhase,
     "recluster": ReclusterPhase,
     "pheromone_decay": PheromoneDecayPhase,
+    "blind_spot_aggregation": BlindSpotAggregationPhase,
 }
 
 

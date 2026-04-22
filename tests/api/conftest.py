@@ -32,6 +32,7 @@ from theogony.api.routes import (
     query_router,
 )
 from theogony.config.settings import Settings
+from theogony.curiosity.stub_detector import StubDetector
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.writer import RunReportWriter
@@ -129,6 +130,7 @@ def api_app(
     app.state.llm = api_llm
     app.state.store = api_store
     app.state.report_writer = RunReportWriter(api_settings.run_reports_dir)
+    app.state.stub_detector = StubDetector(api_settings.curiosity.stub_thresholds)
     app.state.oneiros = None
     app.state.oneiros_task = None
 

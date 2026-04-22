@@ -22,6 +22,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 from ulid import ULID
 
+from theogony.core.model import NodeType
+
 # ---------------------------------------------------------------------------
 # IDs
 # ---------------------------------------------------------------------------
@@ -48,7 +50,7 @@ class RunReportBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     run_id: str = Field(default_factory=new_run_id)
-    report_type: Literal["ingest", "query", "oneiros", "clustering"]
+    report_type: Literal["ingest", "query", "oneiros", "clustering", "blindspot"]
     started_at: datetime
     finished_at: datetime
     duration_s: float = Field(ge=0.0)
@@ -219,6 +221,41 @@ class CitationQuality(BaseModel):
     citations_aka_only: int = Field(default=0, ge=0)
 
 
+class StubVerdict(BaseModel):
+    """Per-query stub detection (CURIOSITY.md §Stub Detection; PHX-0058 / W3)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    low_node_count: bool = False
+    low_edge_density: bool = False
+    low_vitality: bool = False
+    narrow_source_diversity: bool = False
+    low_confidence_aggregate: bool = False
+    poor_named_entity_coverage: bool = False
+
+    node_count: int = Field(default=0, ge=0)
+    edge_density: float = Field(default=0.0, ge=0.0)
+    mean_vitality: float = Field(default=0.0, ge=0.0, le=1.0)
+    distinct_source_types: int = Field(default=0, ge=0)
+    mean_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    named_entities_resolved_ratio: float = Field(default=1.0, ge=0.0, le=1.0)
+
+    stub_signal_strength: float = Field(default=0.0, ge=0.0, le=1.0)
+    is_stub: bool = False
+
+
+class RegionDescriptor(BaseModel):
+    """Compact projection of where a query landed (PHX-0058 / W3)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    query_embedding: list[float]
+    seed_node_count: int = Field(default=0, ge=0)
+    dominant_cluster_id: str | None = None
+    dominant_node_type: NodeType | None = None
+    mean_seed_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
 class QueryRunReport(RunReportBase):
     report_type: Literal["query"] = "query"
     query: str
@@ -231,6 +268,8 @@ class QueryRunReport(RunReportBase):
     gaps_identified: int = Field(default=0, ge=0)
     synthesis: SynthesisBreakdown
     citation_quality: CitationQuality
+    stub_verdict: StubVerdict | None = None
+    region_descriptor: RegionDescriptor | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -271,3 +310,32 @@ class ClusteringRunReport(RunReportBase):
     mean_cluster_size: float = Field(default=0.0, ge=0.0)
     cluster_size_distribution: list[int] = Field(default_factory=list)
     runtime_ms: int = Field(default=0, ge=0)
+
+
+# ---------------------------------------------------------------------------
+# Blind-spot aggregation (PHX-0058 Phase 1 / W3)
+# ---------------------------------------------------------------------------
+
+
+class BlindSpotCandidate(BaseModel):
+    """One detected pattern: K thin queries that share an embedding region."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    contributing_run_ids: list[str]
+    centroid_embedding: list[float]
+    stub_signal_strength: float = Field(ge=0.0, le=1.0)
+    dominant_cluster_id: str | None = None
+    dominant_node_type: NodeType | None = None
+    requires_hestia_review: bool = False
+    hestia_review_status: Literal["not_required", "pending", "approved", "blocked"] = "not_required"
+
+
+class BlindSpotReport(RunReportBase):
+    """One aggregator pass — emitted per :class:`BlindSpotCandidate`."""
+
+    report_type: Literal["blindspot"] = "blindspot"
+    candidate: BlindSpotCandidate
+    window_days: float = Field(ge=0.0)
+    aggregator_algorithm: Literal["hdbscan", "kmeans"] = "hdbscan"
+    stub_reports_scanned: int = Field(default=0, ge=0)
