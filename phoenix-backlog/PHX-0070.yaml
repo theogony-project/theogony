@@ -1,0 +1,142 @@
+id: PHX-0070
+category: bug
+priority: medium
+status: open
+generation_target: 1
+title: "StubLLM synthesis raises before completion — pantheon_ask returns verdict='failed' on stub-only deploys"
+filed_by: hesiod
+created_at: 2026-04-22
+description: |
+  Surfaced 2026-04-22 testing the hosted MCP service
+  (https://theogony-mcp.fly.dev/sse), which intentionally runs
+  with ``THEOGONY_LLM__PROVIDER=stub`` per the hosted Phase-1
+  cost model (PHX-0066: per-call LLM-key pass-through is Phase 2).
+
+  Reproducer:
+
+  ```
+  curl -s "$URL/sse" → opens SSE
+  client → pantheon_ask({"q": "What is the Pantheon?", "k": 6})
+  response:
+    verdict:           "failed"
+    verdict_reasoning: "synthesis raised before completion"
+    cited_node_ids:    []
+    constellation:     {nodes: 6, edges: 4}   ← retrieval works
+    answer:            ""                      ← synth empty
+  ```
+
+  The retrieval pipeline runs end-to-end correctly: the embedder
+  embeds the query, vector search finds 6 semantically relevant
+  nodes (all from the bundled ``pantheon_self`` chronicle, all
+  with confidence ≥ 0.95, all from the expected ``GLOSSARY.md``
+  / ``PANTHEON_VISION.md`` / ``HESTIA.md`` sources), the
+  constellation is assembled with edges, and ``pantheon_node`` on
+  any of those node IDs returns the full Hover-Lupe payload
+  including the W3 ``cluster_id`` field. Knowledge extraction is
+  proven to work.
+
+  The break is at the synthesis step. ``StubLLMProvider.complete``
+  raises an exception on the W2/W3 ``synthesize`` call shape, the
+  ``AnswerSynthesizer`` catches it (Plan §2.11.4 — never abort,
+  swallow into an empty answer), and ``_finalize_report`` records
+  ``verdict='failed' / synthesis raised before completion``.
+
+  No traceback in ``fly logs`` because the synthesizer's
+  swallow-and-continue policy is doing exactly what it should.
+  But that means we have no signal in production about *what*
+  the stub raised on.
+
+  Three things changed around the synthesis path between PR #40
+  (when stub clearly worked — the ``hosted/README.md`` was written
+  assuming it would) and today:
+
+  - W2 (PR #55) added ``pheromone_mode`` plumbing. The
+    ``AnswerSynthesizer`` does not consume it, but the
+    ``Constellation`` it receives now carries
+    ``cross_cluster``-tagged edges from W1 + W2's
+    ``effective_weight``-aware retrieval.
+  - W3 (PR #56-implementation) added the ``StubVerdict`` /
+    ``RegionDescriptor`` integration in ``_finalize_report``.
+    These run *after* synth, so they should not affect the
+    synth call itself, but the order of construction did
+    change.
+  - W1 (PR #52) extended ``ConstellationNode`` with
+    ``cluster_label`` and added ``cluster_id`` to the slim
+    DTO. ``StubLLMProvider`` may rely on a now-stale
+    constellation shape.
+
+  Most likely cause (untested hypothesis): ``StubLLMProvider``
+  parses the constellation prompt with a fixed regex or schema
+  that the new fields broke. The fix is small once located:
+  either harden the stub, or have the synthesizer clear the new
+  fields before passing to a stub. Either way: < 1 hour of work.
+
+cost_benefit_guardrails:
+  - |
+    The bug is silent in CI because the unit tests use a
+    different StubLLM mock (see ``tests/conftest.py``); only the
+    bundled production ``StubLLMProvider`` (the one shipped to
+    deployments without an LLM key) is broken. Add at least one
+    end-to-end test that uses the real ``StubLLMProvider`` against
+    the bundled ``pantheon_self`` seed — that is the regression
+    contract.
+  - |
+    No performance impact either way. Stub synth is sub-ms; the
+    fix is a correctness patch not a perf optimisation.
+  - |
+    Do not work around it by routing all hosted queries through
+    a paid LLM. The whole point of stub-on-hosted is that read-side
+    tools (``pantheon_node``, ``pantheon_status``,
+    ``pantheon_reports_*``) work without anyone having to fund a
+    key. ``pantheon_ask`` should also at least produce a
+    structured "here are your sources, no LLM-synthesised prose
+    available" answer rather than verdict='failed'.
+
+service_to_humanity: |
+  The hosted MCP is the friction-free demo path PHX-0066 promised
+  to the agent ecosystem. An agent that calls ``pantheon_ask`` and
+  gets verdict='failed' learns "Pantheon does not work" — the exact
+  opposite of what the hosted service is for. The retrieved
+  constellation is fine; the bug is purely cosmetic at the answer
+  layer, but cosmetic enough to poison first impressions. Fix
+  before any external announcement.
+
+acceptance_criteria:
+  - |
+    ``StubLLMProvider`` either (a) successfully synthesises a
+    deterministic structured answer from any valid
+    ``Constellation``, including W1/W2/W3-extended ones, or
+    (b) is replaced on the hosted path with a small
+    ``CitationOnlyAnswerer`` that returns "No LLM is available
+    on this hosted instance; here are the cited sources" + the
+    cited node ids derived from the constellation's top-N
+    nodes. Either is acceptable; the second is more honest.
+  - |
+    New end-to-end test ``tests/test_pantheon_ask_with_real_stub.py``
+    that drives ``QueryPipeline.ask`` against the bundled
+    ``pantheon_self`` seed using the production ``StubLLMProvider``
+    (not a unit-test mock). Asserts: ``verdict in {"good",
+    "partial"}``, ``cited_node_ids`` non-empty, ``answer`` non-empty.
+    This is the regression gate that would have caught the bug.
+  - |
+    ``hosted/README.md`` "What works on the stub LLM" section
+    enumerates explicitly which tools work and which require a
+    real LLM. Today it implies all of them work.
+  - |
+    Verified live against ``https://theogony-mcp.fly.dev/sse``:
+    after the fix lands and re-deploys, ``pantheon_ask`` returns
+    a non-failed verdict with non-empty cited_node_ids on the
+    same query.
+
+related:
+  - PHX-0066  # Hosted Pantheon MCP Service — bug surfaces because hosted Phase 1 uses stub
+  - "PR #52 (W1 Cluster) — extended ConstellationNode shape"
+  - "PR #55 (W2 Pheromone) — extended retrieval / pipeline"
+  - "PR #56-impl (W3 Stub Detection) — extended _finalize_report ordering"
+  - "Composer conversation 2026-04-22 — user smoke-tested hosted, found the bug"
+
+referenced_in:
+  - "src/theogony/agents/llm.py — StubLLMProvider implementation"
+  - "src/theogony/retrieval/synthesize.py — AnswerSynthesizer + the swallow-and-continue policy"
+  - "src/theogony/mcp/server.py — pantheon_ask handler that surfaces the failed verdict"
+  - "hosted/README.md — currently overpromises stub-LLM capability"
