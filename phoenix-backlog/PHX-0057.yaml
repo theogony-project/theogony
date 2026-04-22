@@ -1,7 +1,7 @@
 id: PHX-0057
 category: vision
 priority: high
-status: in_progress  # W2 brief landed 2026-04-22 — see docs/etappes/W2_edge_pheromone_brief.md
+status: resolved  # Phase 1 delivered W2 — see docs/PHEROMONE.md
 generation_target: 2
 title: "Edge-Pheromone trails + Slow-Path emancipation — used edges strengthen, unused ones decay, Slow Path ignores both"
 filed_by: hesiod

@@ -11,6 +11,7 @@ Implementations must live in src/theogony/stores/.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
+from datetime import datetime
 from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
@@ -93,6 +94,8 @@ class KnowledgeStore(Protocol):
         max_depth: int = 3,
         min_weight: float = 0.3,
         relation_types: list[str] | None = None,
+        *,
+        pheromone_mode: str = "follow",
     ) -> list[Path]:
         """Traverse the graph from a starting node, following edges above the weight threshold."""
         ...
@@ -108,6 +111,8 @@ class KnowledgeStore(Protocol):
         hops: int = 3,
         min_weight: float = 0.3,
         layer: Layer | None = None,
+        *,
+        pheromone_mode: str = "follow",
     ) -> list[ScoredNode]:
         """
         Recursive vector+graph search.
@@ -186,6 +191,8 @@ class KnowledgeStore(Protocol):
         node_id: str,
         depth: int = 2,
         min_weight: float = 0.3,
+        *,
+        pheromone_mode: str = "follow",
     ) -> Constellation:
         """
         Retrieve the local graph neighborhood of a node.
@@ -281,6 +288,32 @@ class KnowledgeStore(Protocol):
         Async generator — sync ``def`` on the Protocol (same convention
         as :meth:`export_layer`).
         """
+        ...
+
+    async def batch_bump_edges(
+        self,
+        edge_ids: Sequence[str],
+        *,
+        delta: float,
+        ts: datetime,
+    ) -> None:
+        """Bump ``pheromone_delta`` and stamp ``last_traversed`` (PHX-0057)."""
+        ...
+
+    async def list_aged_pheromone_edges(
+        self,
+        *,
+        horizon: datetime,
+        epsilon: float,
+    ) -> list[tuple[str, float]]:
+        """Edges idle past ``horizon`` with |delta| > epsilon (decay candidates)."""
+        ...
+
+    async def batch_update_pheromone_deltas(
+        self,
+        updates: Sequence[tuple[str, float]],
+    ) -> None:
+        """Set ``pheromone_delta`` from (edge_id, new_delta) rows (decay write-back)."""
         ...
 
     # -------------------------------------------------------------------------

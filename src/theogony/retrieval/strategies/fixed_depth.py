@@ -39,6 +39,7 @@ class FixedDepthStrategy:
             hops=budget.hops,
             min_weight=budget.min_edge_weight,
             layer=layer,
+            pheromone_mode=budget.pheromone_mode,
         )
         duration_ms = int((time.perf_counter() - started) * 1000)
 

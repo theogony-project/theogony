@@ -128,7 +128,7 @@ class TestSchemaBootstrap:
         assert "relation_type_exists" not in constraint_names
 
         index_names = {i["name"] for i in indexes}
-        # Ten range indexes (Plan §3.1a — eight node-side + two edge-side).
+        # Thirteen range indexes (node-side cluster fields + pheromone decay index).
         for required in (
             "knowledge_node_label",
             "knowledge_node_node_type",
@@ -138,8 +138,11 @@ class TestSchemaBootstrap:
             "knowledge_node_manual_resolution",
             "knowledge_node_vitality",
             "knowledge_node_last_accessed",
+            "knowledge_node_cluster_id",
+            "knowledge_node_cluster_label",
             "relation_relation_type",
             "relation_weight",
+            "relation_last_traversed",
         ):
             assert required in index_names, f"missing range index: {required}"
         # One HNSW vector index.

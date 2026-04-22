@@ -18,6 +18,7 @@ nodes that happen to retrieve in a given order.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
+from datetime import datetime
 from typing import Any
 
 import pytest
@@ -53,6 +54,8 @@ class _RecordingStore:
         hops: int = 3,
         min_weight: float = 0.3,
         layer: Layer | None = None,
+        *,
+        pheromone_mode: str = "follow",
     ) -> list[ScoredNode]:
         self.calls.append(
             {
@@ -61,6 +64,7 @@ class _RecordingStore:
                 "hops": hops,
                 "min_weight": min_weight,
                 "layer": layer,
+                "pheromone_mode": pheromone_mode,
             }
         )
         return list(self._scored)
@@ -82,7 +86,12 @@ class _RecordingStore:
         raise AssertionError("retriever should not call get_node")
 
     async def get_neighborhood(
-        self, node_id: str, depth: int = 2, min_weight: float = 0.3
+        self,
+        node_id: str,
+        depth: int = 2,
+        min_weight: float = 0.3,
+        *,
+        pheromone_mode: str = "follow",
     ) -> Constellation:
         raise AssertionError("retriever should not call get_neighborhood")
 
@@ -156,6 +165,29 @@ class _RecordingStore:
     async def health(self) -> dict[str, object]:
         raise AssertionError("retriever should not health-check")
 
+    async def batch_bump_edges(
+        self,
+        edge_ids: Sequence[str],
+        *,
+        delta: float,
+        ts: datetime,
+    ) -> None:
+        raise AssertionError("retriever should not bump pheromones")
+
+    async def list_aged_pheromone_edges(
+        self,
+        *,
+        horizon: datetime,
+        epsilon: float,
+    ) -> list[tuple[str, float]]:
+        raise AssertionError("retriever should not list aged pheromones")
+
+    async def batch_update_pheromone_deltas(
+        self,
+        updates: Sequence[tuple[str, float]],
+    ) -> None:
+        raise AssertionError("retriever should not batch-update pheromones")
+
 
 class TestMultiHopRetrieverDelegation:
     async def test_passes_k_hops_min_weight_layer_through(self) -> None:
@@ -169,6 +201,7 @@ class TestMultiHopRetrieverDelegation:
         assert call["hops"] == 1
         assert call["min_weight"] == 0.4
         assert call["layer"] is Layer.MNEME
+        assert call["pheromone_mode"] == "follow"
 
     async def test_pins_plan_defaults(self) -> None:
         store = _RecordingStore()
@@ -181,6 +214,13 @@ class TestMultiHopRetrieverDelegation:
         # Plan §2.6 floor.
         assert call["min_weight"] == 0.3
         assert call["layer"] is None
+        assert call["pheromone_mode"] == "follow"
+
+    async def test_passes_pheromone_mode_through(self) -> None:
+        store = _RecordingStore()
+        retriever = MultiHopRetriever(store)
+        await retriever.retrieve([0.1], pheromone_mode="invert")
+        assert store.calls[0]["pheromone_mode"] == "invert"
 
 
 class TestMultiHopRetrieverResult:

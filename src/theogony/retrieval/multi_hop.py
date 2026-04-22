@@ -16,7 +16,7 @@ it lives here as a pipeline-level observation, not a domain object.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -85,6 +85,7 @@ class MultiHopRetriever:
         hops: int = 2,
         min_weight: float = 0.3,
         layer: Layer | None = None,
+        pheromone_mode: Literal["follow", "ignore", "invert"] = "follow",
     ) -> MultiHopResult:
         """Run multi-hop retrieval and emit observations.
 
@@ -111,6 +112,7 @@ class MultiHopRetriever:
             max_nodes=k,
             hops=hops,
             min_edge_weight=min_weight,
+            pheromone_mode=pheromone_mode,
         )
         result = await self._strategy.retrieve(query_embedding, budget=budget, layer=layer)
 

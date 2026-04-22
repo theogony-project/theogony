@@ -22,6 +22,7 @@ from __future__ import annotations
 import math
 from collections import defaultdict, deque
 from collections.abc import AsyncIterator, Sequence
+from datetime import UTC, datetime
 
 from theogony.core.model import (
     ClusterSummary,
@@ -34,6 +35,7 @@ from theogony.core.model import (
     NodeType,
     ScoreUpdate,
 )
+from theogony.core.pheromone import effective_weight
 from theogony.core.store import Path, ScoredNode
 
 
@@ -112,6 +114,8 @@ class InMemoryKnowledgeStore:
         max_depth: int = 3,
         min_weight: float = 0.3,
         relation_types: list[str] | None = None,
+        *,
+        pheromone_mode: str = "follow",
     ) -> list[Path]:
         if start_id not in self._nodes:
             return []
@@ -126,7 +130,8 @@ class InMemoryKnowledgeStore:
                 continue
             for edge_id in self._outgoing.get(current_id, set()):
                 edge = self._edges[edge_id]
-                if edge.weight < min_weight:
+                ew = effective_weight(edge, pheromone_mode)
+                if ew < min_weight:
                     continue
                 if relation_types is not None and edge.relation_type not in relation_types:
                     continue
@@ -137,7 +142,7 @@ class InMemoryKnowledgeStore:
                     continue
                 new_nodes = [*path_nodes, self._nodes[target_id]]
                 new_edges = [*path_edges, edge]
-                new_weight = total_weight * edge.weight
+                new_weight = total_weight * ew
                 paths.append(Path(nodes=new_nodes, edges=new_edges, total_weight=new_weight))
                 queue.append((target_id, new_nodes, new_edges, new_weight, depth + 1))
         return paths
@@ -153,6 +158,8 @@ class InMemoryKnowledgeStore:
         hops: int = 3,
         min_weight: float = 0.3,
         layer: Layer | None = None,
+        *,
+        pheromone_mode: str = "follow",
     ) -> list[ScoredNode]:
         """Vector seed + graph expansion + dedupe (Plan §4.2).
 
@@ -171,7 +178,12 @@ class InMemoryKnowledgeStore:
         seeds = await self.vector_search(embedding, k=k, layer=layer)
         scored: dict[str, float] = {sn.node.id: sn.score for sn in seeds}
         for seed in seeds:
-            paths = await self.traverse(seed.node.id, max_depth=hops, min_weight=min_weight)
+            paths = await self.traverse(
+                seed.node.id,
+                max_depth=hops,
+                min_weight=min_weight,
+                pheromone_mode=pheromone_mode,
+            )
             for path in paths:
                 if not path.nodes:
                     continue
@@ -250,6 +262,8 @@ class InMemoryKnowledgeStore:
         node_id: str,
         depth: int = 2,
         min_weight: float = 0.3,
+        *,
+        pheromone_mode: str = "follow",
     ) -> Constellation:
         """BFS in both directions, collecting slim DTOs per Plan §9.1."""
         if node_id not in self._nodes:
@@ -263,7 +277,7 @@ class InMemoryKnowledgeStore:
                 continue
             for edge_id in self._outgoing.get(current_id, set()):
                 edge = self._edges[edge_id]
-                if edge.weight < min_weight:
+                if effective_weight(edge, pheromone_mode) < min_weight:
                     continue
                 visited_edges.add(edge.id)
                 if edge.target_id not in visited_nodes and edge.target_id in self._nodes:
@@ -271,7 +285,7 @@ class InMemoryKnowledgeStore:
                     queue.append((edge.target_id, current_depth + 1))
             for edge_id in self._incoming.get(current_id, set()):
                 edge = self._edges[edge_id]
-                if edge.weight < min_weight:
+                if effective_weight(edge, pheromone_mode) < min_weight:
                     continue
                 visited_edges.add(edge.id)
                 if edge.source_id not in visited_nodes and edge.source_id in self._nodes:
@@ -290,6 +304,57 @@ class InMemoryKnowledgeStore:
             edges=edges,
             suggested_sources=suggested,
         )
+
+    async def batch_bump_edges(
+        self,
+        edge_ids: Sequence[str],
+        *,
+        delta: float,
+        ts: datetime,
+    ) -> None:
+        for eid in edge_ids:
+            edge = self._edges.get(eid)
+            if edge is None:
+                continue
+            nd = edge.pheromone_delta + delta
+            if nd > 1.0:
+                nd = 1.0
+            elif nd < -1.0:
+                nd = -1.0
+            edge.pheromone_delta = nd
+            edge.last_traversed = ts
+            self._edges[eid] = edge
+
+    async def list_aged_pheromone_edges(
+        self,
+        *,
+        horizon: datetime,
+        epsilon: float,
+    ) -> list[tuple[str, float]]:
+        out: list[tuple[str, float]] = []
+        for eid, edge in self._edges.items():
+            if edge.last_traversed is None:
+                continue
+            lt = edge.last_traversed
+            if lt.tzinfo is None:
+                lt = lt.replace(tzinfo=UTC)
+            if lt >= horizon:
+                continue
+            if abs(edge.pheromone_delta) <= epsilon:
+                continue
+            out.append((eid, edge.pheromone_delta))
+        return out
+
+    async def batch_update_pheromone_deltas(
+        self,
+        updates: Sequence[tuple[str, float]],
+    ) -> None:
+        for eid, new_delta in updates:
+            edge = self._edges.get(eid)
+            if edge is None:
+                continue
+            edge.pheromone_delta = new_delta
+            self._edges[eid] = edge
 
     async def delete_node(self, node_id: str) -> None:
         if node_id not in self._nodes:

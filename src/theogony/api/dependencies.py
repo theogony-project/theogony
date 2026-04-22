@@ -20,6 +20,7 @@ from fastapi import Request
 
 from theogony.config.settings import Settings
 from theogony.core.store import KnowledgeStore
+from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopRetriever
@@ -58,9 +59,16 @@ def get_query_pipeline(request: Request) -> QueryPipeline:
         ),
         assembler=ConstellationAssembler(state.store),
         synthesizer=AnswerSynthesizer(state.llm, audit_log=state.audit),
-        relevance=RelevanceTracker(state.store),
+        relevance=RelevanceTracker(
+            state.store,
+            relevance_delta=state.settings.relevance.relevance_delta,
+        ),
         settings=state.settings,
         report_writer=state.report_writer,
+        edge_pheromone=EdgePheromoneTracker(
+            state.store,
+            delta=state.settings.relevance.edge_pheromone_delta,
+        ),
     )
 
 

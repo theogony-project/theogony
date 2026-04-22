@@ -17,8 +17,21 @@ budget for the active strategy.
 | `ClusterNarrowingRetrievalStrategy` (`cluster_narrow`) | Ranks `ClusterSummary` centroids by cosine to the query, unions top-N cluster members, runs an inner strategy, then **post-filters** scored nodes to that union |
 | `build_retrieval_strategy(store, settings, override=…)` | Single factory used by the API, CLI, and MCP |
 
-Reserved budget fields (`pheromone_mode`, `token_cap`, `wall_clock_ms_cap`)
-exist for forward compatibility; see PHX-0057 and PHX-0056 Phase 2.
+## `pheromone_mode` (PHX-0057 Phase 1)
+
+`RetrievalBudget.pheromone_mode` is forwarded into the store’s multi-hop traversal and neighbourhood reads:
+
+| Value | Meaning |
+|--------|---------|
+| `follow` (default) | Effective edge weight = `clamp01(weight + pheromone_delta)` — honours accumulated trails. |
+| `ignore` | Uses baseline `weight` only. |
+| `invert` | `clamp01(weight - pheromone_delta)` — Slow-Path prefers edges that were *not* heavily bumped. |
+
+When `QueryPipeline.ask(..., pheromone_mode=...)` is not `follow`, **no** post-answer relevance or edge-pheromone write-back runs for that call — Slow-Path stays read-only with respect to those signals.
+
+API / CLI / MCP expose the same literal (`POST /query`, `theogony ask --pheromone-mode`, `pantheon_ask`). Details: [`PHEROMONE.md`](PHEROMONE.md).
+
+Reserved budget fields (`token_cap`, `wall_clock_ms_cap`) remain for forward compatibility (PHX-0056 Phase 2).
 
 ## `cluster_narrow` (PHX-0060 Phase 1)
 
@@ -57,7 +70,7 @@ Default deployment behaviour remains **`strategy=fixed_depth`** until the operat
 
 - **PHX-0056** — Activation engine; Phase 1 (F3) ships the protocol, budget, and
   two strategies; Phase 2 adds vector-steered and LLM-guided strategies.
-- **PHX-0057** — Edge pheromones; strategies will honour `pheromone_mode`.
+- **PHX-0057** — Edge pheromones shipped Phase 1 (`pheromone_mode` + bump/decay); Phase 2 items are listed in [`PHEROMONE.md`](PHEROMONE.md).
 - **PHX-0060** — Cluster narrowing (`cluster_narrow`) shipped in Phase 1; hierarchical / soft variants remain future work.
 - **PHX-0061** — Federation routing sits above strategies but shares the same
   extension surface.

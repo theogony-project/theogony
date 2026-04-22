@@ -235,7 +235,9 @@ Today's `MultiHopRetriever` is statically parametrised (`k=10, hops=2, min_weigh
 
 Today's pheromone signal is node-only (`RelevanceTracker.bump`). This ticket extends it to edges: cited paths bump edge weights; OneirosWorker decays edges that go untraversed; `RetrievalBudget` gains `pheromone_mode: follow|ignore|invert` so Slow-Path strategies can deliberately walk against the well-trodden trail (the cognitive-bias-correction the user introduced as the "Ameisenstraße"-Bild, conversation 2026-04-20). Without this, well-trodden paths become permanent autobahns and Slow-Path collapses into "same path, more tokens". YAML: [`phoenix-backlog/PHX-0057.yaml`](../phoenix-backlog/PHX-0057.yaml).
 
-Implementation will plug into the TickPhase pipeline introduced by F2. Slow-path retrieval work will also register a new `RetrievalStrategy` alongside the F3 protocol.
+**Phase 1 closed (W2 / PHX-0057, PR [#55](https://github.com/theogony-project/theogony/pull/55)):** `pheromone_delta` + `last_traversed` on edges, `ConstellationEdge.edge_id`, `EdgePheromoneTracker`, `PheromoneDecayPhase` (default-off in `enabled_phases`), `pheromone_mode` honoured in `fixed_depth` / `edge_product` / `cluster_narrow`, `QueryPipeline` + API + CLI + MCP plumbing, and [`docs/PHEROMONE.md`](PHEROMONE.md). Phase 2 sub-tickets: per-cluster pheromone spaces, LLM-cited edges, differential bump.
+
+Implementation plugs into the TickPhase pipeline introduced by F2; Slow-path retrieval composes with the F3 strategy protocol via the shared budget.
 
 ### PHX-0058: Aggregated Stub Detection — Recurring Blind Spots
 

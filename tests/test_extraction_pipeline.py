@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
+from datetime import datetime
 
 import pytest
 from pydantic import BaseModel
@@ -96,6 +97,29 @@ class InMemoryStore:
 
     async def get_cluster_centroid(self, cluster_id: str) -> list[float]:
         return []
+
+    async def batch_bump_edges(
+        self,
+        edge_ids: Sequence[str],
+        *,
+        delta: float,
+        ts: datetime,
+    ) -> None:
+        return None
+
+    async def list_aged_pheromone_edges(
+        self,
+        *,
+        horizon: datetime,
+        epsilon: float,
+    ) -> list[tuple[str, float]]:
+        return []
+
+    async def batch_update_pheromone_deltas(
+        self,
+        updates: Sequence[tuple[str, float]],
+    ) -> None:
+        return None
 
 
 # ---------------------------------------------------------------- raw content fixture

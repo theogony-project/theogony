@@ -34,12 +34,13 @@ import asyncio
 import statistics
 import time
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, cast
 
 from theogony.clustering.cluster_index import ClusterIndex
 from theogony.clustering.recluster_phase import ClusteringRunReportPayload, ReclusterPhase
 from theogony.config.logging import get_logger
 from theogony.core.model import ClusterSummary
+from theogony.memory.pheromone_decay_phase import PheromoneDecayPhase
 from theogony.memory.tick_phase import TickContext, TickPhase, _aware
 from theogony.memory.tick_phases import (
     CountNeighborsPhase,
@@ -72,6 +73,7 @@ DEFAULT_PHASE_REGISTRY: dict[str, type[TickPhase]] = {
     "promote": PromotePhase,
     "degrade_mneme": DegradeMnemePhase,
     "recluster": ReclusterPhase,
+    "pheromone_decay": PheromoneDecayPhase,
 }
 
 
@@ -202,7 +204,10 @@ class OneirosWorker:
                     cp = ctx.extras.get("clustering_run")
                     if isinstance(cp, ClusteringRunReportPayload):
                         fin = datetime.now(UTC)
-                        algo = cp.algorithm if cp.algorithm in ("hdbscan", "kmeans") else "hdbscan"
+                        raw_algo = (
+                            cp.algorithm if cp.algorithm in ("hdbscan", "kmeans") else "hdbscan"
+                        )
+                        algo = cast(Literal["hdbscan", "kmeans"], raw_algo)
                         self._writer.write(
                             ClusteringRunReport(
                                 run_id=new_run_id(),

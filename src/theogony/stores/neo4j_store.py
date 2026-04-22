@@ -93,6 +93,20 @@ if TYPE_CHECKING:
 log = get_logger("stores.neo4j")
 
 
+def _cypher_effective_weight(rel: str) -> str:
+    """Cypher expression for pheromone-mode-aware traversal weight (W2)."""
+    d = f"coalesce({rel}.pheromone_delta, 0.0)"
+    w = f"{rel}.weight"
+    return (
+        f"CASE coalesce($pheromone_mode, 'follow') "
+        f"WHEN 'ignore' THEN {w} "
+        f"WHEN 'invert' THEN CASE WHEN {w} - {d} < 0.0 THEN 0.0 "
+        f"WHEN {w} - {d} > 1.0 THEN 1.0 ELSE {w} - {d} END "
+        f"ELSE CASE WHEN {w} + {d} < 0.0 THEN 0.0 WHEN {w} + {d} > 1.0 THEN 1.0 "
+        f"ELSE {w} + {d} END END"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Property serialisation helpers
 # ---------------------------------------------------------------------------
@@ -159,6 +173,8 @@ def _edge_to_props(edge: KnowledgeEdge) -> dict[str, Any]:
     return {
         "relation_type": edge.relation_type,
         "weight": edge.weight,
+        "pheromone_delta": edge.pheromone_delta,
+        "last_traversed": edge.last_traversed,
         "confidence": edge.confidence,
         "bidirectional": edge.bidirectional,
         "epistemic_type": edge.epistemic_type.value,
@@ -237,6 +253,8 @@ def _edge_from_record(
         target_id=target_id,
         relation_type=props["relation_type"],
         weight=float(props.get("weight", 0.5)),
+        pheromone_delta=float(props.get("pheromone_delta", 0.0)),
+        last_traversed=_optional_datetime(props.get("last_traversed")),
         confidence=float(props.get("confidence", 0.5)),
         bidirectional=bool(props.get("bidirectional", False)),
         epistemic_type=EdgeType(props.get("epistemic_type", EdgeType.EXTRACTION.value)),
@@ -431,15 +449,18 @@ class Neo4jKnowledgeStore:
         max_depth: int = 3,
         min_weight: float = 0.3,
         relation_types: list[str] | None = None,
+        *,
+        pheromone_mode: str = "follow",
     ) -> list[Path]:
         """Variable-length BFS-equivalent path query (Plan §2.6 / §3.1)."""
         _validate_int("max_depth", max_depth, minimum=1)
+        ew = _cypher_effective_weight("rel")
         # Path-length bounds cannot be Cypher parameters; safe f-string
         # because max_depth is a validated int.
         cypher = f"""
         MATCH (start:KnowledgeNode {{id: $start_id}})
         MATCH path = (start)-[r:RELATION*1..{max_depth}]->(end:KnowledgeNode)
-        WHERE all(rel IN r WHERE rel.weight >= $min_weight)
+        WHERE all(rel IN r WHERE ({ew}) >= $min_weight)
           AND ($relation_types IS NULL OR all(
                 rel IN r WHERE rel.relation_type IN $relation_types
           ))
@@ -449,7 +470,7 @@ class Neo4jKnowledgeStore:
                   source_id: startNode(rel).id,
                   target_id: endNode(rel).id
                }}] AS path_edges,
-               reduce(w = 1.0, rel IN r | w * rel.weight) AS total_weight
+               reduce(w = 1.0, rel IN r | w * ({ew})) AS total_weight
         """
         async with self._session() as session:
             result = await session.run(
@@ -457,6 +478,7 @@ class Neo4jKnowledgeStore:
                 start_id=start_id,
                 min_weight=min_weight,
                 relation_types=list(relation_types) if relation_types is not None else None,
+                pheromone_mode=pheromone_mode,
             )
             records = await result.data()
         paths: list[Path] = []
@@ -478,6 +500,8 @@ class Neo4jKnowledgeStore:
         hops: int = 3,
         min_weight: float = 0.3,
         layer: Layer | None = None,
+        *,
+        pheromone_mode: str = "follow",
     ) -> list[ScoredNode]:
         """Vector seed + graph expansion, deduplicated (matches InMemory)."""
         _validate_int("k", k, minimum=1)
@@ -487,7 +511,12 @@ class Neo4jKnowledgeStore:
             sn.node.id: (sn.score, sn.node) for sn in seeds
         }
         for seed in seeds:
-            paths = await self.traverse(seed.node.id, max_depth=hops, min_weight=min_weight)
+            paths = await self.traverse(
+                seed.node.id,
+                max_depth=hops,
+                min_weight=min_weight,
+                pheromone_mode=pheromone_mode,
+            )
             for path in paths:
                 if not path.nodes:
                     continue
@@ -640,6 +669,8 @@ class Neo4jKnowledgeStore:
         node_id: str,
         depth: int = 2,
         min_weight: float = 0.3,
+        *,
+        pheromone_mode: str = "follow",
     ) -> Constellation:
         """Bidirectional BFS via undirected variable-length match.
 
@@ -660,10 +691,11 @@ class Neo4jKnowledgeStore:
         # objects in async neo4j-driver 6.x). Each per-path relationship
         # list yields a list of {rel, source_id, target_id} dicts; we
         # then flatten + dedupe in Python.
+        ew = _cypher_effective_weight("rel")
         cypher = f"""
         MATCH (start:KnowledgeNode {{id: $node_id}})
         OPTIONAL MATCH (start)-[r:RELATION*1..{depth}]-(other:KnowledgeNode)
-        WHERE r IS NULL OR all(rel IN r WHERE rel.weight >= $min_weight)
+        WHERE r IS NULL OR all(rel IN r WHERE ({ew}) >= $min_weight)
         WITH start,
              collect(DISTINCT other) AS others,
              collect(
@@ -678,7 +710,12 @@ class Neo4jKnowledgeStore:
                rel_lists
         """
         async with self._session() as session:
-            result = await session.run(cypher, node_id=node_id, min_weight=min_weight)
+            result = await session.run(
+                cypher,
+                node_id=node_id,
+                min_weight=min_weight,
+                pheromone_mode=pheromone_mode,
+            )
             record = await result.single()
         if record is None:
             return Constellation(
@@ -959,6 +996,64 @@ class Neo4jKnowledgeStore:
             result = await session.run(cypher, cluster_id=cluster_id)
             async for record in result:
                 yield str(record["id"])
+
+    async def batch_bump_edges(
+        self,
+        edge_ids: Sequence[str],
+        *,
+        delta: float,
+        ts: datetime,
+    ) -> None:
+        if not edge_ids:
+            return
+        rows = [{"edge_id": eid} for eid in edge_ids]
+        cypher = """
+        UNWIND $rows AS row
+        MATCH ()-[r:RELATION {id: row.edge_id}]->()
+        SET r.pheromone_delta = CASE
+                WHEN coalesce(r.pheromone_delta, 0.0) + $delta > 1.0 THEN 1.0
+                WHEN coalesce(r.pheromone_delta, 0.0) + $delta < -1.0 THEN -1.0
+                ELSE coalesce(r.pheromone_delta, 0.0) + $delta
+            END,
+            r.last_traversed = $ts
+        """
+        async with self._session() as session:
+            await session.run(cypher, rows=rows, delta=delta, ts=ts)
+
+    async def list_aged_pheromone_edges(
+        self,
+        *,
+        horizon: datetime,
+        epsilon: float,
+    ) -> list[tuple[str, float]]:
+        cypher = """
+        MATCH ()-[r:RELATION]->()
+        WHERE r.last_traversed IS NOT NULL
+          AND r.last_traversed < $horizon
+          AND abs(coalesce(r.pheromone_delta, 0.0)) > $epsilon
+        RETURN r.id AS id, coalesce(r.pheromone_delta, 0.0) AS delta
+        """
+        out: list[tuple[str, float]] = []
+        async with self._session() as session:
+            result = await session.run(cypher, horizon=horizon, epsilon=epsilon)
+            async for record in result:
+                out.append((str(record["id"]), float(record["delta"])))
+        return out
+
+    async def batch_update_pheromone_deltas(
+        self,
+        updates: Sequence[tuple[str, float]],
+    ) -> None:
+        if not updates:
+            return
+        rows = [{"edge_id": eid, "new_delta": nd} for eid, nd in updates]
+        cypher = """
+        UNWIND $rows AS row
+        MATCH ()-[r:RELATION {id: row.edge_id}]->()
+        SET r.pheromone_delta = row.new_delta
+        """
+        async with self._session() as session:
+            await session.run(cypher, rows=rows)
 
     async def refresh_cross_cluster_edge_flags(self) -> None:
         """Recompute ``properties.cross_cluster`` on every RELATION (PHX-0060)."""

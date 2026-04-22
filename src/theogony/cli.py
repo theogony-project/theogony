@@ -33,7 +33,7 @@ from collections.abc import AsyncIterator
 from contextlib import AbstractContextManager, nullcontext
 from difflib import get_close_matches
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 import typer
 import uvicorn
@@ -651,6 +651,11 @@ def ask(
         "--strategy",
         help="Override retrieval strategy: fixed_depth | edge_product | cluster_narrow.",
     ),
+    pheromone_mode: str = typer.Option(
+        "follow",
+        "--pheromone-mode",
+        help="Pheromone semantics: follow | ignore | invert (PHX-0057 Phase 1).",
+    ),
 ) -> None:
     """Ask the Chronik a question and render the cited answer.
 
@@ -665,6 +670,7 @@ def ask(
         raise typer.Exit(code=2)
     layer_enum = _parse_layer(layer)
     strategy_override = _parse_strategy(strategy)
+    pm = _parse_pheromone_mode(pheromone_mode)
     asyncio.run(
         _run_ask(
             query=query,
@@ -673,8 +679,18 @@ def ask(
             layer=layer_enum,
             store_kind=store_kind,
             strategy=strategy_override,
+            pheromone_mode=pm,
         )
     )
+
+
+def _parse_pheromone_mode(value: str) -> Literal["follow", "ignore", "invert"]:
+    if value in ("follow", "ignore", "invert"):
+        return cast(Literal["follow", "ignore", "invert"], value)
+    _console.print(
+        f"[red]Unknown --pheromone-mode value: {value!r}. Valid: follow, ignore, invert[/red]"
+    )
+    raise typer.Exit(code=2)
 
 
 def _parse_strategy(
@@ -684,7 +700,7 @@ def _parse_strategy(
     if value is None:
         return None
     if value in ("fixed_depth", "edge_product", "cluster_narrow"):
-        return value
+        return cast(Literal["fixed_depth", "edge_product", "cluster_narrow"], value)
     _console.print(
         f"[red]Unknown --strategy value: {value!r}. "
         "Valid: fixed_depth, edge_product, cluster_narrow[/red]"
@@ -714,6 +730,7 @@ async def _run_ask(
     layer: Layer | None,
     store_kind: str,
     strategy: Literal["fixed_depth", "edge_product", "cluster_narrow"] | None,
+    pheromone_mode: Literal["follow", "ignore", "invert"],
 ) -> None:
     settings = _load_settings()
     audit_path = settings.data_dir / "audit.sqlite"
@@ -744,11 +761,21 @@ async def _run_ask(
                 ),
                 assembler=ConstellationAssembler(store),
                 synthesizer=AnswerSynthesizer(llm, audit_log=audit),
-                relevance=RelevanceTracker(store),
+                relevance=RelevanceTracker(
+                    store,
+                    relevance_delta=settings.relevance.relevance_delta,
+                ),
                 settings=settings,
                 report_writer=report_writer,
             )
-            result = await pipeline.ask(query, layer=layer, k=k, hops=hops, strategy=strategy)
+            result = await pipeline.ask(
+                query,
+                layer=layer,
+                k=k,
+                hops=hops,
+                strategy=strategy,
+                pheromone_mode=pheromone_mode,
+            )
 
     _print_ask_result(query=query, result=result)
 
