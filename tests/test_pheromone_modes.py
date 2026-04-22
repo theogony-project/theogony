@@ -9,12 +9,12 @@ import pytest
 from theogony.agents.llm import StubLLMProvider
 from theogony.config.settings import Settings
 from theogony.core.model import KnowledgeEdge, KnowledgeNode, NodeType, SourceRef
+from theogony.core.pheromone import effective_weight
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
-from theogony.retrieval.strategies.pheromone import effective_weight
 from theogony.retrieval.synthesize import AnswerSynthesizer
 from theogony.stores.memory import InMemoryKnowledgeStore
 

@@ -15,10 +15,10 @@ import asyncio
 import time
 
 from theogony.core.model import Layer
+from theogony.core.pheromone import effective_weight
 from theogony.core.store import KnowledgeStore, ScoredNode
 from theogony.retrieval.multi_hop import MultiHopResult
 from theogony.retrieval.strategies.budget import RetrievalBudget
-from theogony.retrieval.strategies.pheromone import effective_weight
 
 
 class EdgeProductBreadthFirstStrategy:

@@ -35,8 +35,8 @@ from theogony.core.model import (
     NodeType,
     ScoreUpdate,
 )
+from theogony.core.pheromone import effective_weight
 from theogony.core.store import Path, ScoredNode
-from theogony.retrieval.strategies.pheromone import effective_weight
 
 
 def _cosine(a: list[float], b: list[float]) -> float:

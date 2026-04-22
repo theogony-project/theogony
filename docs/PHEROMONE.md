@@ -28,7 +28,7 @@ Cold corpora start with `pheromone_delta = 0` everywhere: **all three traversal 
 
 ## Traversal modes (`pheromone_mode`)
 
-Passed through `RetrievalBudget` into `KnowledgeStore.multi_hop_search` / `traverse` / `get_neighborhood`. Effective edge weight uses `effective_weight` in `src/theogony/retrieval/strategies/pheromone.py`:
+Passed through `RetrievalBudget` into `KnowledgeStore.multi_hop_search` / `traverse` / `get_neighborhood`. Effective edge weight uses `effective_weight` in `src/theogony/core/pheromone.py` (also re-exported from `src/theogony/retrieval/strategies/pheromone.py` for strategies):
 
 | Mode | Effective weight |
 |------|------------------|
