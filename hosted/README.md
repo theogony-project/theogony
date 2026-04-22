@@ -25,10 +25,14 @@ The reference deployment lives at **https://theogony-mcp.fly.dev/** (single-inst
 
 1. Install the [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/) (`curl -L https://fly.io/install.sh | sh`) and log in (`fly auth signup` / `fly auth login`).
 2. Pick a globally-unique app name and reserve it: `fly apps create <your-name>`. Then set `app = "<your-name>"` in `hosted/fly.toml` (the file is pre-pinned to `theogony-mcp`).
-3. From the **repository root**, deploy via Fly's remote builder (no local Docker needed):
+3. From the **repository root**, deploy via Fly's remote builder (no local Docker needed). Use either the root `fly.toml` (pins `hosted/Dockerfile` so `src/` is in the build context for hatchling) or the explicit flags:
+   ```bash
+   fly deploy --remote-only
+   ```
    ```bash
    fly deploy -c hosted/fly.toml --dockerfile hosted/Dockerfile --remote-only
    ```
+   If the image build fails with `file does not exist: src/theogony/__init__.py`, Fly is using a Dockerfile that only copied `pyproject.toml` — fix the app's `[build]` dockerfile path or deploy from an up-to-date checkout with the root `fly.toml` present.
    First build is **slow** (~30–40 min wall-clock end-to-end): pip install of CUDA-bundled PyTorch wheels takes ~8 min × 2 (multi-arch), layer export ~8 min × 2, push to `registry.fly.io` ~4 min, machine rollout ~30 s. Image lands at ~2.7 GB. Subsequent deploys with cached layers are much faster.
 4. Health: `https://<your-app>.fly.dev/health` returns JSON (`status`, `embedding_model`, `node_count`, `edge_count`, `uptime_seconds`, `last_query_at`). For the `pantheon_self` seed expect `node_count=278`, `edge_count=1168`.
 5. MCP SSE URL for clients: `https://<your-app>.fly.dev/sse` (POST JSON-RPC to the `endpoint` URL the SSE stream advertises under `/messages/`).
