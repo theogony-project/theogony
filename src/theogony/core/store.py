@@ -398,3 +398,63 @@ class KnowledgeStore(Protocol):
     async def health(self) -> dict[str, object]:
         """Return a health status dict for the store."""
         ...
+
+    # -------------------------------------------------------------------------
+    # Morpheus + depth bands (PHX-0059 Phase 1 / W4)
+    # -------------------------------------------------------------------------
+
+    async def list_low_connectivity_nodes(
+        self,
+        *,
+        layer: Layer,
+        max_edges: int,
+        batch_size: int,
+    ) -> list[KnowledgeNode]:
+        """Return up to ``batch_size`` nodes in ``layer`` with degree < ``max_edges``.
+
+        Order: oldest ``created_at`` first so newest ingest is processed on
+        later ticks. Degree counts all incident ``RELATION`` edges (symmetric).
+        """
+        ...
+
+    async def find_similar_nodes_in_band(
+        self,
+        embedding: list[float],
+        *,
+        band_low: float,
+        band_high: float,
+        exclude_ids: set[str],
+        top_k: int,
+        layer: Layer | None = None,
+    ) -> list[ScoredNode]:
+        """Vector similarity restricted to cosine scores in ``[band_low, band_high]``.
+
+        Returns up to ``top_k`` hits inside the band (not plain top-k
+        global neighbours). Excludes every id in ``exclude_ids``.
+        """
+        ...
+
+    async def update_depth_band(
+        self,
+        node_id: str,
+        depth_band: int,
+        *,
+        layer: Layer | None = None,
+    ) -> None:
+        """Persist ``depth_band``; optional ``layer`` override in the same write.
+
+        Unknown ``node_id`` is a silent no-op (matches ``update_scores``).
+        """
+        ...
+
+    async def list_nodes_by_source_identifier(
+        self,
+        *,
+        identifier: str,
+        exclude_id: str | None = None,
+    ) -> list[KnowledgeNode]:
+        """All nodes whose ``source_ref.identifier`` equals ``identifier``.
+
+        Empty ``identifier`` returns ``[]``. Used for Morpheus co-occurrence.
+        """
+        ...

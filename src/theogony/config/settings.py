@@ -128,6 +128,33 @@ class EdgePheromoneSettings(BaseModel):
     decay_epsilon: float = Field(default=0.001, ge=0.0, le=1.0)
 
 
+class MorpheusSettings(BaseModel):
+    """Morpheus associator (PHX-0059 Phase 1 / W4)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    batch_size: int = Field(default=50, ge=1, le=500)
+    proposals_per_node_cap: int = Field(default=5, ge=1, le=50)
+    embedding_band_low: float = Field(default=0.6, ge=0.0, le=1.0)
+    embedding_band_high: float = Field(default=0.9, ge=0.0, le=1.0)
+    candidate_isolation_max_edges: int = Field(default=5, ge=0)
+    cluster_scope: Literal["within_only", "within_and_cross"] = "within_and_cross"
+
+    @model_validator(mode="after")
+    def _embedding_band_order(self) -> Self:
+        if self.embedding_band_low > self.embedding_band_high:
+            raise ValueError("embedding_band_low must be <= embedding_band_high")
+        return self
+
+
+class DepthBandSettings(BaseModel):
+    """Depth-band ladder (PHX-0059 Phase 1 / W4)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    pheromone_bonus_weight: float = Field(default=0.5, ge=0.0, le=2.0)
+
+
 class OneirosSettings(BaseModel):
     """Runtime tunables for the :class:`OneirosWorker` (Plan §4.3, §5 E8.5).
 
@@ -423,6 +450,8 @@ class Settings(BaseSettings):
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     clustering: ClusteringSettings = Field(default_factory=ClusteringSettings)
     curiosity: CuriositySettings = Field(default_factory=CuriositySettings)
+    morpheus: MorpheusSettings = Field(default_factory=MorpheusSettings)
+    depth_band: DepthBandSettings = Field(default_factory=DepthBandSettings)
 
     data_dir: Path = Field(
         default=Path("data"),

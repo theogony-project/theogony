@@ -263,6 +263,8 @@ Today's `OneirosWorker` is a lifecycle worker, not an associator. It recomputes 
 
 Implementation will plug into the TickPhase pipeline introduced by F2.
 
+**Phase 1 closed (W4 / PHX-0059, PR https://github.com/theogony-project/theogony/pull/63):** `MorpheusAssociator` + `MorpheusPhase` (default-off; embedding-band + co-occurrence signals), `depth_band` schema + `DepthBandPhase` (default-off; one-band-per-tick smoothing; layer transitions follow band crossings), `KnowledgeStore` additions (`list_low_connectivity_nodes`, `find_similar_nodes_in_band`, `update_depth_band`, `list_nodes_by_source_identifier`), pheromone-aware `effective_connectivity`, `OneirosTickReport` breakdown fields, CLI `theogony oneiros tick`, MCP `morpheus_proposals_recent`. Phase 2 sub-tickets: temporal-proximity signal, glossary-mention signal, LLM-driven dreaming (PHX-0004), Athene verification (PHX-0007), `bridge_score`, blind-spot-aware targeting.
+
 ### PHX-0060: Domain Clusters / Cognitive Centers
 
 - **Category**: vision

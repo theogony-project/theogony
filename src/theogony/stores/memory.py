@@ -104,6 +104,30 @@ class InMemoryKnowledgeStore:
         candidates.sort(key=lambda x: x[0], reverse=True)
         return [ScoredNode(node=n, score=s) for s, n in candidates[:k]]
 
+    async def find_similar_nodes_in_band(
+        self,
+        embedding: list[float],
+        *,
+        band_low: float,
+        band_high: float,
+        exclude_ids: set[str],
+        top_k: int,
+        layer: Layer | None = None,
+    ) -> list[ScoredNode]:
+        hits: list[tuple[float, KnowledgeNode]] = []
+        for node in self._nodes.values():
+            if node.id in exclude_ids:
+                continue
+            if not node.embedding:
+                continue
+            if layer is not None and node.layer != layer:
+                continue
+            score = _cosine(embedding, node.embedding)
+            if band_low <= score <= band_high:
+                hits.append((score, node))
+        hits.sort(key=lambda x: x[0], reverse=True)
+        return [ScoredNode(node=n, score=s) for s, n in hits[:top_k]]
+
     # -------------------------------------------------------------------------
     # Graph traversal
     # -------------------------------------------------------------------------
@@ -432,6 +456,51 @@ class InMemoryKnowledgeStore:
             incoming = len(self._incoming.get(node_id, set()))
             result[node_id] = outgoing + incoming
         return result
+
+    async def list_low_connectivity_nodes(
+        self,
+        *,
+        layer: Layer,
+        max_edges: int,
+        batch_size: int,
+    ) -> list[KnowledgeNode]:
+        counts = await self.count_neighbors_in_layer(layer)
+        candidates = [
+            n for n in self._nodes.values() if n.layer == layer and counts.get(n.id, 0) < max_edges
+        ]
+        candidates.sort(key=lambda n: n.created_at)
+        return candidates[:batch_size]
+
+    async def update_depth_band(
+        self,
+        node_id: str,
+        depth_band: int,
+        *,
+        layer: Layer | None = None,
+    ) -> None:
+        node = self._nodes.get(node_id)
+        if node is None:
+            return
+        node.depth_band = depth_band
+        if layer is not None:
+            node.layer = layer
+
+    async def list_nodes_by_source_identifier(
+        self,
+        *,
+        identifier: str,
+        exclude_id: str | None = None,
+    ) -> list[KnowledgeNode]:
+        if not identifier:
+            return []
+        out: list[KnowledgeNode] = []
+        for n in self._nodes.values():
+            if exclude_id is not None and n.id == exclude_id:
+                continue
+            rid = n.source_ref.identifier if n.source_ref else None
+            if rid == identifier:
+                out.append(n)
+        return out
 
     # -------------------------------------------------------------------------
     # Cluster management

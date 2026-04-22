@@ -59,6 +59,7 @@ from theogony.extraction.resolve import EntityResolver
 from theogony.extraction.wikidata_cache import WikidataCache
 from theogony.extraction.wikidata_client import WikidataClient
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
+from theogony.memory.oneiros import OneirosWorker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
@@ -104,6 +105,13 @@ curiosity_app = typer.Typer(
     help="Curiosity signals: blind-spot aggregation over stub QueryRunReports (PHX-0058).",
 )
 app.add_typer(curiosity_app, name="curiosity")
+
+oneiros_app = typer.Typer(
+    name="oneiros",
+    no_args_is_help=True,
+    help="Oneiros lifecycle utilities (PHX-0059 Morpheus + depth bands).",
+)
+app.add_typer(oneiros_app, name="oneiros")
 
 _console = Console()
 
@@ -496,6 +504,48 @@ async def _run_recluster(*, force: bool, store_kind: str) -> None:
             border_style="green",
         )
     )
+
+
+async def _run_oneiros_tick(*, phases: list[str], store_kind: str) -> None:
+    settings = _load_settings()
+    if phases:
+        oneiros_cfg = settings.oneiros.model_copy(update={"enabled_phases": list(phases)})
+        settings = settings.model_copy(update={"oneiros": oneiros_cfg})
+    report_writer = RunReportWriter(settings.run_reports_dir)
+    async with _open_store(settings, store_kind, settings.embedding.dim) as store:
+        worker = OneirosWorker(store, settings, report_writer)
+        await worker.run_single_tick()
+    _console.print(
+        Panel.fit(
+            "[green]Oneiros tick completed[/green] — see data/run_reports/oneiros/",
+            title="theogony oneiros tick",
+            border_style="green",
+        )
+    )
+
+
+_ONEIROS_TICK_PHASE_OPT = typer.Option(
+    None,
+    "--phase",
+    help=("Run only these tick phases (repeatable). Omit = settings.oneiros.enabled_phases."),
+)
+
+
+@oneiros_app.command("tick")
+def oneiros_tick_cmd(
+    phase: list[str] | None = _ONEIROS_TICK_PHASE_OPT,
+    store_kind: str = typer.Option(
+        "neo4j",
+        "--store",
+        help="Storage backend: neo4j (default) or memory.",
+    ),
+) -> None:
+    """Run a single Oneiros tick pipeline (no long-lived worker loop)."""
+    if store_kind not in ("neo4j", "memory"):
+        _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
+        raise typer.Exit(code=2)
+    phases = list(phase) if phase else []
+    asyncio.run(_run_oneiros_tick(phases=phases, store_kind=store_kind))
 
 
 @contextlib.asynccontextmanager

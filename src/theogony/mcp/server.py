@@ -65,6 +65,7 @@ from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
 from theogony.extraction.wikidata_cache import WikidataCache
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
+from theogony.reporting.models import OneirosTickReport
 from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopRetriever
@@ -337,6 +338,15 @@ async def tool_node(res: McpResources, *, node_id: str) -> dict[str, Any]:
     }
 
 
+def _morpheus_proposals_recent(settings: Settings) -> int:
+    """Edges proposed in the latest Oneiros tick with a Morpheus block (W4)."""
+    writer = RunReportWriter(settings.run_reports_dir)
+    latest = writer.most_recent("oneiros")
+    if not isinstance(latest, OneirosTickReport) or latest.morpheus is None:
+        return 0
+    return latest.morpheus.edges_proposed
+
+
 async def tool_status(res: McpResources) -> dict[str, Any]:
     """Run :func:`pantheon_status` and return the JSON-serialisable payload."""
     health = await res.store.health()
@@ -347,6 +357,7 @@ async def tool_status(res: McpResources) -> dict[str, Any]:
         "llm_model": res.settings.llm.model_id,
         "embedding_model": res.settings.embedding.model_id,
         "embedding_dim": res.settings.embedding.dim,
+        "morpheus_proposals_recent": _morpheus_proposals_recent(res.settings),
         "report_counts": {
             rtype: _count_reports(res, rtype)
             for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot")

@@ -206,14 +206,16 @@ Knowledge flows through three phases:
 
 **Ephemera** — Raw, unverified, freshly extracted. High detail, low confidence. Every new knowledge atom starts here.
 
+**Depth bands (PHX-0059 Phase 1)** — Beyond the binary Ephemera/Mneme `layer`, every node carries `depth_band ∈ [0..5]` (see [`DEPTH_BANDS.md`](DEPTH_BANDS.md)). An optional Oneiros phase (`depth_band`, default **off**) steps the ladder at most one band per tick and performs `promote` / `degrade` exactly at the 2↔3 boundary crossings.
+
 **Oneiros** — Not a storage layer, but the continuous dream process. Background agents work on Ephemera nodes:
-- Morpheus: finds associations, creates edges, infers new knowledge. This mimics associative human reading: a biography of Catherine the Great may not mention the 1755 Lisbon earthquake, but Morpheus links them via temporal and thematic proximity, providing instant context across domains.
+- Morpheus: finds associations, creates edges, infers new knowledge. Phase 1 ships as an opt-in tick phase (`morpheus`, default **off**) with deterministic **embedding-band** and **source co-occurrence** signals; proposals are `INFERENCE` edges at low confidence until Athene exists. See [`MORPHEUS.md`](MORPHEUS.md).
 - Athene: verifies facts, cross-checks sources, adjusts confidence
 - Chronos: identifies redundancy, staleness, decay candidates
 
 This mirrors hippocampal replay in the human brain — the process by which daily experiences are consolidated into long-term memory during sleep. Except the Chronik never sleeps. Oneiros runs continuously, constantly firing connections into existing areas of knowledge.
 
-The Gen-1 **OneirosWorker** tick is implemented as an ordered **TickPhase** pipeline (`src/theogony/memory/tick_phase.py`, `tick_phases.py`): each lifecycle step (snapshot, neighbour counts, score recompute, bulk write, promote, degrade, optional **recluster**) is a small async phase sharing a mutable `TickContext`. Operators can disable or reorder phases via `Settings.oneiros.enabled_phases`; future tickets (PHX-0057+) add phases instead of extending a single god-method.
+The Gen-1 **OneirosWorker** tick is implemented as an ordered **TickPhase** pipeline (`src/theogony/memory/tick_phase.py`, `tick_phases.py`): each lifecycle step (snapshot, neighbour counts, score recompute, bulk write, promote, degrade, optional **depth_band**, **morpheus**, optional **recluster**, …) is a small async phase sharing a mutable `TickContext`. Operators can disable or reorder phases via `Settings.oneiros.enabled_phases`; future tickets add phases instead of extending a single god-method.
 
 **Edge pheromones (PHX-0057 Phase 1)** — After each query in the default `follow` mode, cited graph edges receive a small `pheromone_delta` bump and `last_traversed` stamp (`EdgePheromoneTracker`). An optional Oneiros phase (`pheromone_decay`, default **off**) decays overlays on edges that have been idle past `Settings.oneiros.edge_pheromone.decay_horizon_days`. Retrieval can set `pheromone_mode` to `ignore` or `invert` for Slow-Path reads that skip write-back. See [`PHEROMONE.md`](PHEROMONE.md).
 

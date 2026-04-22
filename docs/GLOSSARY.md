@@ -158,6 +158,15 @@ The gap explorer. Identifies missing, weak, stale, or underconnected knowledge.
 **Morpheus**  
 The dreamer. Associates, infers, and weaves new connections inside Oneiros.
 
+**Morpheus associator (Phase 1)**  
+Deterministic `TickPhase` (`morpheus`) that proposes `INFERENCE` edges from embedding-band similarity and source-document co-occurrence. Default-off; see [`MORPHEUS.md`](MORPHEUS.md).
+
+**depth_band**  
+Integer ladder `0..5` on every `KnowledgeNode`: Ephemera strata (0–2) and Mneme strata (3–5). Maintained by optional `depth_band` Oneiros phase; see [`DEPTH_BANDS.md`](DEPTH_BANDS.md).
+
+**embedding band (Morpheus)**  
+Configurable cosine-similarity window (default `[0.6, 0.9]`) for “interesting middle” neighbours — not plain top‑k search.
+
 **Athene**  
 The verifier. Evaluates claims, evidence, contradictions, and confidence.
 

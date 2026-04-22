@@ -1,7 +1,7 @@
 id: PHX-0059
 category: vision
 priority: high
-status: in_progress  # W4 brief landed 2026-04-22 — see docs/etappes/W4_morpheus_associator_brief.md
+status: resolved  # Phase 1: PR https://github.com/theogony-project/theogony/pull/63 — docs/MORPHEUS.md + docs/DEPTH_BANDS.md
 generation_target: 2
 title: "Morpheus-as-Associator + multi-layer connectivity — the dreamer worker that actually creates new edges, with depth strata beyond Ephemera/Mneme"
 filed_by: hesiod
