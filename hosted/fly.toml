@@ -6,11 +6,17 @@
 #
 #   fly deploy -c hosted/fly.toml --dockerfile hosted/Dockerfile --remote-only
 #
+# Or from repo root (canonical): `fly deploy` uses root `fly.toml`, which pins
+# `[build].dockerfile = "hosted/Dockerfile"` so hatchling always sees `src/`.
+#
 # To deploy under a different app, change `app` below AND make sure the
 # app exists (`fly apps create <name>`).
 
 app = "theogony-mcp"
 primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
 
 [http_service]
   internal_port = 8080
