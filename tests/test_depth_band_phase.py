@@ -115,7 +115,12 @@ async def test_phase_writes_distribution_to_extras() -> None:
 async def test_phase_handles_pre_w4_nodes_without_depth_band() -> None:
     store = InMemoryKnowledgeStore()
     ref = SourceRef(source_type="t", identifier="d", location="legacy")
-    n = KnowledgeNode(label="legacy", node_type=NodeType.CONCEPT, layer=Layer.EPHEMERA, source_ref=ref)
+    n = KnowledgeNode(
+        label="legacy",
+        node_type=NodeType.CONCEPT,
+        layer=Layer.EPHEMERA,
+        source_ref=ref,
+    )
     n.depth_band = 0
     n.scores.connectivity = 0.0
     await store.upsert_node(n)

@@ -947,9 +947,7 @@ class TestPhx0059StoreExtensions:
         )
         assert [n.label for n in out[:2]] == ["old-iso", "new-iso"]
 
-    async def test_find_similar_nodes_in_band_filters_scores(
-        self, store: KnowledgeStore
-    ) -> None:
+    async def test_find_similar_nodes_in_band_filters_scores(self, store: KnowledgeStore) -> None:
         a = make_node("a", embedding=_emb(1.0, 0.0, 0.0, 0.0))
         b = make_node("b", embedding=_emb(0.95, 0.3, 0.0, 0.0))
         c = make_node("c", embedding=_emb(0.1, 0.9, 0.0, 0.0))

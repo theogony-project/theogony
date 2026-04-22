@@ -16,7 +16,14 @@ def _ref(loc: str, *, ident: str = "doc-A") -> SourceRef:
     return SourceRef(source_type="test", identifier=ident, location=loc)
 
 
-def _node(label: str, loc: str, *, emb: list[float], cluster: str | None = "c1", ident: str = "doc-A") -> KnowledgeNode:
+def _node(
+    label: str,
+    loc: str,
+    *,
+    emb: list[float],
+    cluster: str | None = "c1",
+    ident: str = "doc-A",
+) -> KnowledgeNode:
     return KnowledgeNode(
         label=label,
         node_type=NodeType.CONCEPT,
@@ -75,7 +82,11 @@ async def test_propose_skips_top_n_above_band_high() -> None:
         candidate_isolation_max_edges=5,
     )
     prop = await MorpheusAssociator(store, cfg=cfg).propose_associations(run_id="r1")
-    assert all(float(e.properties["signal_value"]) <= 0.99 + 1e-6 for e in prop.edges if e.properties.get("signal") == "embedding")
+    assert all(
+        float(e.properties["signal_value"]) <= 0.99 + 1e-6
+        for e in prop.edges
+        if e.properties.get("signal") == "embedding"
+    )
 
 
 @pytest.mark.asyncio
@@ -182,7 +193,11 @@ async def test_proposed_edges_have_correct_metadata() -> None:
     b = _node("b", "lb", emb=[0.92, 0.38, 0.0, 0.0])
     await store.upsert_node(a)
     await store.upsert_node(b)
-    cfg = MorpheusSettings(candidate_isolation_max_edges=5, embedding_band_low=0.7, embedding_band_high=0.99)
+    cfg = MorpheusSettings(
+        candidate_isolation_max_edges=5,
+        embedding_band_low=0.7,
+        embedding_band_high=0.99,
+    )
     prop = await MorpheusAssociator(store, cfg=cfg).propose_associations(run_id="tick-xyz")
     assert prop.edges
     e = prop.edges[0]

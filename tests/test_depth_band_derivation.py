@@ -45,7 +45,13 @@ def test_derive_band_zero_for_isolated_ephemera() -> None:
 
 
 def test_derive_band_two_for_promotable_ephemera() -> None:
-    n = _node(layer=Layer.EPHEMERA, connectivity=0.5, confidence=0.55, relevance=0.55, freshness=1.0)
+    n = _node(
+        layer=Layer.EPHEMERA,
+        connectivity=0.5,
+        confidence=0.55,
+        relevance=0.55,
+        freshness=1.0,
+    )
     assert derive_depth_band(n, edges_for_node=[], idle_days=0.0, pheromone_bonus_weight=0.5) == 2
 
 
