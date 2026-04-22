@@ -1,7 +1,7 @@
 id: PHX-0060
 category: vision
 priority: high
-status: open
+status: in_progress  # W1 brief landed 2026-04-21 — see docs/etappes/W1_cluster_v1_brief.md
 generation_target: 2
 title: "Domain Clusters / Cognitive Centers — brain-region-style clustering, centroid-narrowed retrieval, per-cluster lifecycle"
 filed_by: hesiod
@@ -76,12 +76,34 @@ description: |
      k-means above a corpus-size threshold (default 100k
      nodes) where HDBSCAN's quadratic memory cost bites.
 
-  Open design knobs (to be decided before Part 2 / 3 pickup)
-  -----------------------------------------------------------
+  Open design knobs — RESOLVED 2026-04-21
+  ---------------------------------------
 
-  Four follow-on knobs are intentionally left open in this
-  ticket — they need a design conversation, not a Hesiod
-  default:
+  All four knobs were closed in conversation 2026-04-21 and
+  baked into the W1 brief at
+  ``docs/etappes/W1_cluster_v1_brief.md``. The decisions:
+
+  - Knob 4 (Hierarchy depth): **flat in Phase 1**. Centroids-of-
+    centroids deferred to a Phase-2 sub-ticket.
+  - Knob 5 (Cluster identity stability): **two-stage**.
+    ``cluster_id`` is the technical handle (re-mints when
+    membership shifts beyond Jaccard 0.7); ``cluster_label`` is
+    the persistent semantic name. Inheritance via greedy
+    one-to-one Jaccard matching, deterministic tie-break.
+  - Knob 6 (Specialised sub-agents per cluster — Argonauts):
+    **deferred entirely** to a Phase-2 sub-ticket. Phase 1
+    reserves ``ClusterSummary.properties['agent_class']`` as the
+    schema hook so the sub-ticket can land without migration.
+  - Knob 7 (Cross-cluster edge classification):
+    ``properties['cross_cluster']: bool`` on every edge. Computed
+    at insert-time AND refreshed by ``ReclusterPhase`` after
+    each pass. No ``bridge_score`` in Phase 1 — that pairs with
+    PHX-0059 Morpheus.
+
+  The original "needs decision" text is preserved below for
+  audit. The resolved decisions above take precedence.
+
+  Original (open) knobs preserved for audit:
 
   4. **Hierarchy depth.** Flat clustering (one level) or
      true hierarchy with centroids-of-centroids? ARCHITECTURE.md
