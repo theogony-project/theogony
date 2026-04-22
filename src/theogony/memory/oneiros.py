@@ -23,25 +23,29 @@ Every ``tick_interval_s`` seconds it:
    :class:`RunReportWriter` (retention cap enforced by the writer per
    ``Settings.report.oneiros_tick_retention``).
 
-Lifecycle linear freshness/connectivity math is implemented in
-``theogony.core.vitality`` (``compute_freshness_linear``,
-``compute_connectivity_linear``) — see Plan §5 E8.5 for semantics;
-this worker calls those helpers so all vitality math has one home
-(PHX-0009 Phase 1 / F1).
+Each step is a :class:`~theogony.memory.tick_phase.TickPhase` (see
+``tick_phases.py``). Linear freshness/connectivity math lives in
+``theogony.core.vitality`` (PHX-0009 Phase 1 / F1).
 """
 
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import statistics
 import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from theogony.config.logging import get_logger
-from theogony.core.model import Layer, ScoreUpdate
-from theogony.core.vitality import compute_connectivity_linear, compute_freshness_linear
+from theogony.memory.tick_phase import TickContext, TickPhase, _aware
+from theogony.memory.tick_phases import (
+    CountNeighborsPhase,
+    DegradeMnemePhase,
+    PromotePhase,
+    RecomputeScoresPhase,
+    SnapshotEphemeraPhase,
+    WriteScoresPhase,
+)
 from theogony.reporting.models import (
     OneirosTickReport,
     VitalityShift,
@@ -51,22 +55,19 @@ from theogony.reporting.verdict import oneiros_verdict
 
 if TYPE_CHECKING:
     from theogony.config.settings import Settings
-    from theogony.core.model import KnowledgeNode
     from theogony.core.store import KnowledgeStore
     from theogony.reporting.writer import RunReportWriter
 
 log = get_logger("memory.oneiros")
 
-
-def _aware(dt: datetime) -> datetime:
-    """Coerce a naive datetime to UTC; pass aware datetimes through.
-
-    Older :class:`KnowledgeNode` records on disk may have stored
-    ``last_accessed`` as a naive datetime (UTC implicit). Subtraction
-    against an aware ``datetime.now(UTC)`` raises; this helper
-    normalises both sides to aware-UTC.
-    """
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+DEFAULT_PHASE_REGISTRY: dict[str, type[TickPhase]] = {
+    "snapshot_ephemera": SnapshotEphemeraPhase,
+    "count_neighbors": CountNeighborsPhase,
+    "recompute_scores": RecomputeScoresPhase,
+    "write_scores": WriteScoresPhase,
+    "promote": PromotePhase,
+    "degrade_mneme": DegradeMnemePhase,
+}
 
 
 def _mean(values: list[float]) -> float:
@@ -85,7 +86,7 @@ class OneirosWorker:
     by the lifespan's shutdown ordering (Plan §4.4 5-second budget).
 
     See Plan §5 E8.5 for the full ``_tick()`` spec; the implementation
-    below is a line-for-line translation of that pseudo-code.
+    is a pipeline of :class:`TickPhase` instances.
     """
 
     def __init__(
@@ -95,15 +96,19 @@ class OneirosWorker:
         report_writer: RunReportWriter,
         *,
         tick_interval_s: float | None = None,
+        phase_registry: dict[str, type[TickPhase]] | None = None,
     ) -> None:
-        # Q1: tick_interval_s=None falls back to Settings.oneiros.tick_interval_s.
-        # Tests pass tick_interval_s=0.1 directly; production reads from Settings.
         self._store = store
         self._settings = settings
         self._writer = report_writer
         self._tick_interval_s = (
             tick_interval_s if tick_interval_s is not None else settings.oneiros.tick_interval_s
         )
+
+        registry = phase_registry or DEFAULT_PHASE_REGISTRY
+        self._phases: list[TickPhase] = [
+            registry[name]() for name in settings.oneiros.enabled_phases if name in registry
+        ]
 
     async def run(self) -> None:
         """Main loop. Plan §4.4 / §5 E8.5: strict-serial tick + sleep.
@@ -130,107 +135,53 @@ class OneirosWorker:
             raise
 
     async def _tick(self) -> None:
-        """One pass over EPHEMERA + MNEME. Matches Plan §5 E8.5 pseudo-code."""
+        """One pass over EPHEMERA + MNEME. Pipeline of TickPhase instances.
+
+        Phase ordering is fixed at construction-time from
+        ``Settings.oneiros.enabled_phases``. Per-phase failures are
+        caught at the tick boundary; the lifecycle keeps moving
+        regardless.
+        """
+        # TODO(F2-followup): per-phase failure isolation. Today a phase
+        # exception fails the whole tick. Future phases (pheromone-decay,
+        # morpheus-associator) may benefit from per-phase try/except that
+        # logs and continues. Land that when the first phase that wants
+        # isolation arrives.
         started = datetime.now(UTC)
         perf_started = time.perf_counter()
         cfg = self._settings.oneiros
         raised = False
 
+        ctx = TickContext(
+            started_at=started,
+            perf_started=perf_started,
+            cfg=cfg,
+            store=self._store,
+        )
+
         try:
-            # 1. Snapshot EPHEMERA (one round-trip via export_layer iterator).
-            nodes_ephemera: list[KnowledgeNode] = [
-                n async for n in self._store.export_layer(Layer.EPHEMERA)
-            ]
-
-            # 2. Bulk neighbour-count for the layer (one round-trip).
-            edge_counts = await self._store.count_neighbors_in_layer(Layer.EPHEMERA)
-
-            # 3. Compute new connectivity, freshness, vitality client-side.
-            updates: list[ScoreUpdate] = []
-            pre_vitality: list[float] = []
-            post_vitality: list[float] = []
-            promote_targets: list[str] = []
-            for node in nodes_ephemera:
-                before = node.scores.vitality()
-                pre_vitality.append(before)
-
-                degree = edge_counts.get(node.id, 0)
-                # Plan §5 E8.5 linear formulas: core.vitality.compute_*_linear
-                new_conn = compute_connectivity_linear(
-                    degree=degree,
-                    full_credit_edges=cfg.connectivity_full_credit_edges,
-                )
-                new_fresh = compute_freshness_linear(
-                    node.last_accessed,
-                    horizon_days=cfg.freshness_horizon_days,
-                    now=started,
-                )
-
-                new_scores = node.scores.model_copy(
-                    update={"connectivity": new_conn, "freshness": new_fresh}
-                )
-                new_vitality = new_scores.vitality()
-                post_vitality.append(new_vitality)
-
-                updates.append(
-                    ScoreUpdate(
-                        node_id=node.id,
-                        connectivity=new_conn,
-                        freshness=new_fresh,
-                        vitality=new_vitality,
-                    )
-                )
-                if new_vitality >= cfg.promote_threshold:
-                    promote_targets.append(node.id)
-
-            # 4. Bulk write all score updates in one round-trip (PHX-0048).
-            await self._store.batch_update_scores(updates)
-
-            # 5. Promotion (one round-trip per promoted node — typically a
-            #    small fraction of EPHEMERA per tick; not worth bulk-batching
-            #    in Gen 1).
-            promoted = 0
-            for node_id in promote_targets:
-                await self._store.promote(node_id)
-                promoted += 1
-
-            # 6. Degradation pass over MNEME with the hysteresis idle guard.
-            degraded = 0
-            min_idle_s = cfg.degrade_min_idle_days * 86400.0
-            async for mnode in self._store.export_layer(Layer.MNEME):
-                idle_s = (started - _aware(mnode.last_accessed)).total_seconds()
-                if mnode.scores.vitality() <= cfg.degrade_threshold and idle_s >= min_idle_s:
-                    await self._store.degrade(mnode.id)
-                    degraded += 1
+            for phase in self._phases:
+                await phase.run(ctx)
         except asyncio.CancelledError:
             raise
         except Exception:
-            # The outer ``run`` loop catches + logs; mark raised=True so
-            # the report is built with the failed verdict before
-            # re-raising lets the loop log + sleep + retry.
             raised = True
             raise
         finally:
             duration_s = time.perf_counter() - perf_started
-            # 7. Build OneirosTickReport, write via RunReportWriter.
-            #    pre/post lists exist because we built them above; if the
-            #    snapshot/recompute step raised before populating them,
-            #    they are simply empty lists (mean/median return 0.0).
             try:
                 report = self._finalize_report(
                     started_at=started,
                     duration_s=duration_s,
-                    nodes_evaluated=len(nodes_ephemera) if not raised else 0,
-                    nodes_promoted=promoted if not raised else 0,
-                    nodes_degraded=degraded if not raised else 0,
-                    pre_vitality=pre_vitality if not raised else [],
-                    post_vitality=post_vitality if not raised else [],
+                    nodes_evaluated=len(ctx.nodes_ephemera) if not raised else 0,
+                    nodes_promoted=ctx.nodes_promoted if not raised else 0,
+                    nodes_degraded=ctx.nodes_degraded if not raised else 0,
+                    pre_vitality=ctx.pre_vitality if not raised else [],
+                    post_vitality=ctx.post_vitality if not raised else [],
                     raised=raised,
                 )
                 self._writer.write(report)
             except Exception:  # pragma: no cover - defensive
-                # Report write itself failed: log but do not propagate;
-                # the next tick gets its own fresh attempt.
                 log.exception("oneiros tick report write failed")
 
     def _finalize_report(
@@ -288,7 +239,4 @@ class OneirosWorker:
         )
 
 
-_: type = contextlib.AbstractContextManager  # silence unused-import; reserved for future
-
-
-__all__ = ["OneirosWorker"]
+__all__ = ["OneirosWorker", "DEFAULT_PHASE_REGISTRY", "_aware"]
