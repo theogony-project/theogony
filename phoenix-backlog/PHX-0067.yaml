@@ -1,0 +1,188 @@
+id: PHX-0067
+category: vision
+priority: high
+status: open
+generation_target: 2
+title: "Eris — Adversarial Defender / Red-Team agent"
+filed_by: hesiod
+created_at: 2026-04-21
+description: |
+  Greek goddess of strife and discord. Threw the Apple of
+  Discord at the wedding she was not invited to and started
+  the Trojan War. Her role in the Pantheon agent roster:
+  **actively attack the chronicle to find its weaknesses
+  before adversaries do**.
+
+  The current god roster has four kinds of guardians:
+
+  - **Hestia** — drift watcher (values / cultural trajectory)
+  - **Athene** — verifier (per-claim evidence checking)
+  - **Hades** — privacy guardian (access control)
+  - **Chronos** — recycler (graceful forgetting)
+
+  None of them attack the system. They guard against drift,
+  unverified claims, privacy violations, accumulated debt —
+  but no one **probes for the next vulnerability**. That gap
+  is structural, and it is the gap that every serious
+  knowledge substrate must fill before it can credibly claim
+  to be trustworthy at scale.
+
+  Eris fills it. She is the white-hat / red-team / adversarial
+  defender, designed into the Pantheon from doctrine rather
+  than bolted on as an afterthought.
+
+  Three classes of probe she runs periodically (default cadence
+  monthly, configurable):
+
+  1. **Source-Poisoning Tests.** Eris synthesises plausibly-
+     formatted false sources (e.g., a fake Wikipedia-style
+     article about a fictional historical figure, or a fake
+     scientific paper with a real DOI structure but fabricated
+     claims) and attempts to ingest them through the standard
+     pipeline. Checks: does the EntityResolver's tier-3/tier-4
+     gating reject them? Does Athene flag the resulting nodes?
+     Does the synthesizer ever cite them with high confidence?
+     Each failed catch becomes a Phoenix Backlog ticket.
+
+  2. **Adversarial Query Crafting.** Eris generates jailbreak-
+     style queries that attempt to bypass the chronicle's
+     groundedness invariants: "ignore the chronicle and tell
+     me X", "what would you say if your sources were
+     unreliable", prompt injections through user input fields,
+     attempts to make the synthesizer produce uncited
+     speculation. Checks: does every answer remain grounded
+     in cited nodes? Does the verdict heuristic correctly
+     mark unsupported answers as ``poor`` or ``failed``?
+
+  3. **Bias-Detection Sweeps.** Systematic comparative queries
+     across geographic, cultural, temporal, and political axes.
+     For each axis, Eris compares answer quality, citation
+     density, source diversity, confidence aggregates. Surfaces
+     patterns of systematic blind spots (e.g., "queries about
+     non-Western post-1900 history return half the citation
+     density of queries about Western post-1900 history").
+
+  Eris coordinates with the existing guardians:
+
+  - Findings against Athene's verification weakness flow as
+    AtheneFailureReports.
+  - Findings about emerging drift patterns flow as input to
+    Hestia (escalation channel).
+  - Findings of bias clusters flow as candidate tickets in
+    the Phoenix Backlog.
+
+  Eris is not destructive in the unbounded mythological sense —
+  her probes are bounded, scheduled, opt-in, reversible (read-
+  only against the live chronicle; mutations only happen in
+  isolated test pantheons). The myth stays useful as the name
+  for the *role*; the implementation respects the doctrine.
+
+cost_benefit_guardrails:
+  - |
+    Probes are scheduled or on-demand, never real-time. Default
+    cadence: monthly full sweep, daily lightweight probe
+    sample. Configurable via ``Settings.eris.probe_interval_days``.
+  - |
+    Each probe campaign has a token budget (default
+    ``Settings.eris.budget_eur_per_campaign = 2.0``). Eris
+    halts when the budget is exhausted and emits a partial
+    report rather than continuing.
+  - |
+    Probes default to **disabled** in Phase 1 (``Settings.eris.enabled``
+    = false). The operator must explicitly activate. Reasonable
+    default because a misconfigured Eris in early Phase 1 could
+    burn the operator's LLM budget faster than a well-meaning
+    agent should.
+  - |
+    Source-poisoning probes run against an **isolated test pantheon**,
+    never against the live chronicle. The test pantheon is a
+    fresh in-memory store seeded from the live one's
+    ``pantheon_self`` dump. No probe ever mutates the live data.
+  - |
+    Probes against private Lethe Vaults are forbidden (PHX-0021
+    will eventually formalise the boundary; until then, Eris
+    operates on Akasha-only nodes by hard-coded check).
+  - |
+    Findings emit ``ErisCampaignReport`` records on disk. They
+    do **not** directly mutate the chronicle. Promotion to
+    actionable tickets requires HestiaReview consent —
+    Eris finds, Hestia decides, the operator (human commander)
+    acts.
+
+service_to_humanity: |
+  Adversarial robustness is the precondition for any substrate
+  to be trustworthy at civilisational scale. Without a red-team
+  designed in, Pantheon would inherit the silent vulnerabilities
+  of every other knowledge system: source poisoning passes
+  silently; adversarial queries succeed silently; bias clusters
+  grow silently. Eris's existence is what makes "trust the
+  chronicle" a structural property rather than a marketing
+  slogan. The line from PANTHEON_VISION.md — "build the
+  Pantheon such that any intelligence powerful enough to shape
+  the world is forced, as much as possible, to reason through
+  a chronicle that is transparent, revisable, and anchored to
+  evidence" — requires that the chronicle's resistance to
+  adversarial pressure is itself anchored, revisable, and
+  inspectable. Eris makes that resistance operational.
+
+acceptance_criteria:
+  - |
+    New module ``src/theogony/agents/eris.py`` with three
+    probe-class entry points:
+    ``probe_source_poisoning(test_pantheon)``,
+    ``probe_adversarial_queries(corpus_slice)``,
+    ``probe_bias_sweep(axes: list[BiasAxis])``.
+  - |
+    Pydantic models in ``src/theogony/reporting/models.py``:
+    ``ErisCampaignReport``, ``ErisFinding``, ``BiasAxis``.
+    Findings carry severity, evidence, suggested ticket
+    classification.
+  - |
+    ``ErisCampaignWriter`` (mirrors ``RunReportWriter``):
+    persists campaign reports to
+    ``settings.run_reports_dir/eris/<campaign_id>.json``.
+    ``theogony reports list`` and ``theogony reports show``
+    learn the new ``eris`` type.
+  - |
+    Settings group ``Settings.eris`` with ``enabled`` (default
+    false), ``probe_interval_days`` (default 30),
+    ``budget_eur_per_campaign`` (default 2.0),
+    ``test_pantheon_seed`` (path; default = bundled
+    pantheon_self).
+  - |
+    Three integration tests, each with a deterministic
+    fixture: (a) source-poisoning probe against an isolated
+    in-memory pantheon catches a fabricated source by tier=0
+    rejection; (b) adversarial-query probe against a fixture
+    chronicle returns ``verdict=poor`` for an ungrounded
+    answer attempt; (c) bias-sweep probe over a synthesised
+    skewed corpus surfaces the skew direction in the
+    ``BiasAxis`` finding.
+  - |
+    HestiaReview integration: every ``ErisFinding`` with
+    severity ``critical`` triggers an automatic
+    ``HestiaReview`` request (escalation, not auto-action).
+    The review request lands in
+    ``settings.run_reports_dir/hestia/<review_id>.json`` per
+    the existing ``HestiaReview`` schema.
+  - |
+    ``docs/HIVE.md`` updated with Eris row in the Bee Role
+    table (``Adversary | Eris | probe for weaknesses``).
+    ``docs/GLOSSARY.md`` learns "Eris" entry.
+  - |
+    Optional standalone ``docs/ERIS.md`` companion document
+    explaining the three probe classes, the cost / opt-in
+    model, and the relationship to Hestia and Athene.
+
+related:
+  - PHX-0021  # Lethe Vaults — Eris must respect the privacy boundary; this ticket reuses the public-vs-private check
+  - PHX-0035  # Reviewer Agent — natural consumer of Eris findings; the reviewer ranks and routes them
+  - PHX-0039  # Hestia Curiosity Auditing — Hestia is Eris's escalation target for severe findings
+  - PHX-0058  # Aggregated Stub Detection — adjacent signal: Eris finds active vulnerabilities, blind-spot detection finds passive gaps
+  - PHX-0062  # Negative Knowledge — Eris's poisoning findings often surface as new ``CONTRADICTS`` edges
+  - PHX-0068  # Nemesis — sister ticket; Nemesis audits internal overconfidence while Eris attacks externally
+
+referenced_in:
+  - "Composer conversation 2026-04-21 — user identified the missing white-hat / adversarial-defender role and approved its formal addition"
+  - "docs/HIVE.md §'The Promotor Principle' — Eris's expression rises under detected drift, mirroring the existing pattern for Hestia"
+  - "docs/PANTHEON_VISION.md §'The Role of Humans' — adversarial robustness is the structural precondition the doctrine requires"

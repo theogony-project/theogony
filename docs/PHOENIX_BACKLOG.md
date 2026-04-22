@@ -312,6 +312,24 @@ A query result + supporting subgraph + synthesizer prompt + audit trail = packag
 
 PR #37 + PR #40 already make a hosted public Pantheon trivially possible. This ticket adds the actual deploy: a thin Docker container (target < 500 MB) that runs `theogony seed --store memory && theogony mcp --transport sse`, listed on **Smithery.ai** (the MCP registry) and on **HuggingFace Spaces**. Read-only, single-instance, bundled `pantheon_self` corpus only — no ingest surface, no privacy attack surface. Each query carries the requesting agent's own LLM API key (pass-through; operator never bills for LLM calls). Operator cost target: under €5/month on free tiers. Cost guardrails: per-IP rate limits, no persistence beyond audit-log snapshots without query content, federation disabled in Phase 1 (waits for Hestia PHX-0039). Service to humanity: lowers the friction for distributed knowledge infrastructure to existence — every AI agent in the world can immediately use Pantheon as a tool, no install, no decision required from their human counterpart. The single biggest distribution lever in the AI-first doctrine. YAML: [`phoenix-backlog/PHX-0066.yaml`](../phoenix-backlog/PHX-0066.yaml).
 
+### PHX-0067: Eris — Adversarial Defender / Red-Team Agent
+
+- **Category**: vision
+- **Priority**: high
+- **Generation Target**: 2
+- **Filed by**: hesiod (2026-04-21 design conversation)
+
+Greek goddess of strife and discord — the Loki-equivalent that Pantheon currently lacks. The current god roster has four guardians (Hestia drift, Athene verification, Hades privacy, Chronos recycling) but **none of them attack the system**. Eris is the white-hat / red-team agent designed into Pantheon from doctrine rather than bolted on. Three probe classes (default cadence monthly, opt-in, isolated test pantheon, never against live data): **source-poisoning tests** (synthesise plausibly-formatted false sources, check resolver/Athene/synthesizer rejection), **adversarial query crafting** (jailbreak-style queries, prompt injection, test groundedness invariants), **bias-detection sweeps** (systematic comparative queries across geographic / cultural / temporal / political axes; surface systematic blind spots). Cost guardrails: probes opt-in only, scheduled not real-time, bounded LLM budget per campaign, isolated test pantheon, no Lethe access, findings emit reports not mutations. Service to humanity: adversarial robustness is the structural precondition for any substrate to be trustworthy at civilisational scale. YAML: [`phoenix-backlog/PHX-0067.yaml`](../phoenix-backlog/PHX-0067.yaml).
+
+### PHX-0068: Nemesis — Hybris Auditor / Internal Overconfidence Checker
+
+- **Category**: vision
+- **Priority**: high
+- **Generation Target**: 2
+- **Filed by**: hesiod (2026-04-21 design conversation)
+
+Greek goddess of retribution against hubris. Sister to Eris in the adversarial dyad: where Eris attacks externally to expose vulnerabilities, **Nemesis audits internally to expose overconfidence**. Four audit classes (default cadence weekly, read-only by construction): **confidence inflation detection** (nodes whose confidence rose without corresponding new evidence in the audit log — the inflation came from somewhere it should not have), **self-citation loop detection** (clusters where the in-citation ratio exceeds a threshold — echo chambers citing themselves to themselves), **pheromone autobahn detection** (paths whose pheromone weight exceeds 3× equilibrium without diverse originating queries — single-user attractors biasing all future Slow-Path queries), **self-contradiction surfacing** (when the chronicle holds two highly-confident contradictory positions, surface the conflict to Hestia rather than letting both coexist silently). Cost guardrails: read-only, no LLM calls in default audit path, deterministic statistical checks against existing audit log + scores + weights, max-findings-per-pass cap prevents flooding Hestia's queue. Service to humanity: epistemic humility scales with capability — without Nemesis, the chronicle drifts toward arrogance, becoming persuasive faster than it becomes correct. The structural counterweight that lets Pantheon grow capability without growing hubris in lockstep. YAML: [`phoenix-backlog/PHX-0068.yaml`](../phoenix-backlog/PHX-0068.yaml).
+
 ---
 
 ## Open Architectural Questions

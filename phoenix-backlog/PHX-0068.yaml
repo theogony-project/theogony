@@ -1,0 +1,189 @@
+id: PHX-0068
+category: vision
+priority: high
+status: open
+generation_target: 2
+title: "Nemesis — Hybris Auditor / Internal overconfidence checker"
+filed_by: hesiod
+created_at: 2026-04-21
+description: |
+  Greek goddess of retribution against hubris — the divine
+  force that strikes down those who become too confident in
+  their own importance. Her role in the Pantheon agent roster:
+  **prevent the chronicle from becoming arrogant about its
+  own knowledge**.
+
+  Where Eris (PHX-0067) attacks the chronicle from outside
+  to expose vulnerabilities, Nemesis audits the chronicle
+  from inside to expose overconfidence. Together they form
+  the adversarial dyad: external probe + internal audit.
+
+  Four classes of audit she runs periodically (default cadence
+  weekly, configurable):
+
+  1. **Confidence Inflation Detection.** Scan for nodes whose
+     ``scores.confidence`` has risen over a window without
+     corresponding new evidence in the audit log. A node that
+     was ``confidence=0.6`` with 2 sources at time T1 and is
+     now ``confidence=0.9`` still with 2 sources at time T2 is
+     suspicious — the inflation came from somewhere it should
+     not have (likely pheromone bumps from PHX-0057 or
+     citation accumulation from RelevanceTracker). Nemesis
+     flags candidates for HestiaReview.
+
+  2. **Self-Citation Loop Detection** (depends on PHX-0060).
+     For each cluster, compute the fraction of citations that
+     stay within the cluster vs. cross into other clusters.
+     Healthy clusters have meaningful external diversity.
+     Echo chambers cite themselves to themselves. Cluster-level
+     in-citation ratios above ``Settings.nemesis.echo_chamber_threshold``
+     (default 0.85) get flagged.
+
+  3. **Pheromone Autobahn Detection** (depends on PHX-0057).
+     Flag paths whose accumulated pheromone weight exceeds
+     ``Settings.nemesis.autobahn_threshold`` (default: 3x
+     the equilibrium weight) without corresponding diversity
+     in the originating queries that traversed them. A single
+     user hammering one query 100 times should not create a
+     chronicle-wide attractor that biases all future Slow-Path
+     queries.
+
+  4. **Self-Contradiction Surfacing** (depends on PHX-0062).
+     When the chronicle holds two highly-confident contradictory
+     positions — both tier-3+ confidence, both with strong
+     citations, but linked by a ``CONTRADICTS`` edge — Nemesis
+     surfaces the conflict explicitly to Hestia for review
+     rather than letting both coexist silently. The chronicle
+     should be visibly aware of its own internal disagreements,
+     not quietly hold them.
+
+  Nemesis coordinates with the existing guardians and with
+  her sister Eris:
+
+  - Confidence-inflation findings flow as candidate
+    score-rebalancing recommendations to Athene.
+  - Echo-chamber findings flow as ClusterReview entries to
+    the cluster-management subsystem (PHX-0060).
+  - Autobahn findings flow as Slow-Path-emancipation triggers
+    (PHX-0057).
+  - Self-contradiction findings escalate directly to Hestia.
+
+  Nemesis is **read-only by construction**. She never mutates
+  the chronicle. Her output is exclusively reports + escalations.
+  The actual rebalancing / depollination / pheromone-resetting
+  belongs to other workers (Athene, OneirosWorker, the cluster
+  manager) acting on her findings with HestiaReview consent.
+
+cost_benefit_guardrails:
+  - |
+    Audits are periodic or on-demand, never real-time. Default
+    cadence: weekly full audit, daily lightweight sample.
+    Configurable via ``Settings.nemesis.audit_interval_days``.
+  - |
+    Computational cost is bounded:
+    Confidence-inflation audit is O(nodes) — full pass is
+    cheap even at 10M nodes. Self-citation audit is
+    O(edges per cluster) — bounded per cluster, not global.
+    Pheromone-autobahn audit is O(pheromone-rich edges) —
+    naturally small set.
+  - |
+    Nemesis defaults to **enabled** in Phase 1 (unlike Eris).
+    Reasoning: Nemesis is read-only and her cost is bounded
+    by corpus size, not by external API budget. Operating
+    without confidence-audit is the riskier default.
+  - |
+    Audit window for confidence-inflation is configurable
+    (``Settings.nemesis.inflation_window_days``, default 30).
+    Multi-year retroactive audits require opt-in.
+  - |
+    No LLM calls in the default audit path. Nemesis runs
+    deterministic statistical checks against the existing
+    audit log + node scores + edge weights. The escalation
+    layer (HestiaReview generation) optionally uses an LLM
+    to draft the review text; that is opt-in
+    (``Settings.nemesis.draft_reviews_with_llm``, default
+    false).
+  - |
+    Findings cap per audit pass:
+    ``Settings.nemesis.max_findings_per_pass`` (default 50)
+    so a misconfigured chronicle does not flood Hestia's
+    review queue with thousands of tiny issues. Top-N by
+    severity is selected; the long tail is summarised.
+
+service_to_humanity: |
+  Epistemic humility scales with capability. As the chronicle
+  grows and accumulates use, the structural pressure toward
+  overconfidence (pheromone autobahns, citation feedback
+  loops, cluster echo chambers, silent contradictions) grows
+  with it. Without Nemesis, the chronicle drifts toward
+  arrogance — increasingly confident in its own outputs, less
+  honest about what it knows weakly vs. strongly. That is
+  exactly the failure mode that makes AI knowledge systems
+  dangerous: they become persuasive faster than they become
+  correct. Nemesis is the structural counterweight. Her
+  presence is what allows Pantheon to grow capability without
+  growing hubris in lockstep — a pattern the larger AI
+  ecosystem desperately needs and rarely implements.
+
+acceptance_criteria:
+  - |
+    New module ``src/theogony/agents/nemesis.py`` with four
+    audit-class entry points:
+    ``audit_confidence_inflation(window_days)``,
+    ``audit_self_citation_loops(cluster_id_filter)``,
+    ``audit_pheromone_autobahns(weight_threshold)``,
+    ``audit_self_contradictions()``.
+  - |
+    Pydantic models in ``src/theogony/reporting/models.py``:
+    ``NemesisAuditReport``, ``NemesisFinding`` (with
+    ``finding_type`` literal of the four classes above),
+    ``NemesisSeverity`` enum.
+  - |
+    ``NemesisAuditWriter`` (mirrors ``RunReportWriter``):
+    persists audit reports to
+    ``settings.run_reports_dir/nemesis/<audit_id>.json``.
+    ``theogony reports list`` and ``theogony reports show``
+    learn the new ``nemesis`` type.
+  - |
+    Settings group ``Settings.nemesis`` with: ``enabled``
+    (default true), ``audit_interval_days`` (default 7),
+    ``inflation_window_days`` (default 30),
+    ``echo_chamber_threshold`` (default 0.85),
+    ``autobahn_threshold`` (default 3.0),
+    ``max_findings_per_pass`` (default 50),
+    ``draft_reviews_with_llm`` (default false).
+  - |
+    Four integration tests, each with a deterministic
+    fixture: (a) confidence-inflation audit detects a node
+    whose confidence rose without new audit-log evidence;
+    (b) self-citation audit detects a synthesised echo-
+    chamber cluster (when PHX-0060 lands; until then a
+    placeholder test); (c) autobahn audit detects an over-
+    pheromoned path (when PHX-0057 lands); (d) self-
+    contradiction audit detects a pair of high-confidence
+    contradictory nodes (when PHX-0062 lands).
+  - |
+    HestiaReview integration: every ``NemesisFinding`` with
+    severity ``critical`` triggers a ``HestiaReview``
+    request. Severity ``high`` becomes a Phoenix Backlog
+    candidate. Severity ``medium`` and below stay in the
+    audit report only.
+  - |
+    ``docs/HIVE.md`` updated with Nemesis row in the Bee
+    Role table (``Auditor | Nemesis | guard against
+    overconfidence``). ``docs/GLOSSARY.md`` learns "Nemesis"
+    entry. Optional ``docs/NEMESIS.md`` companion document.
+
+related:
+  - PHX-0035  # Reviewer Agent — natural consumer of Nemesis audit reports
+  - PHX-0039  # Hestia Curiosity Auditing — escalation target for Nemesis findings
+  - PHX-0057  # Edge-Pheromone — pheromone-autobahn audit depends on this ticket landing
+  - PHX-0058  # Aggregated Stub Detection — adjacent signal: blind-spot detection finds gaps, Nemesis finds inflated certainties
+  - PHX-0060  # Domain Clusters — self-citation audit operates per cluster
+  - PHX-0062  # Negative Knowledge — self-contradiction audit consumes ``CONTRADICTS`` edges
+  - PHX-0067  # Eris — sister ticket; Eris attacks externally, Nemesis audits internally
+
+referenced_in:
+  - "Composer conversation 2026-04-21 — user accepted Nemesis as the natural complement to Eris in the adversarial dyad"
+  - "docs/COGNITIVE_ARCHITECTURE.md §'The Opposition Principle' — Nemesis's role aligns with the Skeptic phase, applied to the chronicle's own confidence"
+  - "docs/PHILOSOPHY.md §'Verification Over Authority' — Nemesis enforces this principle against the chronicle's own accumulated authority"
