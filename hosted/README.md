@@ -21,16 +21,19 @@ The image installs Theogony from the checkout (no PyPI publish required). Target
 
 ## Fly.io (primary path)
 
-1. Install the [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/) and log in (`fly auth signup` / `fly auth login`).
-2. Edit `hosted/fly.toml`: set `app = "your-unique-name"` and align `internal_port` with the container `PORT` (default **8080**).
-3. From the **repository root**, build and push an image (example tag):
-   `docker build -f hosted/Dockerfile -t registry.example/theogony-mcp:v1 .`
-4. Deploy the pushed image:
-   `fly deploy -c hosted/fly.toml --image registry.example/theogony-mcp:v1`
-5. Health: `https://<your-app>.fly.dev/health` returns JSON (`status`, `node_count`, `edge_count`, `uptime_seconds`, …).
-6. MCP SSE URL for clients: `https://<your-app>.fly.dev/sse` (POST JSON-RPC to the `endpoint` URL the SSE stream advertises under `/messages/`).
+The reference deployment lives at **https://theogony-mcp.fly.dev/** (single-instance, read-only, `pantheon_self` seed). To run your own:
 
-The container reads **`HOST`** and **`PORT`**; defaults are `0.0.0.0` and `8080`.
+1. Install the [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/) (`curl -L https://fly.io/install.sh | sh`) and log in (`fly auth signup` / `fly auth login`).
+2. Pick a globally-unique app name and reserve it: `fly apps create <your-name>`. Then set `app = "<your-name>"` in `hosted/fly.toml` (the file is pre-pinned to `theogony-mcp`).
+3. From the **repository root**, deploy via Fly's remote builder (no local Docker needed):
+   ```bash
+   fly deploy -c hosted/fly.toml --dockerfile hosted/Dockerfile --remote-only
+   ```
+   First build is **slow** (~30–40 min wall-clock end-to-end): pip install of CUDA-bundled PyTorch wheels takes ~8 min × 2 (multi-arch), layer export ~8 min × 2, push to `registry.fly.io` ~4 min, machine rollout ~30 s. Image lands at ~2.7 GB. Subsequent deploys with cached layers are much faster.
+4. Health: `https://<your-app>.fly.dev/health` returns JSON (`status`, `embedding_model`, `node_count`, `edge_count`, `uptime_seconds`, `last_query_at`). For the `pantheon_self` seed expect `node_count=278`, `edge_count=1168`.
+5. MCP SSE URL for clients: `https://<your-app>.fly.dev/sse` (POST JSON-RPC to the `endpoint` URL the SSE stream advertises under `/messages/`).
+
+The container reads **`HOST`** and **`PORT`**; defaults are `0.0.0.0` and `8080`. The pinned `[[vm]]` block in `hosted/fly.toml` requests **1 GB RAM** — the sentence-transformer loads ~400 MB on first `/sse` connect, so the default 256 MB OOMs on cold start.
 
 **No webhook auto-redeploy** in Phase 1 — run `fly deploy` manually when you cut a new image.
 
