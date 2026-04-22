@@ -190,6 +190,7 @@ async def test_tool_status_returns_expected_shape(tmp_path: Path) -> None:
     assert payload["llm_model"] == "stub-llm"
     assert payload["embedding_model"] == "bge-small-en"
     assert payload["embedding_dim"] == 384
+    assert payload["morpheus_proposals_recent"] == 0
     assert payload["report_counts"] == {
         "ingest": 0,
         "query": 0,

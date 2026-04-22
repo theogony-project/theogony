@@ -145,6 +145,8 @@ def _node_to_props(node: KnowledgeNode, embedding_dim: int) -> dict[str, Any]:
         "layer": node.layer.value,
         "cluster_id": node.cluster_id,
         "cluster_label": node.cluster_label,
+        "depth_band": node.depth_band,
+        "source_identifier": node.source_ref.identifier or None,
         # ``embedding`` is the only list-of-float we set; Neo4j stores it
         # as a list and the HNSW index reads it directly.
         "embedding": list(node.embedding) if node.embedding else None,
@@ -223,6 +225,7 @@ def _node_from_record(props: Mapping[str, Any]) -> KnowledgeNode:
         layer=Layer(props.get("layer", Layer.EPHEMERA.value)),
         cluster_id=props.get("cluster_id"),
         cluster_label=props.get("cluster_label"),
+        depth_band=int(props.get("depth_band", 0)),
         external_ids=external_ids,
         source_ref=source_ref,
         scores=scores,
@@ -871,6 +874,122 @@ class Neo4jKnowledgeStore:
             result = await session.run(cypher, layer=layer.value)
             records = await result.data()
         return {str(rec["id"]): int(rec["degree"]) for rec in records}
+
+    async def list_low_connectivity_nodes(
+        self,
+        *,
+        layer: Layer,
+        max_edges: int,
+        batch_size: int,
+    ) -> list[KnowledgeNode]:
+        _validate_int("max_edges", max_edges, minimum=0)
+        _validate_int("batch_size", batch_size, minimum=1)
+        cypher = """
+        MATCH (n:KnowledgeNode {layer: $layer})
+        OPTIONAL MATCH (n)-[r:RELATION]-()
+        WITH n, count(r) AS deg
+        WHERE deg < $max_edges
+        RETURN n{.*, id: n.id} AS node
+        ORDER BY n.created_at ASC
+        LIMIT $batch_size
+        """
+        async with self._session() as session:
+            result = await session.run(
+                cypher,
+                layer=layer.value,
+                max_edges=max_edges,
+                batch_size=batch_size,
+            )
+            records = await result.data()
+        return [_node_from_record(rec["node"]) for rec in records]
+
+    async def find_similar_nodes_in_band(
+        self,
+        embedding: list[float],
+        *,
+        band_low: float,
+        band_high: float,
+        exclude_ids: set[str],
+        top_k: int,
+        layer: Layer | None = None,
+    ) -> list[ScoredNode]:
+        _validate_int("top_k", top_k, minimum=1)
+        if not embedding:
+            return []
+        fetch_k = max(top_k * 25, 200)
+        cypher = """
+        CALL db.index.vector.queryNodes(
+          'knowledge_node_embedding', $fetch_k, $embedding
+        ) YIELD node, score
+        WHERE score >= $band_low AND score <= $band_high
+          AND NOT node.id IN $exclude_list
+          AND ($layer IS NULL OR node.layer = $layer)
+        RETURN node{.*, id: node.id} AS node, score
+        ORDER BY score DESC
+        LIMIT $top_k
+        """
+        async with self._session() as session:
+            result = await session.run(
+                cypher,
+                embedding=list(embedding),
+                fetch_k=fetch_k,
+                band_low=band_low,
+                band_high=band_high,
+                exclude_list=list(exclude_ids),
+                top_k=top_k,
+                layer=layer.value if layer is not None else None,
+            )
+            records = await result.data()
+        return [
+            ScoredNode(node=_node_from_record(rec["node"]), score=float(rec["score"]))
+            for rec in records
+        ]
+
+    async def update_depth_band(
+        self,
+        node_id: str,
+        depth_band: int,
+        *,
+        layer: Layer | None = None,
+    ) -> None:
+        if layer is None:
+            cypher = """
+            MATCH (n:KnowledgeNode {id: $node_id})
+            SET n.depth_band = $depth_band
+            """
+            params: dict[str, Any] = {"node_id": node_id, "depth_band": depth_band}
+        else:
+            cypher = """
+            MATCH (n:KnowledgeNode {id: $node_id})
+            SET n.depth_band = $depth_band,
+                n.layer = $layer
+            """
+            params = {
+                "node_id": node_id,
+                "depth_band": depth_band,
+                "layer": layer.value,
+            }
+        async with self._session() as session:
+            await session.run(cypher, **params)
+
+    async def list_nodes_by_source_identifier(
+        self,
+        *,
+        identifier: str,
+        exclude_id: str | None = None,
+    ) -> list[KnowledgeNode]:
+        if not identifier:
+            return []
+        cypher = """
+        MATCH (n:KnowledgeNode)
+        WHERE n.source_identifier = $identifier
+          AND ($exclude_id IS NULL OR n.id <> $exclude_id)
+        RETURN n{.*, id: n.id} AS node
+        """
+        async with self._session() as session:
+            result = await session.run(cypher, identifier=identifier, exclude_id=exclude_id)
+            records = await result.data()
+        return [_node_from_record(rec["node"]) for rec in records]
 
     # ----- clusters ----------------------------------------------------------
 

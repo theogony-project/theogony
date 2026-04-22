@@ -41,6 +41,8 @@ from theogony.clustering.recluster_phase import ClusteringRunReportPayload, Recl
 from theogony.config.logging import get_logger
 from theogony.core.model import ClusterSummary
 from theogony.curiosity.blind_spot_aggregation_phase import BlindSpotAggregationPhase
+from theogony.memory.depth_band_phase import DepthBandPhase
+from theogony.memory.morpheus_phase import MorpheusPhase
 from theogony.memory.pheromone_decay_phase import PheromoneDecayPhase
 from theogony.memory.tick_phase import TickContext, TickPhase, _aware
 from theogony.memory.tick_phases import (
@@ -53,6 +55,8 @@ from theogony.memory.tick_phases import (
 )
 from theogony.reporting.models import (
     ClusteringRunReport,
+    DepthBandBreakdown,
+    MorpheusBreakdown,
     OneirosTickReport,
     VitalityShift,
     new_run_id,
@@ -73,6 +77,8 @@ DEFAULT_PHASE_REGISTRY: dict[str, type[TickPhase]] = {
     "write_scores": WriteScoresPhase,
     "promote": PromotePhase,
     "degrade_mneme": DegradeMnemePhase,
+    "depth_band": DepthBandPhase,
+    "morpheus": MorpheusPhase,
     "recluster": ReclusterPhase,
     "pheromone_decay": PheromoneDecayPhase,
     "blind_spot_aggregation": BlindSpotAggregationPhase,
@@ -121,6 +127,14 @@ class OneirosWorker:
             registry[name]() for name in settings.oneiros.enabled_phases if name in registry
         ]
 
+    async def run_single_tick(self) -> None:
+        """Execute one full tick (phases + report) without sleeping.
+
+        Used by ``theogony oneiros tick`` (PHX-0059) and tests that need a
+        single pipeline pass without starting the long-lived loop.
+        """
+        await self._tick()
+
     async def run(self) -> None:
         """Main loop. Plan §4.4 / §5 E8.5: strict-serial tick + sleep.
 
@@ -162,10 +176,12 @@ class OneirosWorker:
         perf_started = time.perf_counter()
         cfg = self._settings.oneiros
         raised = False
+        tick_run_id = new_run_id()
 
         ctx = TickContext(
             started_at=started,
             perf_started=perf_started,
+            run_id=tick_run_id,
             cfg=cfg,
             store=self._store,
             app_settings=self._settings,
@@ -192,6 +208,8 @@ class OneirosWorker:
                     pre_vitality=ctx.pre_vitality if not raised else [],
                     post_vitality=ctx.post_vitality if not raised else [],
                     raised=raised,
+                    tick_run_id=tick_run_id,
+                    extras=ctx.extras if not raised else {},
                 )
                 self._writer.write(report)
                 if not raised:
@@ -244,6 +262,8 @@ class OneirosWorker:
         pre_vitality: list[float],
         post_vitality: list[float],
         raised: bool,
+        tick_run_id: str,
+        extras: dict[str, object],
     ) -> OneirosTickReport:
         """Compose one :class:`OneirosTickReport` from accumulated observations.
 
@@ -264,8 +284,35 @@ class OneirosWorker:
             median_vitality_shift=median_shift,
             thresholds=self._settings.report.thresholds.oneiros,
         )
+        morph: MorpheusBreakdown | None = None
+        raw_m = extras.get("morpheus")
+        if isinstance(raw_m, dict):
+            morph = MorpheusBreakdown(
+                candidates_considered=int(raw_m.get("candidates_considered", 0)),
+                candidates_with_proposals=int(raw_m.get("candidates_with_proposals", 0)),
+                candidates_skipped_no_neighbors_in_band=int(
+                    raw_m.get("candidates_skipped_no_neighbors_in_band", 0)
+                ),
+                edges_proposed=int(raw_m.get("edges_proposed", 0)),
+            )
+        depth: DepthBandBreakdown | None = None
+        raw_d = extras.get("depth_band")
+        if isinstance(raw_d, dict):
+            dist_raw = raw_d.get("distribution", {})
+            dist: dict[int, int] = {}
+            if isinstance(dist_raw, dict):
+                for k, v in dist_raw.items():
+                    try:
+                        dist[int(k)] = int(v)
+                    except (TypeError, ValueError):
+                        continue
+            depth = DepthBandBreakdown(
+                transitions=int(raw_d.get("transitions", 0)),
+                layer_changes=int(raw_d.get("layer_changes", 0)),
+                distribution=dist,
+            )
         return OneirosTickReport(
-            run_id=new_run_id(),
+            run_id=tick_run_id,
             started_at=started_at,
             finished_at=finished_at,
             duration_s=max(duration_s, 0.0),
@@ -285,6 +332,8 @@ class OneirosWorker:
                 mean_vitality_after=_mean(post_vitality),
                 median_shift=median_shift,
             ),
+            morpheus=morph,
+            depth_band=depth,
         )
 
 

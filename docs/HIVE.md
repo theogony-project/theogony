@@ -13,7 +13,7 @@ The production chain is analogous to a real hive:
 | Scout | Argus, Prometheus | find sources, identify gaps |
 | Forager | Argus, Jason, Iris | acquire raw content |
 | Processor | Extraction Pipeline | digest text into entities, relations, embeddings |
-| Builder | Morpheus | create associations, infer new edges |
+| Builder | Morpheus | create associations, infer new edges (Phase 1: deterministic embedding-band + co-occurrence proposals via opt-in `morpheus` tick phase; LLM dreaming is PHX-0004) |
 | Inspector | Athene | verify, challenge, score confidence |
 | Recycler | Chronos | remove waste, compress, archive |
 | Guard | Hades | protect private stores |

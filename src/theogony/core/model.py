@@ -287,6 +287,18 @@ class KnowledgeNode(BaseModel):
             "is stable. See PHX-0060 knob 5."
         ),
     )
+    depth_band: int = Field(
+        default=0,
+        ge=0,
+        le=5,
+        description=(
+            "Depth-band ladder [0..5]: bands 0–2 are EPHEMERA strata "
+            "(raw → settling → promotable), bands 3–5 are MNEME strata "
+            "(freshly promoted → well-embedded → canonical). Derived by "
+            "DepthBandPhase from connectivity + vitality + idle-days. "
+            "See docs/DEPTH_BANDS.md."
+        ),
+    )
 
     external_ids: dict[str, str] = Field(
         default_factory=dict, description="e.g. {'wikidata': 'Q806463', 'gutenberg': '12345'}"

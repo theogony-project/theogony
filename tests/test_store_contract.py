@@ -924,6 +924,76 @@ class TestBatchUpdateScores:
 
 
 # ---------------------------------------------------------------------------
+# PHX-0059 — Morpheus + depth bands store surface
+# ---------------------------------------------------------------------------
+
+
+class TestPhx0059StoreExtensions:
+    async def test_list_low_connectivity_nodes_orders_oldest_first(
+        self, store: KnowledgeStore
+    ) -> None:
+        from datetime import UTC, datetime, timedelta
+
+        n_old = make_node("old-iso", embedding=_emb(1.0, 0.0, 0.0, 0.0))
+        n_old.created_at = datetime.now(UTC) - timedelta(days=10)
+        n_new = make_node("new-iso", embedding=_emb(0.0, 1.0, 0.0, 0.0))
+        n_new.created_at = datetime.now(UTC)
+        await store.upsert_node(n_old)
+        await store.upsert_node(n_new)
+        out = await store.list_low_connectivity_nodes(
+            layer=Layer.EPHEMERA,
+            max_edges=5,
+            batch_size=10,
+        )
+        assert [n.label for n in out[:2]] == ["old-iso", "new-iso"]
+
+    async def test_find_similar_nodes_in_band_filters_scores(
+        self, store: KnowledgeStore
+    ) -> None:
+        a = make_node("a", embedding=_emb(1.0, 0.0, 0.0, 0.0))
+        b = make_node("b", embedding=_emb(0.95, 0.3, 0.0, 0.0))
+        c = make_node("c", embedding=_emb(0.1, 0.9, 0.0, 0.0))
+        await store.upsert_node(a)
+        await store.upsert_node(b)
+        await store.upsert_node(c)
+        q = _emb(1.0, 0.0, 0.0, 0.0)
+        hits = await store.find_similar_nodes_in_band(
+            q,
+            band_low=0.85,
+            band_high=0.99,
+            exclude_ids=set(),
+            top_k=10,
+        )
+        labels = {sn.node.label for sn in hits}
+        assert "b" in labels
+        assert "a" not in labels
+
+    async def test_update_depth_band_round_trips(self, store: KnowledgeStore) -> None:
+        n = make_node("banded", embedding=_emb(1.0, 0.0, 0.0, 0.0))
+        await store.upsert_node(n)
+        await store.update_depth_band(n.id, 2)
+        got = await store.get_node(n.id)
+        assert got is not None
+        assert got.depth_band == 2
+
+    async def test_update_depth_band_unknown_is_noop(self, store: KnowledgeStore) -> None:
+        await store.update_depth_band("AKA-deadbeefdead", 3)
+
+    async def test_list_nodes_by_source_identifier(self, store: KnowledgeStore) -> None:
+        x = make_node("x1", location="loc:x1")
+        y = make_node("x2", location="loc:x2")
+        await store.upsert_node(x)
+        await store.upsert_node(y)
+        rows = await store.list_nodes_by_source_identifier(
+            identifier="Gutenberg:944",
+            exclude_id=x.id,
+        )
+        ids = {n.id for n in rows}
+        assert y.id in ids
+        assert x.id not in ids
+
+
+# ---------------------------------------------------------------------------
 # Diagnostics
 # ---------------------------------------------------------------------------
 

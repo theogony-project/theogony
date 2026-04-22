@@ -1,6 +1,6 @@
 # Chronicle Principles
 
-**Purpose:** eight non-negotiables distilled from the Pantheon north star. Use this when another doc needs doctrine without repeating the full manifesto — see [`PANTHEON_VISION.md`](PANTHEON_VISION.md).
+**Purpose:** nine non-negotiables distilled from the Pantheon north star. Use this when another doc needs doctrine without repeating the full manifesto — see [`PANTHEON_VISION.md`](PANTHEON_VISION.md).
 
 **Terminology:** *Pantheon* here means the **planetary chronicle / knowledge substrate** (long horizon), not the mythological agent roles (Argus, Athene, …). See [`GLOSSARY.md`](GLOSSARY.md).
 
@@ -21,3 +21,5 @@
 7. **Rebuildability over mystique** — The chronicle must be inspectable, portable, and partially reconstructible; if it cannot be rebuilt, it cannot be trusted.
 
 8. **Trails strengthen the graph; Slow-Path may walk against them** — Attention leaves durable edge-level signals (`pheromone_delta`); deliberate Slow-Path retrieval may use `invert` to read without reinforcing those trails (see [`PHEROMONE.md`](PHEROMONE.md)).
+
+9. **The chronicle is allowed to dream; the dream is allowed to be wrong; the dream is never elevated without verification.** — Morpheus may propose low-confidence `INFERENCE` edges; promotion to trusted knowledge still flows through evidence and (eventually) Athene-style review.

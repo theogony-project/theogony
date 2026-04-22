@@ -286,12 +286,31 @@ class VitalityShift(BaseModel):
     median_shift: float = 0.0
 
 
+class MorpheusBreakdown(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    candidates_considered: int = Field(default=0, ge=0)
+    candidates_with_proposals: int = Field(default=0, ge=0)
+    candidates_skipped_no_neighbors_in_band: int = Field(default=0, ge=0)
+    edges_proposed: int = Field(default=0, ge=0)
+
+
+class DepthBandBreakdown(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    transitions: int = Field(default=0, ge=0)
+    layer_changes: int = Field(default=0, ge=0)
+    distribution: dict[int, int] = Field(default_factory=dict)
+
+
 class OneirosTickReport(RunReportBase):
     report_type: Literal["oneiros"] = "oneiros"
     nodes_evaluated: int = Field(default=0, ge=0)
     nodes_promoted: int = Field(default=0, ge=0)
     nodes_degraded: int = Field(default=0, ge=0)
     vitality: VitalityShift
+    morpheus: MorpheusBreakdown | None = None
+    depth_band: DepthBandBreakdown | None = None
 
 
 # ---------------------------------------------------------------------------

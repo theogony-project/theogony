@@ -16,6 +16,7 @@ from typing import Protocol, runtime_checkable
 from theogony.config.settings import OneirosSettings, Settings
 from theogony.core.model import KnowledgeNode, ScoreUpdate
 from theogony.core.store import KnowledgeStore
+from theogony.reporting.models import new_run_id
 from theogony.reporting.writer import RunReportWriter
 
 
@@ -61,6 +62,7 @@ class TickContext:
     store: KnowledgeStore
     app_settings: Settings = field(default_factory=Settings)
     writer: RunReportWriter | None = None
+    run_id: str = field(default_factory=new_run_id)
 
     nodes_ephemera: list[KnowledgeNode] = field(default_factory=list)
     edge_counts: dict[str, int] = field(default_factory=dict)
