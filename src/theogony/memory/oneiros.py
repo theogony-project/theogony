@@ -23,11 +23,11 @@ Every ``tick_interval_s`` seconds it:
    :class:`RunReportWriter` (retention cap enforced by the writer per
    ``Settings.report.oneiros_tick_retention``).
 
-All formulas live inline per Plan §5 E8.5 (lifecycle math). The
-worker does NOT use the existing ``core/vitality.py`` helpers —
-those stay test-locked at their current shape; the worker carries
-its own clearer-for-lifecycle-math formulas. PHX-0009 reconciles
-the two homes if needed.
+Lifecycle linear freshness/connectivity math is implemented in
+``theogony.core.vitality`` (``compute_freshness_linear``,
+``compute_connectivity_linear``) — see Plan §5 E8.5 for semantics;
+this worker calls those helpers so all vitality math has one home
+(PHX-0009 Phase 1 / F1).
 """
 
 from __future__ import annotations
@@ -41,6 +41,7 @@ from typing import TYPE_CHECKING
 
 from theogony.config.logging import get_logger
 from theogony.core.model import Layer, ScoreUpdate
+from theogony.core.vitality import compute_connectivity_linear, compute_freshness_linear
 from theogony.reporting.models import (
     OneirosTickReport,
     VitalityShift,
@@ -154,9 +155,16 @@ class OneirosWorker:
                 pre_vitality.append(before)
 
                 degree = edge_counts.get(node.id, 0)
-                new_conn = min(1.0, degree / cfg.connectivity_full_credit_edges)
-                idle_days = (started - _aware(node.last_accessed)).total_seconds() / 86400.0
-                new_fresh = max(0.0, 1.0 - idle_days / cfg.freshness_horizon_days)
+                # Plan §5 E8.5 linear formulas: core.vitality.compute_*_linear
+                new_conn = compute_connectivity_linear(
+                    degree=degree,
+                    full_credit_edges=cfg.connectivity_full_credit_edges,
+                )
+                new_fresh = compute_freshness_linear(
+                    node.last_accessed,
+                    horizon_days=cfg.freshness_horizon_days,
+                    now=started,
+                )
 
                 new_scores = node.scores.model_copy(
                     update={"connectivity": new_conn, "freshness": new_fresh}
