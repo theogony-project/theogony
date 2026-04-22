@@ -1,0 +1,126 @@
+id: PHX-0069
+category: infrastructure
+priority: medium
+status: open
+generation_target: 1
+title: "Hosted MCP SSE session affinity — multi-machine deploys break the JSON-RPC roundtrip"
+filed_by: hesiod
+created_at: 2026-04-22
+description: |
+  Surfaced 2026-04-22 testing the hosted MCP service after the W3
+  deploy (https://theogony-mcp.fly.dev/sse). With Fly's default
+  multi-machine HA setup (two ``app`` machines in the same region),
+  the MCP SSE handshake breaks roughly half of all sessions:
+
+  - ``GET /sse`` arrives at machine A → SSE stream opened, server
+    issues ``endpoint: /messages/?session_id=<X>`` as the first SSE
+    event.
+  - The client POSTs JSON-RPC frames to that endpoint.
+  - Fly's edge proxy round-robins those POSTs across machines.
+    When the POST lands on machine B, that machine has no
+    ``session_id=X`` in its in-process session table → ``404 Not
+    Found`` → ``RemoteProtocolError: peer closed connection
+    without sending complete message body``.
+  - Client crashes mid-``initialize``, never reaches ``tools/list``.
+
+  Provisional fix applied in the field: ``fly scale count 1`` —
+  one machine eliminates the routing race entirely. Single-machine
+  is fine for Phase-1 cost target (< €5/month per PHX-0066) and
+  reasonable for a read-only demo, but it gives up the HA story
+  and surfaces every cold-start as a user-visible 30-60 s wait.
+
+  The structural fix is **session affinity at the proxy** so that
+  ``GET /sse`` and the subsequent ``POST /messages/`` always land
+  on the same machine for the lifetime of the session.
+
+  Three implementation options:
+
+  1. **Fly sticky sessions** via the ``services`` block in
+     ``fly.toml``. Fly supports cookie-based or source-IP
+     affinity. This is the cheapest fix — pure configuration,
+     zero code change. The unknown is whether the Anycast edge
+     cooperates correctly when the client is on a residential IP
+     behind CGNAT.
+
+  2. **Stateless HTTP transport in the MCP server.** The MCP
+     spec allows JSON-RPC over plain HTTP (request → response,
+     no SSE channel). The Python ``mcp`` SDK has a
+     ``StreamableHTTPServerTransport`` that does not rely on
+     server-side session state. Switching ``theogony mcp
+     --transport sse`` to also support ``--transport http``
+     (or making ``sse`` work statelessly) sidesteps the problem
+     at the protocol layer. Higher effort, more durable.
+
+  3. **Run a single machine forever** and accept the cost ceiling
+     (one shared-cpu-1x with 1 GB RAM is well under €5/month per
+     PHX-0066 anyway). Document explicitly in
+     ``hosted/README.md`` that multi-machine is not yet
+     supported.
+
+  Phase-1 recommendation: option 3 immediately (already done),
+  option 1 as a follow-on PR (small), option 2 tracked here as
+  the durable answer for Phase 2 hosted scale-out.
+
+cost_benefit_guardrails:
+  - |
+    Option 3 (single machine) costs nothing to keep — already
+    deployed. Trade-off: no zero-downtime deploys, brief
+    outage on every container roll. Acceptable for a read-only
+    demo with a 5-minute mean session length.
+  - |
+    Option 1 (Fly sticky sessions) is one ``fly.toml`` change
+    plus verification. No image rebuild needed. Restores HA
+    without protocol surgery. Should land before any production
+    traffic spike.
+  - |
+    Option 2 (stateless HTTP) is the only option that scales
+    horizontally without per-connection affinity. Required if
+    Pantheon ever serves > 1000 concurrent sessions. Out of
+    scope for Phase 1.
+  - |
+    Do not introduce session persistence across machines (Redis,
+    Postgres) for Phase 1. That is a degree of operational
+    overhead inconsistent with the < €5/month / no-money-extracted
+    doctrine. If horizontal scale is genuinely needed, statelessness
+    (option 2) is the right answer, not session sharing.
+
+service_to_humanity: |
+  A demo that 50% of agents cannot connect to is worse than no
+  demo at all — it teaches the agent ecosystem that "Pantheon"
+  means "connection refused", which actively poisons the
+  product-led adoption story PHX-0066 is built on. Hosted MCP
+  is the public face of Pantheon for the first wave of
+  AI-agent users; it must work on the first try, every time.
+
+acceptance_criteria:
+  - |
+    ``hosted/README.md`` documents that multi-machine deploys
+    require either Fly sticky sessions (option 1) or stateless
+    HTTP transport (option 2). The current ``fly scale count 1``
+    workaround is documented as the Phase-1 default.
+  - |
+    Option 1 implementation: ``hosted/fly.toml`` gains a
+    ``[services]`` block (or equivalent) with cookie-based
+    session affinity. Verified end-to-end: ``fly scale count 2``
+    + ``mcp.client.sse`` round-trip succeeds in 10 consecutive
+    runs without 404.
+  - |
+    Option 2 design note (no implementation in this ticket): a
+    short ``docs/MCP_TRANSPORTS.md`` section enumerating the
+    two MCP transports we care about (stdio for desktop hosts,
+    streamable HTTP for hosted scale-out) and the trade-offs.
+  - |
+    Phase-2 sub-ticket filed for option 2 implementation
+    (separate PHX, blocked on this ticket landing).
+  - |
+    Existing single-machine deployment continues to work
+    unchanged. No regression on the stdio transport (which is
+    inherently session-affine — one process per host).
+
+related:
+  - PHX-0066  # Hosted Pantheon MCP Service — this is a Phase-1 hosting bug surfaced after that ticket landed
+  - "Composer conversation 2026-04-22 — user smoke-tested the hosted MCP after W3 deploy and surfaced the 404 on /messages/"
+
+referenced_in:
+  - "hosted/README.md — currently silent on the multi-machine constraint; this ticket fixes that"
+  - "src/theogony/mcp/server.py — the SSE transport implementation; option 2 would extend it"
