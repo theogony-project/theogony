@@ -38,6 +38,7 @@ from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
+from theogony.retrieval.strategy_factory import build_retrieval_strategy
 from theogony.retrieval.synthesize import AnswerSynthesizer
 from theogony.stores import InMemoryKnowledgeStore
 
@@ -140,7 +141,10 @@ def api_app(
     def _make_pipeline() -> QueryPipeline:
         return QueryPipeline(
             embedder=embedder,
-            retriever=MultiHopRetriever(api_store),
+            retriever=MultiHopRetriever(
+                api_store,
+                strategy=build_retrieval_strategy(api_store, api_settings),
+            ),
             assembler=ConstellationAssembler(api_store),
             synthesizer=AnswerSynthesizer(api_llm, audit_log=api_audit),
             relevance=RelevanceTracker(api_store),

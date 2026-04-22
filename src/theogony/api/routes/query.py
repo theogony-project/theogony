@@ -48,7 +48,13 @@ async def query(
     pipeline: Annotated[QueryPipeline, Depends(get_query_pipeline)],
 ) -> QueryResponse | JSONResponse:
     try:
-        result = await pipeline.ask(request.q, layer=request.layer, k=request.k, hops=request.hops)
+        result = await pipeline.ask(
+            request.q,
+            layer=request.layer,
+            k=request.k,
+            hops=request.hops,
+            strategy=request.strategy,
+        )
     except Exception as exc:  # pragma: no cover - defensive 503 path
         # The retrieval stack's own honest-failure paths (synthesizer
         # transport error → empty Answer + verdict=failed) handle the

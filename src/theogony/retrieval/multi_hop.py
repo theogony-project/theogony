@@ -1,38 +1,32 @@
 """
-MultiHopRetriever — thin orchestration over ``KnowledgeStore.multi_hop_search``.
+Multi-hop retrieval facade and ``MultiHopResult`` (Plan §2.6, §4.2; E8; F3).
 
-Plan §2.6, §4.2; E8 brief.
+:class:`MultiHopRetriever` validates legacy parameters (``k``, ``hops``,
+``min_weight``) and dispatches to a
+:class:`~theogony.retrieval.strategies.protocol.RetrievalStrategy` via
+:class:`~theogony.retrieval.strategies.budget.RetrievalBudget`. The
+default strategy is
+:class:`~theogony.retrieval.strategies.fixed_depth.FixedDepthStrategy`,
+which delegates to ``KnowledgeStore.multi_hop_search`` — preserving
+pre-F3 behaviour.
 
-The store does the actual work (vector seed + graph expansion + dedupe
-+ rank). This component owns the *parameter discipline* (k, hops,
-min_weight, layer) and the *observation* it emits onto the
-``QueryRunReport`` via ``MultiHopBreakdown``.
-
-Two reasons for the wrapper rather than calling ``store.multi_hop_search``
-directly from the pipeline:
-
-1. **Defaults belong with the consumer, not the protocol.** The
-   protocol takes whatever the caller passes; the retriever pins the
-   Plan §4.2 defaults (``k=10, hops=2``) so the pipeline does not
-   accidentally drift from spec.
-2. **Reporting boundary.** ``MultiHopResult`` is the typed
-   carrier for the per-hop instrumentation the pipeline writes onto
-   ``QueryRunReport.multi_hop``. Computing it here keeps the pipeline
-   focused on orchestration.
-
-``MultiHopResult`` lives in this module — it is a pipeline-internal
-observation, not a domain object.
+``MultiHopResult`` is the typed carrier for ``QueryRunReport.multi_hop``;
+it lives here as a pipeline-level observation, not a domain object.
 """
 
 from __future__ import annotations
 
-import time
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from theogony.config.logging import get_logger
 from theogony.core.model import Layer
 from theogony.core.store import KnowledgeStore, ScoredNode
+from theogony.retrieval.strategies.budget import RetrievalBudget
+
+if TYPE_CHECKING:
+    from theogony.retrieval.strategies.protocol import RetrievalStrategy
 
 log = get_logger("retrieval.multi_hop")
 
@@ -58,14 +52,30 @@ class MultiHopResult(BaseModel):
 
 
 class MultiHopRetriever:
-    """Thin async wrapper around the store's combined retrieval call.
+    """Thin async facade over a :class:`~theogony.retrieval.strategies.protocol.RetrievalStrategy`.
 
-    Pure orchestration; does not embed the query (the pipeline handles
-    that), does not assemble the constellation (the assembler does).
+    Preserved for callers that constructed the original ``MultiHopRetriever``
+    shape directly. The default strategy is :class:`FixedDepthStrategy`,
+    which preserves Plan §4.2 behaviour. New code may pass an explicit
+    strategy or build one via :func:`theogony.retrieval.strategy_factory.build_retrieval_strategy`.
     """
 
-    def __init__(self, store: KnowledgeStore) -> None:
+    def __init__(
+        self,
+        store: KnowledgeStore,
+        *,
+        strategy: RetrievalStrategy | None = None,
+    ) -> None:
         self._store = store
+        if strategy is None:
+            from theogony.retrieval.strategies.fixed_depth import FixedDepthStrategy
+
+            strategy = FixedDepthStrategy(store)
+        self._strategy = strategy
+
+    @property
+    def store(self) -> KnowledgeStore:
+        return self._store
 
     async def retrieve(
         self,
@@ -97,24 +107,14 @@ class MultiHopRetriever:
         if not 0.0 <= min_weight <= 1.0:
             raise ValueError(f"min_weight must be in [0,1]; got {min_weight}")
 
-        started = time.perf_counter()
-        scored = await self._store.multi_hop_search(
-            embedding=query_embedding,
-            k=k,
+        budget = RetrievalBudget(
+            max_nodes=k,
             hops=hops,
-            min_weight=min_weight,
-            layer=layer,
+            min_edge_weight=min_weight,
         )
-        duration_ms = int((time.perf_counter() - started) * 1000)
-
-        # The store's multi_hop already deduplicates internally. We
-        # record the seed count as min(k, len(scored)) because the
-        # store guarantees the top-k vector hits are present (or fewer
-        # if the corpus has < k embedded nodes). PHX-0051: per-hop
-        # counts stay ``None`` (no protocol-level visibility);
-        # ``final_node_count`` is the truthful number.
-        seed_count = min(k, len(scored))
-        final_node_count = len(scored)
+        result = await self._strategy.retrieve(
+            query_embedding, budget=budget, layer=layer
+        )
 
         log.debug(
             "multi_hop k=%d hops=%d min_weight=%.2f layer=%s -> %d nodes in %d ms",
@@ -122,18 +122,11 @@ class MultiHopRetriever:
             hops,
             min_weight,
             layer.value if layer is not None else "any",
-            len(scored),
-            duration_ms,
+            result.final_node_count,
+            result.duration_ms,
         )
 
-        return MultiHopResult(
-            scored_nodes=scored,
-            seed_count=seed_count,
-            nodes_per_hop=None,
-            final_node_count=final_node_count,
-            duplicates_removed=0,
-            duration_ms=duration_ms,
-        )
+        return result
 
 
 __all__ = ["MultiHopResult", "MultiHopRetriever"]

@@ -283,6 +283,13 @@ class KnowledgeStore(Protocol):
 
 Gen 1 implementation: `Neo4jKnowledgeStore` — leverages Neo4j's native vector indexes and Cypher for combined graph+vector queries.
 
+**Retrieval strategies (PHX-0056 Phase 1).** Graph+vector navigation is not
+hard-wired to a single algorithm: a `RetrievalStrategy` protocol turns a query
+embedding plus a `RetrievalBudget` into a `MultiHopResult`. The default
+`FixedDepthStrategy` preserves the original `multi_hop_search` behaviour; optional
+strategies (e.g. `EdgeProductBreadthFirstStrategy`) plug in via settings, HTTP,
+or pipeline construction. See [`RETRIEVAL_STRATEGIES.md`](RETRIEVAL_STRATEGIES.md).
+
 ## Layer 3: Retrieval API
 
 The agent-facing service. This is how LLMs and agents access the Chronik.
