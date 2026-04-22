@@ -117,6 +117,10 @@ This path is about open problems, future directions, and the original conceptual
 - [`HISTORICAL_MD_INTENTIONALLY_UNTOUCHED.md`](HISTORICAL_MD_INTENTIONALLY_UNTOUCHED.md): which etappe / demo markdown stayed historical in the Pantheon doc pass
 - [`RELEASING.md`](RELEASING.md): how to cut a Theogony release to PyPI (single-source version, double-gated publish workflow)
 
+### Operations
+
+- [`hosted/README.md`](../hosted/README.md): Docker image, Fly.io / Hugging Face Spaces / Modal notes, Smithery listing, `/health`, rate limits (PHX-0066 Phase 1)
+
 ### Builder Agent Prompts
 
 The [`prompts/`](../prompts/) directory holds the constitutional prompts for **builder agents** — the mortal craftsmen who design and implement Theogony. They are distinct from **Pantheon agents** (Argus, Athene, …), which are mythological *roles* in the runtime/agent architecture, not the Pantheon-as-substrate meaning. See [`GLOSSARY.md`](GLOSSARY.md#builder-agents) for the builder list and the Pantheon disambiguation.

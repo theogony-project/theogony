@@ -35,24 +35,30 @@ via reports) is a Gen-2 follow-up, not part of this first cut.
 Transport
 ---------
 
-stdio only for now — the universal transport for desktop MCP hosts.
-``server.create_initialization_options()`` carries name/version so a
-host can render "Theogony" in its tool palette unambiguously.
+``stdio`` is the default — universal for desktop MCP hosts. ``sse``
+(HTTP + Server-Sent Events) is available for hosted deployments; see
+:func:`serve_sse` and ``hosted/README.md``.
 """
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import hmac
 import json
+import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from theogony import __version__
 from theogony.agents.factory import build_llm_from_settings
-from theogony.agents.llm import LLMProvider
+from theogony.agents.llm import LLMProvider, StubLLMProvider
 from theogony.config.logging import get_logger, setup_logging
 from theogony.config.settings import Settings
+from theogony.core.store import KnowledgeStore
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
 from theogony.extraction.wikidata_cache import WikidataCache
@@ -62,6 +68,7 @@ from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
 from theogony.retrieval.synthesize import AnswerSynthesizer
+from theogony.stores.memory import InMemoryKnowledgeStore
 from theogony.stores.neo4j_store import Neo4jKnowledgeStore
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -74,6 +81,12 @@ _INSTALL_HINT = (
     'Theogony MCP server requires the `mcp` extra. Install with: pip install -e ".[mcp]"'
 )
 
+_MCP_ASK_NO_LLM_KEY = (
+    "this hosted instance does not have an LLM key configured; you can run a "
+    "local install with your own key, or wait for PHX-0066 Phase 2 which will "
+    "support per-call key pass-through"
+)
+
 
 @dataclass
 class McpResources:
@@ -81,9 +94,13 @@ class McpResources:
 
     Mirrors ``app.state`` from :func:`theogony.api.app.lifespan`: one
     owner per Settings / audit log / Wikidata cache / embedder / LLM /
-    Neo4j store / report writer. Held for the duration of one
-    ``serve_stdio`` invocation; cleanly torn down on stdio EOF or
-    SIGTERM.
+    store / report writer. Held for the duration of one transport
+    session; cleanly torn down on disconnect or SIGTERM.
+
+    When ``mcp_ask_blocked_message`` is set (seeded in-memory mode without a
+    usable API key for the configured non-stub LLM provider),
+    :func:`tool_ask` returns that message instead of calling the query
+    pipeline.
     """
 
     settings: Settings
@@ -91,17 +108,22 @@ class McpResources:
     wd_cache: WikidataCache | None
     embedder: LocalSentenceTransformerEmbedder
     llm: LLMProvider
-    store: Neo4jKnowledgeStore
+    store: KnowledgeStore
     report_writer: RunReportWriter
+    mcp_ask_blocked_message: str | None = None
 
 
 @contextlib.asynccontextmanager
-async def open_resources() -> AsyncIterator[McpResources]:
+async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpResources]:
     """Open all long-lived resources for the MCP server.
+
+    When ``seed_path`` is set, the dump is loaded into an in-memory store
+    before traffic is accepted. When ``seed_path`` is ``None``, Neo4j
+    is opened as in the original Gen 1 MCP path.
 
     Startup ordering: settings → logging → audit (sync open) →
     Wikidata cache (sync, optional) → embedder warm-up → LLM factory
-    → Neo4j store (async open) → report writer.
+    → store → report writer.
 
     Shutdown reverses the order. Each teardown is wrapped in
     ``contextlib.suppress(Exception)`` so a failure in one cleanup does
@@ -123,18 +145,49 @@ async def open_resources() -> AsyncIterator[McpResources]:
         model_id=settings.embedding.model_id,
         dim=settings.embedding.dim,
     )
-    # Eager warm-up so the first tool call is honest about latency.
     await embedder.embed("warmup")
 
-    llm = build_llm_from_settings(settings)
+    mcp_ask_blocked_message: str | None = None
+    store: KnowledgeStore
+    llm: LLMProvider
 
-    store = Neo4jKnowledgeStore(settings.neo4j, embedding_dim=embedder.dim)
-    await store.__aenter__()
+    if seed_path is not None:
+        from theogony.core.model import KnowledgeEdge, KnowledgeNode
+        from theogony.docs_ingest.dump import DumpError, read_dump
+
+        store = InMemoryKnowledgeStore()
+        try:
+            _, nodes, edges = read_dump(seed_path)
+        except DumpError as exc:
+            log.error("mcp seed load failed: %s", exc)
+            raise RuntimeError(f"could not read chronicle dump: {exc}") from exc
+        node_objs = [n for n in nodes if isinstance(n, KnowledgeNode)]
+        edge_objs = [e for e in edges if isinstance(e, KnowledgeEdge)]
+        await store.batch_upsert_nodes(node_objs)
+        await store.batch_upsert_edges(edge_objs)
+        log.info(
+            "mcp lifespan: seeded in-memory store (%d nodes, %d edges)",
+            len(node_objs),
+            len(edge_objs),
+        )
+        try:
+            llm = build_llm_from_settings(settings)
+        except (ValueError, NotImplementedError):
+            llm = StubLLMProvider(model_id=settings.llm.model_id or "stub-llm")
+            if settings.llm.provider != "stub":
+                mcp_ask_blocked_message = _MCP_ASK_NO_LLM_KEY
+    else:
+        llm = build_llm_from_settings(settings)
+        neo = Neo4jKnowledgeStore(settings.neo4j, embedding_dim=embedder.dim)
+        await neo.__aenter__()
+        store = neo
 
     report_writer = RunReportWriter(settings.run_reports_dir)
 
+    h = await store.health()
     log.info(
-        "mcp lifespan: startup complete (store=neo4j embedding_dim=%d)",
+        "mcp lifespan: startup complete (store=%s embedding_dim=%d)",
+        h.get("backend"),
         settings.embedding.dim,
     )
     try:
@@ -146,10 +199,12 @@ async def open_resources() -> AsyncIterator[McpResources]:
             llm=llm,
             store=store,
             report_writer=report_writer,
+            mcp_ask_blocked_message=mcp_ask_blocked_message,
         )
     finally:
         with contextlib.suppress(Exception):
-            await store.__aexit__(None, None, None)
+            if isinstance(store, Neo4jKnowledgeStore):
+                await store.__aexit__(None, None, None)
         if hasattr(llm, "aclose"):
             with contextlib.suppress(Exception):
                 await llm.aclose()
@@ -188,6 +243,8 @@ def _count_reports(res: McpResources, rtype: str) -> int:
 
 async def tool_ask(res: McpResources, *, q: str, k: int = 10, hops: int = 2) -> dict[str, Any]:
     """Run :func:`pantheon_ask` and return the JSON-serialisable payload."""
+    if res.mcp_ask_blocked_message is not None:
+        return {"error": res.mcp_ask_blocked_message}
     pipeline = _build_query_pipeline(res)
     result = await pipeline.ask(q, layer=None, k=k, hops=hops)
     return {
@@ -510,20 +567,143 @@ def build_server(res: McpResources) -> Any:
     return server
 
 
-async def serve_stdio() -> None:
+@dataclass
+class _SseHostingState:
+    """Mutable process state for the HTTP/SSE MCP app."""
+
+    resources: McpResources | None = None
+    mcp_server: Any = None
+    sse_transport: Any = None
+    started_perf: float = 0.0
+    last_query_at: datetime | None = None
+
+
+@dataclass
+class _IpRateBucket:
+    hour_start: float
+    hour_count: int
+    day_start: float
+    day_count: int
+
+
+def _client_ip_from_scope(scope: dict[str, Any]) -> str:
+    raw = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
+    xff = raw.get("x-forwarded-for", "").strip()
+    if xff:
+        return xff.split(",")[0].strip() or "unknown"
+    client = scope.get("client")
+    if isinstance(client, tuple) and client and client[0]:
+        return str(client[0])
+    return "unknown"
+
+
+class _HostedRateLimitMiddleware:
+    """Per-IP rolling windows (hour + day) on /sse and /messages only."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+        self._buckets: dict[str, _IpRateBucket] = {}
+        self._lock = asyncio.Lock()
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        path = scope.get("path", "")
+        if path == "/health" or not (path == "/sse" or path.startswith("/messages")):
+            await self.app(scope, receive, send)
+            return
+
+        from starlette.requests import Request
+
+        request = Request(scope, receive)
+        state: _SseHostingState | None = getattr(request.app.state, "theogony_sse", None)
+        if state is None or state.resources is None:
+            await self.app(scope, receive, send)
+            return
+        settings = state.resources.settings
+        hosted = settings.hosted
+        if hosted.rate_limit_per_hour <= 0:
+            await self.app(scope, receive, self._wrap_send_for_last_query(scope, state, send))
+            return
+
+        bypass = hosted.rate_limit_bypass_token
+        if bypass is not None:
+            hdr = request.headers.get("x-theogony-ratelimit-bypass", "")
+            secret = bypass.get_secret_value()
+            try:
+                bypass_ok = bool(hdr) and hmac.compare_digest(hdr, secret)
+            except (TypeError, ValueError):
+                bypass_ok = False
+            if bypass_ok:
+                await self.app(scope, receive, self._wrap_send_for_last_query(scope, state, send))
+                return
+
+        ip = _client_ip_from_scope(scope)
+        now = time.time()
+        async with self._lock:
+            b = self._buckets.get(ip)
+            if b is None:
+                b = _IpRateBucket(hour_start=now, hour_count=0, day_start=now, day_count=0)
+                self._buckets[ip] = b
+            if now - b.hour_start >= 3600.0:
+                b.hour_start, b.hour_count = now, 0
+            if now - b.day_start >= 86400.0:
+                b.day_start, b.day_count = now, 0
+            if (
+                b.hour_count >= hosted.rate_limit_per_hour
+                or b.day_count >= hosted.rate_limit_per_day
+            ):
+                from starlette.responses import JSONResponse
+
+                reset_h = int(3600.0 - (now - b.hour_start))
+                body = {
+                    "error": "rate limit exceeded",
+                    "limit_per_hour": hosted.rate_limit_per_hour,
+                    "limit_per_day": hosted.rate_limit_per_day,
+                    "retry_after_seconds": max(reset_h, 1),
+                }
+                resp = JSONResponse(body, status_code=429)
+                await resp(scope, receive, send)
+                return
+            b.hour_count += 1
+            b.day_count += 1
+
+        await self.app(scope, receive, self._wrap_send_for_last_query(scope, state, send))
+
+    def _wrap_send_for_last_query(
+        self, scope: dict[str, Any], state: _SseHostingState, send: Any
+    ) -> Any:
+        method = scope.get("method", "")
+        path = scope.get("path", "")
+
+        async def wrapped(message: dict[str, Any]) -> None:
+            if (
+                message.get("type") == "http.response.start"
+                and method == "POST"
+                and path.startswith("/messages")
+            ):
+                status = message.get("status", 500)
+                if isinstance(status, int) and status == 202:
+                    state.last_query_at = datetime.now(UTC)
+            await send(message)
+
+        return wrapped
+
+
+async def serve_stdio(*, seed_path: Path | None = None) -> None:
     """Open resources, build the server, and run it over stdio.
 
-    The single async entry point. Used by ``theogony mcp`` and any
-    other callsite that wants to host Pantheon over the MCP stdio
-    transport. Requires the ``mcp`` extra; on its absence raises
-    ``RuntimeError`` with an install hint.
+    Used by ``theogony mcp`` and any other callsite that wants to host
+    Pantheon over the MCP stdio transport. Requires the ``mcp`` extra;
+    on its absence raises ``RuntimeError`` with an install hint.
     """
     try:
         from mcp.server.stdio import stdio_server
     except ImportError as exc:  # pragma: no cover - guard exercised only without extra
         raise RuntimeError(_INSTALL_HINT) from exc
 
-    async with open_resources() as res:
+    async with open_resources(seed_path=seed_path) as res:
         server = build_server(res)
         async with stdio_server() as (read_stream, write_stream):
             await server.run(
@@ -533,10 +713,103 @@ async def serve_stdio() -> None:
             )
 
 
+async def serve_sse(*, host: str, port: int, seed_path: Path | None) -> None:
+    """Run the MCP server over HTTP + SSE (Starlette + uvicorn).
+
+    Lazily imports ``mcp.server.sse``, Starlette, and uvicorn so the core
+    package stays importable without the ``mcp`` extra.
+    """
+    try:
+        import uvicorn
+        from mcp.server.sse import SseServerTransport
+        from starlette.applications import Starlette
+        from starlette.requests import Request
+        from starlette.responses import JSONResponse, Response
+        from starlette.routing import Mount, Route
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError(_INSTALL_HINT) from exc
+
+    async def health(request: Request) -> JSONResponse:
+        st: _SseHostingState = request.app.state.theogony_sse
+        res = st.resources
+        assert res is not None
+        h = await res.store.health()
+        backend = str(h.get("backend", "unknown"))
+        store_label = "memory" if backend == "in_memory" else backend
+        raw_nodes = h.get("nodes", 0)
+        raw_edges = h.get("edges", 0)
+        nodes = int(raw_nodes) if isinstance(raw_nodes, (int, float)) else 0
+        edges = int(raw_edges) if isinstance(raw_edges, (int, float)) else 0
+        uptime = time.perf_counter() - st.started_perf
+        last_q = st.last_query_at
+        last_s = None if last_q is None else last_q.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        payload = {
+            "status": "ok",
+            "version": __version__,
+            "store": store_label,
+            "embedding_model": f"{res.settings.embedding.model_id}@v1",
+            "embedding_dim": res.settings.embedding.dim,
+            "node_count": nodes,
+            "edge_count": edges,
+            "uptime_seconds": round(uptime, 1),
+            "last_query_at": last_s,
+        }
+        return JSONResponse(payload)
+
+    async def handle_sse(request: Request) -> Response:
+        st: _SseHostingState = request.app.state.theogony_sse
+        assert st.sse_transport is not None and st.mcp_server is not None
+        async with st.sse_transport.connect_sse(
+            request.scope,
+            request.receive,
+            request._send,  # noqa: SLF001
+        ) as (read_stream, write_stream):
+            await st.mcp_server.run(
+                read_stream,
+                write_stream,
+                st.mcp_server.create_initialization_options(),
+            )
+        return Response()
+
+    sse = SseServerTransport("/messages/")
+
+    @contextlib.asynccontextmanager
+    async def sse_lifespan_outer(app: Starlette) -> AsyncIterator[None]:
+        async with open_resources(seed_path=seed_path) as res:
+            st = _SseHostingState()
+            st.resources = res
+            st.mcp_server = build_server(res)
+            st.started_perf = time.perf_counter()
+            st.last_query_at = None
+            st.sse_transport = sse
+            app.state.theogony_sse = st
+            log.info("mcp sse: listening on http://%s:%s", host, port)
+            yield
+
+    routes = [
+        Route("/health", endpoint=health, methods=["GET"]),
+        Route("/sse", endpoint=handle_sse, methods=["GET"]),
+        Mount("/messages/", app=sse.handle_post_message),
+    ]
+
+    from starlette.middleware import Middleware
+
+    app = Starlette(
+        routes=routes,
+        lifespan=sse_lifespan_outer,
+        middleware=[Middleware(_HostedRateLimitMiddleware)],
+    )
+
+    config = uvicorn.Config(app, host=host, port=port, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+
+
 __all__ = [
     "McpResources",
     "build_server",
     "open_resources",
+    "serve_sse",
     "serve_stdio",
     "tool_ask",
     "tool_node",

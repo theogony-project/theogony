@@ -99,6 +99,7 @@ def _make_resources(tmp_path: Path) -> Any:
         llm=None,  # type: ignore[arg-type]
         store=_FakeStore(),  # type: ignore[arg-type]
         report_writer=None,  # type: ignore[arg-type]
+        mcp_ask_blocked_message=None,
     )
 
 
@@ -120,6 +121,7 @@ def test_module_imports_and_exports_public_api() -> None:
         "McpResources",
         "build_server",
         "open_resources",
+        "serve_sse",
         "serve_stdio",
         "tool_ask",
         "tool_node",

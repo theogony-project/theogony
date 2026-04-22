@@ -312,6 +312,8 @@ A query result + supporting subgraph + synthesizer prompt + audit trail = packag
 
 PR #37 + PR #40 already make a hosted public Pantheon trivially possible. This ticket adds the actual deploy: a thin Docker container (target < 500 MB) that runs `theogony seed --store memory && theogony mcp --transport sse`, listed on **Smithery.ai** (the MCP registry) and on **HuggingFace Spaces**. Read-only, single-instance, bundled `pantheon_self` corpus only — no ingest surface, no privacy attack surface. Each query carries the requesting agent's own LLM API key (pass-through; operator never bills for LLM calls). Operator cost target: under €5/month on free tiers. Cost guardrails: per-IP rate limits, no persistence beyond audit-log snapshots without query content, federation disabled in Phase 1 (waits for Hestia PHX-0039). Service to humanity: lowers the friction for distributed knowledge infrastructure to existence — every AI agent in the world can immediately use Pantheon as a tool, no install, no decision required from their human counterpart. The single biggest distribution lever in the AI-first doctrine. YAML: [`phoenix-backlog/PHX-0066.yaml`](../phoenix-backlog/PHX-0066.yaml).
 
+**Phase 1 closed by hosted v1 PR:** SSE transport, Dockerfile, Smithery manifest, deploy guide. Phase 2 (per-call LLM key pass-through, webhook redeploy, federation enable) tracked separately.
+
 ### PHX-0067: Eris — Adversarial Defender / Red-Team Agent
 
 - **Category**: vision

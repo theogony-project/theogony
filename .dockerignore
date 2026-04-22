@@ -1,0 +1,23 @@
+# For: docker build -f hosted/Dockerfile .
+# Kept in sync with hosted/.dockerignore (PHX-0066 hosted v1 brief).
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+.git
+.github
+docs/etappes
+docs/run_reports
+phoenix-backlog
+tests
+venv
+.venv
+data
+neo4j_data
+dist
+build
+*.egg-info
+hosted/fly.toml
+.env
+.env.*

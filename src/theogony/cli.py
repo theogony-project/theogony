@@ -27,6 +27,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import AbstractContextManager, nullcontext
 from difflib import get_close_matches
@@ -1219,14 +1221,38 @@ async def _run_seed(
 # `theogony mcp`  — Model Context Protocol server (AI-first surface)
 # ---------------------------------------------------------------------------
 
+_MCP_SEED_FROM_OPT = typer.Option(
+    None,
+    "--seed-from",
+    help="Chronicle dump (JSONL.gz) when --seed is set; default is bundled pantheon_self.",
+)
+
 
 @app.command()
 def mcp(
     transport: str = typer.Option(
         "stdio",
         "--transport",
-        help="MCP transport. Only 'stdio' is supported in Gen 1.",
+        help="MCP transport: stdio (default) or sse (HTTP + Server-Sent Events).",
     ),
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        help="Bind address for sse only (default 127.0.0.1; use 0.0.0.0 in containers).",
+    ),
+    port: int = typer.Option(
+        8080,
+        "--port",
+        min=1,
+        max=65535,
+        help="TCP port for sse only (default 8080; Fly/HF often set PORT).",
+    ),
+    seed: bool = typer.Option(
+        False,
+        "--seed/--no-seed",
+        help="Load a Chronicle dump into the in-memory store before opening the transport.",
+    ),
+    seed_from: Path | None = _MCP_SEED_FROM_OPT,
 ) -> None:
     """Run Theogony as an MCP (Model Context Protocol) server.
 
@@ -1236,6 +1262,9 @@ def mcp(
     pantheon_reports_list, pantheon_reports_show.
 
     Requires the ``mcp`` extra: ``pip install -e ".[mcp]"``.
+
+    For HTTP/SSE (``--transport sse``), see ``hosted/README.md`` for
+    container deploy and operator tuning (``HOST``, ``PORT``, rate limits).
 
     Register with Claude Desktop in
     ``~/Library/Application Support/Claude/claude_desktop_config.json``::
@@ -1252,11 +1281,28 @@ def mcp(
     Cursor and other MCP-compatible hosts use the same shape under
     their respective config locations.
     """
-    if transport != "stdio":
-        _console.print(f"[red]Unknown --transport: {transport!r}. Only 'stdio' is supported.[/red]")
+    if transport not in ("stdio", "sse"):
+        _console.print(f"[red]Unknown --transport: {transport!r}. Use 'stdio' or 'sse'.[/red]")
         raise typer.Exit(code=2)
+
+    seed_path: Path | None = None
+    if seed:
+        from theogony.seeds import PANTHEON_SELF_FILENAME, pantheon_self_dump_path
+
+        seed_path = seed_from or pantheon_self_dump_path()
+        if not seed_path.exists():
+            _console.print(
+                Panel.fit(
+                    f"[red]Dump not found:[/red] {seed_path}\n\n"
+                    f"[dim]Bundled {PANTHEON_SELF_FILENAME} missing from this install.[/dim]",
+                    title="theogony mcp",
+                    border_style="red",
+                )
+            )
+            raise typer.Exit(code=1)
+
     try:
-        from theogony.mcp.server import serve_stdio
+        from theogony.mcp.server import serve_sse, serve_stdio
     except ImportError as exc:
         _console.print(
             Panel.fit(
@@ -1268,17 +1314,32 @@ def mcp(
             )
         )
         raise typer.Exit(code=1) from exc
-    try:
-        asyncio.run(serve_stdio())
-    except RuntimeError as exc:
-        _console.print(
-            Panel.fit(
-                f"[red]MCP server failed to start[/red]\n\n[dim]{exc}[/dim]",
-                title="theogony mcp",
-                border_style="red",
-            )
+
+    if transport == "stdio":
+        if host != "127.0.0.1" or port != 8080:
+            logging.getLogger(__name__).info("stdio transport: --host/--port ignored")
+        try:
+            asyncio.run(serve_stdio(seed_path=seed_path))
+        except RuntimeError as exc:
+            _mcp_fail_panel(exc)
+    else:
+        bind_host = os.environ.get("HOST", host)
+        bind_port = int(os.environ["PORT"]) if "PORT" in os.environ else port
+        try:
+            asyncio.run(serve_sse(host=bind_host, port=bind_port, seed_path=seed_path))
+        except RuntimeError as exc:
+            _mcp_fail_panel(exc)
+
+
+def _mcp_fail_panel(exc: BaseException) -> None:
+    _console.print(
+        Panel.fit(
+            f"[red]MCP server failed to start[/red]\n\n[dim]{exc}[/dim]",
+            title="theogony mcp",
+            border_style="red",
         )
-        raise typer.Exit(code=1) from exc
+    )
+    raise typer.Exit(code=1) from exc
 
 
 if __name__ == "__main__":  # pragma: no cover

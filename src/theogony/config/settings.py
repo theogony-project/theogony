@@ -37,7 +37,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import BaseModel, Field, SecretStr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LLMProviderName = Literal["gemini", "openai", "anthropic", "stub"]
@@ -139,6 +139,21 @@ class OneirosSettings(BaseModel):
     degrade_min_idle_days: float = Field(default=7.0, ge=0.0)
     connectivity_full_credit_edges: int = Field(default=20, ge=1)
     freshness_horizon_days: float = Field(default=30.0, ge=1.0)
+
+
+class HostedSettings(BaseModel):
+    """Tunables for the HTTP/SSE MCP hosted transport (PHX-0066 Phase 1).
+
+    Rate limits apply to ``/sse`` and ``/messages/`` only; ``/health`` is
+    excluded. Set ``rate_limit_per_hour`` to ``0`` to disable limiting
+    entirely.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    rate_limit_per_hour: int = Field(default=60, ge=0)
+    rate_limit_per_day: int = Field(default=1000, ge=0)
+    rate_limit_bypass_token: SecretStr | None = None
 
 
 class WikidataCacheSettings(BaseModel):
@@ -315,6 +330,7 @@ class Settings(BaseSettings):
     oneiros: OneirosSettings = Field(default_factory=OneirosSettings)
     report: ReportSettings = Field(default_factory=ReportSettings)
     wikidata_cache: WikidataCacheSettings = Field(default_factory=WikidataCacheSettings)
+    hosted: HostedSettings = Field(default_factory=HostedSettings)
 
     data_dir: Path = Field(
         default=Path("data"),
