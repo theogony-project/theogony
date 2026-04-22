@@ -166,6 +166,8 @@ pip install -e ".[mcp]"
 theogony mcp           # runs over stdio; this is what MCP hosts launch
 ```
 
+For a **public HTTP/SSE** deploy (Docker / Fly.io / Smithery), follow [`hosted/README.md`](hosted/README.md).
+
 Tools exposed (Gen 1, read-side):
 
 - `pantheon_ask` — cited answer + verdict + the slim Constellation that produced it.

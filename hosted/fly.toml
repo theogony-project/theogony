@@ -1,0 +1,26 @@
+# Fly.io process + health checks for the MCP SSE service.
+#
+# Build the image from the repository root (Docker needs pyproject.toml + src/):
+#   docker build -f hosted/Dockerfile --ignorefile hosted/.dockerignore -t your-registry/theogony-mcp:tag .
+#
+# Then deploy that image (example):
+#   fly deploy -c hosted/fly.toml --image your-registry/theogony-mcp:tag
+#
+# Replace `app` with your Fly app name.
+
+app = "theogony-mcp-replace-me"
+primary_region = "fra"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "20s"
+  method = "GET"
+  path = "/health"

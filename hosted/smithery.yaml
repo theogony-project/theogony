@@ -1,0 +1,41 @@
+# Smithery.ai MCP server registry manifest.
+# https://smithery.ai/docs/manifest
+
+name: theogony
+displayName: "Theogony — Pantheon-of-Pantheon Chronicle"
+description: |
+  An open, model-neutral, provenance-bearing knowledge substrate.
+  This hosted instance ships pre-seeded with the project's own
+  vision, doctrine, and architecture (the Pantheon-of-Pantheon
+  chronicle). Ask any question about Theogony, the Chronik,
+  the Pantheon vision, or the agent ecosystem and get a cited
+  answer drawn from the project's own self-description.
+
+homepage: https://github.com/theogony-project/theogony
+repository: https://github.com/theogony-project/theogony
+license: Apache-2.0
+keywords:
+  - knowledge-graph
+  - rag
+  - memory
+  - provenance
+  - pantheon
+  - chronicle
+  - vector-database
+  - agents
+
+transport:
+  type: sse
+  url: "${HOSTED_URL}/sse"
+
+tools:
+  - name: pantheon_ask
+    description: Ask the Chronik a cited, verdict-anchored question.
+  - name: pantheon_node
+    description: "Hover-Lupe: fetch a node and its depth-1 neighborhood."
+  - name: pantheon_status
+    description: Current configuration and report counts.
+  - name: pantheon_reports_list
+    description: List recent run reports (ingest, query, oneiros).
+  - name: pantheon_reports_show
+    description: Return one report's full JSON.
