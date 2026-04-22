@@ -1,0 +1,36 @@
+# Fly.io MCP SSE — canonical config at repository root.
+#
+# This file exists so `fly deploy -a theogony-mcp` (without `-c`) uses the
+# correct Dockerfile. A Dockerfile that only copies `pyproject.toml` before
+# `pip install .` will fail: hatchling reads `__version__` from
+# `src/theogony/__init__.py` at metadata time (see pyproject.toml).
+#
+# Deploy from the repository root:
+#   fly deploy --remote-only
+#
+# Alternate (same result):
+#   fly deploy -c hosted/fly.toml --dockerfile hosted/Dockerfile --remote-only
+
+app = "theogony-mcp"
+primary_region = "fra"
+
+[build]
+  dockerfile = "hosted/Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "60s"
+  method = "GET"
+  path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
