@@ -29,7 +29,9 @@ synthesis_latency_ms exceeds the configured threshold.
 
 from __future__ import annotations
 
+import asyncio
 import time
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -40,6 +42,7 @@ from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
 from theogony.core.model import Constellation, Layer
 from theogony.extraction.embedding import EmbeddingProvider
+from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.models import (
     CitationQuality,
@@ -63,6 +66,23 @@ log = get_logger("retrieval.pipeline")
 #: the brief's "node.confidence >= 0.7" rule and the existing
 #: ``QueryVerdictThresholds`` semantics.
 HIGH_CONFIDENCE_FLOOR = 0.7
+
+
+def derive_cited_edge_ids(
+    constellation: Constellation,
+    cited_node_ids: Sequence[str],
+) -> list[str]:
+    """Edges whose both endpoints appear in ``cited_node_ids`` (W2 / PHX-0057)."""
+    cited = set(cited_node_ids)
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for e in constellation.edges:
+        if not e.edge_id:
+            continue
+        if e.source_id in cited and e.target_id in cited and e.edge_id not in seen:
+            seen.add(e.edge_id)
+            ordered.append(e.edge_id)
+    return ordered
 
 
 class QueryResult(BaseModel):
@@ -90,6 +110,7 @@ class QueryPipeline:
         strategy: RetrievalStrategy | None = None,
         settings: Settings | None = None,
         report_writer: RunReportWriter | None = None,
+        edge_pheromone: EdgePheromoneTracker | None = None,
     ) -> None:
         self._embedder = embedder
         if strategy is not None:
@@ -101,6 +122,10 @@ class QueryPipeline:
         self._relevance = relevance
         self._settings = settings or Settings()
         self._report_writer = report_writer
+        self._edge_pheromone = edge_pheromone or EdgePheromoneTracker(
+            retriever.store,
+            delta=self._settings.relevance.edge_pheromone_delta,
+        )
 
     async def ask(
         self,
@@ -110,6 +135,7 @@ class QueryPipeline:
         k: int = 10,
         hops: int = 2,
         strategy: Literal["fixed_depth", "edge_product", "cluster_narrow"] | None = None,
+        pheromone_mode: Literal["follow", "ignore", "invert"] = "follow",
     ) -> QueryResult:
         """Run the retrieval loop for ``query`` and return answer + constellation + report.
 
@@ -156,7 +182,13 @@ class QueryPipeline:
                     self._retriever.store, self._settings, override=strategy
                 ),
             )
-        retrieval_result = await retriever.retrieve(query_embedding, k=k, hops=hops, layer=layer)
+        retrieval_result = await retriever.retrieve(
+            query_embedding,
+            k=k,
+            hops=hops,
+            layer=layer,
+            pheromone_mode=pheromone_mode,
+        )
 
         # ---- 3. assemble
         constellation = await self._assembler.assemble(
@@ -189,8 +221,13 @@ class QueryPipeline:
         if self._report_writer is not None:
             report_path = self._report_writer.write(report)
 
-        # ---- 7. write-back (after the report is captured)
-        await self._relevance.bump_all(answer.cited_node_ids)
+        # ---- 7. write-back (after the report is captured; follow-mode only)
+        if pheromone_mode == "follow":
+            cited_edge_ids = derive_cited_edge_ids(constellation, answer.cited_node_ids)
+            await asyncio.gather(
+                self._relevance.bump_all(answer.cited_node_ids),
+                self._edge_pheromone.bump_all(cited_edge_ids),
+            )
 
         log.info(
             "ask end run_id=%s status=%s verdict=%s nodes=%d edges=%d cited=%d",

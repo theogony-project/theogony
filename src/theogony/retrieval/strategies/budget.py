@@ -11,7 +11,7 @@ Field ownership:
   :class:`EdgeProductBreadthFirstStrategy` (max graph depth, capped at 4).
 - ``min_path_product``, ``top_n_paths`` — honoured by
   ``EdgeProductBreadthFirstStrategy`` only in F3.
-- ``pheromone_mode`` — reserved for PHX-0057 (behaviour ships later).
+- ``pheromone_mode`` — PHX-0057 Phase 1 (W2): ``follow`` / ``ignore`` / ``invert``.
 - ``token_cap``, ``wall_clock_ms_cap`` — reserved for PHX-0056 Phase 2
   ``LLMHeuristicGuided``.
 """

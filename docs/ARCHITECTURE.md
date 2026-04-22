@@ -215,6 +215,8 @@ This mirrors hippocampal replay in the human brain — the process by which dail
 
 The Gen-1 **OneirosWorker** tick is implemented as an ordered **TickPhase** pipeline (`src/theogony/memory/tick_phase.py`, `tick_phases.py`): each lifecycle step (snapshot, neighbour counts, score recompute, bulk write, promote, degrade, optional **recluster**) is a small async phase sharing a mutable `TickContext`. Operators can disable or reorder phases via `Settings.oneiros.enabled_phases`; future tickets (PHX-0057+) add phases instead of extending a single god-method.
 
+**Edge pheromones (PHX-0057 Phase 1)** — After each query in the default `follow` mode, cited graph edges receive a small `pheromone_delta` bump and `last_traversed` stamp (`EdgePheromoneTracker`). An optional Oneiros phase (`pheromone_decay`, default **off**) decays overlays on edges that have been idle past `Settings.oneiros.edge_pheromone.decay_horizon_days`. Retrieval can set `pheromone_mode` to `ignore` or `invert` for Slow-Path reads that skip write-back. See [`PHEROMONE.md`](PHEROMONE.md).
+
 **Mneme** — Promoted knowledge. High confidence, well-connected, verified. This is "known" knowledge. Promotion requires crossing a confidence threshold AND a minimum connectivity threshold — an isolated high-confidence fact is still suspect.
 
 **Degradation** flows the other way: Mneme nodes whose vitality drops below the dynamic threshold are demoted back toward Ephemera, compressed, archived, or deleted.

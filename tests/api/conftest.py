@@ -147,7 +147,10 @@ def api_app(
             ),
             assembler=ConstellationAssembler(api_store),
             synthesizer=AnswerSynthesizer(api_llm, audit_log=api_audit),
-            relevance=RelevanceTracker(api_store),
+            relevance=RelevanceTracker(
+                api_store,
+                relevance_delta=api_settings.relevance.relevance_delta,
+            ),
             settings=api_settings,
             report_writer=app.state.report_writer,
         )

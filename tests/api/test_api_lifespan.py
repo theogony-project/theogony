@@ -20,8 +20,9 @@ DI is consulted; its job is to populate the very state DI reads.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -85,6 +86,29 @@ class _StubStore:
 
     async def get_cluster_centroid(self, cluster_id: str) -> list[float]:
         return []
+
+    async def batch_bump_edges(
+        self,
+        edge_ids: Sequence[str],
+        *,
+        delta: float,
+        ts: datetime,
+    ) -> None:
+        return None
+
+    async def list_aged_pheromone_edges(
+        self,
+        *,
+        horizon: datetime,
+        epsilon: float,
+    ) -> list[tuple[str, float]]:
+        return []
+
+    async def batch_update_pheromone_deltas(
+        self,
+        updates: Sequence[tuple[str, float]],
+    ) -> None:
+        return None
 
 
 class _StubEmbedder:

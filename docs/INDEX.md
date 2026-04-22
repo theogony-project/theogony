@@ -13,7 +13,7 @@ For someone who wants to understand the project quickly:
 
 1. [`README.md`](../README.md)
 2. [`PANTHEON_VISION.md`](PANTHEON_VISION.md) — long-horizon north star (Pantheon as planetary chronicle substrate)
-3. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — seven non-negotiables in one page
+3. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — eight non-negotiables in one page
 4. [`VISION.md`](VISION.md)
 5. [`GLOSSARY.md`](GLOSSARY.md)
 
@@ -109,6 +109,7 @@ This path is about open problems, future directions, and the original conceptual
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md): the current system blueprint
 - [`GLOSSARY.md`](GLOSSARY.md): canonical terminology
+- [`PHEROMONE.md`](PHEROMONE.md): edge pheromone trails, decay, and Slow-Path `pheromone_mode` (PHX-0057 Phase 1)
 
 ### Evolution Documents
 

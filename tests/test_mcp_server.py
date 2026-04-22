@@ -71,7 +71,14 @@ class _FakeStore:
     async def get_node(self, node_id: str) -> Any:
         return self._nodes.get(node_id)
 
-    async def get_neighborhood(self, node_id: str, depth: int, min_weight: float) -> Any:
+    async def get_neighborhood(
+        self,
+        node_id: str,
+        depth: int,
+        min_weight: float,
+        *,
+        pheromone_mode: str = "follow",
+    ) -> Any:
         from theogony.core.model import Constellation
 
         return Constellation(query=node_id, nodes=[], edges=[], suggested_sources=[], gaps=[])
@@ -193,6 +200,16 @@ async def test_tool_node_returns_error_for_unknown_id(tmp_path: Path) -> None:
     res = _make_resources(tmp_path)
     payload = await tool_node(res, node_id="AKA-does-not-exist")
     assert "error" in payload
+
+
+@pytest.mark.asyncio
+async def test_tool_ask_rejects_invalid_pheromone_mode(tmp_path: Path) -> None:
+    from theogony.mcp.server import tool_ask
+
+    res = _make_resources(tmp_path)
+    payload = await tool_ask(res, q="hello", pheromone_mode="not-a-mode")
+    assert "error" in payload
+    assert "pheromone_mode" in payload["error"]
 
 
 def test_tool_reports_list_filters_and_orders(tmp_path: Path) -> None:

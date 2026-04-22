@@ -62,12 +62,8 @@ async def main() -> None:
             # operations on a cold cache.
             search_results: dict[str, list[str]] = {}
             for mention in MENTIONS:
-                multi = await client.search_multi_language(
-                    mention, languages=LANGUAGES, limit=5
-                )
-                qids = sorted(
-                    {c.qid for cands in multi.values() for c in cands}
-                )
+                multi = await client.search_multi_language(mention, languages=LANGUAGES, limit=5)
+                qids = sorted({c.qid for cands in multi.values() for c in cands})
                 search_results[mention] = qids
 
             all_qids = sorted({q for qids in search_results.values() for q in qids})

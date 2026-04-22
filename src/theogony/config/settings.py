@@ -118,6 +118,16 @@ class Neo4jSettings(BaseModel):
     database: str = "neo4j"
 
 
+class EdgePheromoneSettings(BaseModel):
+    """Tunables for :class:`~theogony.memory.pheromone_decay_phase.PheromoneDecayPhase`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decay_horizon_days: float = Field(default=30.0, ge=0.0)
+    decay_rate: float = Field(default=0.05, ge=0.0, le=1.0)
+    decay_epsilon: float = Field(default=0.001, ge=0.0, le=1.0)
+
+
 class OneirosSettings(BaseModel):
     """Runtime tunables for the :class:`OneirosWorker` (Plan §4.3, §5 E8.5).
 
@@ -156,6 +166,7 @@ class OneirosSettings(BaseModel):
             "0059/0060 are added via custom phase_registry injection."
         ),
     )
+    edge_pheromone: EdgePheromoneSettings = Field(default_factory=EdgePheromoneSettings)
 
 
 class HostedSettings(BaseModel):
@@ -306,6 +317,15 @@ class ReportSettings(BaseModel):
     )
 
 
+class RelevanceSettings(BaseModel):
+    """Post-query write-back tunables (Plan §4.3 + PHX-0057 edge pheromone)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    relevance_delta: float = Field(default=0.05, ge=0.0, le=1.0)
+    edge_pheromone_delta: float = Field(default=0.015, ge=0.0, le=1.0)
+
+
 class RetrievalSettings(BaseModel):
     """Tunables for the retrieval stack (PHX-0056 Phase 1)."""
 
@@ -374,6 +394,7 @@ class Settings(BaseSettings):
     report: ReportSettings = Field(default_factory=ReportSettings)
     wikidata_cache: WikidataCacheSettings = Field(default_factory=WikidataCacheSettings)
     hosted: HostedSettings = Field(default_factory=HostedSettings)
+    relevance: RelevanceSettings = Field(default_factory=RelevanceSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     clustering: ClusteringSettings = Field(default_factory=ClusteringSettings)
 

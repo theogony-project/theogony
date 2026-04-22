@@ -412,6 +412,16 @@ class KnowledgeEdge(BaseModel):
     weight: float = Field(
         default=0.5, ge=0.0, le=1.0, description="Edge weight, strengthened or weakened over time."
     )
+    pheromone_delta: float = Field(
+        default=0.0,
+        ge=-1.0,
+        le=1.0,
+        description="Signed pheromone overlay on baseline weight (PHX-0057 Phase 1).",
+    )
+    last_traversed: datetime | None = Field(
+        default=None,
+        description="Last time this edge was on a cited retrieval path.",
+    )
     confidence: float = Field(
         default=0.5, ge=0.0, le=1.0, description="How certain is this relation?"
     )
@@ -488,20 +498,32 @@ class ConstellationEdge(BaseModel):
     timestamps — stays in the store.
     """
 
+    edge_id: str = Field(
+        default="",
+        description="Same id as :class:`KnowledgeEdge` for bump / diagnostics (PHX-0057).",
+    )
     source_id: str
     target_id: str
     relation_type: str
     weight: float = Field(ge=0.0, le=1.0)
+    pheromone_delta: float = Field(
+        default=0.0,
+        ge=-1.0,
+        le=1.0,
+        description="Overlay copied from the store edge for pheromone-aware strategies.",
+    )
     confidence: float = Field(ge=0.0, le=1.0)
 
     @classmethod
     def from_knowledge_edge(cls, edge: KnowledgeEdge) -> ConstellationEdge:
         """Project a full :class:`KnowledgeEdge` into its slim form."""
         return cls(
+            edge_id=edge.id,
             source_id=edge.source_id,
             target_id=edge.target_id,
             relation_type=edge.relation_type,
             weight=edge.weight,
+            pheromone_delta=edge.pheromone_delta,
             confidence=edge.confidence,
         )
 

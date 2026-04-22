@@ -18,6 +18,7 @@ from theogony.core.model import Layer
 from theogony.core.store import KnowledgeStore, ScoredNode
 from theogony.retrieval.multi_hop import MultiHopResult
 from theogony.retrieval.strategies.budget import RetrievalBudget
+from theogony.retrieval.strategies.pheromone import effective_weight
 
 
 class EdgeProductBreadthFirstStrategy:
@@ -87,7 +88,12 @@ class EdgeProductBreadthFirstStrategy:
 
             nbs = await asyncio.gather(
                 *(
-                    self._store.get_neighborhood(uid, depth=1, min_weight=budget.min_edge_weight)
+                    self._store.get_neighborhood(
+                        uid,
+                        depth=1,
+                        min_weight=budget.min_edge_weight,
+                        pheromone_mode=budget.pheromone_mode,
+                    )
                     for uid in unique_ends
                 )
             )
@@ -103,7 +109,7 @@ class EdgeProductBreadthFirstStrategy:
                     other = edge.target_id if edge.source_id == last else edge.source_id
                     if other in path:
                         continue
-                    w = edge.weight
+                    w = effective_weight(edge, budget.pheromone_mode)
                     if w < budget.min_edge_weight:
                         continue
                     new_prod = prod * w

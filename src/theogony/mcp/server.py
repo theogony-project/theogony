@@ -51,7 +51,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from theogony import __version__
 from theogony.agents.factory import build_llm_from_settings
@@ -62,6 +62,7 @@ from theogony.core.store import KnowledgeStore
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
 from theogony.extraction.wikidata_cache import WikidataCache
+from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
@@ -224,17 +225,25 @@ async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpR
 
 
 def _build_query_pipeline(res: McpResources) -> QueryPipeline:
+    settings = res.settings
     return QueryPipeline(
         embedder=res.embedder,
         retriever=MultiHopRetriever(
             res.store,
-            strategy=build_retrieval_strategy(res.store, res.settings),
+            strategy=build_retrieval_strategy(res.store, settings),
         ),
         assembler=ConstellationAssembler(res.store),
         synthesizer=AnswerSynthesizer(res.llm, audit_log=res.audit),
-        relevance=RelevanceTracker(res.store),
-        settings=res.settings,
+        relevance=RelevanceTracker(
+            res.store,
+            relevance_delta=settings.relevance.relevance_delta,
+        ),
+        settings=settings,
         report_writer=res.report_writer,
+        edge_pheromone=EdgePheromoneTracker(
+            res.store,
+            delta=settings.relevance.edge_pheromone_delta,
+        ),
     )
 
 
@@ -245,12 +254,33 @@ def _count_reports(res: McpResources, rtype: str) -> int:
     return sum(1 for p in d.iterdir() if p.is_file() and p.suffix == ".json")
 
 
-async def tool_ask(res: McpResources, *, q: str, k: int = 10, hops: int = 2) -> dict[str, Any]:
+def _parse_pheromone_mode(
+    raw: str | None,
+) -> Literal["follow", "ignore", "invert"]:
+    if raw is None or raw == "":
+        return "follow"
+    if raw in ("follow", "ignore", "invert"):
+        return cast(Literal["follow", "ignore", "invert"], raw)
+    raise ValueError(f"pheromone_mode must be one of follow, ignore, invert; got {raw!r}")
+
+
+async def tool_ask(
+    res: McpResources,
+    *,
+    q: str,
+    k: int = 10,
+    hops: int = 2,
+    pheromone_mode: str | None = None,
+) -> dict[str, Any]:
     """Run :func:`pantheon_ask` and return the JSON-serialisable payload."""
     if res.mcp_ask_blocked_message is not None:
         return {"error": res.mcp_ask_blocked_message}
+    try:
+        mode = _parse_pheromone_mode(pheromone_mode)
+    except ValueError as exc:
+        return {"error": str(exc)}
     pipeline = _build_query_pipeline(res)
-    result = await pipeline.ask(q, layer=None, k=k, hops=hops)
+    result = await pipeline.ask(q, layer=None, k=k, hops=hops, pheromone_mode=mode)
     return {
         "answer": result.answer.text,
         "cited_node_ids": list(result.answer.cited_node_ids),
@@ -416,6 +446,15 @@ def _tool_descriptors() -> list[dict[str, Any]]:
                         "maximum": 4,
                         "default": 2,
                     },
+                    "pheromone_mode": {
+                        "type": "string",
+                        "description": (
+                            "How edge pheromone deltas affect traversal weights: "
+                            "`follow` (default), `ignore`, or `invert`."
+                        ),
+                        "enum": ["follow", "ignore", "invert"],
+                        "default": "follow",
+                    },
                 },
                 "required": ["q"],
                 "additionalProperties": False,
@@ -546,11 +585,14 @@ def build_server(res: McpResources) -> Any:
     async def _call_tool(name: str, arguments: dict[str, Any]) -> list[Any]:
         payload: Any
         if name == "pantheon_ask":
+            raw_mode = arguments.get("pheromone_mode")
+            mode_arg = None if raw_mode is None else str(raw_mode)
             payload = await tool_ask(
                 res,
                 q=arguments["q"],
                 k=int(arguments.get("k", 10)),
                 hops=int(arguments.get("hops", 2)),
+                pheromone_mode=mode_arg,
             )
         elif name == "pantheon_node":
             payload = await tool_node(res, node_id=arguments["node_id"])

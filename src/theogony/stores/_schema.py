@@ -49,11 +49,11 @@ CONSTRAINT_CYPHER: tuple[str, ...] = (
 )
 
 
-#: Range indexes — eight on :KnowledgeNode, two on [:RELATION] = ten total
-#: (Plan §3.1a corrected count). Each has one named consumer documented in
+#: Range indexes — ten on :KnowledgeNode, three on [:RELATION] = thirteen total
+#: (Plan §3.1a + cluster + pheromone indexes). Each has one named consumer documented in
 #: the Plan's table comments above the Cypher block.
 RANGE_INDEX_CYPHER: tuple[str, ...] = (
-    # Node side — 8 indexes.
+    # Node side — 10 indexes.
     """
     CREATE INDEX knowledge_node_label IF NOT EXISTS
       FOR (n:KnowledgeNode) ON (n.label)
@@ -94,7 +94,7 @@ RANGE_INDEX_CYPHER: tuple[str, ...] = (
     CREATE INDEX knowledge_node_cluster_label IF NOT EXISTS
       FOR (n:KnowledgeNode) ON (n.cluster_label)
     """,
-    # Edge side — 2 indexes.
+    # Edge side — 3 indexes.
     """
     CREATE INDEX relation_relation_type IF NOT EXISTS
       FOR ()-[r:RELATION]-() ON (r.relation_type)
@@ -102,6 +102,10 @@ RANGE_INDEX_CYPHER: tuple[str, ...] = (
     """
     CREATE INDEX relation_weight IF NOT EXISTS
       FOR ()-[r:RELATION]-() ON (r.weight)
+    """,
+    """
+    CREATE INDEX relation_last_traversed IF NOT EXISTS
+      FOR ()-[r:RELATION]-() ON (r.last_traversed)
     """,
 )
 

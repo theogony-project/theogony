@@ -54,6 +54,7 @@ async def query(
             k=request.k,
             hops=request.hops,
             strategy=request.strategy,
+            pheromone_mode=request.pheromone_mode,
         )
     except Exception as exc:  # pragma: no cover - defensive 503 path
         # The retrieval stack's own honest-failure paths (synthesizer
