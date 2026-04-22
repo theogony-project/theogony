@@ -249,6 +249,69 @@ Today's pheromone signal is node-only (`RelevanceTracker.bump`). This ticket ext
 
 Today's `OneirosWorker` is a lifecycle worker, not an associator. It recomputes scores and shuffles between Ephemera and Mneme, but never creates new edges. The vision ([`HIVE.md`](HIVE.md), [`VISION.md`](VISION.md), [`CURIOSITY.md`](CURIOSITY.md) §"Curiosity and Oneiros") describes Morpheus as the dreamer/associator/inferencer who weaves new connections — that role is unimplemented. This ticket lands two coupled pieces: (1) a `MorpheusAssociator` worker that proposes new edges via deterministic signals (embedding similarity, source co-occurrence, temporal proximity, glossary-mention overlap), with Athene-style verification before commit; (2) a multi-layer `depth_band [0..5]` gradient on top of the binary Ephemera/Mneme cliff, so the user's "Schichten neuen Wissens, das durch Benutzung und Träumen in tiefere Schichten sickert" image (conversation 2026-04-20) is literally representable. LLM-driven associative dreaming is PHX-0004 (Crystallized Inference); this ticket is the deterministic foundation. YAML: [`phoenix-backlog/PHX-0059.yaml`](../phoenix-backlog/PHX-0059.yaml).
 
+### PHX-0060: Domain Clusters / Cognitive Centers
+
+- **Category**: vision
+- **Priority**: high
+- **Generation Target**: 2
+- **Filed by**: hesiod (2026-04-20 design conversation)
+
+[`ARCHITECTURE.md`](ARCHITECTURE.md) §"The Knowledge Network as Its Own Index" spec'd hierarchical clustering since Gen 1: the schema slot exists (`KnowledgeNode.cluster_id`), the store protocol exposes `get_cluster_centroid` / `assign_cluster`, both backends implement them. **But nothing ever populates `cluster_id`** — the whole machinery is wired structurally and never triggered. This ticket fills the gap and extends it into the brain-region direction the user proposed (Sprachzentrum / Sehzentrum / Code-/Places-/Fiction-cluster, conversation 2026-04-20): emergent clusters as **cognitive centers** with the potential for domain-specialised processing per cluster. Three Phase-1 design knobs locked: (a) hard clustering (single-valued `cluster_id`, soft as a Phase-2 sub-ticket); (b) hybrid trigger (periodic OneirosWorker re-pass + nearest-centroid assignment on new-node insert); (c) HDBSCAN default, k-means fallback above 100k nodes. Four open knobs flagged in the YAML for design conversation before pickup: hierarchy depth, cluster-identity stability across re-clusterings, specialised sub-agents per cluster (Argonauts), cross-cluster edge classification. Reshapes PHX-0056..0059 substantially — without it, those four bake in a flat-world assumption. YAML: [`phoenix-backlog/PHX-0060.yaml`](../phoenix-backlog/PHX-0060.yaml).
+
+### PHX-0061: Vector-Routed Federation
+
+- **Category**: vision
+- **Priority**: high
+- **Generation Target**: 3
+- **Filed by**: hesiod (2026-04-21 design conversation)
+
+PHX-0003 is the generic federation ticket. This one captures the user's specific architectural innovation: federated chronicles find each other through **exposed vector signatures, not DNS**. Each chronicle publishes a small set of domain signature vectors (the cluster centroids from PHX-0060) plus a capability manifest. Routing per query: vector similarity against known peers' signatures; top-N most-similar peers receive the federated query (user opt-in required). Trust profile travels with each answer (transitive provenance). Cost guardrails keep signature publishing cheap (≤1000 vectors per chronicle), routing LLM-free, and cross-chronicle queries opt-in. Service to humanity: enables sovereign multi-operator pantheons; preserves data sovereignty across jurisdictions; supports political plurality without central authority — the technical realisation of "Pantheon is rails, not empire". YAML: [`phoenix-backlog/PHX-0061.yaml`](../phoenix-backlog/PHX-0061.yaml).
+
+### PHX-0062: Negative Knowledge / Anti-Bullshit Layer
+
+- **Category**: vision
+- **Priority**: high
+- **Generation Target**: 2
+- **Filed by**: hesiod (2026-04-21 design conversation)
+
+Today the chronicle stores what is asserted. The principle "contradiction is first-class" lives in the doctrine but not in the schema. This ticket adds two structural pieces: **negation edges** (`CONTRADICTS`, `RETRACTS`, `MISREPRESENTS`, `SUPERSEDED_BY` — first-class typed relations between a claim and its refutation, with the same provenance discipline as positive claims) and **negation nodes** (a well-formed claim known to be false, with its refutations attached — how the chronicle handles persistent misinformation that keeps re-surfacing). Cost guardrails: only mark as negation when contradicting evidence is above threshold; dual-display in answers is configurable; negation-node density is capped per cluster to prevent flooding. Service to humanity: anti-hallucination infrastructure. A system that knows what is false is structurally more useful than one that pretends every claim is provisionally true. YAML: [`phoenix-backlog/PHX-0062.yaml`](../phoenix-backlog/PHX-0062.yaml).
+
+### PHX-0063: Chronik-Diff
+
+- **Category**: improvement
+- **Priority**: medium
+- **Generation Target**: 2
+- **Filed by**: hesiod (2026-04-21 design conversation)
+
+Git-log for living memory. A periodic structured "what changed in this window" report: new nodes (grouped by cluster), new edges (grouped by relation_type), layer transitions, contradiction events, blind-spot regions identified, cluster restructurings, cost summary. Three consumption surfaces: `theogony reports diff` CLI, JSON on disk, optional Atom feed. Cost guardrails: on-demand only (no continuous diff worker), default weekly frequency for subscribers, scope cap, no LLM calls in default path. Service to humanity: makes the chronicle's evolution visible and inspectable — operationalises the "transparency is architecture" principle. Also a key federation building block (PHX-0061). YAML: [`phoenix-backlog/PHX-0063.yaml`](../phoenix-backlog/PHX-0063.yaml).
+
+### PHX-0064: Portable Constellation
+
+- **Category**: vision
+- **Priority**: medium
+- **Generation Target**: 2
+- **Filed by**: hesiod (2026-04-21 design conversation)
+
+A query result + supporting subgraph + synthesizer prompt + audit trail = packaged as a single transferable file (`.theogony-constellation`). Receiver opens it in their own pantheon, optionally verifies citations against the source's federation endpoint, optionally imports the subgraph (with `properties["imported_from"]` provenance markers). Trust mode is the receiver's choice. Cost guardrails: file format bounded (max nodes/edges), embeddings excluded by default (re-embed on receiver side), verification round-trips capped, no automatic LLM calls. Service to humanity: shifts knowledge transfer from "trust me" to "verify the evidence". Citations travel with claims, not just claims with rhetoric. The transport format federation (PHX-0061) needs. YAML: [`phoenix-backlog/PHX-0064.yaml`](../phoenix-backlog/PHX-0064.yaml).
+
+### PHX-0065: Pantheon as Time Machine — Temporal Query
+
+- **Category**: vision
+- **Priority**: medium
+- **Generation Target**: 2
+- **Filed by**: hesiod (2026-04-21 design conversation)
+
+`KnowledgeNode.created_at`, `KnowledgeEdge.created_at`, and the append-only audit log already form an event stream of how the chronicle reached its current state. This ticket exposes the temporal-query surface: `query_at(query, asof: datetime)` returns the answer the chronicle would have given at that historical timestamp. Use cases: scientific replication, audit, civic anti-amnesia, debugging. Cost guardrails: opt-in only (default off in Phase 1), `asof` granularity capped at one minute, slow by default (replay is O(events_until_asof) — acceptable because temporal queries are rare and deliberate, not in the hot retrieval path). Service to humanity: anti-amnesia infrastructure for civilisation. Political claims can be situated against what was knowable when. YAML: [`phoenix-backlog/PHX-0065.yaml`](../phoenix-backlog/PHX-0065.yaml).
+
+### PHX-0066: Hosted Pantheon MCP Service
+
+- **Category**: infrastructure
+- **Priority**: high
+- **Generation Target**: 2
+- **Filed by**: hesiod (2026-04-21 design conversation)
+
+PR #37 + PR #40 already make a hosted public Pantheon trivially possible. This ticket adds the actual deploy: a thin Docker container (target < 500 MB) that runs `theogony seed --store memory && theogony mcp --transport sse`, listed on **Smithery.ai** (the MCP registry) and on **HuggingFace Spaces**. Read-only, single-instance, bundled `pantheon_self` corpus only — no ingest surface, no privacy attack surface. Each query carries the requesting agent's own LLM API key (pass-through; operator never bills for LLM calls). Operator cost target: under €5/month on free tiers. Cost guardrails: per-IP rate limits, no persistence beyond audit-log snapshots without query content, federation disabled in Phase 1 (waits for Hestia PHX-0039). Service to humanity: lowers the friction for distributed knowledge infrastructure to existence — every AI agent in the world can immediately use Pantheon as a tool, no install, no decision required from their human counterpart. The single biggest distribution lever in the AI-first doctrine. YAML: [`phoenix-backlog/PHX-0066.yaml`](../phoenix-backlog/PHX-0066.yaml).
+
 ---
 
 ## Open Architectural Questions

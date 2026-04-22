@@ -1,0 +1,137 @@
+id: PHX-0061
+category: vision
+priority: high
+status: open
+generation_target: 3
+title: "Vector-Routed Federation — chronicles discover each other via exposed signature vectors, not DNS"
+filed_by: hesiod
+created_at: 2026-04-21
+description: |
+  PHX-0003 (Federated Chronik Instances) is the generic federation
+  ticket. This ticket captures the user's specific architectural
+  innovation (conversation 2026-04-20): **federated chronicles
+  should find each other through exposed vector signatures, not
+  fixed addresses**. Vector routing is architecturally native to
+  Pantheon (everything is similarity-based already); DNS would be a
+  foreign primitive bolted on top.
+
+  Mechanism
+  ---------
+
+  Each chronicle exposes:
+
+  1. A **domain signature vector set** — a few hundred to a few
+     thousand vectors representing what this chronicle knows
+     about. Compact (KB-scale, not GB-scale): one signature
+     per major cluster or domain, plus a small set of
+     "characteristic samples" per cluster. Pairs naturally with
+     PHX-0060 (Domain Clusters / Cognitive Centers): the cluster
+     centroids ARE the federation signatures.
+  2. A **capability manifest** (small JSON / YAML): query types
+     answered, trust profile (open / curated / verified), sensitivity
+     filters (Hestia-style person-as-target rules), rate limits,
+     terms of use.
+
+  Discovery happens via:
+
+  - **Gossip** — chronicles meeting common queries learn about each
+     other through the act of cross-domain referral
+  - or a lightweight **decentralised registry** (a small set of
+     well-known directory chronicles that aggregate signatures —
+     no central authority, multiple registries can coexist).
+
+  Routing per query: client embeds the question, compares against
+  known chronicles' signatures, dispatches to the top-N most-similar
+  chronicles (with explicit user opt-in). Each answer carries the
+  source chronicle's trust profile (transitive provenance).
+
+  Cross-cluster bridges (from PHX-0059 + PHX-0060) become
+  cross-chronicle bridges in this layer: an edge that links a node
+  in chronicle A to a node in chronicle B is structurally the
+  same as a cross-cluster edge, just at one level of scale up.
+
+cost_benefit_guardrails:
+  - |
+    Signature vectors must be cheap to publish and cheap to compare.
+    Cap: ~1000 signature vectors per chronicle, refreshed at most
+    daily. No per-query LLM calls for routing — pure vector
+    similarity at the routing layer.
+  - |
+    Cross-chronicle queries are explicitly opt-in by the user
+    (default: local pantheon only). The system never silently
+    federates a query to remote chronicles without user consent.
+  - |
+    Signature publishing must not leak content. Signatures are
+    coarse summaries, not retrievable embeddings. Adversarial
+    "probe by similarity to reconstruct catalog" attacks are
+    expected; signature granularity is tuned to make full
+    reconstruction infeasible while keeping useful routing.
+  - |
+    Gossip protocol has rate limits and exponential backoff;
+    chronicles can opt out of being queried via their capability
+    manifest. No DDoS surface.
+  - |
+    Trust profile is data, not enforcement. The receiving system
+    decides whether to consume the answer; the federation layer
+    does not endorse claims, only routes them.
+
+service_to_humanity: |
+  Enables sovereign multi-operator pantheons. No single operator
+  owns all knowledge; political plurality is preserved without
+  central authority; data sovereignty across jurisdictions is
+  respected. This is the technical realisation of the doctrinal
+  principle that Pantheon is rails, not empire — many chronicles
+  on one substrate, governed locally, cooperating where useful,
+  sovereign where necessary. Without this, Pantheon defaults to
+  a single-operator concentration of memory which contradicts
+  the foundational mission.
+
+acceptance_criteria:
+  - |
+    Pydantic ``ChronicleSignature`` and ``CapabilityManifest``
+    models in ``src/theogony/federation/manifest.py``. Signatures
+    are structured (cluster_id reference + characteristic vectors)
+    and JSON-serialisable.
+  - |
+    Pydantic ``FederationDirective`` describing one cross-chronicle
+    query: target manifest, signature similarity threshold,
+    user-consent token, optional trust-profile filter.
+  - |
+    New ``FederationRouter`` (in ``src/theogony/federation/``):
+    given a query embedding and a known peer set, returns the
+    top-N peers ranked by signature similarity. Pure vector math;
+    no LLM calls.
+  - |
+    Settings: ``Settings.federation.enabled`` (default false in
+    Phase 1), ``Settings.federation.max_peers``,
+    ``Settings.federation.signature_refresh_interval_days``,
+    ``Settings.federation.opt_in_per_query`` (default true).
+  - |
+    A new ``CrossChronicleQueryReport`` (extends the report
+    family): which peers were queried, which answered, trust
+    profile of each answer, total cost, user-consent record.
+  - |
+    Two-instance integration test: spin up two ``InMemoryKnowledgeStore``
+    pantheons with disjoint corpora; assert that a query routed
+    via ``FederationRouter`` reaches the correct peer based on
+    signature similarity; verify that disabling federation
+    (default) makes the query local-only.
+  - |
+    ``docs/FEDERATION.md`` documents the gossip vs registry trade-off,
+    the signature-leakage discussion, and the relationship to
+    PHX-0003 (which becomes "the generic principle this ticket
+    refines"). PHX-0003 catalogue entry updated to reference this
+    ticket as its concrete realisation.
+
+related:
+  - PHX-0003  # Federated Chronik Instances (generic) — this ticket is its concrete vector-routed realisation
+  - PHX-0006  # Federated Compute (Distributed Dreaming) — sister concept; both share the federation infrastructure
+  - PHX-0039  # Hestia Curiosity Auditing — federation amplifies surveillance risks; Hestia must audit cross-chronicle person-targeted queries
+  - PHX-0056  # Activation Engine — federation routing is one tier above the local activation engine
+  - PHX-0060  # Domain Clusters — cluster centroids ARE the natural federation signatures
+  - PHX-0064  # Portable Constellation — the file format federation uses for cross-chronicle answer transport
+
+referenced_in:
+  - "Composer conversation 2026-04-20 — user introduced vector-as-address routing as the architecturally native alternative to DNS"
+  - "docs/PHOENIX_BACKLOG.md PHX-0003 — the generic federation parent"
+  - "docs/PANTHEON_VISION.md — 'rails, not vehicles' framing requires plural operators, which requires federation"

@@ -1,0 +1,132 @@
+id: PHX-0064
+category: vision
+priority: medium
+status: open
+generation_target: 2
+title: "Portable Constellation — query result + supporting subgraph as a transferable, verifiable file"
+filed_by: hesiod
+created_at: 2026-04-21
+description: |
+  Today an answer from Pantheon is a string of synthesised text
+  with citation handles back into the live store. Useful inside
+  the system — useless when sent to anyone outside it. The
+  citation handles are dead links; the receiver has no way to
+  verify the answer except by trusting the rendering.
+
+  This ticket adds a **Portable Constellation** file format:
+  the slim Constellation that grounded an answer + the supporting
+  subgraph (cited nodes, their depth-1 neighbourhoods, the edges
+  between them) + the synthesizer's prompt + the audit trail =
+  packaged as a single transferable file with extension
+  ``.theogony-constellation`` (or ``.pcl`` for short).
+
+  Receiver workflow:
+
+  1. Open the file in their own pantheon (or with a standalone
+     verifier). Receiver sees: the answer text, the cited nodes
+     with their provenance, the supporting evidence, and the
+     trust profile of the source pantheon.
+  2. Optional: verify citations against the source pantheon's
+     federation endpoint (PHX-0061). Returns one of: ``verified``
+     (source still has these nodes with the same content),
+     ``partial`` (some nodes drifted), ``unreachable`` (source
+     offline or refused verification).
+  3. Optional: import the supporting subgraph into the receiver's
+     own pantheon. Subgraph nodes are marked with
+     ``properties["imported_from"] = <source_chronicle_id>`` so
+     they retain provenance about which chronicle produced them.
+  4. Trust mode is the receiver's choice: ``verified``,
+     ``partial``, ``untrusted``. The Portable Constellation does
+     not endorse itself.
+
+  This is the file format that makes federation real: a query
+  travels to a remote chronicle, comes back as a Portable
+  Constellation, and the receiver can verify, store, share, or
+  discard it on their own terms.
+
+cost_benefit_guardrails:
+  - |
+    File format bounded: ``Settings.portable_constellation.max_nodes``
+    (default 200) and ``Settings.portable_constellation.max_edges``
+    (default 800). Larger constellations refuse to export and ask
+    the operator to narrow the query first.
+  - |
+    Embeddings are **not** included by default. The receiver
+    re-embeds with their own model — trades file size (kilobytes,
+    not megabytes) for compute (one batch embed per import).
+    Optional flag ``--include-embeddings`` for offline / air-gapped
+    transfers.
+  - |
+    Verification round-trips are bounded: at most one
+    federation call per receiver-side ``verify`` invocation.
+    Receiver caches verification results for a configurable
+    TTL to avoid hammering source chronicles.
+  - |
+    No automatic LLM calls in either export or import paths.
+    The Portable Constellation is structural; LLM-driven
+    re-synthesis is a separate, opt-in step on the receiver
+    side.
+  - |
+    Schema versioned (``schema_version`` field, like the
+    pantheon_self dump from PHX-0040). Old files refuse to import
+    into newer pantheons that have changed the schema; migration
+    tools come later.
+
+service_to_humanity: |
+  Shifts knowledge transfer from "trust me" to "verify the
+  evidence". A claim travelling between humans, agents, or
+  organisations carries its provenance with it. This is the
+  technical realisation of the principle that citations should
+  travel with claims, not just claims with rhetoric. Enables
+  decentralised fact-checking, cross-organisation collaboration
+  without forcing everyone onto the same chronicle, and
+  scientific reproducibility for AI-mediated research.
+
+acceptance_criteria:
+  - |
+    Pydantic ``PortableConstellation`` model in a new
+    ``src/theogony/portable/model.py``: header (schema version,
+    source chronicle id, exported_at, query, answer text),
+    constellation (slim DTO from existing
+    ``ConstellationDTO``), supporting_subgraph (full
+    ``KnowledgeNode`` + ``KnowledgeEdge`` records, sans
+    embeddings by default), audit trail (synthesizer prompt,
+    LLM model id, cost, verdict).
+  - |
+    Export: new ``theogony portable export <run_id>``
+    command. Reads the ``QueryRunReport``, constructs the
+    Portable Constellation, writes to
+    ``<run_id>.theogony-constellation``.
+  - |
+    Import: ``theogony portable import <file>``. Loads,
+    optionally verifies (when source chronicle is reachable
+    via PHX-0061), optionally merges the subgraph into the
+    local store with provenance markers.
+  - |
+    ``KnowledgeNode.properties["imported_from"]`` convention
+    documented in ``docs/ARCHITECTURE.md``. Imported nodes are
+    distinguishable from native nodes via this property.
+  - |
+    Verification mode (``--verify``) returns a structured
+    ``VerificationReport``: per-node ``verified | drifted |
+    unreachable`` plus the source chronicle's current trust
+    profile.
+  - |
+    Round-trip integration test: export a query result from
+    one in-memory pantheon, import into a second empty
+    in-memory pantheon, run the same query, verify the answer
+    comes back grounded by the imported nodes.
+  - |
+    Schema version locked at v1 with explicit migration policy
+    documented for future changes.
+
+related:
+  - PHX-0061  # Vector-Routed Federation — Portable Constellation is its natural transport format
+  - PHX-0035  # Reviewer Agent — verifier of imported constellations
+  - PHX-0062  # Negative Knowledge — imported constellations may carry contradictions; receiver decides whether to inherit
+  - PHX-0034  # Entity-Resolution Quality Benchmark — imported nodes need entity-resolution check before merge
+
+referenced_in:
+  - "Composer conversation 2026-04-21 — user accepted Portable Constellation as the trust-transfer primitive Pantheon has been missing"
+  - "docs/PANTHEON_VISION.md §'Provenance-first' — the principle requires that lineage travels with claims; this ticket realises it"
+  - "PHX-0061 — Federation cannot work cleanly without this format"

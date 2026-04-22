@@ -1,0 +1,137 @@
+id: PHX-0065
+category: vision
+priority: medium
+status: open
+generation_target: 2
+title: "Pantheon as Time Machine — temporal queries against the append-only Chronicle Ledger"
+filed_by: hesiod
+created_at: 2026-04-21
+description: |
+  ``KnowledgeNode`` already carries ``created_at`` and
+  ``last_accessed``. ``KnowledgeEdge`` carries ``created_at``.
+  The ``ExtractionAuditLog`` is an append-only event stream of
+  every LLM call. Together these are *almost* a full event log
+  of how the chronicle reached its current state — but the
+  retrieval pipeline today only queries the **current** state.
+
+  This ticket adds **temporal querying**: ``query_at(query, asof:
+  datetime)`` returns the answer the chronicle would have given
+  at that historical timestamp. Fundamental shape:
+
+  1. Reconstruct the store state at ``asof`` by replaying or
+     filtering: any node whose ``created_at > asof`` is excluded;
+     any node whose deletion event is ``< asof`` is excluded;
+     edges similarly. Where supersession events exist (when
+     PHX-0062 lands and ``SUPERSEDED_BY`` edges are tracked),
+     the superseded node is still present at the historical
+     timestamp.
+  2. Run normal retrieval against the reconstructed state.
+  3. Return a ``TemporalQueryReport`` carrying both the
+     historical answer and the current answer for comparison.
+
+  Use cases the user named (conversation 2026-04-21):
+
+  - **Scientific replication.** "What did the chronicle assert
+    about this claim on date X?" — testable against an external
+    archive of the original publication.
+  - **Audit.** "When did this node enter the chronicle? When did
+    it become disputed? Who proposed the contradiction?"
+  - **Civic anti-amnesia.** Political claims situated against
+    what was knowable when. A leader who claims "we did not
+    know" can be contradicted by a chronicle that records what
+    was knowable.
+  - **Debugging.** When a regression appears, replay to the
+    last-known-good timestamp.
+
+  This is the single ticket that activates the latent value of
+  the append-only ledger. Without it, the ledger is a write-only
+  log used only by the OneirosWorker; with it, the ledger
+  becomes a queryable time-travel surface.
+
+cost_benefit_guardrails:
+  - |
+    Temporal queries are **slow by default**: replay-style
+    reconstruction is O(events_until_asof). For Gen 2 corpora
+    (millions of events) a single temporal query may take
+    seconds. Acceptable because temporal queries are rare and
+    deliberate, not in the hot retrieval path.
+  - |
+    Opt-in only: ``Settings.temporal.enabled`` (default false in
+    Phase 1). Disabled means ``query_at`` returns 501 Not
+    Implemented, no cost paid.
+  - |
+    ``asof`` granularity capped at one minute. Microsecond-
+    precise temporal queries are rejected — both cheaper to
+    reconstruct and conceptually closer to "what state did the
+    chronicle have around this time".
+  - |
+    Optional optimisation: pre-materialised daily snapshots for
+    a configurable hot-date window (``Settings.temporal.snapshot_dates
+    : list[date]``). Restored from the snapshot rather than
+    replayed when the asof falls in the snapshot window. Only
+    materialised on operator request.
+  - |
+    No LLM calls in the temporal-reconstruction path itself —
+    just store filtering. The synthesizer at the end is the
+    same retrieval-time LLM call as a normal query; cost is
+    one normal answer cost, not an additional one.
+
+service_to_humanity: |
+  Anti-amnesia infrastructure for civilisation. The line from
+  ``CHRONICLE_PRINCIPLES.md``: "Chronicle preserves reality in
+  motion." Without temporal queries, the chronicle is
+  preserving motion but only the present moment is reachable —
+  the past is technically there, semantically inaccessible. With
+  this ticket, the past is a first-class destination. This
+  matters most for political accountability (situate claims
+  against what was knowable when), scientific reproducibility
+  (rerun analyses on the historical state), and the long-arc
+  vision that "world knowledge can become more legible than
+  human institutions."
+
+acceptance_criteria:
+  - |
+    New ``TemporalReconstructor`` in
+    ``src/theogony/retrieval/temporal.py``: given an ``asof``
+    timestamp, returns a filtered view of the store containing
+    only nodes/edges whose ``created_at <= asof`` and that
+    were not deleted before ``asof``.
+  - |
+    ``QueryPipeline.ask_at(query, asof)`` parallel method to
+    the existing ``ask``. Pipeline stack reuses the embedder /
+    retriever / assembler / synthesizer; the only change is
+    the store wrapper.
+  - |
+    New ``TemporalQueryReport`` extends the report family:
+    historical answer + current answer + delta summary +
+    reconstruction cost.
+  - |
+    CLI: ``theogony ask --asof <iso8601> "<question>"`` for
+    operator-driven temporal queries. API: same query endpoint
+    accepts an optional ``asof`` field.
+  - |
+    Settings: ``Settings.temporal.enabled``,
+    ``Settings.temporal.granularity_minutes`` (default 1),
+    ``Settings.temporal.snapshot_dates`` (default empty).
+  - |
+    Two integration tests: (a) ingest a small corpus, capture
+    timestamp T1, add three nodes, run ``ask_at(query, T1)``,
+    assert the answer references only the original corpus;
+    (b) when temporal is disabled, ``ask_at`` raises a clear
+    ``NotImplementedError`` rather than silently returning
+    the current answer.
+  - |
+    ``docs/TEMPORAL_QUERY.md`` documents the use cases, the
+    cost model, and the snapshot-pre-materialisation pattern
+    for hot dates.
+
+related:
+  - PHX-0062  # Negative Knowledge — SUPERSEDED_BY edges are critical for temporal reconstruction; superseded claims still exist in the past
+  - PHX-0063  # Chronik-Diff — diff and temporal query are dual: diff shows what changed, temporal-query shows the state then
+  - PHX-0008  # Multi-Language Knowledge Bridging — older nodes may have lower-tier resolution; temporal queries inherit those tiers honestly
+  - PHX-0035  # Reviewer Agent — natural consumer for "what did we believe and when did it change"
+
+referenced_in:
+  - "Composer conversation 2026-04-21 — user accepted Time Machine as activating the latent value of the append-only ledger"
+  - "docs/PHILOSOPHY.md — 'Verification Over Authority' implies the system can be inspected against its own past assertions"
+  - "docs/CHRONICLE_PRINCIPLES.md — 'Time is intrinsic' principle; this ticket makes temporal access an actual API"
