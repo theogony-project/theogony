@@ -25,6 +25,7 @@ from theogony.reporting.models import (
     BlindSpotReport,
     ClusteringRunReport,
     IngestRunReport,
+    MnemosyneObservationCluster,
     OneirosTickReport,
     QueryRunReport,
     RunReportBase,
@@ -38,6 +39,7 @@ ReportType = (
     | type[OneirosTickReport]
     | type[ClusteringRunReport]
     | type[BlindSpotReport]
+    | type[MnemosyneObservationCluster]
 )
 
 
@@ -142,4 +144,6 @@ class RunReportWriter:
             return ClusteringRunReport.model_validate(raw)
         if rt == "blindspot":
             return BlindSpotReport.model_validate(raw)
+        if rt == "mnemosyne":
+            return MnemosyneObservationCluster.model_validate(raw)
         return None

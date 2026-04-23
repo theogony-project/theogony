@@ -29,6 +29,7 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 
 from theogony.agents.factory import build_llm_from_settings
+from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
 from theogony.api.routes import (
     health_router,
     ingest_router,
@@ -111,6 +112,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.report_writer = report_writer
     app.state.cluster_index = cluster_index
     app.state.stub_detector = StubDetector(settings.curiosity.stub_thresholds)
+    app.state.mnemosyne_classifier = build_mnemosyne_classifier(settings, llm)
 
     # OneirosWorker slot (E8.5): owns the §4.3 write-back lifecycle.
     # The lifespan owns the long-lived task; shutdown cancels it

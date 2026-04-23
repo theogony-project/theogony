@@ -20,6 +20,15 @@ The production chain is analogous to a real hive:
 | Queen | Helios | oversee strategy and colony health |
 | Advisor | Metis | counsel based on what the hive knows |
 
+### Auditors (meta-cognitive and adversarial)
+
+| Role | Pantheon agent | PHX | Action |
+|------|----------------|------|--------|
+| External adversary | Eris | [PHX-0067](../phoenix-backlog/PHX-0067.yaml) | red-team probes; findings as reports |
+| Internal hubris | Nemesis | [PHX-0068](../phoenix-backlog/PHX-0068.yaml) | overconfidence audits; read-only |
+| Meta-cognitive memory | Mnemosyne | [PHX-0071](../phoenix-backlog/PHX-0071.yaml) | classifies self-referential queries; aggregates signals for backlog hygiene ([`MNEMOSYNE.md`](MNEMOSYNE.md)) |
+| Auditor triage (planned) | Asklepios | [PHX-0073](../phoenix-backlog/PHX-0073.yaml) | routes Nemesis/Eris-style findings into actionable repair work |
+
 The key insight: **no agent produces honey alone**. Honey is the emergent product of many **Pantheon agents** working on the same **Chronik** substrate — the living graph the project is building today toward the wider **Pantheon** chronicle vision ([`PANTHEON_VISION.md`](PANTHEON_VISION.md)).
 
 ## The Promotor Principle

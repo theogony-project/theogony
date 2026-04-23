@@ -857,6 +857,46 @@ class Neo4jKnowledgeStore:
         async with self._session() as session:
             await session.run(cypher, rows=rows)
 
+    async def mark_self_referential(self, node_ids: Sequence[str], run_id: str) -> None:
+        if not node_ids:
+            return
+        ids = list(node_ids)
+        read_cypher = """
+        UNWIND $ids AS nid
+        MATCH (n:KnowledgeNode {id: nid})
+        RETURN n.id AS id, n.properties_json AS properties_json
+        """
+        async with self._session() as session:
+            result = await session.run(read_cypher, ids=ids)
+            rows = await result.data()
+        updates: list[dict[str, str]] = []
+        for rec in rows:
+            nid = str(rec["id"])
+            raw = rec.get("properties_json") or "{}"
+            try:
+                props: dict[str, object] = json.loads(raw) if raw else {}
+            except json.JSONDecodeError:
+                props = {}
+            prev = list(props.get("self_referential_in_runs") or [])
+            if run_id not in prev:
+                prev.append(run_id)
+            props["self_referential_in_runs"] = prev
+            updates.append(
+                {
+                    "id": nid,
+                    "properties_json": json.dumps(props, sort_keys=True, default=str),
+                }
+            )
+        if not updates:
+            return
+        write_cypher = """
+        UNWIND $rows AS row
+        MATCH (n:KnowledgeNode {id: row.id})
+        SET n.properties_json = row.properties_json
+        """
+        async with self._session() as session:
+            await session.run(write_cypher, rows=updates)
+
     async def count_neighbors_in_layer(self, layer: Layer) -> dict[str, int]:
         # Plan §5 E8.5 step 2: bulk degree map for one layer in one
         # Bolt round-trip. ``OPTIONAL MATCH`` keeps isolated nodes

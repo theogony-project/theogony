@@ -244,6 +244,13 @@ class KnowledgeStore(Protocol):
         """
         ...
 
+    async def mark_self_referential(self, node_ids: Sequence[str], run_id: str) -> None:
+        """Append ``run_id`` to each node's ``properties['self_referential_in_runs']``.
+
+        Idempotent per ``run_id``. Missing node ids are skipped silently.
+        """
+        ...
+
     async def count_neighbors_in_layer(self, layer: Layer) -> dict[str, int]:
         """Map node id → degree (in + out edges) for all nodes in ``layer``.
 

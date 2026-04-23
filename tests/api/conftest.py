@@ -24,6 +24,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from theogony.agents.llm import StubLLMProvider
+from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
 from theogony.api.dependencies import get_query_pipeline, get_settings, get_store
 from theogony.api.routes import (
     health_router,
@@ -131,6 +132,7 @@ def api_app(
     app.state.store = api_store
     app.state.report_writer = RunReportWriter(api_settings.run_reports_dir)
     app.state.stub_detector = StubDetector(api_settings.curiosity.stub_thresholds)
+    app.state.mnemosyne_classifier = build_mnemosyne_classifier(api_settings, api_llm)
     app.state.oneiros = None
     app.state.oneiros_task = None
 
@@ -155,6 +157,7 @@ def api_app(
             ),
             settings=api_settings,
             report_writer=app.state.report_writer,
+            mnemosyne=build_mnemosyne_classifier(api_settings, api_llm),
         )
 
     app.dependency_overrides[get_query_pipeline] = _make_pipeline

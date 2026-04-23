@@ -56,6 +56,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 from theogony import __version__
 from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.llm import LLMProvider, StubLLMProvider
+from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
 from theogony.config.logging import get_logger, setup_logging
 from theogony.config.settings import Settings
 from theogony.core.store import KnowledgeStore
@@ -228,6 +229,7 @@ async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpR
 
 def _build_query_pipeline(res: McpResources) -> QueryPipeline:
     settings = res.settings
+    mnemosyne = build_mnemosyne_classifier(settings, res.llm)
     return QueryPipeline(
         embedder=res.embedder,
         retriever=MultiHopRetriever(
@@ -247,6 +249,7 @@ def _build_query_pipeline(res: McpResources) -> QueryPipeline:
             delta=settings.relevance.edge_pheromone_delta,
         ),
         stub_detector=StubDetector(settings.curiosity.stub_thresholds),
+        mnemosyne=mnemosyne,
     )
 
 
@@ -360,7 +363,7 @@ async def tool_status(res: McpResources) -> dict[str, Any]:
         "morpheus_proposals_recent": _morpheus_proposals_recent(res.settings),
         "report_counts": {
             rtype: _count_reports(res, rtype)
-            for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot")
+            for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne")
         },
     }
 
@@ -370,7 +373,9 @@ def tool_reports_list(
 ) -> list[dict[str, Any]]:
     """Run :func:`pantheon_reports_list` and return the row list."""
     types_to_scan = (
-        [report_type] if report_type else ["ingest", "query", "oneiros", "clustering", "blindspot"]
+        [report_type]
+        if report_type
+        else ["ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne"]
     )
     rows: list[dict[str, Any]] = []
     for rtype in types_to_scan:
@@ -401,7 +406,7 @@ def tool_reports_list(
 
 def tool_reports_show(res: McpResources, *, run_id: str) -> dict[str, Any]:
     """Run :func:`pantheon_reports_show` and return the report JSON or an error."""
-    for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot"):
+    for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne"):
         d = res.settings.run_reports_dir / rtype
         if not d.exists():
             continue
@@ -516,10 +521,10 @@ def _tool_descriptors() -> list[dict[str, Any]]:
         {
             "name": "pantheon_reports_list",
             "description": (
-                "List recent run reports (ingest, query, oneiros, clustering, blindspot). "
+                "List recent run reports (ingest, query, oneiros, clustering, blindspot, mnemosyne). "
                 "The Chronik's honest retrospective surface — every answer it "
                 "produced, every ingest it ran, every Oneiros tick, clustering "
-                "and blind-spot aggregation passes."
+                "and blind-spot / Mnemosyne aggregation passes."
             ),
             "inputSchema": {
                 "type": "object",
@@ -528,9 +533,17 @@ def _tool_descriptors() -> list[dict[str, Any]]:
                         "type": "string",
                         "description": (
                             "Filter by type. One of 'ingest', 'query', 'oneiros', "
-                            "'clustering', 'blindspot'. Empty string = all types."
+                            "'clustering', 'blindspot', 'mnemosyne'. Empty string = all types."
                         ),
-                        "enum": ["", "ingest", "query", "oneiros", "clustering", "blindspot"],
+                        "enum": [
+                            "",
+                            "ingest",
+                            "query",
+                            "oneiros",
+                            "clustering",
+                            "blindspot",
+                            "mnemosyne",
+                        ],
                         "default": "",
                     },
                     "last": {

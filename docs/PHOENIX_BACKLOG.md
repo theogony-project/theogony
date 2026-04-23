@@ -364,6 +364,15 @@ Greek goddess of retribution against hubris. Sister to Eris in the adversarial d
 
 Hosted MCP runs with `THEOGONY_LLM__PROVIDER=stub`; `StubLLMProvider` returned empty synthesis text so `pantheon_ask` surfaced `verdict=failed` despite a healthy constellation. **Closed by PR https://github.com/theogony-project/theogony/pull/65:** `OfflineAnswerSynthesizer` routes the no-LLM-key path to a deterministic citation-only answer; `query_verdict` empty-text reasoning is now `synthesis returned empty answer` instead of the misleading `synthesis raised before completion`.
 
+### PHX-0071: Mnemosyne — self-reflective meta-query auditor
+
+- **Category**: vision
+- **Priority**: high
+- **Generation Target**: 2
+- **YAML**: [`phoenix-backlog/PHX-0071.yaml`](../phoenix-backlog/PHX-0071.yaml)
+
+Greek goddess of memory; in Pantheon she holds **knowledge about how knowledge is organised**. Phase 1 (W5) ships `MetaQueryClassifier` (heuristic-first + optional rate-limited LLM fallback), `meta_classification` on every `QueryRunReport`, append-only `properties.self_referential_in_runs` on cited nodes when the verdict is `self_referential`, and an optional default-off Oneiros phase `mnemosyne_aggregation` that emits `MnemosyneObservationCluster` reports (reuses W1 HDBSCAN on region descriptors). Phase 2 sub-tickets: BacklogProposal drafter, Hestia review hook, gitignored draft directory write path, `theogony backlog proposals` CLI. Operator doc: [`MNEMOSYNE.md`](MNEMOSYNE.md).
+
 ---
 
 ## Open Architectural Questions

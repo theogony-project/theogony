@@ -17,6 +17,7 @@ helpers.
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -50,7 +51,7 @@ class RunReportBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     run_id: str = Field(default_factory=new_run_id)
-    report_type: Literal["ingest", "query", "oneiros", "clustering", "blindspot"]
+    report_type: Literal["ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne"]
     started_at: datetime
     finished_at: datetime
     duration_s: float = Field(ge=0.0)
@@ -221,6 +222,26 @@ class CitationQuality(BaseModel):
     citations_aka_only: int = Field(default=0, ge=0)
 
 
+class MetaClassificationVerdict(StrEnum):
+    SELF_REFERENTIAL = "self_referential"
+    NOT_SELF_REFERENTIAL = "not_self_referential"
+    UNCERTAIN = "uncertain"
+
+
+class MetaClassification(BaseModel):
+    """Per-query meta-cognitive classification (PHX-0071 Phase 1 / W5)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    verdict: MetaClassificationVerdict
+    high_keyword_hits: int = Field(default=0, ge=0)
+    mid_keyword_hits: int = Field(default=0, ge=0)
+    cited_label_meta_hits: int = Field(default=0, ge=0)
+    classifier_mode_used: Literal["heuristic", "llm_fallback"] = "heuristic"
+    llm_fallback_skipped: bool = False
+    llm_cost_eur: float = Field(default=0.0, ge=0.0)
+
+
 class StubVerdict(BaseModel):
     """Per-query stub detection (CURIOSITY.md §Stub Detection; PHX-0058 / W3)."""
 
@@ -270,6 +291,8 @@ class QueryRunReport(RunReportBase):
     citation_quality: CitationQuality
     stub_verdict: StubVerdict | None = None
     region_descriptor: RegionDescriptor | None = None
+    meta_classification: MetaClassification | None = None
+    cited_node_ids: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -358,3 +381,24 @@ class BlindSpotReport(RunReportBase):
     window_days: float = Field(ge=0.0)
     aggregator_algorithm: Literal["hdbscan", "kmeans"] = "hdbscan"
     stub_reports_scanned: int = Field(default=0, ge=0)
+
+
+# ---------------------------------------------------------------------------
+# Mnemosyne aggregation (PHX-0071 Phase 1 / W5)
+# ---------------------------------------------------------------------------
+
+
+class MnemosyneObservationCluster(RunReportBase):
+    """Per-pass cluster of self-referential observations."""
+
+    report_type: Literal["mnemosyne"] = "mnemosyne"
+    centroid_embedding: list[float]
+    contributing_run_ids: list[str]
+    contributing_query_count: int = Field(ge=0)
+    aggregate_keyword_hits: int = Field(ge=0)
+    dominant_node_type: NodeType | None = None
+    dominant_cluster_id: str | None = None
+    most_recurrent_cited_node_ids: list[str] = Field(default_factory=list)
+    window_days: float = Field(ge=0.0)
+    requires_hestia_review: bool = False
+    hestia_review_status: Literal["not_required", "pending", "approved", "blocked"] = "not_required"

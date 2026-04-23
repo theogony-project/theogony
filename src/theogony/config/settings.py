@@ -203,6 +203,48 @@ class OneirosSettings(BaseModel):
     edge_pheromone: EdgePheromoneSettings = Field(default_factory=EdgePheromoneSettings)
 
 
+class ApiSettings(BaseModel):
+    """HTTP API server defaults (advertised URLs, cockpit banner)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    port: int = Field(default=8000, ge=1, le=65535)
+
+
+class CockpitSettings(BaseModel):
+    """Iris cockpit (PHX-0074 Phase 1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(default=True)
+    bind_host: str = Field(default="127.0.0.1")
+    bind_port: int | None = Field(default=None)
+    public: bool = Field(default=False)
+    sample_only: bool = Field(default=False)
+    sample_top_n_nodes: int = Field(default=20, ge=1, le=200)
+    sample_recent_n_reports: int = Field(default=50, ge=1, le=500)
+    manifest_path: Path = Field(default=Path("cockpit/manifest.md"))
+    manifest_git_commit: bool = Field(default=False)
+    auth_provider: Literal["none", "oidc", "github", "basic", "password_file"] = "none"
+    status_sse_interval_s: float = Field(default=5.0, ge=5.0, le=300.0)
+    sse_max_concurrent_clients: int = Field(default=50, ge=1, le=10_000)
+    cluster_drill_max_members: int = Field(default=50, ge=1, le=500)
+
+    @model_validator(mode="after")
+    def _cockpit_public_auth_rules(self) -> Self:
+        if self.auth_provider != "none":
+            raise NotImplementedError(
+                "cockpit auth is Phase 2 only — set THEOGONY_COCKPIT__AUTH_PROVIDER=none "
+                "or see PHX-0074 (Iris)."
+            )
+        if self.public and self.bind_host != "0.0.0.0":
+            raise ValueError(
+                "cockpit.public=True requires cockpit.bind_host='0.0.0.0' — "
+                "public exposure without binding all interfaces is a configuration error."
+            )
+        return self
+
+
 class HostedSettings(BaseModel):
     """Tunables for the HTTP/SSE MCP hosted transport (PHX-0066 Phase 1).
 
@@ -410,6 +452,22 @@ class CuriositySettings(BaseModel):
     aggregation_interval_s: float = Field(default=86400.0, ge=0.0)
 
 
+class MnemosyneSettings(BaseModel):
+    """Mnemosyne meta-cognitive auditor (PHX-0071 Phase 1 / W5)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(default=True)
+    classifier_mode: Literal["heuristic_only", "heuristic_with_llm_fallback"] = (
+        "heuristic_with_llm_fallback"
+    )
+    window_days: float = Field(default=14.0, ge=1.0)
+    min_observations: int = Field(default=3, ge=2)
+    aggregation_interval_s: float = Field(default=86400.0, ge=0.0)
+    max_llm_classifications_per_hour: int = Field(default=30, ge=0)
+    llm_classification_max_cost_eur: float = Field(default=0.001, ge=0.0)
+
+
 class Settings(BaseSettings):
     """Top-level Theogony settings.
 
@@ -456,8 +514,11 @@ class Settings(BaseSettings):
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     clustering: ClusteringSettings = Field(default_factory=ClusteringSettings)
     curiosity: CuriositySettings = Field(default_factory=CuriositySettings)
+    mnemosyne: MnemosyneSettings = Field(default_factory=MnemosyneSettings)
     morpheus: MorpheusSettings = Field(default_factory=MorpheusSettings)
     depth_band: DepthBandSettings = Field(default_factory=DepthBandSettings)
+    api: ApiSettings = Field(default_factory=ApiSettings)
+    cockpit: CockpitSettings = Field(default_factory=CockpitSettings)
 
     data_dir: Path = Field(
         default=Path("data"),
