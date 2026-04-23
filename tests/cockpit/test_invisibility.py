@@ -45,12 +45,8 @@ def test_cockpit_does_not_mutate_chronicle_or_guarded_dirs(
     api_settings: Settings,
 ) -> None:
     _, nodes, edges = read_dump(pantheon_self_dump_path())
-    run_async(
-        api_store.batch_upsert_nodes([n for n in nodes if isinstance(n, KnowledgeNode)])
-    )
-    run_async(
-        api_store.batch_upsert_edges([e for e in edges if isinstance(e, KnowledgeEdge)])
-    )
+    run_async(api_store.batch_upsert_nodes([n for n in nodes if isinstance(n, KnowledgeNode)]))
+    run_async(api_store.batch_upsert_edges([e for e in edges if isinstance(e, KnowledgeEdge)]))
 
     before_nodes = [n.model_dump(mode="python") for n in run_async(_all_nodes(api_store))]
     before_edges = _edge_dump(api_store)
