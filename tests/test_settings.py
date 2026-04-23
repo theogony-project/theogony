@@ -47,10 +47,10 @@ def _isolate_environment(
 
 
 class TestSettingsDefaults:
-    def test_default_llm_provider_is_anthropic_claude_haiku_4_5(self) -> None:
+    def test_default_llm_provider_is_anthropic_claude_sonnet_4_6(self) -> None:
         s = Settings()
         assert s.llm.provider == "anthropic"
-        assert s.llm.model_id == "claude-haiku-4-5-20251001"
+        assert s.llm.model_id == "claude-sonnet-4-6"
 
     def test_default_embedding_is_bge_small(self) -> None:
         s = Settings()

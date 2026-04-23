@@ -9,10 +9,9 @@ object is serialised to JSON text so downstream extractors can
 Plain text mode uses the Messages API without tools.
 
 Pricing defaults follow Anthropic's public list pricing for
-Claude Haiku 4.5 (USD per 1M tokens), converted to EUR for
+Claude Sonnet 4.6 (USD per 1M tokens), converted to EUR for
 :class:`~theogony.agents.llm.LLMResult`. Override via
-``usd_per_m_input`` / ``usd_per_m_output`` when running an
-older Haiku tier.
+``usd_per_m_input`` / ``usd_per_m_output`` for other tiers.
 """
 
 from __future__ import annotations
@@ -35,14 +34,14 @@ _TOOL_NAME = "theogony_structured_output"
 class AnthropicLLMProvider:
     """Async Anthropic Messages API behind the LLMProvider protocol."""
 
-    USD_PER_M_INPUT_DEFAULT: float = 1.00
-    USD_PER_M_OUTPUT_DEFAULT: float = 5.00
+    USD_PER_M_INPUT_DEFAULT: float = 3.00
+    USD_PER_M_OUTPUT_DEFAULT: float = 15.00
     USD_TO_EUR: float = 0.93
 
     def __init__(
         self,
         api_key: SecretStr | str | None,
-        model_id: str = "claude-haiku-4-5-20251001",
+        model_id: str = "claude-sonnet-4-6",
         *,
         client: Any | None = None,
         usd_per_m_input: float | None = None,
