@@ -1,6 +1,6 @@
 # Pantheon Cockpit (Iris, PHX-0074)
 
-The cockpit is mounted at `/cockpit` on the main FastAPI app when `THEOGONY_COCKPIT__ENABLED` is true (default). It is server-rendered HTML with HTMX and Tailwind (CDN); Cytoscape.js loads only on the Knowledge and Cluster panels.
+The cockpit is mounted at `/cockpit` on the main FastAPI app when `THEOGONY_COCKPIT__ENABLED` is true (default). It is server-rendered HTML with HTMX and Tailwind via the [Play CDN](https://tailwindcss.com/docs/installation/play-cdn) (`cdn.tailwindcss.com`); Cytoscape.js loads only on the Knowledge and Cluster panels.
 
 ## Security
 

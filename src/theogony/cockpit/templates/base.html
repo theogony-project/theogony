@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Pantheon Cockpit{% endblock %}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.1/dist/tailwind.min.css" crossorigin="anonymous">
+  <!-- Tailwind v3: no npm dist/min.css; Play CDN compiles utilities in-browser. -->
+  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' };
+  </script>
   <link rel="stylesheet" href="{{ url_for('cockpit_static', path='css/cockpit.css') }}">
   <script src="https://unpkg.com/htmx.org@2.0.3" crossorigin="anonymous"></script>
 </head>
