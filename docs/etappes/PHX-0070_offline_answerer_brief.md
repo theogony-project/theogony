@@ -92,7 +92,7 @@ Update the seven callsites that today instantiate `AnswerSynthesizer` directly:
 - `src/theogony/api/app.py` (already imports the factory; uses dependencies)
 - `src/theogony/cli.py` (one call site in the `ask` flow at line ~874)
 - `src/theogony/mcp/server.py` (one call site at line ~238)
-- `tests/api/conftest.py` (test fixture; keep as-is — tests can opt in)
+- `tests/api/fastapi_fixtures.py` (test fixture module; loaded via ``pytest_plugins`` in ``tests/conftest.py``)
 - `tests/test_retrieval_pipeline.py` (test fixture — keep direct AnswerSynthesizer construction with a scripted StubLLMProvider; that's the legitimate test pattern)
 
 The call sites in production code (`api/dependencies.py`, `cli.py`, `mcp/server.py`) switch from `AnswerSynthesizer(llm, ...)` to `build_synthesizer(settings, llm, audit_log=...)`. Tests continue to construct directly when they want a specific behaviour.

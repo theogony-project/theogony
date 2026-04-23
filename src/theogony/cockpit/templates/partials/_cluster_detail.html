@@ -1,0 +1,14 @@
+<div class="border border-slate-700 rounded p-4 bg-slate-950">
+  <h2 class="text-lg font-medium text-amber-400">{{ summary.cluster_label or summary.cluster_id }}</h2>
+  <p class="text-xs text-slate-400">{{ summary.member_count }} members (showing {{ nodes|length }})</p>
+  <div id="cluster-graph"
+       data-graph='{{ graph_payload | tojson }}'
+       class="w-full h-96 border border-slate-700 rounded mt-4"></div>
+  <ul class="mt-3 text-xs text-slate-400 max-h-32 overflow-y-auto">
+    {% for n in nodes %}
+    <li>{{ n.label }} — {{ n.id }}</li>
+    {% endfor %}
+  </ul>
+</div>
+<script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js" crossorigin="anonymous"></script>
+<script src="{{ url_for('cockpit_static', path='js/cluster_graph.js') }}"></script>

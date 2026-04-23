@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from theogony.core import KnowledgeNode, NodeType, SourceRef
 
+pytest_plugins: tuple[str, ...] = ("tests.api.fastapi_fixtures",)
+
 
 def make_source_ref(
     location: str = "chapter_03:offset_18433",

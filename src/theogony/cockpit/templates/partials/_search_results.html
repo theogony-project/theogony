@@ -1,0 +1,14 @@
+<div class="space-y-1">
+  {% for r in results %}
+  <div>
+    <a class="text-amber-400 hover:text-amber-300"
+       hx-get="/cockpit/browser/node/{{ r.id }}"
+       hx-target="#node-detail"
+       href="#">{{ r.label }}</a>
+    <span class="text-slate-500 text-xs">({{ r.node_type }}, {{ r.layer }})</span>
+  </div>
+  {% else %}
+  <p class="text-slate-500">No matches.</p>
+  {% endfor %}
+</div>
+<div id="node-detail" class="mt-6 border border-slate-700 rounded p-3 bg-slate-950"></div>

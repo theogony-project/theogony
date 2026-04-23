@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Status — Cockpit{% endblock %}
+{% block content %}
+{% if sample_only %}
+<p class="mb-4 rounded border border-amber-700 bg-amber-950/40 px-3 py-2 text-amber-200 text-sm">
+  Sample-only mode active; data is filtered.
+</p>
+{% endif %}
+<h1 class="text-2xl font-semibold mb-4">Chronicle status</h1>
+<div id="status-metrics" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+  <div class="rounded border border-slate-700 p-3">
+    <div class="text-slate-400 text-xs">Nodes</div>
+    <div class="text-xl font-mono" data-status-key="node_count">{{ snap.node_count }}</div>
+  </div>
+  <div class="rounded border border-slate-700 p-3">
+    <div class="text-slate-400 text-xs">Edges</div>
+    <div class="text-xl font-mono" data-status-key="edge_count">{{ snap.edge_count }}</div>
+  </div>
+  <div class="rounded border border-slate-700 p-3">
+    <div class="text-slate-400 text-xs">Queries (24h)</div>
+    <div class="text-xl font-mono" data-status-key="queries_24h">{{ snap.activity_24h.get('query', 0) }}</div>
+  </div>
+  <div class="rounded border border-slate-700 p-3">
+    <div class="text-slate-400 text-xs">Uptime (s)</div>
+    <div class="text-xl font-mono">{{ snap.uptime_s }}</div>
+  </div>
+</div>
+<p class="text-sm text-slate-400 mb-2">Store: {{ snap.store_backend }} · Embedder: {{ snap.embedding_model }} (dim {{ snap.embedding_dim }})</p>
+<h2 class="text-lg font-medium mt-6 mb-2">Layers</h2>
+<ul class="text-sm text-slate-300 list-disc list-inside">
+  {% for k, v in snap.layer_distribution.items() %}
+  <li>{{ k }}: {{ v }}</li>
+  {% endfor %}
+</ul>
+<h2 class="text-lg font-medium mt-6 mb-2">Depth bands</h2>
+<ul class="text-sm text-slate-300 list-disc list-inside">
+  {% for k, v in snap.depth_band_distribution.items() %}
+  <li>band {{ k }}: {{ v }}</li>
+  {% endfor %}
+</ul>
+<h2 class="text-lg font-medium mt-6 mb-2">Largest clusters (sample)</h2>
+<ul class="text-sm space-y-1">
+  {% for c in clusters[:12] %}
+  <li>
+    <a class="text-amber-400 hover:text-amber-300" href="/cockpit/clusters/{{ c.cluster_id }}">{{ c.cluster_label or c.cluster_id }}</a>
+    — {{ c.member_count }} members
+  </li>
+  {% endfor %}
+</ul>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('cockpit_static', path='js/sse_status.js') }}"></script>
+{% endblock %}
