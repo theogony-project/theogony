@@ -4,13 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Pantheon Cockpit{% endblock %}</title>
-  <!-- Tailwind v3: no npm dist/min.css; Play CDN compiles utilities in-browser. -->
-  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
+  <!-- Upgrade any insecure sub-resource the templates may emit. Belt-and-
+       braces against the url_for HTTP/HTTPS scheme detection failing when
+       Fly's TLS terminator forwards as plain HTTP to the Starlette host. -->
+  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  <!-- Tailwind v3 Play CDN compiles utilities in-browser.
+       crossorigin attribute removed: the CDN does not send the
+       Access-Control-Allow-Origin header, which causes browsers to BLOCK
+       the script entirely under the implied CORS policy. Plain script
+       loads without crossorigin work. -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = { darkMode: 'class' };
   </script>
   <link rel="stylesheet" href="{{ url_for('cockpit_static', path='css/cockpit.css') }}">
-  <script src="https://unpkg.com/htmx.org@2.0.3" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
   {% include "partials/_navbar.html" %}
