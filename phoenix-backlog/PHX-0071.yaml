@@ -1,7 +1,7 @@
 id: PHX-0071
 category: vision
 priority: high
-status: open
+status: in_progress  # W5 brief landed 2026-04-22 — see docs/etappes/W5_mnemosyne_brief.md
 generation_target: 2
 title: "Mnemosyne — self-reflective backlog auditor that turns meta-questions into PHX proposals"
 filed_by: hesiod

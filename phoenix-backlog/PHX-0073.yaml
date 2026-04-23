@@ -1,0 +1,235 @@
+id: PHX-0073
+category: vision
+priority: high
+status: open
+generation_target: 2
+title: "Asklepios — Healer agent that triages auditor findings into PHX backlog tickets and fix tickets"
+filed_by: hesiod
+created_at: 2026-04-22
+description: |
+  Greek god of medicine and healing, son of Apollo, mortal-born,
+  resurrected by Zeus into the asterism Ophiuchus. The
+  rod-of-Asclepius (single snake, single staff) is the universal
+  symbol of medicine — distinct from Hermes's caduceus. In the
+  Pantheon agent roster he occupies the **constructive
+  triage** slot: where Eris (PHX-0067) attacks the chronicle
+  from outside and Nemesis (PHX-0068) audits the chronicle from
+  inside, both explicitly read-only, **Asklepios reads their
+  findings and converts them into actionable backlog material**.
+
+  Today this conversion happens ad-hoc. Eris emits
+  ``EvasionReport`` records with vulnerabilities; Nemesis emits
+  ``NemesisFinding`` records with confidence-inflation and
+  echo-chamber detections. Both are *evidence*. Neither
+  produces a *plan*. The chronicle's ability to grow from
+  audit signal depends on someone systematically translating
+  evidence into plans — the human operator does this today, but
+  it does not scale. Asklepios is the agent that does it.
+
+  His pipeline is the constructive sister of Mnemosyne's
+  (PHX-0071):
+
+  - **Mnemosyne** ingests user *queries* about the chronicle and
+    drafts *architectural* proposals.
+  - **Asklepios** ingests *auditor findings* about the chronicle
+    and drafts *fix* proposals (architectural OR tactical).
+
+  Three classes of triage Asklepios performs:
+
+  1. **Architectural fix** — when a finding (or a cluster of
+     findings) implies a structural problem in the chronicle
+     itself. Output: a draft Phoenix Backlog YAML in the same
+     gitignored ``backlog_proposals/`` directory Mnemosyne
+     uses. Schema-compatible; the operator promotes to a real
+     PHX manually. Example: Nemesis finds 3 echo chambers
+     across 3 different cluster types over 2 weeks → that is
+     a clustering-strategy issue, not a per-cluster fix.
+  2. **Tactical fix** — when a finding implies a small
+     localised correction. Output: a ``FixTicket`` (smaller
+     than a PHX; lives at
+     ``settings.run_reports_dir/fix_tickets/<id>.json``) with
+     a one-paragraph problem statement, the affected node /
+     edge / cluster ids, the suggested correction, and the
+     audit_log_run_id that surfaced it. Example: Nemesis
+     finds one node whose confidence inflated without new
+     evidence → one node, one corrective ScoreUpdate,
+     ticket.
+  3. **No-op resolution** — when a finding is a known
+     false-positive pattern, or already-tracked elsewhere.
+     Output: just an entry in the
+     ``AsklepiosResolutionLog`` with a one-line reason. The
+     finding is marked resolved without any action. The log
+     accumulates a corpus of known-non-issues that the next
+     audit pass can reference.
+
+  Asklepios is **read-only on the chronicle by construction**.
+  He never writes nodes, never writes edges, never updates
+  scores. He writes only:
+
+  - Draft PHX YAMLs (gitignored, operator-promoted)
+  - Draft FixTickets (in a dedicated reports subdirectory)
+  - AsklepiosResolutionLog entries
+
+  This mirrors Mnemosyne / Nemesis / Eris discipline: auditors
+  describe; humans (or, in the long horizon, authorised builder
+  agents like Daedalus + Talos) decide. The chronicle never
+  mutates from auditor signal alone.
+
+  Scope discipline: Asklepios does not perform the actual fix.
+  He produces the fix *proposal*. Once promoted to a real PHX
+  (or fix ticket implemented), the work flows back to the
+  same Talos pickup pattern that Wave 1 used.
+
+  Self-reflexive note: Asklepios's own findings are themselves
+  audited — Nemesis can flag patterns in his proposal stream
+  (e.g., "Asklepios is proposing the same kind of fix
+  weekly without it being implemented", which suggests a
+  systemic blockage rather than a recurring local bug).
+
+cost_benefit_guardrails:
+  - |
+    Triage logic is **deterministic, not LLM-judged**, in
+    Phase 1. A small rule engine over the structured
+    ``EvasionReport`` and ``NemesisFinding`` Pydantic shapes:
+    finding-type + severity + cluster-or-node-scope →
+    ticket-class. LLM-assisted draft text generation is
+    opt-in via ``Settings.asklepios.draft_with_llm`` (default
+    false); the deterministic rule path always emits a
+    structured ticket even when the prose is missing.
+  - |
+    Periodic triage pass, not real-time. A new
+    ``AsklepiosTriagePhase`` (TickPhase, default-off, weekly
+    cadence) scans the most recent
+    ``EvasionReport``/``NemesisFinding`` files, applies the
+    rule engine, and emits proposals. Operators on small
+    deployments can run on-demand via
+    ``theogony asklepios triage [--force]``.
+  - |
+    Output cap per pass:
+    ``Settings.asklepios.max_proposals_per_pass`` (default
+    20) so the operator's review queue is bounded. Top-N by
+    severity × frequency; the long tail goes to the
+    ``AsklepiosResolutionLog`` summary.
+  - |
+    No write to ``phoenix-backlog/`` directly. All proposals
+    land in ``settings.run_reports_dir/backlog_proposals/``
+    (the same gitignored directory Mnemosyne uses) with a
+    ``proposal_source: "asklepios"`` field so the operator
+    can filter the two streams. Promotion to a real PHX is
+    a manual git-add of the YAML body.
+  - |
+    No write to source code, no write to prompts, no write to
+    settings. Asklepios writes proposals only.
+  - |
+    Resolution log retention:
+    ``Settings.asklepios.resolution_log_retention_days``
+    (default 365). Old entries are aggregated into a yearly
+    summary so the rule engine has long-term memory of known
+    non-issues without unbounded disk growth.
+  - |
+    Hestia review applies to every architectural fix proposal
+    (matches the Mnemosyne policy). Tactical fix proposals
+    bypass Hestia by default; operators can require Hestia
+    review via ``Settings.asklepios.hestia_for_tactical``
+    if they prefer the conservative default.
+
+service_to_humanity: |
+  An auditor that finds problems but cannot communicate them
+  in actionable form is just a louder version of silent
+  failure. Eris and Nemesis make the chronicle's problems
+  *visible*; Asklepios makes them *addressable*. Without him,
+  the audit signal degrades into a stream of warnings that
+  pile up in JSON files until someone — eventually — writes
+  a script to triage them by hand, and then someone else
+  writes a different script, and the chronicle's healing
+  capacity becomes a cottage industry of one-off analysis
+  rather than an architecturally-supported process. The same
+  pattern destroys most long-running software systems: the
+  bug tracker fills, the alerts fire, and there is no agent
+  whose job it is to translate them into a coherent plan.
+  Asklepios is the structural answer. He turns observation
+  into proposal, with the proposal carrying enough provenance
+  back to the original finding that any reviewer can audit
+  Asklepios himself.
+
+acceptance_criteria:
+  - |
+    New module ``src/theogony/agents/asklepios.py`` exposing:
+    ``triage_findings(findings: list[Union[EvasionReport,
+    NemesisFinding]], rules: TriageRules) -> TriageOutcome``.
+    Pure logic; takes findings + rule config in, returns
+    proposals + resolutions. No I/O.
+  - |
+    Pydantic models in ``src/theogony/reporting/models.py``:
+    ``FixTicket`` (problem statement + affected ids +
+    suggested correction + source_finding_id + severity),
+    ``AsklepiosResolution`` (no-op entries),
+    ``AsklepiosResolutionLog`` (aggregated),
+    ``AsklepiosTriageReport`` (per-pass summary).
+    ``BacklogProposal`` (already exists from Mnemosyne YAML)
+    gains a ``proposal_source: Literal["mnemosyne",
+    "asklepios", "human"] = "human"`` field.
+  - |
+    New ``AsklepiosTriagePhase`` (default-off TickPhase) lives
+    at ``src/theogony/agents/asklepios_phase.py``. Reuses the
+    cadence-check pattern from W3 + Mnemosyne. Writes
+    ``AsklepiosTriageReport`` per pass via the
+    ``RunReportWriter``.
+  - |
+    Triage rule engine: small declarative YAML at
+    ``src/theogony/agents/asklepios_rules.yaml`` listing
+    finding-type + severity + scope → ticket-class
+    mappings. Editable without code change. Default rules
+    cover the four Nemesis finding-types and the
+    Eris-vulnerability classes from PHX-0067/0068.
+  - |
+    Settings group ``Settings.asklepios`` with: ``enabled``
+    (default false for the phase, true for the rule engine
+    when called directly via CLI), ``triage_interval_days``
+    (default 7), ``draft_with_llm`` (default false),
+    ``hestia_for_tactical`` (default false),
+    ``max_proposals_per_pass`` (default 20),
+    ``resolution_log_retention_days`` (default 365).
+  - |
+    CLI: ``theogony asklepios triage [--force]`` triggers
+    one-shot triage. ``theogony asklepios proposals
+    list/show/promote`` for proposal review (shared CLI
+    surface with Mnemosyne — same draft directory).
+  - |
+    Three integration tests:
+    (a) Submit 5 synthetic Nemesis confidence-inflation
+    findings with severity high; assert one architectural
+    fix proposal + one tactical fix ticket are emitted.
+    (b) Submit 3 synthetic findings matching a known-no-op
+    pattern; assert AsklepiosResolution entries are written
+    with the right reason, no proposals emitted.
+    (c) Run two consecutive triage passes; assert the second
+    pass does not re-triage already-resolved findings (the
+    log is consulted).
+  - |
+    HestiaReview hook: every architectural fix proposal
+    (and every tactical proposal when
+    ``hestia_for_tactical = true``) carries
+    ``requires_hestia_review: bool = True``.
+  - |
+    ``docs/HIVE.md`` updated with Asklepios row in the agent
+    table. ``docs/GLOSSARY.md`` learns Asklepios entry.
+    New ``docs/ASKLEPIOS.md`` documents the triage layer
+    and the Eris→Nemesis→Asklepios→PHX flow.
+    ``docs/PHILOSOPHY.md`` cross-links: "the chronicle's
+    findings deserve as much honest engineering as its
+    facts".
+
+related:
+  - PHX-0007  # Scientific Workbench Agents — natural consumers of FixTicket records for cross-checking
+  - PHX-0035  # Reviewer Agent — sister role, retrospective review of past triage decisions
+  - PHX-0039  # Hestia Curiosity Auditing — every architectural proposal goes through Hestia
+  - PHX-0067  # Eris — primary upstream input source for Asklepios's triage
+  - PHX-0068  # Nemesis — primary upstream input source for Asklepios's triage
+  - PHX-0071  # Mnemosyne — sister auditor; user-question triage vs Asklepios's finding triage
+  - PHX-0072  # Proteus — adjacent: Asklepios may also produce ProteusEligibilityProposal entries when he sees a prompt-related fix pattern
+
+referenced_in:
+  - "Composer conversation 2026-04-22 — user asked 'do we have a Fix-it-Felix?' and Hesiod proposed Asklepios as the constructive triage agent"
+  - "docs/HIVE.md — auditor family extends from Eris (external attack) → Nemesis (internal audit) → Asklepios (constructive triage)"
+  - "docs/PHILOSOPHY.md §'Verification Over Authority' — Asklepios enforces this against the chronicle's own audit-log evidence"
