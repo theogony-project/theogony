@@ -521,7 +521,8 @@ def _tool_descriptors() -> list[dict[str, Any]]:
         {
             "name": "pantheon_reports_list",
             "description": (
-                "List recent run reports (ingest, query, oneiros, clustering, blindspot, mnemosyne). "
+                "List recent run reports (ingest, query, oneiros, clustering, "
+                "blindspot, mnemosyne). "
                 "The Chronik's honest retrospective surface — every answer it "
                 "produced, every ingest it ran, every Oneiros tick, clustering "
                 "and blind-spot / Mnemosyne aggregation passes."

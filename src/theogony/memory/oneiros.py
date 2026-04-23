@@ -36,11 +36,11 @@ import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal, cast
 
+from theogony.agents.mnemosyne_phase import MnemosyneAggregationPhase
 from theogony.clustering.cluster_index import ClusterIndex
 from theogony.clustering.recluster_phase import ClusteringRunReportPayload, ReclusterPhase
 from theogony.config.logging import get_logger
 from theogony.core.model import ClusterSummary
-from theogony.agents.mnemosyne_phase import MnemosyneAggregationPhase
 from theogony.curiosity.blind_spot_aggregation_phase import BlindSpotAggregationPhase
 from theogony.memory.depth_band_phase import DepthBandPhase
 from theogony.memory.morpheus_phase import MorpheusPhase

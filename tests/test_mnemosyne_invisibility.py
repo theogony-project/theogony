@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 
 from theogony.config.settings import LLMSettings, Settings
-from theogony.reporting.models import MetaClassificationVerdict
 from theogony.core.model import KnowledgeEdge, KnowledgeNode, Layer
 from theogony.docs_ingest import read_dump
+from theogony.reporting.models import MetaClassificationVerdict
 from theogony.retrieval.pipeline import build_pipeline_from_settings
 from theogony.seeds import pantheon_self_dump_path
 from theogony.stores.memory import InMemoryKnowledgeStore
@@ -48,8 +48,7 @@ async def test_mnemosyne_only_mutates_allowlisted_property() -> None:
 
     before_nodes = await _all_nodes(store)
     before_sr: dict[str, tuple[str, ...]] = {
-        n.id: tuple(n.properties.get("self_referential_in_runs") or ())
-        for n in before_nodes
+        n.id: tuple(n.properties.get("self_referential_in_runs") or ()) for n in before_nodes
     }
     before_core = _node_core_dump(before_nodes)
     before_edges = _edge_dump(store)

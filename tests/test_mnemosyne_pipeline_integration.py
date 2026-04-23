@@ -57,10 +57,17 @@ async def test_pipeline_skips_marking_when_not_self_referential() -> None:
     await store.batch_upsert_edges([e for e in edges if isinstance(e, KnowledgeEdge)])
 
     pipeline = await build_pipeline_from_settings(settings, store)
-    result = await pipeline.ask("What is the weather in Tibet?", k=6, hops=2, pheromone_mode="ignore")
+    result = await pipeline.ask(
+        "What is the weather in Tibet?",
+        k=6,
+        hops=2,
+        pheromone_mode="ignore",
+    )
 
     assert result.report.meta_classification is not None
-    assert result.report.meta_classification.verdict == MetaClassificationVerdict.NOT_SELF_REFERENTIAL
+    assert (
+        result.report.meta_classification.verdict == MetaClassificationVerdict.NOT_SELF_REFERENTIAL
+    )
     for cid in result.answer.cited_node_ids:
         node = await store.get_node(cid)
         assert node is not None

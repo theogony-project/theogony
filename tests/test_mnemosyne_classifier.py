@@ -24,7 +24,7 @@ def test_heuristic_returns_self_referential_for_high_keyword_hit_in_query() -> N
 
 
 @pytest.mark.asyncio
-async def test_heuristic_returns_self_referential_for_high_keyword_hit_in_cited_node_label() -> None:
+async def test_heuristic_self_referential_high_keyword_in_cited_label() -> None:
     c = _classifier()
     nodes = [
         ConstellationNode(
