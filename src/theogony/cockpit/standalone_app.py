@@ -1,11 +1,12 @@
 """Minimal FastAPI app: bundled seed + Iris cockpit only (PHX-0074).
 
-The standalone cockpit now ships with the **real BGE-small embedder** so the
-bundled `pantheon_self` seed (which already carries 384-dim BGE vectors) is
-queryable by meaning, and an **OfflineAnswerSynthesizer** so the answer
-panel shows real citation-anchored snippets — not a stub placeholder. There
-is still no LLM prose (use ``theogony serve`` for that), but the Explorer
-finally feels useful out of the box.
+Loads **full** :class:`~theogony.config.settings.Settings` from the environment
+(same as ``theogony serve`` for LLM keys and ``THEOGONY_LLM__*``), but pins
+**384-dim BGE** embeddings so the bundled ``pantheon_self`` seed stays
+vector-compatible. If ``build_llm_from_settings`` succeeds (e.g. ``ANTHROPIC_API_KEY``
+set with provider ``anthropic``), the Explorer uses **real LLM synthesis**; otherwise
+it falls back to **stub** + offline citation snippets so the app still starts
+without secrets.
 """
 
 from __future__ import annotations
@@ -15,11 +16,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from theogony.agents.llm import StubLLMProvider
+from theogony.agents.factory import build_llm_from_settings
+from theogony.agents.llm import LLMProvider, StubLLMProvider
 from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
 from theogony.cockpit import mount_cockpit
 from theogony.config.logging import get_logger, setup_logging
-from theogony.config.settings import EmbeddingSettings, LLMSettings, Settings
+from theogony.config.settings import EmbeddingSettings, Settings
 from theogony.core.model import KnowledgeEdge, KnowledgeNode
 from theogony.curiosity.stub_detector import StubDetector
 from theogony.docs_ingest import read_dump
@@ -30,6 +32,37 @@ from theogony.seeds import pantheon_self_dump_path
 from theogony.stores.memory import InMemoryKnowledgeStore
 
 log = get_logger("cockpit.standalone")
+
+_SEED_EMBEDDING = EmbeddingSettings(dim=384, model_id="BAAI/bge-small-en-v1.5")
+
+
+def _standalone_settings() -> Settings:
+    """Env-backed settings with embedding forced to the pantheon_self BGE layout."""
+    base = Settings()
+    return base.model_copy(update={"embedding": _SEED_EMBEDDING})
+
+
+def _standalone_llm(settings: Settings) -> LLMProvider:
+    try:
+        llm = build_llm_from_settings(settings)
+    except (ValueError, ImportError, NotImplementedError) as exc:
+        log.warning(
+            "cockpit standalone: no live LLM (%s); using StubLLMProvider",
+            exc,
+        )
+        return StubLLMProvider(
+            model_id=settings.llm.model_id or "stub-llm",
+            default="(stub: set ANTHROPIC_API_KEY and THEOGONY_LLM__PROVIDER=anthropic)",
+        )
+    if isinstance(llm, StubLLMProvider):
+        log.info("cockpit standalone: LLM provider is stub (THEOGONY_LLM__PROVIDER=stub)")
+    else:
+        log.info(
+            "cockpit standalone: live LLM provider=%s model_id=%s",
+            settings.llm.provider,
+            getattr(llm, "model_id", type(llm).__name__),
+        )
+    return llm
 
 
 class _ConstantEmbedder:
@@ -71,10 +104,7 @@ def _build_embedder(settings: Settings) -> object:
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    settings = Settings(
-        embedding=EmbeddingSettings(dim=384, model_id="BAAI/bge-small-en-v1.5@v1"),
-        llm=LLMSettings(provider="stub"),
-    )
+    settings = _standalone_settings()
     setup_logging(settings)
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     settings.run_reports_dir.mkdir(parents=True, exist_ok=True)
@@ -87,7 +117,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     await store.batch_upsert_nodes(node_objs)
     await store.batch_upsert_edges(edge_objs)
     embedder = _build_embedder(settings)
-    llm = StubLLMProvider(default="(stub: no LLM configured)")
+    llm = _standalone_llm(settings)
     writer = RunReportWriter(settings.run_reports_dir)
     app.state.settings = settings
     app.state.audit = audit
