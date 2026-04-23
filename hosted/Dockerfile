@@ -20,4 +20,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import os, urllib.request, sys; p=os.environ.get('PORT','8080'); urllib.request.urlopen(f'http://127.0.0.1:{p}/health', timeout=3); sys.exit(0)" || exit 1
 
-ENTRYPOINT ["sh", "-c", "exec theogony mcp --transport sse --seed --host \"${HOST:-0.0.0.0}\" --port \"${PORT:-8080}\""]
+# Default: --seed (bundled pantheon_self in memory). Set THEOGONY_MCP_SEED=0
+# and configure THEOGONY_NEO4J__* for a persistent Neo4j-backed Chronik.
+ENTRYPOINT ["sh", "-c", "SEED_ARG=--seed; case \"${THEOGONY_MCP_SEED:-1}\" in 0|false|no|NO) SEED_ARG=--no-seed;; esac; exec theogony mcp --transport sse ${SEED_ARG} --host \"${HOST:-0.0.0.0}\" --port \"${PORT:-8080}\""]

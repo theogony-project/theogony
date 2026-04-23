@@ -11,7 +11,7 @@ from theogony.agents.llm import StubLLMProvider
 from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
 from theogony.cockpit import mount_cockpit
 from theogony.config.logging import get_logger, setup_logging
-from theogony.config.settings import Settings
+from theogony.config.settings import EmbeddingSettings, Settings
 from theogony.core.model import KnowledgeEdge, KnowledgeNode
 from theogony.curiosity.stub_detector import StubDetector
 from theogony.docs_ingest import read_dump
@@ -41,7 +41,7 @@ class _TinyEmbedder:
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    settings = Settings()
+    settings = Settings(embedding=EmbeddingSettings(dim=4, model_id="cockpit-standalone@v1"))
     setup_logging(settings)
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     settings.run_reports_dir.mkdir(parents=True, exist_ok=True)

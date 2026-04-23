@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Explorer — Cockpit{% endblock %}
+
+{% block content %}
+<div id="explorer-root"
+     class="explorer-root rounded-xl border border-slate-700/80 p-4 md:p-5"
+     data-sample-only="{{ 'true' if settings.cockpit.sample_only else 'false' }}"
+     data-append-enabled="{{ 'true' if settings.mcp_append.enabled else 'false' }}">
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
+  <!-- LEFT: chat + answer -->
+  <section class="lg:col-span-2 flex flex-col gap-3">
+    <header class="flex flex-col gap-1">
+      <div class="flex items-baseline gap-2 flex-wrap">
+        <h2 class="text-xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500">
+          Explorer
+        </h2>
+        <span class="text-xs text-slate-500">streamed phases · d3 constellation · optional write-back</span>
+      </div>
+      <div class="flex flex-wrap gap-2 text-[10px] uppercase tracking-wider text-slate-400">
+        <span id="phase-embed" class="explorer-phase px-2 py-0.5 rounded border border-slate-600 bg-slate-900/80">embed</span>
+        <span id="phase-retrieve" class="explorer-phase px-2 py-0.5 rounded border border-slate-600 bg-slate-900/80">retrieve</span>
+        <span id="phase-synth" class="explorer-phase px-2 py-0.5 rounded border border-slate-600 bg-slate-900/80">synthesize</span>
+      </div>
+    </header>
+
+    <form id="explorer-form" class="explorer-glass rounded-lg border border-slate-600/60 p-3 space-y-2">
+      <textarea id="explorer-q"
+        class="w-full h-28 bg-slate-950/70 border border-slate-600 rounded-md p-2 text-sm text-slate-100
+               focus:outline-none focus:ring-1 focus:ring-amber-400/70 focus:border-amber-400/50"
+        placeholder="Ask the Pantheon… e.g. ‘What is the Curiosity Loop and why does it matter?’"
+        maxlength="1000"></textarea>
+      <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+        <label class="flex items-center gap-1">k
+          <input id="explorer-k" type="number" value="10" min="1" max="25"
+            class="w-14 bg-slate-950/80 border border-slate-600 rounded px-1 text-slate-100"></label>
+        <label class="flex items-center gap-1">hops
+          <input id="explorer-hops" type="number" value="2" min="0" max="3"
+            class="w-12 bg-slate-950/80 border border-slate-600 rounded px-1 text-slate-100"></label>
+        <button type="submit"
+          class="ml-auto px-4 py-1.5 rounded-md bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-900 text-sm font-semibold shadow shadow-amber-500/20">
+          Ask
+        </button>
+      </div>
+    </form>
+
+    <div id="explorer-status" class="text-xs text-slate-500 min-h-[1rem] font-mono"></div>
+
+    <article id="explorer-answer"
+      class="explorer-glass rounded-lg border border-slate-700/50 p-3 text-sm leading-relaxed
+             whitespace-pre-wrap text-slate-200 min-h-[9rem]">
+      <span class="text-slate-500 italic">Answers and citations appear here.</span>
+    </article>
+
+    <div class="flex flex-wrap gap-2">
+      <button type="button" id="explorer-save"
+        class="px-3 py-1.5 rounded-md border border-emerald-500/50 text-emerald-300 text-xs font-medium
+               hover:bg-emerald-500/10 hover:border-emerald-400 transition">
+        Save as hypothesis in Chronik
+      </button>
+      <span class="text-[10px] text-slate-500 self-center">uses the same caps as <code class="text-slate-400">pantheon_chronicle_append</code></span>
+    </div>
+
+    <details class="explorer-glass rounded-lg border border-slate-700/40 p-2 text-xs text-slate-400">
+      <summary class="cursor-pointer text-slate-300">Vector signature & timing</summary>
+      <div id="explorer-vector" class="mt-2"></div>
+      <div id="explorer-timing" class="mt-2"></div>
+    </details>
+  </section>
+
+  <!-- RIGHT: d3 force graph -->
+  <section class="lg:col-span-3">
+    <div class="explorer-graph-shell rounded-lg border border-slate-700/60 relative overflow-hidden"
+      style="height: 70vh;">
+      <svg id="explorer-graph" class="w-full h-full block"></svg>
+      <div id="explorer-legend"
+        class="absolute top-2 left-2 text-[10px] text-slate-400 space-x-2 pointer-events-none drop-shadow">
+        <span><span class="inline-block w-2 h-2 rounded-full bg-amber-400 align-middle"></span> query</span>
+        <span><span class="inline-block w-2 h-2 rounded-full bg-emerald-400 align-middle"></span> cited</span>
+        <span><span class="inline-block w-2 h-2 rounded-full bg-sky-400 align-middle"></span> seed</span>
+        <span><span class="inline-block w-2 h-2 rounded-full bg-slate-400 align-middle"></span> hop</span>
+      </div>
+    </div>
+  </section>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="{{ url_for('cockpit_static', path='js/explorer.js') }}"></script>
+{% endblock %}

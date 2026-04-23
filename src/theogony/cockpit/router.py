@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import time
+from collections.abc import AsyncIterator
 from html import escape
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from markdown_it import MarkdownIt
 from starlette.responses import PlainTextResponse
 from starlette.templating import Jinja2Templates
 
+from theogony.chronicle.append_fragments import append_text_fragments
 from theogony.cockpit.aggregations import (
     build_hover_lupe_payload,
     compute_status_snapshot,
@@ -28,6 +30,7 @@ from theogony.cockpit.dependencies import (
     get_store_readonly,
     require_cockpit_access,
 )
+from theogony.cockpit.explorer import run_explorer_query, stream_explorer_ask_sse
 from theogony.cockpit.manifest import ManifestRepository, _default_manifest_markdown
 from theogony.cockpit.sample_mode import (
     cluster_drill_member_cap,
@@ -370,6 +373,130 @@ def build_cockpit_router() -> APIRouter:
         except PermissionError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         return HTMLResponse('<span class="text-emerald-400">Saved.</span>')
+
+    @router.get("/explorer", response_class=HTMLResponse, name="cockpit_explorer")
+    async def explorer_page(
+        request: Request,
+        settings: Annotated[Settings, Depends(get_settings)],
+        _user: Annotated[object | None, Depends(get_authenticated_user)],
+    ) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request,
+            "explorer.html",
+            {"settings": settings},
+        )
+
+    @router.post("/api/ask", response_class=JSONResponse)
+    async def explorer_ask(
+        request: Request,
+        store: Annotated[KnowledgeStore, Depends(get_store_readonly)],
+        embedder: Annotated[EmbeddingProvider, Depends(get_embedder)],
+        writer: Annotated[RunReportWriter, Depends(get_report_writer)],
+        settings: Annotated[Settings, Depends(get_settings)],
+    ) -> JSONResponse:
+        try:
+            body = await request.json()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"invalid json: {exc}") from exc
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="body must be a JSON object")
+        query = str(body.get("q") or body.get("query") or "")
+        try:
+            k = int(body.get("k", 10))
+            hops = int(body.get("hops", 2))
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=f"k/hops not int: {exc}") from exc
+        llm = getattr(request.app.state, "llm", None)
+        audit = getattr(request.app.state, "audit", None)
+        payload = await run_explorer_query(
+            settings=settings,
+            store=store,
+            embedder=embedder,
+            llm=llm,
+            audit=audit,
+            report_writer=writer,
+            query=query,
+            k=k,
+            hops=hops,
+        )
+        return JSONResponse(payload)
+
+    @router.post("/api/ask-stream")
+    async def explorer_ask_stream(
+        request: Request,
+        store: Annotated[KnowledgeStore, Depends(get_store_readonly)],
+        embedder: Annotated[EmbeddingProvider, Depends(get_embedder)],
+        writer: Annotated[RunReportWriter, Depends(get_report_writer)],
+        settings: Annotated[Settings, Depends(get_settings)],
+    ) -> StreamingResponse:
+        try:
+            body = await request.json()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"invalid json: {exc}") from exc
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="body must be a JSON object")
+        query = str(body.get("q") or body.get("query") or "")
+        try:
+            k = int(body.get("k", 10))
+            hops = int(body.get("hops", 2))
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=f"k/hops not int: {exc}") from exc
+        llm = getattr(request.app.state, "llm", None)
+        audit = getattr(request.app.state, "audit", None)
+
+        async def gen() -> AsyncIterator[bytes]:
+            async for chunk in stream_explorer_ask_sse(
+                settings=settings,
+                store=store,
+                embedder=embedder,
+                llm=llm,
+                audit=audit,
+                report_writer=writer,
+                query=query,
+                k=k,
+                hops=hops,
+            ):
+                yield chunk
+
+        return StreamingResponse(
+            gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    @router.post("/api/chronicle-append", response_class=JSONResponse)
+    async def explorer_chronicle_append(
+        request: Request,
+        store: Annotated[KnowledgeStore, Depends(get_store_readonly)],
+        embedder: Annotated[EmbeddingProvider, Depends(get_embedder)],
+        settings: Annotated[Settings, Depends(get_settings)],
+    ) -> JSONResponse:
+        if settings.cockpit.sample_only:
+            raise HTTPException(
+                status_code=403,
+                detail="chronicle append is disabled in cockpit sample-only mode",
+            )
+        try:
+            body = await request.json()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"invalid json: {exc}") from exc
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="body must be a JSON object")
+        fragments = body.get("fragments")
+        if not isinstance(fragments, list):
+            fragments = []
+        context_note = body.get("context_note")
+        if context_note is not None and not isinstance(context_note, str):
+            raise HTTPException(status_code=400, detail="context_note must be a string")
+        payload = await append_text_fragments(
+            settings=settings,
+            store=store,
+            embedder=embedder,
+            fragments=fragments,
+            context_note=context_note,
+            origin="cockpit_explorer",
+        )
+        return JSONResponse(payload)
 
     @router.get("/sse/status")
     async def sse_status(

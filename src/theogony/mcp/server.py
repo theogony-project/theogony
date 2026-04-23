@@ -14,6 +14,10 @@ Tools (Gen 1, read-side surface)
 - ``pantheon_status``        — current configuration + report counts
 - ``pantheon_reports_list``  — recent run reports across types
 - ``pantheon_reports_show``  — one report's full JSON
+- ``pantheon_chronicle_append`` — bounded upsert of short text fragments as
+  ``KnowledgeNode`` rows (``mcp_agent`` provenance, ``hypothesized``);
+  persists when the store is Neo4j; with ``--seed`` the in-memory demo
+  grows until the process restarts.
 
 Lifespan and ownership
 ----------------------
@@ -31,6 +35,9 @@ Why not include ``pantheon_ingest_*`` yet
 A bounded ingest is 5–20 min wall-clock; most MCP hosts time out tool
 calls in ~30 s. The right shape (background ingest with status polled
 via reports) is a Gen-2 follow-up, not part of this first cut.
+``pantheon_chronicle_append`` is the fast path: synchronous upserts of
+small embedded fragments under :class:`~theogony.config.settings.McpAppendSettings`
+caps.
 
 Transport
 ---------
@@ -57,6 +64,7 @@ from theogony import __version__
 from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.llm import LLMProvider, StubLLMProvider
 from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
+from theogony.chronicle.append_fragments import append_text_fragments
 from theogony.config.logging import get_logger, setup_logging
 from theogony.config.settings import Settings
 from theogony.core.store import KnowledgeStore
@@ -341,6 +349,25 @@ async def tool_node(res: McpResources, *, node_id: str) -> dict[str, Any]:
     }
 
 
+async def tool_chronicle_append(
+    res: McpResources,
+    *,
+    fragments: list[dict[str, Any]],
+    context_note: str | None = None,
+) -> dict[str, Any]:
+    """Upsert a small batch of agent-authored text fragments as nodes."""
+    if res.embedder is None:
+        return {"error": "no embedder configured on this MCP session"}
+    return await append_text_fragments(
+        settings=res.settings,
+        store=res.store,
+        embedder=res.embedder,
+        fragments=fragments,
+        context_note=context_note,
+        origin="pantheon_chronicle_append",
+    )
+
+
 def _morpheus_proposals_recent(settings: Settings) -> int:
     """Edges proposed in the latest Oneiros tick with a Morpheus block (W4)."""
     writer = RunReportWriter(settings.run_reports_dir)
@@ -577,6 +604,58 @@ def _tool_descriptors() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "pantheon_chronicle_append",
+            "description": (
+                "Append short curated text to the Chronik as new knowledge nodes "
+                "(embedded, ``mcp_agent`` provenance, ``hypothesized`` status). "
+                "Hard size limits apply. Persists when the server uses Neo4j; "
+                "with the bundled in-memory seed, data survives until process "
+                "restart. Not a full book ingest — use the API/CLI ingest for that."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "fragments": {
+                        "type": "array",
+                        "description": (
+                            "Each item is a short title plus body text to store as one node."
+                        ),
+                        "minItems": 1,
+                        "maxItems": 50,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "title": {
+                                    "type": "string",
+                                    "description": "Short label / heading for the fragment.",
+                                    "minLength": 1,
+                                    "maxLength": 500,
+                                },
+                                "body": {
+                                    "type": "string",
+                                    "description": "Main text content stored as node.description.",
+                                    "minLength": 1,
+                                    "maxLength": 50000,
+                                },
+                            },
+                            "required": ["title", "body"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "context_note": {
+                        "type": "string",
+                        "description": (
+                            "Optional free-text note stored on every node in this "
+                            "batch under properties.context_note (e.g. session intent)."
+                        ),
+                        "maxLength": 4000,
+                    },
+                },
+                "required": ["fragments"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -637,6 +716,14 @@ def build_server(res: McpResources) -> Any:
             )
         elif name == "pantheon_reports_show":
             payload = tool_reports_show(res, run_id=arguments["run_id"])
+        elif name == "pantheon_chronicle_append":
+            raw_frags = arguments.get("fragments", [])
+            frags = raw_frags if isinstance(raw_frags, list) else []
+            payload = await tool_chronicle_append(
+                res,
+                fragments=frags,
+                context_note=arguments.get("context_note"),
+            )
         else:
             raise ValueError(f"unknown tool: {name}")
         return [types.TextContent(type="text", text=json.dumps(payload, indent=2))]
@@ -906,7 +993,8 @@ async def serve_sse(*, host: str, port: int, seed_path: Path | None) -> None:
                     res.settings.curiosity.stub_thresholds,
                 )
                 cockpit_subapp.state.mnemosyne_classifier = build_mnemosyne_classifier(
-                    res.settings, res.llm,
+                    res.settings,
+                    res.llm,
                 )
                 log.info("mcp sse: cockpit mounted at http://%s:%s/cockpit/", host, port)
             log.info("mcp sse: listening on http://%s:%s", host, port)

@@ -245,6 +245,24 @@ class CockpitSettings(BaseModel):
         return self
 
 
+class McpAppendSettings(BaseModel):
+    """Bounded MCP tool ``pantheon_chronicle_append`` (agent-curated growth).
+
+    Writes ``KnowledgeNode`` rows with ``source_type=mcp_agent`` and
+    ``epistemic_status=hypothesized``. There is **no auth** in Gen 1 —
+    rely on ``HostedSettings`` rate limits, tight size caps, and
+    ``enabled=false`` on untrusted public surfaces.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(default=True)
+    max_fragments_per_call: int = Field(default=8, ge=1, le=50)
+    max_title_chars: int = Field(default=240, ge=8, le=500)
+    max_body_chars_per_fragment: int = Field(default=8_000, ge=128, le=50_000)
+    max_total_body_chars: int = Field(default=32_000, ge=512, le=500_000)
+
+
 class HostedSettings(BaseModel):
     """Tunables for the HTTP/SSE MCP hosted transport (PHX-0066 Phase 1).
 
@@ -509,6 +527,7 @@ class Settings(BaseSettings):
     oneiros: OneirosSettings = Field(default_factory=OneirosSettings)
     report: ReportSettings = Field(default_factory=ReportSettings)
     wikidata_cache: WikidataCacheSettings = Field(default_factory=WikidataCacheSettings)
+    mcp_append: McpAppendSettings = Field(default_factory=McpAppendSettings)
     hosted: HostedSettings = Field(default_factory=HostedSettings)
     relevance: RelevanceSettings = Field(default_factory=RelevanceSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
