@@ -382,7 +382,7 @@ Greek goddess of memory; in Pantheon she holds **knowledge about how knowledge i
 
 Greek goddess of the rainbow; in Pantheon she is the **mortal-facing presentation** agent: server-rendered `/cockpit` on the FastAPI app (HTMX, Tailwind, Jinja2, scoped Cytoscape.js) with five panels — status, knowledge browser, clusters, reports, manifest. Default loopback bind; optional sample-only mode for public demos; chronicle read-only except the cockpit manifest path. Operator doc: [`COCKPIT.md`](COCKPIT.md), brief: [`docs/etappes/W6_iris_cockpit_brief.md`](etappes/W6_iris_cockpit_brief.md).
 
-**Phase 1 (W6):** implemented on branch `feat/w6-iris-cockpit`; catalogue closure line updates with the GitHub PR number once the PR is merged to `main`. Phase 2+ (auth, manifest-aware agents, richer visuals) remains tracked in the YAML.
+**Phase 1 (W6):** implemented in **https://github.com/theogony-project/theogony/pull/70** (merge to `main` closes the Phase-1 slice; Phase 2+ remains in the YAML).
 
 ---
 
