@@ -918,6 +918,7 @@ async def _run_ask(
                 ),
                 stub_detector=StubDetector(settings.curiosity.stub_thresholds),
                 mnemosyne=build_mnemosyne_classifier(settings, llm),
+                entry_planner_llm=llm,
             )
             result = await pipeline.ask(
                 query,

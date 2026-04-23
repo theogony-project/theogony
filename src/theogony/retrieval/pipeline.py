@@ -36,12 +36,12 @@ import time
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
 from theogony.agents.factory import build_llm_from_settings
-from theogony.agents.llm import LLMProvider
+from theogony.agents.llm import LLMProvider, StubLLMProvider
 from theogony.agents.mnemosyne_classifier import MetaQueryClassifier, build_mnemosyne_classifier
 from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
@@ -65,6 +65,10 @@ from theogony.reporting.models import (
 )
 from theogony.reporting.verdict import query_verdict
 from theogony.reporting.writer import RunReportWriter
+from theogony.retrieval.chronicle_entry_planner import (
+    merge_multi_hop_results,
+    plan_chronicle_entry_queries,
+)
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopResult, MultiHopRetriever
 from theogony.retrieval.strategies.protocol import RetrievalStrategy
@@ -107,6 +111,7 @@ class QueryResult(BaseModel):
     constellation: Constellation
     report: QueryRunReport
     report_path: Path | None = None
+    entry_plan: dict[str, Any] | None = None
 
 
 class QueryPipeline:
@@ -126,6 +131,7 @@ class QueryPipeline:
         edge_pheromone: EdgePheromoneTracker | None = None,
         stub_detector: StubDetector | None = None,
         mnemosyne: MetaQueryClassifier | None = None,
+        entry_planner_llm: LLMProvider | None = None,
     ) -> None:
         self._embedder = embedder
         if strategy is not None:
@@ -145,6 +151,7 @@ class QueryPipeline:
             self._settings.curiosity.stub_thresholds,
         )
         self._mnemosyne = mnemosyne or build_mnemosyne_classifier(self._settings, None)
+        self._entry_planner_llm = entry_planner_llm
 
     async def ask(
         self,
@@ -187,12 +194,46 @@ class QueryPipeline:
             strategy or "default",
         )
 
-        # ---- 1. embed
+        q_original = (query or "").strip()
+        planner_cfg = self._settings.retrieval.chronicle_entry_planner
+        planner_ms = 0
+        plan_rationale = ""
+        plan_used_llm = False
+        sub_queries = [q_original]
+
+        if (
+            planner_cfg.enabled
+            and self._entry_planner_llm is not None
+            and not isinstance(self._entry_planner_llm, StubLLMProvider)
+        ):
+            t_pl = time.perf_counter()
+            try:
+                plan = await plan_chronicle_entry_queries(
+                    llm=self._entry_planner_llm,
+                    user_query=q_original,
+                    limits=planner_cfg,
+                )
+                sub_queries = plan.search_queries or [q_original]
+                plan_rationale = plan.rationale
+                plan_used_llm = plan.used_llm
+            except Exception as exc:  # pragma: no cover - defensive
+                log.warning("chronicle entry planner failed: %s", exc)
+                sub_queries = [q_original]
+            planner_ms = int((time.perf_counter() - t_pl) * 1000)
+
+        # ---- 1. embed (region / report vector follows the user's wording)
         embed_perf = time.perf_counter()
-        query_embedding = await self._embedder.embed(query)
+        query_embedding = await self._embedder.embed(q_original)
+        uniq_subs = list(dict.fromkeys(sub_queries))
+        sub_pairs: list[tuple[str, list[float]]] = []
+        if len(uniq_subs) == 1 and uniq_subs[0].casefold() == q_original.casefold():
+            sub_pairs = [(q_original, query_embedding)]
+        else:
+            vecs = await self._embedder.embed_many(uniq_subs)
+            sub_pairs = list(zip(uniq_subs, vecs, strict=True))
         embedding_duration_ms = int((time.perf_counter() - embed_perf) * 1000)
 
-        # ---- 2. retrieve
+        # ---- 2. retrieve (one multi-hop pass per sub-query, merged by best score)
         retriever = self._retriever
         if strategy is not None:
             retriever = MultiHopRetriever(
@@ -201,13 +242,26 @@ class QueryPipeline:
                     self._retriever.store, self._settings, override=strategy
                 ),
             )
-        retrieval_result = await retriever.retrieve(
-            query_embedding,
-            k=k,
-            hops=hops,
-            layer=layer,
-            pheromone_mode=pheromone_mode,
-        )
+        partial: list[MultiHopResult] = []
+        for _sq, emb in sub_pairs:
+            partial.append(
+                await retriever.retrieve(
+                    emb,
+                    k=k,
+                    hops=hops,
+                    layer=layer,
+                    pheromone_mode=pheromone_mode,
+                )
+            )
+        retrieval_result = merge_multi_hop_results(partial, cap=k)
+        retrieval_result.duration_ms += planner_ms
+
+        entry_plan: dict[str, Any] = {
+            "used_llm_planner": plan_used_llm,
+            "sub_queries": sub_queries,
+            "rationale": plan_rationale,
+            "planner_duration_ms": planner_ms,
+        }
 
         # ---- 3. assemble
         constellation = await self._assembler.assemble(
@@ -264,6 +318,7 @@ class QueryPipeline:
             constellation=constellation,
             report=report,
             report_path=report_path,
+            entry_plan=entry_plan,
         )
 
     # ============================================================== finalize
@@ -444,6 +499,7 @@ async def build_pipeline_from_settings(
         ),
         stub_detector=StubDetector(settings.curiosity.stub_thresholds),
         mnemosyne=mnemosyne,
+        entry_planner_llm=resolved_llm,
     )
 
 

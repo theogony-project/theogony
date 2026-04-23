@@ -406,11 +406,34 @@
         ? `<div class="text-amber-300/90 text-xs mb-2">gaps: ${payload.constellation.gaps.join(", ")}</div>`
         : "";
     const hopNote = payload.retrieval ? renderRetrievalHopNote(payload.retrieval) : "";
+    const ep = payload.entry_plan;
+    const entryPlanHtml =
+      ep &&
+      (ep.used_llm_planner === true ||
+        (Array.isArray(ep.sub_queries) && ep.sub_queries.length > 1))
+        ? `<div class="text-xs mb-2 rounded border border-violet-600/40 bg-violet-950/30 px-2 py-1.5 text-violet-100/95 leading-snug">
+             <div class="font-semibold text-violet-200/95">Chronik-Einstieg</div>
+             <div class="text-slate-400 mt-1 text-[10px] font-mono break-words">
+               ${(ep.sub_queries || []).map((s) => escapeHtml(s)).join(" · ")}
+             </div>
+             ${
+               ep.rationale
+                 ? `<div class="text-slate-500 mt-1 text-[11px]">${escapeHtml(ep.rationale)}</div>`
+                 : ""
+             }
+             ${
+               ep.used_llm_planner
+                 ? `<div class="text-[10px] text-violet-300/80 mt-1">LLM hat Suchstrings gewählt (${ep.planner_duration_ms || 0} ms Planung in der Retrieve-Phase).</div>`
+                 : ""
+             }
+           </div>`
+        : "";
     const proseHtml = renderAnswerProse(payload.answer.text || "");
     const chips = renderCitationChips(payload);
     answerEl.innerHTML =
       banner +
       hopNote +
+      entryPlanHtml +
       gaps +
       `<div class="mt-2 border-t border-slate-600/45 pt-2">` +
       `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Antwort (Synthese)</div>` +

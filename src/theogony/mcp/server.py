@@ -258,6 +258,7 @@ def _build_query_pipeline(res: McpResources) -> QueryPipeline:
         ),
         stub_detector=StubDetector(settings.curiosity.stub_thresholds),
         mnemosyne=mnemosyne,
+        entry_planner_llm=res.llm,
     )
 
 

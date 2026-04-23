@@ -98,6 +98,7 @@ async def main() -> int:
                     relevance=RelevanceTracker(store),
                     settings=settings,
                     report_writer=writer,
+                    entry_planner_llm=llm,
                 )
                 print("\n[ask] Wer war Sven Hedin?")
                 result = await ask_pipeline.ask("Wer war Sven Hedin?")
