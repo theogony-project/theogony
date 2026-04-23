@@ -164,6 +164,7 @@ def api_app(
             settings=api_settings,
             report_writer=app.state.report_writer,
             mnemosyne=build_mnemosyne_classifier(api_settings, api_llm),
+            entry_planner_llm=api_llm,
         )
 
     app.dependency_overrides[get_query_pipeline] = _make_pipeline

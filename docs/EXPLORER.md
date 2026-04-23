@@ -26,7 +26,23 @@ The response payload is shaped for direct visualisation:
 | `query_embedding_preview` | First 32 components of the embedded query (for a sparkline) |
 | `timing_ms` | `embed_ms` / `multi_hop_ms` / `synthesis_ms` / `total_ms` |
 | `retrieval` | `seed_count`, `final_node_count`, `k`, `hops`, `strategy` |
+| `entry_plan` | When LLM entry planning is on: `sub_queries`, `rationale`, `used_llm_planner`, `planner_duration_ms` |
 | `verdict` | `QueryRunReport.verdict` |
+
+## LLM Chronicle entry planner (optional)
+
+When a **non-stub** LLM is configured and you set:
+
+```bash
+export THEOGONY_RETRIEVAL__CHRONICLE_ENTRY_PLANNER__ENABLED=true
+```
+
+the pipeline asks the model for several **short search strings** before
+retrieval. Each string is embedded and run through multi-hop retrieval; hits
+are **merged by best cosine score per node** so the Chronik is not anchored
+only on the raw user question. The Explorer shows the chosen strings under
+**Chronik-Einstieg**. Tunables: `THEOGONY_RETRIEVAL__CHRONICLE_ENTRY_PLANNER__MAX_SUB_QUERIES`
+(1–8), `__MAX_CHARS_PER_SUB_QUERY`, `__MAX_PLANNER_TOKENS`.
 
 ## What you see
 

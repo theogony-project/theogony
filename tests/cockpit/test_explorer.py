@@ -74,6 +74,8 @@ def test_explorer_api_ask_returns_rich_payload(
     assert "nodes_per_hop" in payload["retrieval"]
     assert "synthesis_meta" in payload
     assert payload["synthesis_meta"]["stub_llm"] is True
+    assert "entry_plan" in payload
+    assert payload["entry_plan"]["sub_queries"]
     assert isinstance(payload["query_embedding_preview"], list)
 
 

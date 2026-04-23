@@ -420,6 +420,24 @@ class RelevanceSettings(BaseModel):
     edge_pheromone_delta: float = Field(default=0.015, ge=0.0, le=1.0)
 
 
+class ChronicleEntryPlannerSettings(BaseModel):
+    """LLM proposes several vector-search strings before retrieval (Explorer / ask)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "When true and QueryPipeline receives a non-stub entry_planner_llm, "
+            "the model outputs multiple search_queries that are embedded separately "
+            "and merged — the raw user question is not the only retrieval anchor."
+        ),
+    )
+    max_sub_queries: int = Field(default=4, ge=1, le=8)
+    max_chars_per_sub_query: int = Field(default=240, ge=32, le=400)
+    max_planner_tokens: int = Field(default=600, ge=128, le=2000)
+
+
 class RetrievalSettings(BaseModel):
     """Tunables for the retrieval stack (PHX-0056 Phase 1)."""
 
@@ -430,6 +448,9 @@ class RetrievalSettings(BaseModel):
     edge_product_top_n_paths: int | None = Field(default=None, ge=1, le=200)
     cluster_narrow_inner_strategy: Literal["fixed_depth", "edge_product"] = "fixed_depth"
     cluster_narrow_top_n_clusters: int = Field(default=3, ge=1, le=20)
+    chronicle_entry_planner: ChronicleEntryPlannerSettings = Field(
+        default_factory=ChronicleEntryPlannerSettings,
+    )
 
 
 class ClusteringSettings(BaseModel):

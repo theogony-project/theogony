@@ -79,6 +79,7 @@ def get_query_pipeline(request: Request) -> QueryPipeline:
         ),
         stub_detector=stub_detector,
         mnemosyne=mnemosyne,
+        entry_planner_llm=state.llm,
     )
 
 

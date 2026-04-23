@@ -13,6 +13,8 @@ without further round-trips:
 - ``timing_ms``: stage breakdown (embed / retrieve / synthesize / total)
 - ``retrieval``: ``seed_count``, ``final_node_count``, ``hops``, ``strategy``,
   optional ``nodes_per_hop`` (``None`` for ``fixed_depth``)
+- ``entry_plan``: optional LLM-chosen sub-queries when
+  ``retrieval.chronicle_entry_planner.enabled`` is true
 - ``synthesis_meta``: whether a :class:`~theogony.agents.llm.StubLLMProvider`
   produced the answer (UI can warn that prose is a placeholder)
 
@@ -98,6 +100,7 @@ def _build_pipeline(
         ),
         stub_detector=StubDetector(settings.curiosity.stub_thresholds),
         mnemosyne=mnemosyne,
+        entry_planner_llm=llm,
     )
 
 
@@ -246,6 +249,7 @@ async def run_explorer_query(
         "embedding_dim": int(settings.embedding.dim),
         "timing_ms": timing,
         "retrieval": retrieval,
+        "entry_plan": result.entry_plan,
     }
 
 
