@@ -301,22 +301,54 @@
       .replace(/>/g, "&gt;");
   }
 
+  function renderRetrievalHopNote(retrieval) {
+    const hops = retrieval.hops ?? "?";
+    const strat = retrieval.strategy ?? "?";
+    const nph = retrieval.nodes_per_hop;
+    let body;
+    if (Array.isArray(nph) && nph.length) {
+      body = `Knoten pro Hop: ${nph.join(" → ")}`;
+    } else {
+      const stratNote =
+        strat === "fixed_depth"
+          ? `Bei <code class="text-slate-400">fixed_depth</code> enthält der Report keine Liste „Knoten pro Hop“.`
+          : "Der Report liefert hier keine „Knoten pro Hop“-Liste.";
+      body =
+        `Abruf-Parameter: maximal <strong>${hops}</strong> Hop(s), Strategie <code class="text-slate-400">${strat}</code>. ` +
+        `${stratNote} ` +
+        `Die Zahl <strong>${hops}</strong> ist das Hop-Budget der Suche, nicht drei getrennte Schichten im Graphen.`;
+    }
+    return `<div class="text-slate-400 text-xs mb-2 border-l-2 border-sky-600/55 pl-2 leading-snug">${body}</div>`;
+  }
+
   function applyPayload(payload) {
     lastPayload = payload;
     const nNodes = (payload.constellation.nodes || []).length;
     const nConstEdges = (payload.constellation.edges || []).length;
     const nSpokes = Math.min(nNodes, 32);
+    const hops = payload.retrieval && payload.retrieval.hops != null ? payload.retrieval.hops : "?";
     setStatus(
-      `verdict=${payload.verdict} · ${nNodes} nodes · ${nConstEdges} graph edges · ${nSpokes} query links`,
+      `verdict=${payload.verdict} · ${nNodes} nodes · ${nConstEdges} graph edges · ${nSpokes} query links · hops≤${hops}`,
       "ok"
     );
+    const meta = payload.synthesis_meta || {};
+    const stubBanner =
+      meta.stub_llm === true
+        ? `<div class="mb-2 rounded border border-amber-600/45 bg-amber-950/35 px-2 py-1.5 text-xs text-amber-100/95 leading-snug">
+             <strong>Stub-Synthesizer</strong> — der Absatz unten ist nur ein Platzhalter, keine recherchierte Antwort.
+             Für echte Antworten: <code class="text-amber-200/90">theogony serve</code> mit konfiguriertem LLM (nicht <code class="text-amber-200/90">cockpit serve</code>).
+           </div>`
+        : "";
     const gaps =
       payload.constellation.gaps && payload.constellation.gaps.length
         ? `<div class="text-amber-300/90 text-xs mb-2">gaps: ${payload.constellation.gaps.join(", ")}</div>`
         : "";
+    const hopNote = payload.retrieval ? renderRetrievalHopNote(payload.retrieval) : "";
     answerEl.innerHTML =
+      stubBanner +
+      hopNote +
       gaps +
-      `<div>${payload.answer.text ? escapeHtml(payload.answer.text) : "<span class='text-slate-500 italic'>(no prose; offline / stub synthesizer)</span>"}</div>`;
+      `<div class="text-slate-100">${payload.answer.text ? escapeHtml(payload.answer.text) : "<span class='text-slate-500 italic'>(kein Antworttext)</span>"}</div>`;
     renderVector(payload.query_embedding_preview);
     renderTiming(payload.timing_ms, payload.retrieval);
     renderGraph(payload);

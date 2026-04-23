@@ -11,7 +11,10 @@ without further round-trips:
   query vector — enough for a small "vector signature" sparkline without
   shipping the full embedding to the browser
 - ``timing_ms``: stage breakdown (embed / retrieve / synthesize / total)
-- ``retrieval``: ``seed_count``, ``final_node_count``, ``hops``, strategy
+- ``retrieval``: ``seed_count``, ``final_node_count``, ``hops``, ``strategy``,
+  optional ``nodes_per_hop`` (``None`` for ``fixed_depth``)
+- ``synthesis_meta``: whether a :class:`~theogony.agents.llm.StubLLMProvider`
+  produced the answer (UI can warn that prose is a placeholder)
 
 For the SPA, :func:`stream_explorer_ask_sse` emits short **SSE** ``data:``
 lines (embed → retrieve → synthesize phases, then a ``complete`` event with
@@ -215,6 +218,12 @@ async def run_explorer_query(
         "hops": hops_eff,
         "k": k_eff,
         "strategy": settings.retrieval.strategy,
+        "nodes_per_hop": report.multi_hop.nodes_per_hop,
+    }
+    synth_llm = llm_eff
+    synthesis_meta: dict[str, Any] = {
+        "stub_llm": isinstance(synth_llm, StubLLMProvider),
+        "llm_model_id": getattr(synth_llm, "model_id", None) or (settings.llm.model_id or ""),
     }
     return {
         "run_id": report.run_id,
@@ -223,6 +232,7 @@ async def run_explorer_query(
             "text": answer_text,
             "cited_node_ids": list(result.answer.cited_node_ids),
         },
+        "synthesis_meta": synthesis_meta,
         "verdict": report.verdict,
         "constellation": {
             "nodes": nodes,
