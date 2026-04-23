@@ -394,8 +394,8 @@
     const banner = isOffline
       ? `<div class="mb-2 rounded border border-sky-600/40 bg-sky-950/35 px-2 py-1.5 text-xs text-sky-100/95 leading-snug">
            <strong>Offline-Antwort</strong> — Zitate sind echte Vektor-Treffer im Chronik-Seed.
-           Für freie LLM-Prosa: <code class="text-sky-200/90">theogony serve</code> mit konfiguriertem Provider
-           (nicht <code class="text-sky-200/90">cockpit serve</code>).
+           Für Claude-Synthese: <code class="text-sky-200/90">ANTHROPIC_API_KEY</code> setzen und
+           <code class="text-sky-200/90">theogony cockpit serve</code> oder <code class="text-sky-200/90">theogony serve</code> neu starten.
          </div>`
       : `<div class="mb-2 rounded border border-emerald-600/45 bg-emerald-950/30 px-2 py-1.5 text-xs text-emerald-100/95 leading-snug">
            <strong>LLM-Synthese</strong> — Provider <code class="text-emerald-200/90">${escapeHtml(meta.llm_provider || "?")}</code>

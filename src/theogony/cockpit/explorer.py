@@ -51,6 +51,19 @@ from theogony.retrieval.synthesizer_factory import build_synthesizer
 
 log = get_logger("cockpit.explorer")
 
+
+def explorer_page_context(settings: Settings, llm: LLMProvider | None) -> dict[str, Any]:
+    """Jinja context for `/cockpit/explorer` — LLM mode strip at page load."""
+    if llm is None:
+        is_stub = True
+        mid = (settings.llm.model_id or "").strip() or "—"
+    else:
+        is_stub = isinstance(llm, StubLLMProvider) or settings.llm.provider == "stub"
+        mid = (getattr(llm, "model_id", None) or settings.llm.model_id or "").strip() or "—"
+    label = f"{settings.llm.provider} · {mid}"
+    return {"explorer_llm_stub": is_stub, "explorer_llm_label": label}
+
+
 EMBEDDING_PREVIEW_DIM = 32
 ANSWER_MAX_CHARS = 4_000
 

@@ -16,4 +16,4 @@ Stored under `data_dir` at `cockpit/manifest.md` (relative path from settings). 
 
 ## CLI
 
-`theogony cockpit serve` runs `theogony.cockpit.standalone_app:app` with the bundled `pantheon_self` seed.
+`theogony cockpit serve` runs `theogony.cockpit.standalone_app:app` with the bundled `pantheon_self` seed. It reads **full** `Settings` from the environment (including `THEOGONY_LLM__*` and `ANTHROPIC_API_KEY`); when a live provider can be built, the Explorer uses **real LLM synthesis** — otherwise it falls back to the stub + offline citation path.
