@@ -317,6 +317,13 @@
         `Abruf-Parameter: maximal <strong>${hops}</strong> Hop(s), Strategie <code class="text-slate-400">${strat}</code>. ` +
         `${stratNote} ` +
         `Die Zahl <strong>${hops}</strong> begrenzt die Suchtiefe im Store; der d3-Graph zeigt keine getrennte Schicht pro Hop-Stufe, sondern die Konstellation insgesamt.`;
+      const hn = Number(hops);
+      if (Number.isFinite(hn) && hn > 1) {
+        body += `<br><span class="text-slate-500 mt-1 inline-block">` +
+          `<strong>Grafik:</strong> Gestrichelte Linien = nur vom <strong>Query</strong> zu Treffern (eine Stern-Schicht). ` +
+          `Weitere Hops laufen im Substrat über <em>Kanten zwischen</em> Knoten; wenn die Konstellation <strong>0</strong> Graph-Kanten hat, ` +
+          `gibt es keinen zweiten sichtbaren „Hop-Ring“ — die Knoten liegen trotzdem im <strong>${hn}</strong>-Hop-Budget gefunden worden.</span>`;
+      }
     }
     return `<div class="text-slate-400 text-xs mb-2 border-l-2 border-sky-600/55 pl-2 leading-snug">${body}</div>`;
   }
@@ -344,11 +351,17 @@
         ? `<div class="text-amber-300/90 text-xs mb-2">gaps: ${payload.constellation.gaps.join(", ")}</div>`
         : "";
     const hopNote = payload.retrieval ? renderRetrievalHopNote(payload.retrieval) : "";
+    const prose = payload.answer.text
+      ? escapeHtml(payload.answer.text)
+      : "<span class='text-slate-500 italic'>(kein Antworttext)</span>";
     answerEl.innerHTML =
       stubBanner +
       hopNote +
       gaps +
-      `<div class="text-slate-100">${payload.answer.text ? escapeHtml(payload.answer.text) : "<span class='text-slate-500 italic'>(kein Antworttext)</span>"}</div>`;
+      `<div class="mt-2 border-t border-slate-600/45 pt-2">` +
+      `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Antwort (Synthese)</div>` +
+      `<div class="text-slate-100 text-sm">${prose}</div>` +
+      `</div>`;
     renderVector(payload.query_embedding_preview);
     renderTiming(payload.timing_ms, payload.retrieval);
     renderGraph(payload);
