@@ -295,10 +295,61 @@
   }
 
   function escapeHtml(s) {
-    return s
+    return String(s)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
+  }
+
+  function nodeHref(id) {
+    return `/cockpit/browser/node/${encodeURIComponent(id)}`;
+  }
+
+  function renderAnswerProse(text) {
+    if (!text) {
+      return "<span class='text-slate-500 italic'>(kein Antworttext)</span>";
+    }
+    const lines = text.split("\n");
+    const html = lines
+      .map((raw) => {
+        const safe = escapeHtml(raw);
+        const linked = safe.replace(
+          /\[(AKA-[A-Za-z0-9]+)\]/g,
+          (_m, id) =>
+            `<a href="${nodeHref(id)}" target="_blank" rel="noopener" class="text-amber-300 hover:text-amber-200 underline decoration-dotted">[${id}]</a>`,
+        );
+        if (raw.startsWith("- ")) {
+          return `<li class="ml-4 list-disc text-slate-200">${linked.slice(2)}</li>`;
+        }
+        if (raw.trim() === "") return "<div class='h-2'></div>";
+        return `<div>${linked}</div>`;
+      })
+      .join("");
+    return `<div class="space-y-1">${html}</div>`;
+  }
+
+  function renderCitationChips(payload) {
+    const cited = payload.answer.cited_node_ids || [];
+    if (!cited.length) return "";
+    const byId = new Map((payload.constellation.nodes || []).map((n) => [n.id, n]));
+    const chips = cited
+      .map((id) => {
+        const n = byId.get(id);
+        const label = n ? n.label : id;
+        return `<a href="${nodeHref(id)}" target="_blank" rel="noopener"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+                         border border-emerald-500/40 bg-emerald-950/30 text-emerald-200
+                         hover:border-emerald-300 hover:text-emerald-100 transition text-[11px]"
+                  title="${escapeHtml(id)}">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  ${escapeHtml(label.length > 48 ? label.slice(0, 47) + "…" : label)}
+                </a>`;
+      })
+      .join("");
+    return `<div class="mt-3 pt-2 border-t border-slate-700/50">
+              <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Zitate</div>
+              <div class="flex flex-wrap gap-1.5">${chips}</div>
+            </div>`;
   }
 
   function renderRetrievalHopNote(retrieval) {
@@ -339,28 +390,32 @@
       "ok"
     );
     const meta = payload.synthesis_meta || {};
-    const stubBanner =
-      meta.stub_llm === true
-        ? `<div class="mb-2 rounded border border-amber-600/45 bg-amber-950/35 px-2 py-1.5 text-xs text-amber-100/95 leading-snug">
-             <strong>Stub-Synthesizer</strong> — der Absatz unten ist nur ein Platzhalter, keine recherchierte Antwort.
-             Für echte Antworten: <code class="text-amber-200/90">theogony serve</code> mit konfiguriertem LLM (nicht <code class="text-amber-200/90">cockpit serve</code>).
-           </div>`
-        : "";
+    const isOffline = meta.mode === "offline_citations" || meta.stub_llm === true;
+    const banner = isOffline
+      ? `<div class="mb-2 rounded border border-sky-600/40 bg-sky-950/35 px-2 py-1.5 text-xs text-sky-100/95 leading-snug">
+           <strong>Offline-Antwort</strong> — Zitate sind echte Vektor-Treffer im Chronik-Seed.
+           Für freie LLM-Prosa: <code class="text-sky-200/90">theogony serve</code> mit konfiguriertem Provider
+           (nicht <code class="text-sky-200/90">cockpit serve</code>).
+         </div>`
+      : `<div class="mb-2 rounded border border-emerald-600/45 bg-emerald-950/30 px-2 py-1.5 text-xs text-emerald-100/95 leading-snug">
+           <strong>LLM-Synthese</strong> — Provider <code class="text-emerald-200/90">${escapeHtml(meta.llm_provider || "?")}</code>
+           ${meta.llm_model_id ? `· <code class="text-emerald-200/90">${escapeHtml(meta.llm_model_id)}</code>` : ""}
+         </div>`;
     const gaps =
       payload.constellation.gaps && payload.constellation.gaps.length
         ? `<div class="text-amber-300/90 text-xs mb-2">gaps: ${payload.constellation.gaps.join(", ")}</div>`
         : "";
     const hopNote = payload.retrieval ? renderRetrievalHopNote(payload.retrieval) : "";
-    const prose = payload.answer.text
-      ? escapeHtml(payload.answer.text)
-      : "<span class='text-slate-500 italic'>(kein Antworttext)</span>";
+    const proseHtml = renderAnswerProse(payload.answer.text || "");
+    const chips = renderCitationChips(payload);
     answerEl.innerHTML =
-      stubBanner +
+      banner +
       hopNote +
       gaps +
       `<div class="mt-2 border-t border-slate-600/45 pt-2">` +
       `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Antwort (Synthese)</div>` +
-      `<div class="text-slate-100 text-sm">${prose}</div>` +
+      `<div class="text-slate-100 text-sm">${proseHtml}</div>` +
+      chips +
       `</div>`;
     renderVector(payload.query_embedding_preview);
     renderTiming(payload.timing_ms, payload.retrieval);
@@ -497,4 +552,14 @@
 
   form.addEventListener("submit", ask);
   if (saveBtn) saveBtn.addEventListener("click", saveHypothesis);
+
+  document.querySelectorAll("#explorer-examples .explorer-example").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const q = btn.getAttribute("data-q") || "";
+      if (!q) return;
+      qEl.value = q;
+      qEl.focus();
+      form.requestSubmit();
+    });
+  });
 })();
