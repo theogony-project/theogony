@@ -850,6 +850,36 @@ async def serve_sse(*, host: str, port: int, seed_path: Path | None) -> None:
 
     sse = SseServerTransport("/messages/")
 
+    # Build the cockpit FastAPI sub-app (PHX-0074, W6) so the hosted
+    # container can serve /cockpit alongside /sse + /messages/. The
+    # cockpit and the MCP server share the SAME store + report_writer
+    # + embedder + LLM — one set of resources, two surfaces.
+    #
+    # Construction here uses placeholder state; the lifespan below
+    # populates the real resources before any request is served. This
+    # split is necessary because Starlette routes (Mount) are immutable
+    # after Starlette() is constructed, but our resources are loaded
+    # inside the lifespan via open_resources().
+    settings_preview = Settings()
+    cockpit_subapp: object | None = None
+    if settings_preview.cockpit.enabled:
+        from fastapi import FastAPI as _FastAPI
+
+        from theogony.cockpit import mount_cockpit
+
+        cockpit_subapp = _FastAPI(title="Theogony Cockpit (mounted on MCP host)")
+        cockpit_subapp.state.settings = settings_preview
+        cockpit_subapp.state.audit = None
+        cockpit_subapp.state.embedder = None
+        cockpit_subapp.state.llm = None
+        cockpit_subapp.state.store = None
+        cockpit_subapp.state.report_writer = None
+        cockpit_subapp.state.stub_detector = None
+        cockpit_subapp.state.mnemosyne_classifier = None
+        cockpit_subapp.state.oneiros = None
+        cockpit_subapp.state.oneiros_task = None
+        mount_cockpit(cockpit_subapp, settings_preview)
+
     @contextlib.asynccontextmanager
     async def sse_lifespan_outer(app: Starlette) -> AsyncIterator[None]:
         async with open_resources(seed_path=seed_path) as res:
@@ -860,6 +890,25 @@ async def serve_sse(*, host: str, port: int, seed_path: Path | None) -> None:
             st.last_query_at = None
             st.sse_transport = sse
             app.state.theogony_sse = st
+            if cockpit_subapp is not None and res.settings.cockpit.enabled:
+                from theogony.agents.mnemosyne_classifier import (
+                    build_mnemosyne_classifier,
+                )
+                from theogony.curiosity.stub_detector import StubDetector
+
+                cockpit_subapp.state.settings = res.settings
+                cockpit_subapp.state.audit = res.audit
+                cockpit_subapp.state.embedder = res.embedder
+                cockpit_subapp.state.llm = res.llm
+                cockpit_subapp.state.store = res.store
+                cockpit_subapp.state.report_writer = res.report_writer
+                cockpit_subapp.state.stub_detector = StubDetector(
+                    res.settings.curiosity.stub_thresholds,
+                )
+                cockpit_subapp.state.mnemosyne_classifier = build_mnemosyne_classifier(
+                    res.settings, res.llm,
+                )
+                log.info("mcp sse: cockpit mounted at http://%s:%s/cockpit/", host, port)
             log.info("mcp sse: listening on http://%s:%s", host, port)
             yield
 
@@ -868,6 +917,14 @@ async def serve_sse(*, host: str, port: int, seed_path: Path | None) -> None:
         Route("/sse", endpoint=handle_sse, methods=["GET"]),
         Mount("/messages/", app=sse.handle_post_message),
     ]
+    if cockpit_subapp is not None:
+        # Mount at root (empty prefix) — the cockpit's APIRouter already
+        # carries prefix="/cockpit", so Starlette must NOT strip a prefix
+        # before forwarding. /health, /sse, /messages/ are matched first
+        # (Starlette tries routes in order); the cockpit catches the
+        # rest, which in practice only includes /cockpit/* and the
+        # static-asset paths it owns.
+        routes.append(Mount("/", app=cockpit_subapp))
 
     from starlette.middleware import Middleware
 
