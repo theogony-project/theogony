@@ -135,12 +135,13 @@ def test_module_imports_and_exports_public_api() -> None:
         "tool_reports_list",
         "tool_reports_show",
         "tool_status",
+        "tool_chronicle_append",
     ):
         assert hasattr(server, name), f"missing public export: {name!r}"
 
 
 def test_tool_descriptors_match_registered_tool_names() -> None:
-    """The five Gen 1 read-side tools are all declared and consistent."""
+    """MCP tool descriptors stay in sync with the registered tool set."""
     from theogony.mcp.server import _tool_descriptors
 
     descriptors = _tool_descriptors()
@@ -151,6 +152,7 @@ def test_tool_descriptors_match_registered_tool_names() -> None:
         "pantheon_status",
         "pantheon_reports_list",
         "pantheon_reports_show",
+        "pantheon_chronicle_append",
     }
     assert names == expected
     for d in descriptors:

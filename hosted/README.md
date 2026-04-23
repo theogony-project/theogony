@@ -1,6 +1,10 @@
-# Hosted Theogony MCP (read-only)
+# Hosted Theogony MCP (read-first + bounded growth)
 
-This directory packages a **single-instance, read-only** MCP server over **HTTP/SSE**, pre-seeded with the bundled `pantheon_self` chronicle (the project’s own vision, doctrine, architecture, glossary, and prompts). There is **no ingest surface** in Phase 1 — the corpus is the seed only.
+This directory packages a **single-instance** MCP server over **HTTP/SSE**. The default image pre-seeds the bundled `pantheon_self` chronicle (the project’s own vision, doctrine, architecture, glossary, and prompts) into **memory** for a frictionless demo.
+
+**Bounded writes:** the MCP tool `pantheon_chronicle_append` lets agents add short text fragments as new `KnowledgeNode` rows (embedded, `mcp_agent` provenance, `hypothesized` status) under strict size caps. There is still **no full Gutenberg ingest** over MCP (that remains the long-running API/CLI path).
+
+**Persistence:** in the default container, appended nodes live in RAM with the seed and are lost on restart. For a Chronik that **keeps growing across deploys**, point the server at **Neo4j** and set `THEOGONY_MCP_SEED=0` (see *Persistent Neo4j on Fly* below).
 
 ## Cost expectations
 
@@ -52,7 +56,19 @@ The reference deployment lives at **https://theogony-mcp.fly.dev/** (single-inst
 4. Health: `https://<your-app>.fly.dev/health` returns JSON (`status`, `embedding_model`, `node_count`, `edge_count`, `uptime_seconds`, `last_query_at`). For the `pantheon_self` seed expect `node_count=278`, `edge_count=1168`.
 5. MCP SSE URL for clients: `https://<your-app>.fly.dev/sse` (POST JSON-RPC to the `endpoint` URL the SSE stream advertises under `/messages/`).
 
-The container reads **`HOST`** and **`PORT`**; defaults are `0.0.0.0` and `8080`. The pinned `[[vm]]` block in `hosted/fly.toml` requests **1 GB RAM** — the sentence-transformer loads ~400 MB on first `/sse` connect, so the default 256 MB OOMs on cold start.
+### Persistent Neo4j (Chronik keeps growing across deploys)
+
+1. Provision **Neo4j Aura** (or any Bolt 5.x reachable from Fly) and note `URI`, user, password, database name.
+2. **Fly secrets** (example names — match `Neo4jSettings` / `THEOGONY_NEO4J__*` in `src/theogony/config/settings.py`):
+   - `THEOGONY_NEO4J__URI` — e.g. `neo4j+s://xxxx.databases.neo4j.io`
+   - `THEOGONY_NEO4J__USER`, `THEOGONY_NEO4J__PASSWORD`, `THEOGONY_NEO4J__DATABASE` (often `neo4j`)
+3. **Turn off the in-memory seed** so the process opens the real store:
+   - `fly secrets set THEOGONY_MCP_SEED=0`
+4. **Bootstrap once** (from any machine with the same Neo4j env): `theogony seed` imports the bundled `pantheon_self` dump into Neo4j, or skip and start from an empty graph.
+5. **Redeploy** the app. Agents can then call MCP tool **`pantheon_chronicle_append`** to add vetted text fragments; they land as normal nodes and survive restarts.
+6. Optional: `fly secrets set THEOGONY_MCP_APPEND__ENABLED=false` to disable appends on a fully public demo without touching rate limits.
+
+The container reads **`HOST`** and **`PORT`**; defaults are `0.0.0.0` and `8080`. RAM: see the `[[vm]]` block in `hosted/fly.toml` (the sentence-transformer needs headroom on first `/sse` connect).
 
 **No webhook auto-redeploy** in Phase 1 — run `fly deploy` manually when you cut a new image.
 

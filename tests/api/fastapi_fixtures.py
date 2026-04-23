@@ -25,7 +25,7 @@ from theogony.api.routes import (
     query_router,
 )
 from theogony.cockpit import mount_cockpit
-from theogony.config.settings import Settings
+from theogony.config.settings import EmbeddingSettings, Settings
 from theogony.curiosity.stub_detector import StubDetector
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.memory.relevance import RelevanceTracker
@@ -66,7 +66,10 @@ def api_llm() -> StubLLMProvider:
 
 @pytest.fixture
 def api_settings(tmp_path: Path) -> Settings:
-    settings = Settings(data_dir=tmp_path / "data")
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        embedding=EmbeddingSettings(dim=4, model_id="test-embed@v1"),
+    )
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     settings.run_reports_dir.mkdir(parents=True, exist_ok=True)
     return settings

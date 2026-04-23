@@ -1549,7 +1549,7 @@ def mcp(
     Exposes the Chronik to any MCP-compatible host: Claude Desktop,
     Cursor, ChatGPT Desktop, Codex, and any other MCP client. Tools
     registered: pantheon_ask, pantheon_node, pantheon_status,
-    pantheon_reports_list, pantheon_reports_show.
+    pantheon_reports_list, pantheon_reports_show, pantheon_chronicle_append.
 
     Requires the ``mcp`` extra: ``pip install -e ".[mcp]"``.
 

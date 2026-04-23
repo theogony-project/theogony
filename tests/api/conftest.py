@@ -32,7 +32,7 @@ from theogony.api.routes import (
     node_router,
     query_router,
 )
-from theogony.config.settings import Settings
+from theogony.config.settings import EmbeddingSettings, Settings
 from theogony.curiosity.stub_detector import StubDetector
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.memory.relevance import RelevanceTracker
@@ -88,8 +88,14 @@ def api_settings(tmp_path: Path) -> Settings:
     ``run_reports_dir`` is a derived property on Settings (it equals
     ``data_dir / "run_reports"``); we only set ``data_dir`` and the
     derived path follows.
+
+    ``embedding.dim`` matches :class:`_TinyEmbedder` (4) so Explorer append
+    and query paths do not trip the Neo4j dim guard in CI.
     """
-    settings = Settings(data_dir=tmp_path / "data")
+    settings = Settings(
+        data_dir=tmp_path / "data",
+        embedding=EmbeddingSettings(dim=4, model_id="test-embed@v1"),
+    )
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     settings.run_reports_dir.mkdir(parents=True, exist_ok=True)
     return settings
