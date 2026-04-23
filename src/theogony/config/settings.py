@@ -46,21 +46,18 @@ LLMProviderName = Literal["gemini", "openai", "anthropic", "stub"]
 class LLMSettings(BaseModel):
     """Selection and tuning of the active LLMProvider.
 
-    The default is **Anthropic ``claude-haiku-4-5-20251001``**: prepaid
-    API credits and predictable billing are a better fit for day-to-day
-    ingest / demo runs than Gemini's free-tier daily caps, and Claude
-    Haiku 4.5 follows literary entity / relation extraction
-    instructions (German names, transliteration, relation
-    directionality) qualitatively cleaner than the OpenAI alternative
-    at the same tier. OpenAI ``gpt-4o-mini`` and Gemini
-    ``gemini-2.5-flash-lite`` remain first-class options (Plan §3.3a
-    pricing table) via ``THEOGONY_LLM__PROVIDER=openai`` or
-    ``THEOGONY_LLM__PROVIDER=gemini``.
+    The default is **Anthropic ``claude-sonnet-4-6``** (Claude Sonnet
+    4.6): prepaid API credits and predictable billing are a better fit
+    for day-to-day ingest / demo runs than Gemini's free-tier daily
+    caps. OpenAI ``gpt-4o-mini`` and Gemini ``gemini-2.5-flash-lite``
+    remain first-class options (Plan §3.3a pricing table) via
+    ``THEOGONY_LLM__PROVIDER=openai`` or ``THEOGONY_LLM__PROVIDER=gemini``.
 
     The PR #30 default ``claude-3-5-haiku-20241022`` was retired by
-    Anthropic between SDK 0.30 (the original pin) and current accounts
-    — the W5 validation run discovered it returns 404 on new keys.
-    Haiku 4.5 is the spiritual successor at +25% list price.
+    Anthropic; W5 moved the stack to Haiku 4.5, then the default was
+    raised to Sonnet 4.6 for extraction quality. Override with
+    ``THEOGONY_LLM__MODEL_ID`` (e.g. ``claude-haiku-4-5-20251001``) when
+    you want a cheaper tier.
 
     Switch providers without touching code via
     ``THEOGONY_LLM__PROVIDER=gemini|openai|anthropic|stub`` (and set the
@@ -91,7 +88,7 @@ class LLMSettings(BaseModel):
             return self
         defaults: dict[LLMProviderName, str] = {
             "openai": "gpt-4o-mini",
-            "anthropic": "claude-haiku-4-5-20251001",
+            "anthropic": "claude-sonnet-4-6",
             "gemini": "gemini-2.5-flash-lite",
             "stub": "stub-llm",
         }

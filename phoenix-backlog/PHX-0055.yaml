@@ -62,7 +62,7 @@ acceptance_criteria:
   - Asserts: HTTP 200, non-empty ``LLMResult.text``, ``input_tokens > 0``,
     ``output_tokens > 0``. Surface the model_id + provider in the
     test name so a CI failure reads
-    ``test_default_model_reachable[anthropic-claude-haiku-4-5-20251001]``.
+    ``test_default_model_reachable[anthropic-claude-sonnet-4-6]``.
   - Wired into the existing ``neo4j`` CI job (the slot that already
     has the most-permissive secret access) under a job-level env
     flip ``THEOGONY_TEST_LLM_LIVE: "1"`` only on the ``main`` branch
