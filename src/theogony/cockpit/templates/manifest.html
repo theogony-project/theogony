@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Manifest — Cockpit{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Instance manifest</h1>
+{% if sample_only %}
+<p class="mb-4 text-amber-200 text-sm">Read-only in sample-only mode.</p>
+{% endif %}
+<form hx-post="/cockpit/manifest"
+      hx-target="#save-feedback"
+      hx-swap="innerHTML"
+      class="space-y-4 max-w-4xl">
+  <textarea id="manifest-textarea" name="content" rows="18"
+            class="w-full font-mono text-sm bg-slate-800 border border-slate-700 rounded p-2"
+            maxlength="65536">{{ content }}</textarea>
+  <div class="flex flex-wrap gap-3 items-center">
+    <button type="submit" class="px-4 py-2 rounded bg-amber-600 hover:bg-amber-500 text-slate-950 text-sm font-medium"
+            {% if sample_only %}disabled{% endif %}>Save manifest</button>
+    <button type="button" class="px-3 py-2 rounded border border-slate-600 text-sm hover:bg-slate-800"
+            hx-post="/cockpit/manifest/preview"
+            hx-include="#manifest-textarea"
+            hx-target="#manifest-preview">Preview</button>
+    <span id="save-feedback" class="text-sm text-slate-400"></span>
+  </div>
+</form>
+<div id="manifest-preview" class="mt-6 max-w-4xl border border-slate-700 rounded p-4 bg-slate-950 text-sm"></div>
+{% if history %}
+<aside class="mt-8 max-w-xl">
+  <h2 class="text-lg font-medium mb-2">History</h2>
+  <ul class="text-sm space-y-1 text-amber-400">
+    {% for h in history %}
+    <li>
+      <a href="#" hx-get="/cockpit/manifest/history/{{ h.timestamp }}" hx-target="#manifest-textarea" hx-swap="outerHTML">{{ h.timestamp }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</aside>
+{% endif %}
+{% endblock %}

@@ -150,7 +150,16 @@ The world crawler. Searches for and acquires new public knowledge sources.
 The bulk ingestor. Handles large corpora, uploads, and structured source acquisition at scale.
 
 **Iris**  
-The contact agent. Accepts and mediates human-provided information and feedback.
+The contact agent. Accepts and mediates human-provided information and feedback. Ships as the **Pantheon Cockpit** ([PHX-0074](../phoenix-backlog/PHX-0074.yaml)) — the `/cockpit` dashboard ([`COCKPIT.md`](COCKPIT.md)).
+
+**Pantheon Cockpit**  
+Server-rendered Iris UI on the FastAPI app (`src/theogony/cockpit/`): five panels (status, knowledge browser, clusters, reports, manifest). Default **127.0.0.1** binding with an explicit opt-in for public bind; **sample-only** caps aggregations for demos. See [`COCKPIT.md`](COCKPIT.md).
+
+**Manifest (cockpit)**  
+Single Markdown file (default `cockpit/manifest.md` under `data_dir`) owned by the cockpit: operator-declared domain scope and notes. The only chronicle-adjacent write surface in Cockpit Phase 1.
+
+**sample-only mode (cockpit)**  
+`THEOGONY_COCKPIT__SAMPLE_ONLY=true` — caps search, cluster lists, and report tables so a cockpit URL can demonstrate layout without exposing the full graph.
 
 **Mnemosyne**  
 Meta-cognitive auditor ([PHX-0071](../phoenix-backlog/PHX-0071.yaml)): classifies whether a query is *about the chronicle itself*, appends run ids on cited nodes when the verdict is self-referential, and (optional Oneiros phase) clusters observations into `MnemosyneObservationCluster` reports. See [`MNEMOSYNE.md`](MNEMOSYNE.md).

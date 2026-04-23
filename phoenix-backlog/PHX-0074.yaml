@@ -1,7 +1,7 @@
 id: PHX-0074
 category: vision
 priority: high
-status: in_progress  # W6 brief landed 2026-04-22 — see docs/etappes/W6_iris_cockpit_brief.md
+status: in_progress  # Phase 1 (W6) implemented — Phase 2+ (auth, manifest consumers, …) still open; see resolution
 generation_target: 1
 title: "Iris — the Pantheon Cockpit, a human-facing dashboard for status, knowledge browsing, clusters, reports, and manifest editing"
 filed_by: hesiod
@@ -188,6 +188,12 @@ acceptance_criteria:
     ``docs/HIVE.md`` adds Iris row to the agent table.
     ``docs/GLOSSARY.md`` learns "Cockpit" and "Manifest"
     entries.
+
+resolution: |
+  **Phase 1 (W6, 2026-04-23):** Implemented per ``docs/etappes/W6_iris_cockpit_brief.md`` —
+  ``src/theogony/cockpit/``, ``tests/cockpit/``, ``docs/COCKPIT.md``, CLI ``theogony cockpit serve``.
+  GitHub PR: https://github.com/theogony-project/theogony/pull/70
+  **Still open on this ticket:** Phase 2 (auth/RBAC, manifest-aware agents, settings editor) and Phase 3 items listed under ``acceptance_criteria``.
 
 related:
   - PHX-0035  # Reviewer Agent — sister role; Reviewer reviews answers, Iris renders state

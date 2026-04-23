@@ -25,6 +25,26 @@ Order is most-recent first.
 
 ---
 
+## 2026-04-23 — Wo sehe ich als Mensch eigentlich die Chronik?
+
+**Asker**: human (Jakob), via Composer conversation (W6 / Iris).
+
+**Question** (verbatim):
+
+> Gibt es irgendwo eine Übersicht — Status, Cluster, Reports — die
+> ich im Browser öffnen kann, ohne JSON-Dateien zu grep-en? MCP ist
+> für Agenten; was ist die Fläche für Menschen?
+
+**Why it matters**:
+
+Discovery for **agents** (hosted MCP, PHX-0066) does not solve discovery for **humans**. If operators cannot inspect depth bands, clusters, and run reports in one place, transparency stays theoretical — exactly the gap [`PHILOSOPHY.md`](../PHILOSOPHY.md) warns about when policy and architecture diverge.
+
+**Outcome**:
+
+Shipped as **[PHX-0074 — Iris / Pantheon Cockpit](../phoenix-backlog/PHX-0074.yaml)** (W6): FastAPI-mounted `/cockpit`, default loopback-first security model, optional sample-only mode for public demos, single manifest write path. Operator documentation: [`COCKPIT.md`](COCKPIT.md).
+
+---
+
 ## 2026-04-22 — Heterogeneous embedding dimensions across modalities
 
 **Asker**: human (Jakob), via Composer conversation.

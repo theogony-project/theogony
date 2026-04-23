@@ -373,6 +373,17 @@ Hosted MCP runs with `THEOGONY_LLM__PROVIDER=stub`; `StubLLMProvider` returned e
 
 Greek goddess of memory; in Pantheon she holds **knowledge about how knowledge is organised**. Phase 1 (W5) ships `MetaQueryClassifier` (heuristic-first + optional rate-limited LLM fallback), `meta_classification` on every `QueryRunReport`, append-only `properties.self_referential_in_runs` on cited nodes when the verdict is `self_referential`, and an optional default-off Oneiros phase `mnemosyne_aggregation` that emits `MnemosyneObservationCluster` reports (reuses W1 HDBSCAN on region descriptors). Phase 2 sub-tickets: BacklogProposal drafter, Hestia review hook, gitignored draft directory write path, `theogony backlog proposals` CLI. Operator doc: [`MNEMOSYNE.md`](MNEMOSYNE.md).
 
+### PHX-0074: Iris — Pantheon Cockpit (human-facing dashboard)
+
+- **Category**: vision
+- **Priority**: high
+- **Generation Target**: 1
+- **YAML**: [`phoenix-backlog/PHX-0074.yaml`](../phoenix-backlog/PHX-0074.yaml)
+
+Greek goddess of the rainbow; in Pantheon she is the **mortal-facing presentation** agent: server-rendered `/cockpit` on the FastAPI app (HTMX, Tailwind, Jinja2, scoped Cytoscape.js) with five panels — status, knowledge browser, clusters, reports, manifest. Default loopback bind; optional sample-only mode for public demos; chronicle read-only except the cockpit manifest path. Operator doc: [`COCKPIT.md`](COCKPIT.md), brief: [`docs/etappes/W6_iris_cockpit_brief.md`](etappes/W6_iris_cockpit_brief.md).
+
+**Phase 1 (W6):** implemented in **https://github.com/theogony-project/theogony/pull/70** (merge to `main` closes the Phase-1 slice; Phase 2+ remains in the YAML).
+
 ---
 
 ## Open Architectural Questions

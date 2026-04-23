@@ -1,0 +1,28 @@
+<div class="overflow-x-auto">
+  <table class="min-w-full text-left text-xs border border-slate-700">
+    <thead class="bg-slate-950 text-slate-400">
+      <tr>
+        <th class="p-2">Run</th>
+        <th class="p-2">Verdict</th>
+        <th class="p-2">Status</th>
+        <th class="p-2">Duration</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr class="border-t border-slate-800 hover:bg-slate-900/80">
+        <td class="p-2">
+          <a href="#" class="text-amber-400 hover:text-amber-300"
+             hx-get="/cockpit/reports/{{ report_type }}/{{ row.run_id }}"
+             hx-target="#report-detail">{{ row.run_id }}</a>
+        </td>
+        <td class="p-2">{{ row.verdict }}</td>
+        <td class="p-2">{{ row.status }}</td>
+        <td class="p-2">{{ "%.2f"|format(row.duration_s) }}s</td>
+      </tr>
+      {% else %}
+      <tr><td class="p-3 text-slate-500" colspan="4">No reports.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

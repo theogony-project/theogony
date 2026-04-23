@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Knowledge — Cockpit{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Knowledge browser</h1>
+<div class="mb-4 flex flex-wrap gap-2 items-center">
+  <input id="q" name="q" type="search" placeholder="Search label or AKA…"
+         class="flex-1 min-w-[12rem] rounded bg-slate-800 border border-slate-600 px-3 py-2 text-sm"
+         hx-get="/cockpit/browser/search"
+         hx-target="#search-results"
+         hx-trigger="input changed delay:300ms"
+         hx-include="this">
+</div>
+<div id="search-results" class="text-sm text-slate-300">Type to search.</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js" crossorigin="anonymous"></script>
+<script src="{{ url_for('cockpit_static', path='js/hover_lupe.js') }}"></script>
+{% endblock %}

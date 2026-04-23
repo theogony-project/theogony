@@ -37,6 +37,7 @@ from theogony.api.routes import (
     query_router,
 )
 from theogony.clustering.cluster_index import ClusterIndex
+from theogony.cockpit import mount_cockpit
 from theogony.config.logging import get_logger, setup_logging
 from theogony.config.settings import Settings
 from theogony.curiosity.stub_detector import StubDetector
@@ -125,6 +126,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         "api lifespan: startup complete (store=neo4j embedding_dim=%d)",
         settings.embedding.dim,
     )
+    if settings.cockpit.enabled:
+        mount_cockpit(app, settings)
+        banner_port = settings.cockpit.bind_port or settings.api.port
+        log.info(
+            "cockpit available at http://%s:%d/cockpit",
+            settings.cockpit.bind_host,
+            banner_port,
+        )
     try:
         yield
     finally:

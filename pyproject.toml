@@ -99,6 +99,9 @@ dev = [
 gemini = [
     "google-genai>=1.0.0",
 ]
+cockpit = [
+    "markdown-it-py>=3.0.0",
+]
 openai = [
     "openai>=1.0.0",
 ]

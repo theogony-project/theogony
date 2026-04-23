@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Clusters — Cockpit{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Cluster map</h1>
+<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+  {% for c in clusters %}
+  <article class="rounded border border-slate-700 p-3 hover:border-slate-500">
+    <h2 class="font-medium text-amber-400">
+      <a hx-get="/cockpit/clusters/{{ c.cluster_id }}" hx-target="#cluster-detail" href="#">{{ c.cluster_label or c.cluster_id }}</a>
+    </h2>
+    <p class="text-xs text-slate-400 mt-1">Members: {{ c.member_count }}</p>
+    <p class="text-xs text-slate-400">Dominant type: {{ c.dominant_node_type or "—" }}</p>
+  </article>
+  {% endfor %}
+</div>
+<div id="cluster-detail" class="mt-6"></div>
+{% endblock %}
+{% block scripts %}
+<script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js" crossorigin="anonymous"></script>
+<script src="{{ url_for('cockpit_static', path='js/cluster_graph.js') }}"></script>
+{% endblock %}
