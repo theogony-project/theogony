@@ -172,10 +172,13 @@
       ...e,
       kind: "real",
     }));
+    // Link every node in the constellation to the query (up to a cap) so
+    // nothing "floats" when retrieval.final_node_count > old hard cap of 8.
+    const spokeCap = Math.min(nodeData.length, 32);
     const seedTop = nodeData
       .slice()
       .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
-      .slice(0, Math.min(payload.retrieval.seed_count || 5, 8));
+      .slice(0, spokeCap);
     const seedEdges = seedTop.map((n) => ({
       source: "__query__",
       target: n.id,
@@ -300,12 +303,19 @@
 
   function applyPayload(payload) {
     lastPayload = payload;
+    const nNodes = (payload.constellation.nodes || []).length;
+    const nConstEdges = (payload.constellation.edges || []).length;
+    const nSpokes = Math.min(nNodes, 32);
     setStatus(
-      `verdict=${payload.verdict} · ${payload.constellation.nodes.length} nodes · ${payload.constellation.edges.length} edges`,
+      `verdict=${payload.verdict} · ${nNodes} nodes · ${nConstEdges} graph edges · ${nSpokes} query links`,
       "ok"
     );
+    const gaps =
+      payload.constellation.gaps && payload.constellation.gaps.length
+        ? `<div class="text-amber-300/90 text-xs mb-2">gaps: ${payload.constellation.gaps.join(", ")}</div>`
+        : "";
     answerEl.innerHTML =
-      `<div class="text-amber-300/90 text-xs mb-2">${payload.constellation.gaps && payload.constellation.gaps.length ? "gaps: " + payload.constellation.gaps.join(", ") : ""}</div>` +
+      gaps +
       `<div>${payload.answer.text ? escapeHtml(payload.answer.text) : "<span class='text-slate-500 italic'>(no prose; offline / stub synthesizer)</span>"}</div>`;
     renderVector(payload.query_embedding_preview);
     renderTiming(payload.timing_ms, payload.retrieval);
