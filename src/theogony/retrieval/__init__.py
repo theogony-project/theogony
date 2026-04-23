@@ -14,7 +14,13 @@ from theogony.retrieval.constellation import (
     ConstellationAssembler,
 )
 from theogony.retrieval.multi_hop import MultiHopResult, MultiHopRetriever
-from theogony.retrieval.synthesize import Answer, AnswerSynthesizer
+from theogony.retrieval.synthesize import (
+    Answer,
+    AnswerSynthesizer,
+    AnswerSynthesizerLike,
+    OfflineAnswerSynthesizer,
+)
+from theogony.retrieval.synthesizer_factory import build_synthesizer
 
 __all__ = [
     "GAP_NO_STRONG_MATCH",
@@ -23,6 +29,10 @@ __all__ = [
     "STRONG_MATCH_THRESHOLD",
     "Answer",
     "AnswerSynthesizer",
+    "AnswerSynthesizerLike",
+    "OfflineAnswerSynthesizer",
+    "build_pipeline_from_settings",
+    "build_synthesizer",
     "ConstellationAssembler",
     "MultiHopResult",
     "MultiHopRetriever",
@@ -46,5 +56,9 @@ def __getattr__(name: str) -> object:
         from theogony.retrieval.pipeline import HIGH_CONFIDENCE_FLOOR
 
         return HIGH_CONFIDENCE_FLOOR
+    if name == "build_pipeline_from_settings":
+        from theogony.retrieval.pipeline import build_pipeline_from_settings
+
+        return build_pipeline_from_settings
     msg = f"module {__name__!r} has no attribute {name!r}"
     raise AttributeError(msg)

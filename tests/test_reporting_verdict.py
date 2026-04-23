@@ -182,7 +182,7 @@ class TestQueryVerdict:
             thresholds=query_thresholds,
         )
         assert verdict == "failed"
-        assert "raised" in reason
+        assert "empty" in reason
 
     def test_good_when_clean(self, query_thresholds: QueryVerdictThresholds) -> None:
         verdict, _ = query_verdict(

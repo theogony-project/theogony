@@ -20,11 +20,13 @@ demo machine. Component shares (rough):
   assemble       <100 ms
   synthesize    ~1.5-3 s with real Gemini
 
-Against StubLLM (CI), synthesis is ~0 ms — so the StubLLM-based
-``test_retrieval_pipeline.py`` p95 budget is much tighter than the
-real-LLM one. The pipeline does not enforce the budget; the verdict
-heuristic (Plan §2.11.2 ``query_verdict``) downgrades reports whose
-synthesis_latency_ms exceeds the configured threshold.
+When ``settings.llm.provider == "stub"``, production wiring uses
+:class:`~theogony.retrieval.synthesize.OfflineAnswerSynthesizer` (PHX-0070)
+instead of an LLM call — synthesis stays sub-millisecond. Unit tests that
+need scripted :class:`~theogony.agents.llm.StubLLMProvider` prose still
+construct :class:`~theogony.retrieval.synthesize.AnswerSynthesizer` directly.
+The verdict heuristic (Plan §2.11.2 ``query_verdict``) downgrades reports
+whose synthesis_latency_ms exceeds the configured threshold.
 """
 
 from __future__ import annotations
@@ -38,12 +40,15 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from theogony.agents.factory import build_llm_from_settings
 from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
 from theogony.core.model import Constellation, Layer
+from theogony.core.store import KnowledgeStore
 from theogony.curiosity.region_descriptor import compute_region_descriptor
 from theogony.curiosity.stub_detector import StubDetector
-from theogony.extraction.embedding import EmbeddingProvider
+from theogony.extraction.audit import ExtractionAuditLog
+from theogony.extraction.embedding import EmbeddingProvider, LocalSentenceTransformerEmbedder
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.models import (
@@ -61,7 +66,8 @@ from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopResult, MultiHopRetriever
 from theogony.retrieval.strategies.protocol import RetrievalStrategy
 from theogony.retrieval.strategy_factory import build_retrieval_strategy
-from theogony.retrieval.synthesize import Answer, AnswerSynthesizer
+from theogony.retrieval.synthesize import Answer, AnswerSynthesizerLike
+from theogony.retrieval.synthesizer_factory import build_synthesizer
 
 log = get_logger("retrieval.pipeline")
 
@@ -108,7 +114,7 @@ class QueryPipeline:
         embedder: EmbeddingProvider,
         retriever: MultiHopRetriever,
         assembler: ConstellationAssembler,
-        synthesizer: AnswerSynthesizer,
+        synthesizer: AnswerSynthesizerLike,
         relevance: RelevanceTracker,
         *,
         strategy: RetrievalStrategy | None = None,
@@ -377,4 +383,45 @@ class QueryPipeline:
         )
 
 
-__all__ = ["HIGH_CONFIDENCE_FLOOR", "QueryPipeline", "QueryResult"]
+async def build_pipeline_from_settings(
+    settings: Settings,
+    store: KnowledgeStore,
+    *,
+    audit_log: ExtractionAuditLog | None = None,
+    report_writer: RunReportWriter | None = None,
+) -> QueryPipeline:
+    """Construct a production-shaped :class:`QueryPipeline` (PHX-0070 tests).
+
+    Matches API/CLI/MCP wiring: sentence-transformer embedder (with warm-up),
+    ``build_llm_from_settings`` + ``build_synthesizer``, default retrieval strategy.
+    """
+    embedder = LocalSentenceTransformerEmbedder(
+        model_id=settings.embedding.model_id,
+        dim=settings.embedding.dim,
+    )
+    await embedder.embed("warmup")
+    llm = build_llm_from_settings(settings)
+    synthesizer = build_synthesizer(settings, llm, audit_log=audit_log)
+    return QueryPipeline(
+        embedder=embedder,
+        retriever=MultiHopRetriever(
+            store,
+            strategy=build_retrieval_strategy(store, settings),
+        ),
+        assembler=ConstellationAssembler(store),
+        synthesizer=synthesizer,
+        relevance=RelevanceTracker(
+            store,
+            relevance_delta=settings.relevance.relevance_delta,
+        ),
+        settings=settings,
+        report_writer=report_writer,
+        edge_pheromone=EdgePheromoneTracker(
+            store,
+            delta=settings.relevance.edge_pheromone_delta,
+        ),
+        stub_detector=StubDetector(settings.curiosity.stub_thresholds),
+    )
+
+
+__all__ = ["HIGH_CONFIDENCE_FLOOR", "QueryPipeline", "QueryResult", "build_pipeline_from_settings"]

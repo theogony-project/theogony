@@ -42,7 +42,7 @@ from __future__ import annotations
 import re
 from importlib import resources
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -105,6 +105,21 @@ class Answer(BaseModel):
     cited_node_ids: list[str] = Field(default_factory=list)
     raw_llm_response: str = ""
     synthesis: SynthesisBreakdown = Field(default_factory=SynthesisBreakdown)
+
+
+class AnswerSynthesizerLike(Protocol):
+    """Minimal interface shared by LLM and offline answer synthesizers (PHX-0070)."""
+
+    async def synthesize(
+        self,
+        constellation: Constellation,
+        *,
+        max_output_tokens: int | None = None,
+        temperature: float = 0.0,
+        run_id: str | None = None,
+    ) -> Answer:
+        """Return a cited :class:`Answer` for the given constellation."""
+        ...
 
 
 class AnswerSynthesizer:
@@ -313,4 +328,69 @@ class AnswerSynthesizer:
         )
 
 
-__all__ = ["Answer", "AnswerSynthesizer"]
+class OfflineAnswerSynthesizer:
+    """Citation-only answers when no LLM is available (PHX-0070).
+
+    ``cited_node_ids`` are taken directly from the constellation's top-N
+    nodes by confidence — they cannot be hallucinated. Includes
+    ``[AKA-…]`` markers per node line so :meth:`AnswerSynthesizer._extract_citations`
+    grammar stays consistent with the LLM path.
+    """
+
+    def __init__(self, *, top_n: int = 6) -> None:
+        self._top_n = top_n
+
+    async def synthesize(
+        self,
+        constellation: Constellation,
+        *,
+        max_output_tokens: int | None = None,
+        temperature: float = 0.0,
+        run_id: str | None = None,
+    ) -> Answer:
+        del max_output_tokens, temperature, run_id  # offline path ignores LLM knobs
+        nodes = constellation.nodes
+        if not nodes:
+            return Answer(
+                text=(
+                    "No language model is available on this hosted instance "
+                    "and the Chronik returned no nodes for this query. "
+                    "Try a more specific question or consult `pantheon_status`."
+                ),
+                cited_node_ids=[],
+                raw_llm_response="",
+                synthesis=SynthesisBreakdown(),
+            )
+
+        top = sorted(nodes, key=lambda n: n.confidence, reverse=True)[: self._top_n]
+        cited_ids = [n.id for n in top]
+
+        lines = [
+            "No language model is available on this hosted instance, so the "
+            "Chronik cannot synthesise a natural-language answer. Below are "
+            f"the top {len(top)} cited sources retrieved for "
+            f"`{constellation.query}`. Pass any cited id to `pantheon_node` "
+            "to drill deeper.",
+            "",
+        ]
+        for n in top:
+            sr = n.source_ref
+            loc = f" ({sr.location})" if sr.location else ""
+            ident = sr.identifier if sr.identifier else "unknown source"
+            lines.append(f"- [{n.id}] {n.label} — {ident}{loc} (confidence {n.confidence:.2f})")
+
+        text = "\n".join(lines)
+        return Answer(
+            text=text,
+            cited_node_ids=cited_ids,
+            raw_llm_response="",
+            synthesis=SynthesisBreakdown(),
+        )
+
+
+__all__ = [
+    "Answer",
+    "AnswerSynthesizer",
+    "AnswerSynthesizerLike",
+    "OfflineAnswerSynthesizer",
+]

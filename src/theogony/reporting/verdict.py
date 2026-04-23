@@ -112,7 +112,8 @@ def query_verdict(
 ) -> tuple[Verdict, str]:
     """Compute ``(verdict, reasoning)`` for a QueryRunReport (Plan §2.11.2).
 
-    ``raised=True`` ↔ "synthesis returned no answer or raised".
+    ``raised=True`` ↔ synthesis produced no usable answer text (including
+    LLM transport failures swallowed into an empty answer).
 
     Order of evaluation per the plan table:
 
@@ -125,7 +126,7 @@ def query_verdict(
         good     otherwise
     """
     if raised:
-        return "failed", "synthesis raised before completion"
+        return "failed", "synthesis returned empty answer"
 
     poor_reasons: list[str] = []
     if cited_node_count > 0 and citations_with_high_confidence_source == 0:

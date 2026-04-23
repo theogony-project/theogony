@@ -5,7 +5,13 @@ This directory packages a **single-instance, read-only** MCP server over **HTTP/
 ## Cost expectations
 
 - **Operator**: typically **under €5/month** on free tiers (one small VM; Fly.io shared CPU is enough for read-only traffic).
-- **LLM**: the container image defaults to `THEOGONY_LLM__PROVIDER=stub`. For real answers via `pantheon_ask`, callers must use a **local** install with API keys, or wait for PHX-0066 Phase 2 (per-call key pass-through when MCP supports it). Until then, `pantheon_node`, `pantheon_status`, and the report tools work without a live LLM.
+- **LLM**: the container image defaults to `THEOGONY_LLM__PROVIDER=stub`. There is **no** hosted LLM key in Phase 1; natural-language synthesis still requires a **local** install with a real provider + API keys, or PHX-0066 Phase 2 (per-call key pass-through when MCP supports it).
+
+### What works on the stub LLM (`THEOGONY_LLM__PROVIDER=stub`)
+
+- **`pantheon_status`**, **`pantheon_node`**, **`pantheon_reports_list`**, **`pantheon_reports_show`** — full read-side behaviour; no LLM calls.
+- **`pantheon_ask`** — returns a **structured, citation-only** answer: honest header text plus the top **N** retrieved nodes by confidence (default **N = 6**, configurable via `THEOGONY_LLM__OFFLINE_TOP_N_CITATIONS`). No natural-language prose from a model; citations are grounded in the constellation.
+- **Natural-language synthesis** — **not** available on stub. Set `THEOGONY_LLM__PROVIDER=anthropic` (or `gemini` / `openai`) and the matching `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` / `GOOGLE_API_KEY`, or `OPENAI_API_KEY` env var.
 
 ## Build the image
 
