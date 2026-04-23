@@ -11,7 +11,7 @@ The production chain is analogous to a real hive:
 | Bee Role | Pantheon agent (role) | Action |
 |----------|---------------|--------|
 | Scout | Argus, Prometheus | find sources, identify gaps |
-| Forager | Argus, Jason, Iris | acquire raw content |
+| Forager | Argus, Jason | acquire raw content |
 | Processor | Extraction Pipeline | digest text into entities, relations, embeddings |
 | Builder | Morpheus | create associations, infer new edges (Phase 1: deterministic embedding-band + co-occurrence proposals via opt-in `morpheus` tick phase; LLM dreaming is PHX-0004) |
 | Inspector | Athene | verify, challenge, score confidence |
@@ -28,6 +28,14 @@ The production chain is analogous to a real hive:
 | Internal hubris | Nemesis | [PHX-0068](../phoenix-backlog/PHX-0068.yaml) | overconfidence audits; read-only |
 | Meta-cognitive memory | Mnemosyne | [PHX-0071](../phoenix-backlog/PHX-0071.yaml) | classifies self-referential queries; aggregates signals for backlog hygiene ([`MNEMOSYNE.md`](MNEMOSYNE.md)) |
 | Auditor triage (planned) | Asklepios | [PHX-0073](../phoenix-backlog/PHX-0073.yaml) | routes Nemesis/Eris-style findings into actionable repair work |
+
+### Presentation (mortal-facing)
+
+Iris sits beside the auditors in the “Pantheon meets the outside world” ring, but she **renders** rather than **audits**.
+
+| Role | Pantheon agent | PHX | Action |
+|------|----------------|------|--------|
+| Human dashboard | Iris | [PHX-0074](../phoenix-backlog/PHX-0074.yaml) | Pantheon Cockpit — status, browse, clusters, reports, manifest ([`COCKPIT.md`](COCKPIT.md)); read-only on the chronicle except the cockpit manifest file |
 
 The key insight: **no agent produces honey alone**. Honey is the emergent product of many **Pantheon agents** working on the same **Chronik** substrate — the living graph the project is building today toward the wider **Pantheon** chronicle vision ([`PANTHEON_VISION.md`](PANTHEON_VISION.md)).
 

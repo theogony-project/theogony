@@ -45,6 +45,14 @@ For consistency across the project, this architecture document uses the followin
 Cross-cutting: Pantheon agents (agent system)
 ```
 
+## Mortal-facing surfaces
+
+Three surfaces let people interact with Theogony without writing agent code:
+
+- **Pantheon Cockpit (Iris, [PHX-0074](../phoenix-backlog/PHX-0074.yaml))** — server-rendered HTML dashboard at `/cockpit` on the FastAPI app: status, knowledge browser, cluster drill-down, run reports, and a single editable manifest file under `data_dir`. Defaults to loopback binding; optional **sample-only** mode caps what a public URL may show. Operator documentation: [`COCKPIT.md`](COCKPIT.md). Phase 1 is chronicle-read-only except that manifest path.
+- **Operator CLI** — `theogony …` for ingest, reports, workers, and diagnostics.
+- **MCP over HTTP/SSE** — agent-facing `pantheon_*` tools on hosted and local deploys ([`PHX-0066`](PHOENIX_BACKLOG.md#phx-0066-hosted-pantheon-mcp-service) / [`hosted/README.md`](../hosted/README.md)).
+
 ## Layer 0: Acquisition
 
 Acquisition adapters bring raw content into the system. Each adapter implements a common protocol:
@@ -448,7 +456,7 @@ Two distinct orchestration roles:
 | **Zeus** | Orchestrator — routes queries, coordinates agents, manages resources | 3 → all |
 | **Argus** | WorldCrawler — autonomous web exploration and content acquisition | 0 |
 | **Jason** | BulkIngestor — large corpus ingestion from organizations or data repositories | 0 → 1 |
-| **Iris** | ContactAgent — human interaction interface for information intake | 0 |
+| **Iris** | Pantheon Cockpit (human dashboard at `/cockpit`, PHX-0074) plus contact-style intake where applicable — see [`COCKPIT.md`](COCKPIT.md) | 0 |
 | **Prometheus** | GapExplorer — identifies knowledge gaps, creates acquisition tasks; primary trigger-handler for the [Curiosity Loop](CURIOSITY.md) | 2 |
 | **Morpheus** | Dreamer — association, inference, edge creation (Oneiros worker) | 2 |
 | **Athene** | Verifier — fact-checking, confidence scoring, bias detection | 2 |
