@@ -221,8 +221,11 @@ async def run_explorer_query(
         "nodes_per_hop": report.multi_hop.nodes_per_hop,
     }
     synth_llm = llm_eff
+    is_stub = isinstance(synth_llm, StubLLMProvider) or settings.llm.provider == "stub"
     synthesis_meta: dict[str, Any] = {
-        "stub_llm": isinstance(synth_llm, StubLLMProvider),
+        "stub_llm": is_stub,
+        "mode": "offline_citations" if is_stub else "llm_prose",
+        "llm_provider": settings.llm.provider,
         "llm_model_id": getattr(synth_llm, "model_id", None) or (settings.llm.model_id or ""),
     }
     return {
