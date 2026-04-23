@@ -38,7 +38,7 @@ The panels share one Jinja2 layout, one Tailwind stylesheet, one HTMX integratio
 The five components:
 
 - **Jinja2** (already a transitive FastAPI dep) — server-rendered HTML templates.
-- **Tailwind CSS via CDN** with subresource-integrity hash — `https://cdn.jsdelivr.net/npm/[email protected]/dist/tailwind.min.css` pinned. No build step.
+- **Tailwind CSS via [Play CDN](https://tailwindcss.com/docs/installation/play-cdn)** — `<script src="https://cdn.tailwindcss.com">` plus `tailwind.config = { darkMode: 'class' }` (npm `tailwindcss` v3 has **no** `dist/tailwind.min.css`; a jsDelivr stylesheet URL 404s as `text/plain`). No build step.
 - **HTMX** loaded as a single `<script>` tag (~14 KB) — `https://unpkg.com/[email protected]` pinned with SRI. Drives partial-page swaps for table updates, search results, drill-downs.
 - **Cytoscape.js** loaded **only** on the Cluster Map and Knowledge Browser (Hover-Lupe) panels — `https://unpkg.com/[email protected]/dist/cytoscape.min.js` pinned. ~700 KB; lazy-loaded so the Status panel stays fast.
 - **A small custom CSS file** (`static/css/cockpit.css`, ~150 lines) for the few patterns Tailwind doesn't cover cleanly.
@@ -330,8 +330,8 @@ async def search_nodes(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Pantheon Cockpit{% endblock %}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/[email protected]/dist/tailwind.min.css"
-        integrity="sha384-..." crossorigin="anonymous">
+  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
   <link rel="stylesheet" href="{{ url_for('cockpit_static', path='css/cockpit.css') }}">
   <script src="https://unpkg.com/[email protected]" integrity="sha384-..." crossorigin="anonymous"></script>
 </head>
@@ -658,8 +658,8 @@ Total: ~2500 LoC. Estimate ≤ €2.00 of Composer execution. Larger than W4 (th
 
 **Failure modes worth watching**:
 
-- **CDN dependency on first page load**: if `cdn.jsdelivr.net` or `unpkg.com` is unreachable, the cockpit renders unstyled HTML. SRI hashes prevent silent corruption but not unavailability. Operator who needs offline must build a `static/css/tailwind-pinned.css` + `static/js/htmx-pinned.js` and patch the templates — document the procedure.
-- **Tailwind via CDN ships ~3 MB of CSS** (the full Tailwind, before purging). Acceptable for Phase 1 demo; a Phase-2 sub-ticket builds a purged minimal CSS.
+- **CDN dependency on first page load**: if `cdn.tailwindcss.com`, `unpkg.com`, or other CDNs are unreachable, the cockpit renders unstyled HTML (or missing interactivity for HTMX). Operator who needs offline must vendor pinned static assets and patch the templates — document the procedure.
+- **Tailwind Play CDN** compiles only classes seen in the DOM (lighter than shipping the entire pre-built v2 CSS file, but still a third-party script). Acceptable for Phase 1; a Phase-2 sub-ticket may add a purged build for stricter CSP / air-gapped deploys.
 - **Cytoscape rendering on huge clusters**: drill-down on a cluster with 500 members would saturate Cytoscape. Phase 1 caps drill-down at top-N members per cluster (`Settings.cockpit.cluster_drill_max_members`, default 50). Document the cap; Phase 2 may add pagination.
 - **Manifest race condition on concurrent saves**: the atomic-rename pattern is single-writer-safe. Two operators saving simultaneously: last-writer-wins; the loser sees their save succeeded but the on-disk content is the other's. History snapshots make rollback trivial. Phase-1 honest scope; Phase 2 may add an ETag.
 - **SSE connection leak**: client disconnects without closing the EventSource. The server's `EventSourceResponse` handles teardown via cancellation propagation, but a misbehaving proxy can hold idle connections open. Cap at `Settings.cockpit.sse_max_concurrent_clients` (default 50).

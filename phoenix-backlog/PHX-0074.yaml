@@ -68,8 +68,9 @@ cost_benefit_guardrails:
   - |
     Tech-stack choice (HTMX + Tailwind + Jinja2 + Cytoscape.js)
     is deliberate to avoid a frontend build pipeline. Tailwind
-    via CDN with subresource integrity (SRI) hash; HTMX via
-    inline ``<script>`` tag (one file, ~14 KB minified);
+    via official Play CDN script (``cdn.tailwindcss.com``; npm
+    v3 has no ``dist/tailwind.min.css``); HTMX via pinned
+    ``<script>`` from unpkg (~14 KB minified);
     Cytoscape.js loaded only on the Cluster Map panel. No npm,
     no Webpack, no second deployment artefact.
   - |
