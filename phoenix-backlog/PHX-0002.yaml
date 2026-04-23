@@ -1,0 +1,211 @@
+id: PHX-0002
+category: improvement
+priority: high
+status: open
+generation_target: 2
+title: "Hierarchical + Heterogeneous Embedding Spaces — multiple embedding models / dimensions per modality and abstraction level, in a single Chronik"
+filed_by: hesiod
+created_at: 2026-04-22  # promoted from catalogue-only after the 2026-04-22 user question
+description: |
+  Today every node in the Chronik carries a single 384-dim
+  embedding from BAAI/bge-small-en-v1.5. One column, one
+  HNSW-ish vector index, uniform geometry. This was the right
+  Gen-1 choice — it lets the entire pipeline focus on
+  correctness and provenance without a multi-index storage
+  conversation. It is also wrong for the long horizon.
+
+  Two structural pressures push the Chronik toward
+  heterogeneous embedding spaces:
+
+  **Pressure A — abstraction levels** (the original PHX-0002
+  catalogue framing). Embeddings at different abstraction levels
+  describe different things: a single fact ("Heinrich Harrer
+  visited Lhasa in 1944"), a topic summary ("Tibetan
+  ethnography 1900-1950"), a domain overview ("Himalayan
+  history"). A 384-dim embedding tuned for fact retrieval is
+  not the same instrument as one tuned for topic-level
+  abstraction. The Chronik's hierarchical cluster structure
+  (PHX-0060) already implies a tree; the embedding choices
+  should follow the tree.
+
+  **Pressure B — modalities** (added 2026-04-22 after a user
+  question made it concrete). Different data modalities have
+  different optimal embedding structures. Padding everything
+  to a single dimension breaks the geometry. Forcing every
+  modality through a common projection space (CLIP-style)
+  loses per-modality fidelity. The honest answer is multiple
+  embedding spaces, one per modality, with explicit
+  cross-modal links:
+
+  - Text: 384-1024 dim (BGE-small/large, MiniLM, mxbai-embed)
+  - Code: 768-1024 dim (CodeBERT, jina-code, voyage-code-3)
+  - Protein: 320-2560 dim (ESM-2, several sizes)
+  - DNA: 768 dim (DNA-BERT-2, NucleotideTransformer)
+  - Image: 512-768 dim (CLIP, SigLIP, DINOv2)
+  - Audio: 768 dim (Wav2Vec2, Whisper-encoder)
+  - Time series, logs, graphs: domain-specific embedders
+    each with its own native dim.
+
+  Both pressures point to the same architectural answer: the
+  Chronik must hold heterogeneous embedding spaces inside a
+  single store, with first-class cross-space connections via
+  the existing ``KnowledgeEdge`` machinery. The user's question
+  is reproduced verbatim in
+  ``docs/QUESTIONS_FROM_THE_FIELD.md`` as motivating evidence;
+  the architectural answer below is the design seed.
+
+  Architecture proposal (Phase-1 sketch — not Talos-ready yet):
+
+  - ``KnowledgeNode.modality: str = "text"`` (default-compatible
+    new field). Other values: "code", "dna", "protein",
+    "image", "audio", "log", "graph", ...
+  - ``KnowledgeNode.embedding_model_id: str | None`` (already
+    exists today) becomes the per-modality identity tag.
+  - ``KnowledgeNode.embedding_dim: int | None`` (already
+    exists) becomes the per-modality dimension marker.
+  - Storage: one Neo4j vector index per (modality, dim) tuple.
+    Neo4j 5.18+ supports multiple vector indices per label
+    via filtered ``CREATE VECTOR INDEX … WHERE n.modality = …``
+    clauses. In-memory backend keeps a dict-of-indices keyed
+    by the same tuple.
+  - Retrieval: ``RetrievalStrategy`` (F3 protocol) gains an
+    optional ``modality_scope: list[str] | None`` field on
+    ``RetrievalBudget``. When set, search hits only the
+    matching index. When None, fan-out across all matching
+    indices, merge-rerank.
+  - Cross-modal linking: standard ``KnowledgeEdge`` with
+    relation_type strings like ``"DESCRIBES_CODE"``,
+    ``"EXPRESSES_PROTEIN"``, ``"ILLUSTRATES_CONCEPT"``,
+    ``"IMPLEMENTS_CONCEPT"``. No schema change to edges —
+    the existing ``relation_type: str`` already covers it.
+  - Cross-modal *vector-similarity* (the harder problem):
+    three options ranked by cost:
+    1. **Edge-driven only** (cheapest, most precise): cross-
+       modal queries traverse explicit edges. No cross-space
+       cosine. Phase-1 default.
+    2. **Bridge embedding** (medium cost): every node carries
+       an additional small (~256-dim) shared "bridge"
+       embedding trained contrastively across modalities,
+       used only for cross-modal retrieval. Per-modality
+       indices stay native.
+    3. **LLM bridge** (highest cost, highest fidelity): cross-
+       modal query goes through an LLM that understands both
+       sides. Pragmatic but expensive.
+    Phase 2 ships Option 1; Option 2 is a separate sub-ticket
+    when measured signal calls for it; Option 3 is opt-in via
+    a new strategy ``LLMCrossModalStrategy``.
+
+cost_benefit_guardrails:
+  - |
+    Schema change is purely additive. Existing nodes default
+    to ``modality="text"``, ``embedding_dim=384``, no data
+    migration needed. The single uniform-Index path stays the
+    fast default for text-only deployments (today's Gen-1
+    target).
+  - |
+    Vector-index proliferation is bounded by modality count
+    (single-digit typically). Each Neo4j vector index has
+    fixed per-document overhead; the cost scales linearly
+    with corpus size, not with index count.
+  - |
+    Cross-modal queries via Option 1 (edge-driven) are
+    structurally bounded — they cannot run more vector
+    searches than queried indices times the per-index k.
+    Hard ceiling: ``len(modalities) × budget.max_nodes``.
+  - |
+    Forbid silently-upgrading the embedder for an existing
+    node. Each ``embedding`` write must record
+    ``embedding_model_id`` + ``embedding_dim``. Mixing
+    embedding models inside one cosine search is forbidden
+    at the store level; the index filter enforces this.
+    The existing ``embedding_model_id`` field already
+    assumes this discipline; W4-style scoring math depends
+    on it.
+  - |
+    Heterogeneous embedding spaces multiply the cost of
+    ``ReclusterPhase`` (W1) — clustering must run per-
+    modality, not globally, because mixing cosine geometries
+    across spaces is meaningless. Default Phase-2 behaviour:
+    one cluster pass per modality. Operators can opt out per
+    modality via ``Settings.clustering.modalities`` allowlist.
+  - |
+    No new ML training in Phase 1 (that is Option 2 above and
+    its own sub-ticket). Phase 1 is pure data-modeling +
+    storage + retrieval routing.
+
+service_to_humanity: |
+  Knowledge in the world is not made of text. Code is
+  knowledge. Genetic sequences are knowledge. Sensor traces
+  are knowledge. Music notation is knowledge. A planetary
+  knowledge substrate that can only ingest text is not
+  planetary; it is a literary archive. The same chronicle
+  must hold a Wikipedia article, the Linux kernel source
+  tree, the human genome, and a sound recording, and let
+  agents (and humans) ask cross-modal questions: "which
+  of these proteins is described in this paragraph?",
+  "which Python function implements this algorithm?",
+  "which audio fragment matches the description of this
+  song?". The architectural cost of doing this honestly is
+  manageable. The architectural cost of pretending it can
+  all be one 384-dim space is — in the long horizon — the
+  cost of being wrong about what knowledge is.
+
+acceptance_criteria:
+  - |
+    Phase-1 sub-ticket (the additive schema): add
+    ``KnowledgeNode.modality: str = "text"`` and update both
+    backends to round-trip it. Update ``ConstellationNode``
+    if downstream consumers need to filter by modality.
+  - |
+    Phase-1 sub-ticket: ``KnowledgeStore.vector_search``
+    accepts an optional ``modality: str | None`` filter; both
+    backends honour it. Default (None) means "all modalities"
+    for backward compatibility.
+  - |
+    Phase-1 sub-ticket: ``Settings.embedding`` group gains
+    ``per_modality_models: dict[str, str]`` that maps
+    modality → model_id. Default
+    ``{"text": "BAAI/bge-small-en-v1.5"}``. The
+    EmbeddingProvider selects the right model when the
+    pipeline knows the modality up front.
+  - |
+    Phase-2 sub-ticket (Bridge embedding): introduce a
+    ``BridgeEmbeddingProvider`` that produces a 256-dim
+    cross-modal vector, written to a separate
+    ``bridge_embedding: list[float] | None`` column. New
+    ``CrossModalRetrievalStrategy`` uses it.
+  - |
+    Phase-2 sub-ticket (Per-modality clustering): extend
+    ``ReclusterPhase`` to run one pass per modality, store
+    per-modality cluster_ids, expose them via
+    ``Settings.clustering.modalities``.
+  - |
+    Phase-2 sub-ticket (LLM cross-modal): ship
+    ``LLMCrossModalStrategy`` as a fourth ``RetrievalStrategy``
+    (after FixedDepth, EdgeProductBreadthFirst,
+    ClusterNarrowing).
+  - |
+    Each Phase-2 sub-ticket is its own follow-on PHX. This
+    ticket is the parent design seed; the sub-tickets
+    schedule the work.
+  - |
+    Documentation: ``docs/EMBEDDING_SPACES.md`` (new) explains
+    the heterogeneous design, the per-modality index model,
+    the three cross-modal options, and the Phase-1 vs
+    Phase-2 split. ``docs/ARCHITECTURE.md`` Memory section
+    cross-references it. ``docs/QUESTIONS_FROM_THE_FIELD.md``
+    is cited as the originating user question.
+
+related:
+  - PHX-0001  # Custom Knowledge Store Engine — heterogeneous indices live there in the long run
+  - PHX-0009  # Vitality Function Tuning — vitality math must stay modality-aware
+  - PHX-0011  # Knowledge Condensation — condensation is per-modality
+  - PHX-0056  # Activation Engine — RetrievalStrategy gains modality_scope
+  - PHX-0060  # Domain Clusters — clustering is per-modality
+  - PHX-0061  # Vector-Routed Federation — federation discovers per-modality vector signatures
+  - PHX-0071  # Mnemosyne — meta-auditor that triggered this PHX promotion
+
+referenced_in:
+  - "docs/QUESTIONS_FROM_THE_FIELD.md — the originating user question, 2026-04-22"
+  - "docs/IMPLEMENTATION_PLAN_GEN1.md — references the original catalogue entry as covered"
+  - "Composer conversation 2026-04-22 — user asked the modality question; Hesiod traced the architectural answer and promoted this ticket from catalogue-only to full YAML"
