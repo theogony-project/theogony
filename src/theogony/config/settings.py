@@ -78,6 +78,12 @@ class LLMSettings(BaseModel):
     )
     timeout_s: float = Field(default=30.0, gt=0.0)
     max_concurrency: int = Field(default=8, ge=1)
+    offline_top_n_citations: int = Field(
+        default=6,
+        ge=1,
+        le=50,
+        description="Top-N constellation nodes cited by OfflineAnswerSynthesizer (stub provider).",
+    )
 
     @model_validator(mode="after")
     def _default_model_id_for_provider(self) -> Self:

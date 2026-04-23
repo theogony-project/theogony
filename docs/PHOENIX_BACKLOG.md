@@ -356,6 +356,14 @@ Greek goddess of strife and discord — the Loki-equivalent that Pantheon curren
 
 Greek goddess of retribution against hubris. Sister to Eris in the adversarial dyad: where Eris attacks externally to expose vulnerabilities, **Nemesis audits internally to expose overconfidence**. Four audit classes (default cadence weekly, read-only by construction): **confidence inflation detection** (nodes whose confidence rose without corresponding new evidence in the audit log — the inflation came from somewhere it should not have), **self-citation loop detection** (clusters where the in-citation ratio exceeds a threshold — echo chambers citing themselves to themselves), **pheromone autobahn detection** (paths whose pheromone weight exceeds 3× equilibrium without diverse originating queries — single-user attractors biasing all future Slow-Path queries), **self-contradiction surfacing** (when the chronicle holds two highly-confident contradictory positions, surface the conflict to Hestia rather than letting both coexist silently). Cost guardrails: read-only, no LLM calls in default audit path, deterministic statistical checks against existing audit log + scores + weights, max-findings-per-pass cap prevents flooding Hestia's queue. Service to humanity: epistemic humility scales with capability — without Nemesis, the chronicle drifts toward arrogance, becoming persuasive faster than it becomes correct. The structural counterweight that lets Pantheon grow capability without growing hubris in lockstep. YAML: [`phoenix-backlog/PHX-0068.yaml`](../phoenix-backlog/PHX-0068.yaml).
 
+### PHX-0070: Offline answer path for stub-only deploys
+
+- **Category**: bug
+- **Priority**: medium
+- **YAML**: [`phoenix-backlog/PHX-0070.yaml`](../phoenix-backlog/PHX-0070.yaml)
+
+Hosted MCP runs with `THEOGONY_LLM__PROVIDER=stub`; `StubLLMProvider` returned empty synthesis text so `pantheon_ask` surfaced `verdict=failed` despite a healthy constellation. **Closed by PR https://github.com/theogony-project/theogony/pull/65:** `OfflineAnswerSynthesizer` routes the no-LLM-key path to a deterministic citation-only answer; `query_verdict` empty-text reasoning is now `synthesis returned empty answer` instead of the misleading `synthesis raised before completion`.
+
 ---
 
 ## Open Architectural Questions

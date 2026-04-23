@@ -1,7 +1,7 @@
 id: PHX-0070
 category: bug
 priority: medium
-status: in_progress  # Brief landed 2026-04-22 — see docs/etappes/PHX-0070_offline_answerer_brief.md
+status: resolved  # Phase 1: PR https://github.com/theogony-project/theogony/pull/65 — docs/etappes/PHX-0070_offline_answerer_brief.md
 generation_target: 1
 title: "StubLLM synthesis raises before completion — pantheon_ask returns verdict='failed' on stub-only deploys"
 filed_by: hesiod

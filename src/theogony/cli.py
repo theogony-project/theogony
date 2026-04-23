@@ -66,7 +66,7 @@ from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
 from theogony.retrieval.strategy_factory import build_retrieval_strategy
-from theogony.retrieval.synthesize import AnswerSynthesizer
+from theogony.retrieval.synthesizer_factory import build_synthesizer
 from theogony.stores.memory import InMemoryKnowledgeStore
 from theogony.stores.neo4j_store import Neo4jKnowledgeStore
 
@@ -871,7 +871,7 @@ async def _run_ask(
                     strategy=build_retrieval_strategy(store, settings),
                 ),
                 assembler=ConstellationAssembler(store),
-                synthesizer=AnswerSynthesizer(llm, audit_log=audit),
+                synthesizer=build_synthesizer(settings, llm, audit_log=audit),
                 relevance=RelevanceTracker(
                     store,
                     relevance_delta=settings.relevance.relevance_delta,

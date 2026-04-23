@@ -27,7 +27,7 @@ from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
 from theogony.retrieval.strategy_factory import build_retrieval_strategy
-from theogony.retrieval.synthesize import AnswerSynthesizer
+from theogony.retrieval.synthesizer_factory import build_synthesizer
 
 
 def get_settings(request: Request) -> Settings:
@@ -62,7 +62,7 @@ def get_query_pipeline(request: Request) -> QueryPipeline:
             strategy=build_retrieval_strategy(state.store, state.settings),
         ),
         assembler=ConstellationAssembler(state.store),
-        synthesizer=AnswerSynthesizer(state.llm, audit_log=state.audit),
+        synthesizer=build_synthesizer(state.settings, state.llm, audit_log=state.audit),
         relevance=RelevanceTracker(
             state.store,
             relevance_delta=state.settings.relevance.relevance_delta,
