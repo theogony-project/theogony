@@ -316,7 +316,7 @@
       body =
         `Abruf-Parameter: maximal <strong>${hops}</strong> Hop(s), Strategie <code class="text-slate-400">${strat}</code>. ` +
         `${stratNote} ` +
-        `Die Zahl <strong>${hops}</strong> ist das Hop-Budget der Suche, nicht drei getrennte Schichten im Graphen.`;
+        `Die Zahl <strong>${hops}</strong> begrenzt die Suchtiefe im Store; der d3-Graph zeigt keine getrennte Schicht pro Hop-Stufe, sondern die Konstellation insgesamt.`;
     }
     return `<div class="text-slate-400 text-xs mb-2 border-l-2 border-sky-600/55 pl-2 leading-snug">${body}</div>`;
   }
