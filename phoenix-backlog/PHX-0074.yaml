@@ -1,0 +1,207 @@
+id: PHX-0074
+category: vision
+priority: high
+status: in_progress  # W6 brief landed 2026-04-22 — see docs/etappes/W6_iris_cockpit_brief.md
+generation_target: 1
+title: "Iris — the Pantheon Cockpit, a human-facing dashboard for status, knowledge browsing, clusters, reports, and manifest editing"
+filed_by: hesiod
+created_at: 2026-04-22
+description: |
+  Greek goddess of the rainbow, messenger between mortals and the
+  Olympic gods. In the Pantheon agent roster she occupies the
+  **mortal-facing presentation** slot: where every other Pantheon
+  surface is agent-facing (MCP), operator-facing (CLI) or
+  audit-facing (RunReports), Iris **renders the chronicle for
+  human eyes**.
+
+  Today the only sights for humans are ``theogony reports list``
+  in a terminal and naked ``data/run_reports/*.json`` files. The
+  chronicle's structure (clusters from W1, pheromone trails from
+  W2, blind spots from W3, depth bands from W4) is invisible at
+  the Mensch-Maschine-Interface level. That gap is the first
+  thing every potential adopter notices and the last thing they
+  forgive.
+
+  Iris is a single-page dashboard built on the existing
+  FastAPI server with **server-rendered Jinja2 templates +
+  HTMX + Tailwind CSS + a small dose of Cytoscape.js** — no
+  React, no build pipeline, no second repository. Phase 1 ships
+  five panels:
+
+  1. **Status** (landing): node/edge counts, store backend,
+     embedder, layer + depth-band distribution, 24h activity
+     sparklines, verdict distribution, cost summary if a real
+     LLM is configured.
+  2. **Knowledge Browser**: search by label / AKA-id / filter,
+     full node detail, Hover-Lupe rendered as a small
+     Cytoscape.js subgraph. Click a neighbour → it becomes the
+     new center.
+  3. **Cluster Map** (W1 visualisation): list every
+     ``ClusterSummary``, show member counts + dominant
+     node_type / source_type / cluster_label, drill into a
+     cluster to see members + cross-cluster edges highlighted.
+  4. **Reports**: tabbed table per report type (ingest, query,
+     oneiros, clustering, blindspot, mnemosyne, …). Filter by
+     verdict + time range + free-text. Click a row → side
+     panel with full JSON.
+  5. **Manifest Editor**: a single editable Markdown file
+     (``data/cockpit/manifest.md`` by default) declaring this
+     instance's primary knowledge domain, language scope,
+     exclusions, update behaviour. Read-write surface that
+     PHX-0037 (Curiosity Loop) and PHX-0071 (Mnemosyne) can
+     consume as additional context for their decisions —
+     Phase 1 just persists; consumption is a Phase-2 sub-ticket.
+
+  Mythological consistency: Iris is **passive** (renders) where
+  Mnemosyne / Asklepios are **active** (classify + draft). All
+  three sit on the boundary between Pantheon and the rest of the
+  world, but Iris specifically faces *humans* while the others
+  face *the Pantheon's own audit log*.
+
+  The user-facing name is **"Pantheon Cockpit"**. ``Iris`` is the
+  internal module name (``src/theogony/cockpit/`` with FastAPI
+  routes, templates, and aggregations). The naming distinction
+  matters: agents and operators see "the cockpit", contributors
+  reading source see ``iris/``.
+
+cost_benefit_guardrails:
+  - |
+    Tech-stack choice (HTMX + Tailwind + Jinja2 + Cytoscape.js)
+    is deliberate to avoid a frontend build pipeline. Tailwind
+    via CDN with subresource integrity (SRI) hash; HTMX via
+    inline ``<script>`` tag (one file, ~14 KB minified);
+    Cytoscape.js loaded only on the Cluster Map panel. No npm,
+    no Webpack, no second deployment artefact.
+  - |
+    All five panels are **read-only** in Phase 1 except the
+    Manifest Editor, which writes a single Markdown file
+    atomically. No node mutations, no edge mutations, no
+    settings mutations, no PHX-file mutations. Iris is
+    chronicle-read-only by construction; tests enforce
+    (mirror of the Mnemosyne and Asklepios invariants).
+  - |
+    Default network binding: ``127.0.0.1`` (operator-only).
+    Public exposure is explicit opt-in via
+    ``Settings.cockpit.bind_host`` AND
+    ``Settings.cockpit.public = true``. Both flags must be
+    set; no accidental public-by-default.
+  - |
+    A separate ``--sample-only`` mode caps every panel to a
+    small, fixed subset of the chronicle (top 20 nodes by
+    relevance, latest 50 reports). Designed for public demos
+    where the operator wants to show "the cockpit" without
+    exposing the whole knowledge graph. Off by default.
+  - |
+    No authentication in Phase 1 (operator-only assumption
+    holds). Auth + RBAC is a Phase-2 sub-ticket: when the
+    Cockpit moves to public deployment with multi-user access,
+    ``Settings.cockpit.auth_provider`` plugs in (OIDC,
+    GitHub-OAuth, basic-auth, password-file). Phase 1 ships
+    the **structural seam** — every route already accepts an
+    optional ``authenticated_user: User | None`` dependency
+    that returns ``None`` in Phase 1 — so Phase 2 lands as a
+    pure addition.
+  - |
+    Live-update via SSE is bounded: only the Status panel
+    streams, and only the four counters (node_count,
+    edge_count, last-24h activity, verdict distribution).
+    Per-panel SSE channels with a 5-second minimum push
+    interval. No per-keystroke updates, no per-query updates.
+  - |
+    Cytoscape.js loads only on Cluster Map and Hover-Lupe.
+    Initial page weight ≤ 200 KB total (HTML + Tailwind CDN +
+    HTMX + custom CSS); Cytoscape adds ~700 KB on demand.
+    Mobile-friendly is **not** a Phase-1 goal but Tailwind
+    handles basic responsiveness for free.
+  - |
+    Cockpit runs in the **same FastAPI process** as the API and
+    MCP-SSE for hosted deployments. ``--cockpit-port`` lets
+    operators split it onto a separate port if they prefer
+    (e.g. public MCP on 8080, internal Cockpit on 8081).
+
+service_to_humanity: |
+  A planetary knowledge substrate that humans cannot see is
+  a planetary knowledge substrate that humans cannot trust.
+  Pantheon's whole architectural discipline (provenance-first,
+  citable answers, honest verdicts, audit logs) means
+  *nothing* if a curious human cannot inspect the actual
+  state of the chronicle without learning to grep JSON files.
+  The Cockpit is the surface where that discipline becomes
+  visible — where a researcher can see what the chronicle
+  knows, where a journalist can audit what it cited, where
+  a philosopher can read the manifest that says what this
+  particular Pantheon instance is **for**. Without it, all
+  Pantheon's transparency is theoretical. With it,
+  transparency is one click away. The cost (one new
+  subpackage, no new dependencies of consequence, no new
+  deployment story) is small. The unlock — making the
+  long-horizon vision tangible to the humans who will decide
+  whether Pantheon becomes a standard or stays a curiosity —
+  is large.
+
+acceptance_criteria:
+  - |
+    Phase 1 sub-ticket (this brief — W6): five panels per the
+    description, read-only except Manifest, served from
+    ``/cockpit`` on the existing FastAPI app, default
+    127.0.0.1 binding, optional ``--sample-only`` mode. Full
+    spec in ``docs/etappes/W6_iris_cockpit_brief.md``.
+  - |
+    Phase 2 sub-ticket (after Phase 1 lands): authentication
+    + RBAC. ``Settings.cockpit.auth_provider`` plugs in via
+    a small Protocol; routes already accept the optional
+    ``authenticated_user`` dependency from Phase 1 so the
+    code-path lands as pure addition.
+  - |
+    Phase 2 sub-ticket: settings editor with propose-and-
+    review workflow (mirrors Proteus pattern from PHX-0072
+    — operator proposes a change, system shows diff,
+    explicit confirm applies it).
+  - |
+    Phase 2 sub-ticket: manifest-aware agents. PHX-0037
+    (Curiosity Loop) and PHX-0071 (Mnemosyne) read
+    ``data/cockpit/manifest.md`` to bias their decisions
+    (e.g., Mnemosyne weighs a meta-question higher when
+    its topic matches the manifest's primary domain).
+  - |
+    Phase 2 sub-ticket: 2D cluster centroid visualisation
+    via UMAP-projected SVG (the "Brain Region Map" view
+    on top of the Cluster Map panel). Phase 1 ships only
+    the list + drill-down; the spatial 2D map is the
+    natural extension.
+  - |
+    Phase 3 sub-ticket: resource management UI — explicit
+    budget controls (LLM per-day cap, Mnemosyne LLM-fallback
+    cap, Proteus twin budget, ingest concurrency). Surfaces
+    the controls that today live in Settings env-vars only.
+  - |
+    Phase 3 sub-ticket: multi-tenant federated cockpit view.
+    When PHX-0061 (Vector-Routed Federation) ships, Iris
+    learns to render multi-instance status — which other
+    Pantheon nodes does this one talk to, what is their
+    health, what cross-instance edges exist.
+  - |
+    Documentation: ``docs/COCKPIT.md`` documents the
+    architecture, the panel layout, the security model, the
+    sample-only mode, the manifest contract.
+    ``docs/ARCHITECTURE.md`` cross-references it.
+    ``docs/HIVE.md`` adds Iris row to the agent table.
+    ``docs/GLOSSARY.md`` learns "Cockpit" and "Manifest"
+    entries.
+
+related:
+  - PHX-0035  # Reviewer Agent — sister role; Reviewer reviews answers, Iris renders state
+  - PHX-0037  # Curiosity Loop — Phase-2 manifest consumer
+  - PHX-0039  # Hestia Curiosity Auditing — Phase-2 manifest consumer; manifest exclusions feed Hestia rules
+  - PHX-0061  # Vector-Routed Federation — Phase-3 multi-instance cockpit view
+  - PHX-0066  # Hosted Pantheon MCP Service — Cockpit ships on the same hosted container
+  - PHX-0067  # Eris — adversarial probe; Cockpit could surface Eris findings as warnings (Phase 2)
+  - PHX-0068  # Nemesis — internal audit; Cockpit could surface Nemesis findings as warnings (Phase 2)
+  - PHX-0071  # Mnemosyne — meta-cognitive auditor; Phase-2 manifest consumer
+  - PHX-0072  # Proteus — A/B testing; Phase-2 settings-editor uses the propose-and-review pattern Proteus pioneers
+  - PHX-0073  # Asklepios — fix triage; Cockpit could surface Asklepios FixTickets in a future panel
+
+referenced_in:
+  - "Composer conversation 2026-04-22 — user requested a 'hübsches Cockpit' for status, history, and configuration; Hesiod proposed the full architecture and named the surface Iris"
+  - "docs/PHILOSOPHY.md §'Transparency Is Architecture, Not Policy' — Iris is the architectural surface that makes transparency operationally visible"
+  - "docs/PANTHEON_VISION.md — the cockpit makes the vision tangible to humans who will adopt or reject Pantheon"
