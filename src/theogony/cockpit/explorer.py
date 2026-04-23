@@ -22,11 +22,15 @@ For the SPA, :func:`stream_explorer_ask_sse` emits short **SSE** ``data:``
 lines (embed → retrieve → synthesize phases, then a ``complete`` event with
 the same JSON shape as :func:`run_explorer_query`). ``POST /cockpit/api/ask``
 remains a single JSON round-trip for agents and tests.
+
+Payloads are passed through :func:`scrub_json_floats` so ``nan`` / ``inf`` scores
+from the store never break JSON encoding (Python 3.13+ rejects them by default).
 """
 
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
@@ -50,6 +54,23 @@ from theogony.retrieval.strategy_factory import build_retrieval_strategy
 from theogony.retrieval.synthesizer_factory import build_synthesizer
 
 log = get_logger("cockpit.explorer")
+
+
+def scrub_json_floats(obj: Any) -> Any:
+    """Replace nan/inf floats so :func:`json.dumps` / ``JSONResponse`` never 500 (Py3.13+).
+
+    Starlette rejects non-finite floats with ``ValueError: Out of range float values are
+    not JSON compliant`` — the Explorer UI then surfaces a generic Internal Server Error.
+    """
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: scrub_json_floats(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [scrub_json_floats(v) for v in obj]
+    if isinstance(obj, tuple):
+        return tuple(scrub_json_floats(v) for v in obj)
+    return obj
 
 
 def explorer_page_context(settings: Settings, llm: LLMProvider | None) -> dict[str, Any]:
@@ -211,7 +232,9 @@ async def run_explorer_query(
     embed_preview: list[float] = []
     try:
         vec = await embedder.embed(q)
-        embed_preview = [float(x) for x in vec[:EMBEDDING_PREVIEW_DIM]]
+        for x in vec[:EMBEDDING_PREVIEW_DIM]:
+            f = float(x)
+            embed_preview.append(f if math.isfinite(f) else 0.0)
     except Exception:  # pragma: no cover - non-fatal
         embed_preview = []
 
@@ -244,7 +267,7 @@ async def run_explorer_query(
         "llm_provider": settings.llm.provider,
         "llm_model_id": getattr(synth_llm, "model_id", None) or (settings.llm.model_id or ""),
     }
-    return {
+    out: dict[str, Any] = {
         "run_id": report.run_id,
         "query": q,
         "answer": {
@@ -264,6 +287,7 @@ async def run_explorer_query(
         "retrieval": retrieval,
         "entry_plan": result.entry_plan,
     }
+    return scrub_json_floats(out)
 
 
 async def stream_explorer_ask_sse(
@@ -291,7 +315,11 @@ async def stream_explorer_ask_sse(
         hops=hops,
     )
     if "error" in payload:
-        yield f"data: {json.dumps({'type': 'error', 'message': payload['error']})}\n\n".encode()
+        yield (
+            "data: "
+            + json.dumps({"type": "error", "message": payload["error"]}, allow_nan=False)
+            + "\n\n"
+        ).encode()
         return
     timing = payload["timing_ms"]
     for phase, key in (
@@ -300,6 +328,6 @@ async def stream_explorer_ask_sse(
         ("synthesize", "synthesis_ms"),
     ):
         chunk = {"type": "phase", "phase": phase, "ms": int(timing.get(key, 0))}
-        yield f"data: {json.dumps(chunk)}\n\n".encode()
+        yield ("data: " + json.dumps(chunk, allow_nan=False) + "\n\n").encode()
     done = {"type": "complete", "payload": payload}
-    yield f"data: {json.dumps(done)}\n\n".encode()
+    yield ("data: " + json.dumps(done, allow_nan=False) + "\n\n").encode()

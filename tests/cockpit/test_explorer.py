@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,6 +14,18 @@ from theogony.core.model import KnowledgeEdge, KnowledgeNode
 from theogony.docs_ingest import read_dump
 from theogony.seeds import pantheon_self_dump_path
 from theogony.stores.memory import InMemoryKnowledgeStore
+
+
+def test_scrub_json_floats_replaces_non_finite() -> None:
+    from theogony.cockpit.explorer import scrub_json_floats
+
+    raw = {"a": float("nan"), "b": [1.0, float("inf")], "c": {"d": 2.5}}
+    clean = scrub_json_floats(raw)
+    json.dumps(clean, allow_nan=False)
+    assert clean["a"] is None
+    assert clean["b"] == [1.0, None]
+    assert clean["c"]["d"] == 2.5
+    assert math.isfinite(clean["c"]["d"])
 
 
 def _parse_sse_data_lines(raw: str) -> list[dict]:
