@@ -441,6 +441,17 @@ class InMemoryKnowledgeStore:
                 if value is not None:
                     setattr(node.scores, field, value)
 
+    async def mark_self_referential(self, node_ids: Sequence[str], run_id: str) -> None:
+        for nid in node_ids:
+            node = self._nodes.get(nid)
+            if node is None:
+                continue
+            props = node.properties
+            prev = list(props.get("self_referential_in_runs") or [])
+            if run_id not in prev:
+                prev.append(run_id)
+                props["self_referential_in_runs"] = prev
+
     async def count_neighbors_in_layer(self, layer: Layer) -> dict[str, int]:
         # PHX-0050 / E8.5: bulk degree map. The InMemory store keeps
         # outgoing/incoming sets per node id (E1), so this is a

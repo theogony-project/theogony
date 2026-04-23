@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from fastapi import Request
 
+from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
 from theogony.config.settings import Settings
 from theogony.core.store import KnowledgeStore
 from theogony.curiosity.stub_detector import StubDetector
@@ -55,6 +56,9 @@ def get_query_pipeline(request: Request) -> QueryPipeline:
     stub_detector = getattr(state, "stub_detector", None)
     if stub_detector is None:
         stub_detector = StubDetector(state.settings.curiosity.stub_thresholds)
+    mnemosyne = getattr(state, "mnemosyne_classifier", None)
+    if mnemosyne is None:
+        mnemosyne = build_mnemosyne_classifier(state.settings, state.llm)
     return QueryPipeline(
         embedder=state.embedder,
         retriever=MultiHopRetriever(
@@ -74,6 +78,7 @@ def get_query_pipeline(request: Request) -> QueryPipeline:
             delta=state.settings.relevance.edge_pheromone_delta,
         ),
         stub_detector=stub_detector,
+        mnemosyne=mnemosyne,
     )
 
 

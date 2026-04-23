@@ -85,6 +85,10 @@ At the same time, it practices graceful forgetting: knowledge that is contradict
 
 The Phoenix process periodically distills the entire Chronik into a cleaner, more coherent version — like a forest fire that clears deadwood and enables new growth.
 
+### 9. The chronicle grows where it is asked questions about its growth
+
+Meta-questions — about embeddings, schema, workers, retrieval, the backlog — carry architectural signal that must not evaporate after the answer is delivered. **Mnemosyne** ([PHX-0071](phoenix-backlog/PHX-0071.yaml), [operator doc](docs/MNEMOSYNE.md)) names that layer: classify, persist audit metadata on cited nodes, and aggregate patterns so humans (and later proposal automation) can file honest PHX work from lived operator curiosity.
+
 ## The Economic Argument
 
 The Chronik must sustain itself without profit motive. Operational costs are covered by usage-based credits. A generous free tier ensures broad access. Private Lethe Vaults for organizations are priced at marginal cost. No profit. No investors. No exit strategy.

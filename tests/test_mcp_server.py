@@ -197,6 +197,7 @@ async def test_tool_status_returns_expected_shape(tmp_path: Path) -> None:
         "oneiros": 0,
         "clustering": 0,
         "blindspot": 0,
+        "mnemosyne": 0,
     }
 
 

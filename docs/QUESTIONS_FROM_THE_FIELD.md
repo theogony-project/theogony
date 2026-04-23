@@ -110,7 +110,9 @@ Until Mnemosyne is live:
 4. Commit with a `docs(questions)` prefix so the history is
    easy to grep.
 
-Once Mnemosyne ships (PHX-0071), this manual workflow is
-superseded by the structured `BacklogProposal` pipeline. This
-file then serves as the historical seed of the practice and
-remains for new contributors to read as an introduction.
+With Mnemosyne Phase 1 live (PHX-0071), every query is classified
+automatically; keep this manual path for **high-signal** questions the
+heuristic might miss (then promote keywords or tune the LLM-fallback
+budget rather than letting the signal disappear). Phase 2's structured
+`BacklogProposal` pipeline will further automate promotion from clusters;
+this file remains the historical seed and onboarding read.

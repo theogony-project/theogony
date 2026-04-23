@@ -41,6 +41,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from theogony.agents.factory import build_llm_from_settings
+from theogony.agents.llm import LLMProvider
+from theogony.agents.mnemosyne_classifier import MetaQueryClassifier, build_mnemosyne_classifier
 from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
 from theogony.core.model import Constellation, Layer
@@ -53,6 +55,7 @@ from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.models import (
     CitationQuality,
+    MetaClassificationVerdict,
     MultiHopBreakdown,
     QueryRunReport,
     RegionDescriptor,
@@ -122,6 +125,7 @@ class QueryPipeline:
         report_writer: RunReportWriter | None = None,
         edge_pheromone: EdgePheromoneTracker | None = None,
         stub_detector: StubDetector | None = None,
+        mnemosyne: MetaQueryClassifier | None = None,
     ) -> None:
         self._embedder = embedder
         if strategy is not None:
@@ -140,6 +144,7 @@ class QueryPipeline:
         self._stub_detector = stub_detector or StubDetector(
             self._settings.curiosity.stub_thresholds,
         )
+        self._mnemosyne = mnemosyne or build_mnemosyne_classifier(self._settings, None)
 
     async def ask(
         self,
@@ -217,7 +222,7 @@ class QueryPipeline:
         # ---- 5. finalize report (BEFORE the relevance write-back)
         finished_at = datetime.now(UTC)
         duration_s = time.perf_counter() - run_perf
-        report = self._finalize_report(
+        report = await self._finalize_report(
             run_id=run_id,
             started_at=started_at,
             finished_at=finished_at,
@@ -263,7 +268,7 @@ class QueryPipeline:
 
     # ============================================================== finalize
 
-    def _finalize_report(
+    async def _finalize_report(
         self,
         *,
         run_id: str,
@@ -356,6 +361,19 @@ class QueryPipeline:
             retrieval_result=retrieval_result,
         )
 
+        meta_classification = await self._mnemosyne.classify(
+            query=query,
+            answer=answer,
+            cited_node_ids=answer.cited_node_ids,
+            constellation=constellation,
+        )
+
+        if (
+            meta_classification.verdict == MetaClassificationVerdict.SELF_REFERENTIAL
+            and answer.cited_node_ids
+        ):
+            await self._retriever.store.mark_self_referential(answer.cited_node_ids, run_id)
+
         return QueryRunReport(
             run_id=run_id,
             started_at=started_at,
@@ -380,6 +398,8 @@ class QueryPipeline:
             citation_quality=citation_quality,
             stub_verdict=stub_verdict,
             region_descriptor=region_descriptor,
+            meta_classification=meta_classification,
+            cited_node_ids=list(answer.cited_node_ids),
         )
 
 
@@ -389,6 +409,7 @@ async def build_pipeline_from_settings(
     *,
     audit_log: ExtractionAuditLog | None = None,
     report_writer: RunReportWriter | None = None,
+    llm: LLMProvider | None = None,
 ) -> QueryPipeline:
     """Construct a production-shaped :class:`QueryPipeline` (PHX-0070 tests).
 
@@ -400,8 +421,9 @@ async def build_pipeline_from_settings(
         dim=settings.embedding.dim,
     )
     await embedder.embed("warmup")
-    llm = build_llm_from_settings(settings)
-    synthesizer = build_synthesizer(settings, llm, audit_log=audit_log)
+    resolved_llm = llm if llm is not None else build_llm_from_settings(settings)
+    synthesizer = build_synthesizer(settings, resolved_llm, audit_log=audit_log)
+    mnemosyne = build_mnemosyne_classifier(settings, resolved_llm)
     return QueryPipeline(
         embedder=embedder,
         retriever=MultiHopRetriever(
@@ -421,6 +443,7 @@ async def build_pipeline_from_settings(
             delta=settings.relevance.edge_pheromone_delta,
         ),
         stub_detector=StubDetector(settings.curiosity.stub_thresholds),
+        mnemosyne=mnemosyne,
     )
 
 

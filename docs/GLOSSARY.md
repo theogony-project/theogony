@@ -152,6 +152,15 @@ The bulk ingestor. Handles large corpora, uploads, and structured source acquisi
 **Iris**  
 The contact agent. Accepts and mediates human-provided information and feedback.
 
+**Mnemosyne**  
+Meta-cognitive auditor ([PHX-0071](../phoenix-backlog/PHX-0071.yaml)): classifies whether a query is *about the chronicle itself*, appends run ids on cited nodes when the verdict is self-referential, and (optional Oneiros phase) clusters observations into `MnemosyneObservationCluster` reports. See [`MNEMOSYNE.md`](MNEMOSYNE.md).
+
+**self-referential (query)**  
+A user or agent question whose topic is the Chronik's own schema, retrieval, embedding spaces, workers, lifecycle, or backlog — architectural introspection rather than domain fact lookup.
+
+**meta-classification**  
+The per-query `MetaClassification` attached to a `QueryRunReport`: verdict `self_referential` \| `not_self_referential` \| `uncertain`, plus heuristic hit counts and optional LLM-fallback trace fields.
+
 **Prometheus**  
 The gap explorer. Identifies missing, weak, stale, or underconnected knowledge.
 

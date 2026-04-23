@@ -13,6 +13,8 @@ Commands available in this module:
 - ``node <id>``      — Hover-Lupe node + neighbourhood (E9)
 - ``resolve [...]``  — manual-resolution surface (Plan §3.4); E9
 - ``serve [...]``    — uvicorn wrapper for the FastAPI app (E9)
+- ``cockpit serve``  — Iris dashboard only, in-memory seed (PHX-0074)
+- ``mnemosyne classify`` — heuristic meta-query diagnostic (PHX-0071)
 
 The single-file CLI is a deliberate E9-brief decision (1000-line
 modules are still readable; cyclic-import cost of splitting is
@@ -44,6 +46,7 @@ from rich.table import Table
 from theogony import __version__
 from theogony.acquisition.gutenberg import GutenbergAdapter
 from theogony.agents.factory import build_llm_from_settings
+from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
 from theogony.clustering.cluster_index import ClusterIndex
 from theogony.clustering.runner import run_one_recluster_pass
 from theogony.config import Settings, setup_logging
@@ -113,6 +116,20 @@ oneiros_app = typer.Typer(
 )
 app.add_typer(oneiros_app, name="oneiros")
 
+mnemosyne_app = typer.Typer(
+    name="mnemosyne",
+    no_args_is_help=True,
+    help="Mnemosyne meta-query classification (PHX-0071 Phase 1 / W5).",
+)
+app.add_typer(mnemosyne_app, name="mnemosyne")
+
+cockpit_app = typer.Typer(
+    name="cockpit",
+    no_args_is_help=True,
+    help="Iris cockpit — human-facing Pantheon dashboard (PHX-0074).",
+)
+app.add_typer(cockpit_app, name="cockpit")
+
 _console = Console()
 
 
@@ -161,6 +178,7 @@ def _format_paths_summary(settings: Settings) -> Table:
         (settings.run_reports_dir / "oneiros", "oneiros reports"),
         (settings.run_reports_dir / "clustering", "clustering reports"),
         (settings.run_reports_dir / "blindspot", "blind-spot reports"),
+        (settings.run_reports_dir / "mnemosyne", "Mnemosyne cluster reports"),
     ]
     for path, note in rows:
         status_marker = "[green]exists[/green]" if path.exists() else "[yellow]not yet[/yellow]"
@@ -203,9 +221,25 @@ def status() -> None:
     counts_table = Table(title="Run reports", show_header=True, header_style="bold")
     counts_table.add_column("Type")
     counts_table.add_column("Count", justify="right")
-    for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot"):
+    for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne"):
         counts_table.add_row(rtype, str(_count_reports(settings, rtype)))
     _console.print(counts_table)
+
+
+# ---------------------------------------------------------------------------
+# `theogony mnemosyne`
+# ---------------------------------------------------------------------------
+
+
+@mnemosyne_app.command("classify")
+def mnemosyne_classify(
+    question: str = typer.Argument(..., help="Query text (heuristic-only diagnostic)."),
+) -> None:
+    """Print heuristic meta-classification for a one-shot query string."""
+    settings = _load_settings()
+    clf = build_mnemosyne_classifier(settings, None)
+    mc = clf.classify_heuristic_query_only(question)
+    _console.print_json(mc.model_dump_json(indent=2))
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +254,7 @@ def reports_list(
         "--type",
         "-t",
         help=(
-            "Filter by report type: ingest | query | oneiros | clustering | blindspot. "
+            "Filter by report type: ingest | query | oneiros | clustering | blindspot | mnemosyne. "
             "Default: all."
         ),
     ),
@@ -237,7 +271,7 @@ def reports_list(
     types = (
         [report_type]
         if report_type is not None
-        else ["ingest", "query", "oneiros", "clustering", "blindspot"]
+        else ["ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne"]
     )
 
     rows: list[tuple[str, str, str, str, str]] = []  # (run_id, type, verdict, status, duration)
@@ -302,7 +336,7 @@ def reports_show(run_id: str = typer.Argument(..., help="The run_id (ULID).")) -
     """
     settings = _load_settings()
     matches: list[Path] = []
-    for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot"):
+    for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne"):
         d = settings.run_reports_dir / rtype
         if not d.exists():
             continue
@@ -883,6 +917,7 @@ async def _run_ask(
                     delta=settings.relevance.edge_pheromone_delta,
                 ),
                 stub_detector=StubDetector(settings.curiosity.stub_thresholds),
+                mnemosyne=build_mnemosyne_classifier(settings, llm),
             )
             result = await pipeline.ask(
                 query,
@@ -1238,6 +1273,50 @@ def _decide_resolve_pick(*, record: object, pick: str | None, non_interactive: b
     if not answer:
         return None
     return answer
+
+
+# ---------------------------------------------------------------------------
+# `theogony cockpit serve`  (PHX-0074)
+# ---------------------------------------------------------------------------
+
+
+@cockpit_app.command("serve")
+def cockpit_serve(
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        help="Bind address (default localhost; use with --sample-only for demos).",
+    ),
+    port: int = typer.Option(8080, "--port", min=1, max=65535),
+    sample_only: bool = typer.Option(
+        False,
+        "--sample-only",
+        help="Enable cockpit sample-only caps (THEOGONY_COCKPIT__SAMPLE_ONLY).",
+    ),
+    reload: bool = typer.Option(
+        False,
+        "--reload",
+        help="Uvicorn autoreload (dev only; bypasses lifespan quirks).",
+    ),
+) -> None:
+    """Run Iris cockpit alone (in-memory store + bundled pantheon_self seed).
+
+    Does not start Neo4j, MCP, or /query. For the full API plus cockpit,
+    use ``theogony serve`` instead.
+    """
+    if sample_only:
+        os.environ["THEOGONY_COCKPIT__SAMPLE_ONLY"] = "true"
+    _console.print(
+        f"[bold]Theogony Cockpit[/bold] → http://{host}:{port}/cockpit/  "
+        f"(in-memory [cyan]pantheon_self[/cyan] seed)"
+    )
+    uvicorn.run(
+        "theogony.cockpit.standalone_app:app",
+        host=host,
+        port=port,
+        reload=reload,
+        log_level="info",
+    )
 
 
 # ---------------------------------------------------------------------------
