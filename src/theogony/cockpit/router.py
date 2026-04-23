@@ -30,7 +30,11 @@ from theogony.cockpit.dependencies import (
     get_store_readonly,
     require_cockpit_access,
 )
-from theogony.cockpit.explorer import run_explorer_query, stream_explorer_ask_sse
+from theogony.cockpit.explorer import (
+    explorer_page_context,
+    run_explorer_query,
+    stream_explorer_ask_sse,
+)
 from theogony.cockpit.manifest import ManifestRepository, _default_manifest_markdown
 from theogony.cockpit.sample_mode import (
     cluster_drill_member_cap,
@@ -380,10 +384,12 @@ def build_cockpit_router() -> APIRouter:
         settings: Annotated[Settings, Depends(get_settings)],
         _user: Annotated[object | None, Depends(get_authenticated_user)],
     ) -> HTMLResponse:
+        llm = getattr(request.app.state, "llm", None)
+        ctx = explorer_page_context(settings, llm)
         return templates.TemplateResponse(
             request,
             "explorer.html",
-            {"settings": settings},
+            {"settings": settings, **ctx},
         )
 
     @router.post("/api/ask", response_class=JSONResponse)

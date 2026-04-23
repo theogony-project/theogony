@@ -33,10 +33,14 @@ The response payload is shaped for direct visualisation:
 
 The Explorer runs the same :class:`~theogony.retrieval.pipeline.QueryPipeline` and
 honours :class:`~theogony.config.settings.LLMSettings` (``THEOGONY_LLM__PROVIDER``,
-``THEOGONY_LLM__MODEL_ID``, and the usual API keys). For **full model prose** in the
-answer panel (and optional Chronicle entry planning below), use **`theogony serve`**
-and open ``/cockpit/explorer``. The **standalone** cockpit app keeps the LLM on
-**stub** by design so it stays usable without keys; it does not call Anthropic.
+``THEOGONY_LLM__MODEL_ID``, and the usual API keys). For **full model prose** in the answer panel (and optional Chronicle entry planning
+below), set ``ANTHROPIC_API_KEY`` (and optional ``THEOGONY_LLM__MODEL_ID``), then either:
+
+- **`theogony serve`** — full stack with Neo4j and the same Explorer, or
+- **`theogony cockpit serve`** — bundled ``pantheon_self`` in memory; it loads **the same
+  ``Settings`` / LLM wiring** as the main app. If no key is available or the provider
+  cannot be constructed, the Explorer **falls back to stub** + offline citations so the
+  UI still runs in CI and air-gapped demos.
 
 With defaults (provider Anthropic, model **Sonnet 4.6**):
 
@@ -44,9 +48,11 @@ With defaults (provider Anthropic, model **Sonnet 4.6**):
 export ANTHROPIC_API_KEY=sk-ant-...
 # optional: THEOGONY_LLM__MODEL_ID=claude-sonnet-4-6  # same as default when omitted
 theogony serve
+# or: theogony cockpit serve
 ```
 
 Then browse to ``http://127.0.0.1:8000/cockpit/explorer`` (or your configured bind).
+The Explorer page shows an **Antwortmodus** ribbon (stub vs live LLM) at load time.
 
 ## LLM Chronicle entry planner (optional)
 

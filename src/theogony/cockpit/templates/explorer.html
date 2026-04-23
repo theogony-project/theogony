@@ -3,9 +3,31 @@
 
 {% block content %}
 <div id="explorer-root"
-     class="explorer-root rounded-xl border border-slate-700/80 p-4 md:p-5"
+     class="explorer-root rounded-xl border border-slate-700/80 p-4 md:p-5 shadow-lg shadow-black/20"
      data-sample-only="{{ 'true' if settings.cockpit.sample_only else 'false' }}"
      data-append-enabled="{{ 'true' if settings.mcp_append.enabled else 'false' }}">
+<div id="explorer-llm-ribbon"
+     class="mb-4 rounded-lg border px-3 py-2.5 text-xs leading-relaxed
+            {% if explorer_llm_stub %}border-sky-600/45 bg-sky-950/45 text-sky-100/95
+            {% else %}border-emerald-600/45 bg-emerald-950/40 text-emerald-50/95{% endif %}">
+  {% if explorer_llm_stub %}
+    <strong class="text-sky-200">Antwortmodus:</strong>
+    Offline — Zitate aus dem Chronik-Seed (Stub-LLM).
+    <span class="block sm:inline sm:ml-1 text-sky-200/85">
+      Für <strong>Claude</strong>-Prosa: <code class="text-sky-100/90">export ANTHROPIC_API_KEY=…</code>
+      (optional <code class="text-sky-100/90">THEOGONY_LLM__MODEL_ID=claude-sonnet-4-6</code>), dann Server neu starten.
+    </span>
+  {% else %}
+    <strong class="text-emerald-200">Antwortmodus:</strong>
+    LLM-Synthese aktiv —
+    <code class="text-emerald-100/90 font-mono text-[11px]">{{ explorer_llm_label }}</code>
+    {% if settings.retrieval.chronicle_entry_planner.enabled %}
+      <span class="text-emerald-200/80"> · Chronik-Einstieg (Planner) an</span>
+    {% else %}
+      <span class="text-slate-500"> · optional: <code class="text-slate-400">THEOGONY_RETRIEVAL__CHRONICLE_ENTRY_PLANNER__ENABLED=true</code></span>
+    {% endif %}
+  {% endif %}
+</div>
 <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
   <!-- LEFT: chat + answer -->
   <section class="lg:col-span-2 flex flex-col gap-3">
@@ -92,8 +114,8 @@
 
   <!-- RIGHT: d3 force graph -->
   <section class="lg:col-span-3">
-    <div class="explorer-graph-shell rounded-lg border border-slate-700/60 relative overflow-hidden"
-      style="height: 70vh;">
+    <div class="explorer-graph-shell rounded-lg border border-slate-700/60 relative overflow-hidden bg-slate-950/40"
+      style="min-height: 70vh; height: min(78vh, 920px);">
       <svg id="explorer-graph" class="w-full h-full block"></svg>
       <div id="explorer-legend"
         class="absolute top-2 left-2 text-[10px] text-slate-400 space-x-2 pointer-events-none drop-shadow max-w-[min(100%,18rem)] leading-snug">
