@@ -1,0 +1,262 @@
+id: PHX-0072
+category: vision
+priority: medium
+status: open
+generation_target: 2
+title: "Proteus — twin-agent A/B testing for evolutionary best-practice updates"
+filed_by: hesiod
+created_at: 2026-04-22
+description: |
+  Greek shape-shifter sea god — the one who takes many forms
+  to evade capture. In the Pantheon agent roster he occupies
+  the **evolutionary** slot: every Nth time a primary agent
+  is invoked, a Proteus twin is also invoked with a
+  deliberate deviation from the agent's documented best
+  practice. Both results are compared invisibly. When the
+  twin wins on price/performance over a statistically
+  meaningful sample, the best practice gets a candidate
+  update — never silently overwritten, always proposed for
+  review.
+
+  The system thereby evolves by randomised A/B test, not by
+  edict. Best practices are no longer architectural decrees
+  fixed at write-time; they are running hypotheses that the
+  system actively probes.
+
+  Concrete shape:
+
+  1. **Best-practice manifest.** Every agent prompt
+     (``prompts/<agent>.md``) gains a structured front-matter
+     block:
+     ```yaml
+     ---
+     agent_id: hesiod
+     best_practice_version: 1
+     best_practice_signature: "<sha256 of the body>"
+     proteus_eligible: true
+     ---
+     ```
+     The body is the prompt itself. ``proteus_eligible: false``
+     opts a prompt out (Hestia, security-critical agents).
+  2. **Twin trigger.** A configurable fraction of agent
+     invocations (default 5 %; decay-weighted toward newer
+     prompts so freshly-updated best practices get more
+     scrutiny) spawns a parallel Proteus twin alongside the
+     primary call. The twin receives a **deviated prompt**
+     produced by:
+     - Phase 1: pre-registered deviation templates (a small
+       library of mutation patterns: rephrase, add example,
+       remove constraint, reorder sections, vary specificity).
+       Mutations are deterministic given a seed so the
+       experiment is reproducible.
+     - Phase 2: a Daedalus-driven LLM mutation that proposes
+       targeted variations. Out of scope for Phase-1 ticket.
+  3. **Invisible execution.** The twin's output is **never
+     shown to the user, never persisted in the chronicle, never
+     visible to downstream agents**. Only the comparator and
+     the experiment log see it. This is critical: if twins
+     could leak into the user-visible path, they would
+     contaminate the very best-practice signal they exist to
+     measure.
+  4. **Comparison.** A pluggable ``ProteusComparator`` scores
+     both outputs on (a) primary task quality (depends on
+     agent — for Hesiod: brief completeness; for the
+     synthesizer: citation quality + answer coverage; for
+     the extractor: extraction yield), (b) cost (LLM tokens
+     × per-token rate), (c) latency. The comparator emits a
+     ``ProteusComparison`` record — a small Pydantic with
+     winner + margin + per-axis breakdown.
+  5. **Statistical aggregation.** ``ProteusComparison`` records
+     accumulate. When a single deviation pattern beats its
+     baseline by ≥ ``effect_size_threshold`` over
+     ≥ ``min_sample_size`` independent runs (Phase-1 default
+     thresholds: effect_size = 0.10, min_sample = 30), the
+     system emits a ``BestPracticeUpdateProposal`` to the
+     same draft directory Mnemosyne uses
+     (``settings.run_reports_dir/best_practice_proposals/``).
+     Operator reviews and either:
+     - Updates the prompt body (incrementing
+       ``best_practice_version``), OR
+     - Rejects with reasoning (which becomes a future
+       ProteusComparator constraint — "do not re-propose
+       this mutation pattern for agent X"), OR
+     - Schedules more twin runs (extends the sample).
+  6. **Versioning.** Every best-practice update is a normal
+     git commit on the prompt file. The version number in
+     the front-matter increments. Old comparisons are
+     re-evaluated against the new baseline lazily.
+
+  Three principles to keep this honest:
+
+  - **Twins are invisible by construction.** No user-facing
+    leakage; no influence on the chronicle; no influence on
+    downstream agents. The signal is purely statistical.
+  - **Proposals are never auto-applied.** Even at large sample
+    size and clear effect, the operator must merge the prompt
+    change. Auto-application is the failure mode that turns
+    A/B testing into uncontrolled drift.
+  - **Hestia is in the loop for sensitive agents.** Any prompt
+    touching person-as-target logic, source-acquisition
+    constraints, or privacy guardrails is
+    ``proteus_eligible: false`` by default and stays
+    human-only.
+
+cost_benefit_guardrails:
+  - |
+    Default twin fraction is 5 % (configurable via
+    ``Settings.proteus.twin_fraction``). Token-cost overhead
+    is therefore bounded at ~5 % of agent token spend.
+    Operators on tight budgets set it to 0 % — the
+    measurement infrastructure exists but is silent. Free
+    tiers should default to 0 % via env override.
+  - |
+    Twin runs reuse the existing LLM provider — no new
+    integration. Cost accounting: each twin's
+    ``LLMResult.cost_eur`` is recorded to the
+    ``ProteusComparison`` and aggregated into a daily
+    ``ProteusBudgetReport`` so operators see exactly what
+    A/B testing costs them.
+  - |
+    Comparator runs are **deterministic, not LLM-judged**.
+    Phase-1 comparators use mechanical metrics (citation
+    counts, schema validity, output token length, latency).
+    LLM-as-judge comparison (Phase 2) is opt-in and quoted
+    separately because LLM-judge has known biases.
+  - |
+    No twin runs for Hestia or any prompt with
+    ``proteus_eligible: false``. The opt-in flag is on the
+    prompt manifest, not on a global setting, so an operator
+    cannot accidentally enable twins for security-critical
+    agents.
+  - |
+    BestPracticeUpdateProposals are gitignored draft files,
+    never auto-merged. The operator's git workflow is the
+    final gate.
+  - |
+    Twin fraction decays with prompt age: a prompt that has
+    not been updated in 90+ days runs twins at the configured
+    base rate; a prompt updated yesterday runs twins at 3×
+    the base rate for a week, then settles. Captures the
+    real-world fact that fresh best practices are most
+    worth probing.
+  - |
+    Sample-size floor before any proposal: 30 paired runs
+    minimum. Below that, no proposal is emitted, regardless
+    of effect size. Prevents spurious early signals from
+    becoming proposals.
+
+service_to_humanity: |
+  Best practices written once and never measured become
+  cargo-cult. Every long-lived institution discovers this:
+  the rules that worked in year 1 ossify and become wrong by
+  year 5, and nobody notices because nobody is allowed to
+  question them. Pantheon's agent prompts are best practices
+  in exactly this sense — they are the documented rules
+  that govern how agents act. Without Proteus, those rules
+  drift toward whatever-Hesiod-thought-was-good-on-the-day-
+  he-wrote-it. With Proteus, they are continuously probed by
+  small randomised experiments, with the entire experimental
+  log preserved for honest review. The chronicle becomes
+  not just a memory of facts but a memory of which rules
+  worked and which did not — a kind of archaeology of its
+  own decision-making. That is the architectural pattern
+  that lets a knowledge system improve over time without a
+  central decree.
+
+acceptance_criteria:
+  - |
+    All ``prompts/*.md`` files gain a YAML front-matter block
+    with ``agent_id``, ``best_practice_version``,
+    ``best_practice_signature``, ``proteus_eligible``. Hestia
+    + any prompt mentioning person-as-target gets
+    ``proteus_eligible: false``. The signature is computed
+    by a small helper ``proteus.compute_signature(body)``.
+  - |
+    New module ``src/theogony/agents/proteus.py`` exposing:
+    ``maybe_spawn_twin(agent_id, primary_prompt, settings,
+    rng) -> Twin | None`` (decides whether to spawn,
+    returns the deviated prompt and the experiment id).
+    ``compare(primary_result, twin_result, comparator) ->
+    ProteusComparison``. Pure logic; no I/O.
+  - |
+    Pydantic models in ``src/theogony/reporting/models.py``:
+    ``Twin`` (deviated prompt + mutation_pattern + run_id),
+    ``ProteusComparison`` (winner + per-axis breakdown +
+    cost), ``BestPracticeUpdateProposal``,
+    ``ProteusBudgetReport``.
+  - |
+    Six Phase-1 mutation patterns ship in
+    ``src/theogony/agents/proteus_mutations.py``:
+    ``rephrase``, ``add_example``, ``remove_constraint``,
+    ``reorder_sections``, ``increase_specificity``,
+    ``decrease_specificity``. Each is a deterministic
+    function ``(prompt, seed) -> mutated_prompt``.
+  - |
+    Three Phase-1 comparators ship in
+    ``src/theogony/agents/proteus_comparators.py``:
+    ``CitationQualityComparator`` (for synthesizers),
+    ``BriefCompletenessComparator`` (for Hesiod-style
+    document writers — count of required sections present),
+    ``ExtractionYieldComparator`` (for extractors — node
+    count + edge count + confidence-weighted score).
+  - |
+    Settings group ``Settings.proteus`` with: ``twin_fraction``
+    (default 0.05), ``min_sample_size`` (default 30),
+    ``effect_size_threshold`` (default 0.10),
+    ``budget_eur_per_day_cap`` (default 1.0 — twin
+    experiments stop emitting once the daily cap is hit),
+    ``mutation_patterns`` (allow-list).
+  - |
+    ``BestPracticeUpdateProposal`` written to
+    ``settings.run_reports_dir/best_practice_proposals/<id>.json``.
+    Gitignored. ``theogony proteus proposals
+    list/show/promote`` CLI lets the operator inspect
+    drafts and apply the prompt change.
+  - |
+    ``ProteusBudgetReport`` emitted daily;
+    ``theogony proteus budget`` CLI shows running spend.
+  - |
+    Twin invisibility test:
+    ``tests/test_proteus_invisibility.py`` asserts that no
+    twin output ever leaks into the user-facing
+    ``QueryResult.answer.text``, into any
+    ``ConstellationNode``, into any ``KnowledgeEdge``, or
+    into the ``QueryRunReport`` (other than via the
+    explicit ``ProteusComparison`` aggregation, which is
+    in its own report directory).
+  - |
+    Two integration tests:
+    (a) Run 50 paired Hesiod-style prompt invocations with
+    a synthetic mutation that improves brief-completeness;
+    assert a BestPracticeUpdateProposal is emitted with
+    correct sample size and effect size.
+    (b) Run 50 paired invocations with no real signal
+    (random comparator outputs); assert NO
+    BestPracticeUpdateProposal is emitted (false-positive
+    floor).
+  - |
+    Settings opt-out works: ``Settings.proteus.twin_fraction
+    = 0.0`` results in zero twin spawns over 1000 paired
+    invocations.
+  - |
+    Documentation: ``docs/PROTEUS.md`` (new) explains the
+    pattern, the invisibility contract, the comparator
+    library, the proposal review workflow, the
+    ``proteus_eligible`` opt-out. ``docs/HIVE.md`` updated
+    with Proteus row in the agent table.
+    ``docs/PHILOSOPHY.md`` cross-links: "best practices are
+    hypotheses; experiments are how the chronicle improves
+    its own decision-making".
+
+related:
+  - PHX-0035  # Reviewer Agent — natural consumer of ProteusComparison data for retrospective analysis
+  - PHX-0039  # Hestia Curiosity Auditing — Proteus opt-out is the structural sister of the Hestia-checked Curiosity dispatch
+  - PHX-0067  # Eris — sister auditor: Eris probes the chronicle, Proteus probes the prompts
+  - PHX-0068  # Nemesis — sister auditor: Nemesis catches arrogance, Proteus catches obsolescence
+  - PHX-0071  # Mnemosyne — sister auditor: Mnemosyne proposes new architecture; Proteus proposes new prompts
+  - PHX-0007  # Scientific Workbench Agents — Proteus's structured experiment + result + proposal cycle is the same epistemic shape
+
+referenced_in:
+  - "Composer conversation 2026-04-22 — user proposed the twin/A-B-test pattern; Hesiod named the agent Proteus and filed this ticket"
+  - "docs/PHILOSOPHY.md §'Verification Over Authority' — Proteus enforces this against the chronicle's own prompt authority"
+  - "prompts/* — every existing agent prompt becomes a candidate baseline once the front-matter manifest lands"

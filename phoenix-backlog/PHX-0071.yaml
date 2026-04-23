@@ -1,0 +1,207 @@
+id: PHX-0071
+category: vision
+priority: high
+status: open
+generation_target: 2
+title: "Mnemosyne — self-reflective backlog auditor that turns meta-questions into PHX proposals"
+filed_by: hesiod
+created_at: 2026-04-22
+description: |
+  Greek goddess of memory, mother of the nine Muses. In the
+  Pantheon agent roster she occupies the **meta-cognitive**
+  slot: where Mneme (the layer) holds knowledge, Mnemosyne
+  (the agent) holds **knowledge-about-the-organisation-of-
+  knowledge**.
+
+  Today the chronicle has no agent that recognises when a
+  user query (or an agent query) is *about the chronicle
+  itself* — about its schema, its retrieval, its embedding
+  spaces, its workers, its lifecycle, its meta-architecture.
+  Such queries arrive constantly (the 2026-04-22 conversation
+  about heterogeneous embedding dimensions was one). Today
+  they get answered like any other query and the architectural
+  signal evaporates. Tomorrow Mnemosyne catches them, persists
+  them as ``self_referential=True`` nodes, and — when the
+  pattern is strong enough — drafts a Phoenix Backlog proposal
+  for human review.
+
+  She is the **constructive third** in the auditor triad:
+
+  - **Eris** (PHX-0067) — external adversarial probe.
+  - **Nemesis** (PHX-0068) — internal hubris audit.
+  - **Mnemosyne** (this ticket) — internal self-improvement
+    proposal.
+
+  Eris attacks the chronicle from outside; Nemesis catches the
+  chronicle being arrogant; Mnemosyne notices when the
+  chronicle is being asked to grow. All three are read-only
+  by construction; none of them mutate the chronicle directly.
+  The actual schema/architecture changes belong to humans
+  (and, eventually, to specialised builder agents like
+  Daedalus + Talos).
+
+  Mnemosyne's pipeline (Phase-1 sketch):
+
+  1. **Per-query classification.** After every successful
+     ``pantheon_ask``, run a small classifier (cheap LLM call
+     or — Phase-2 — a fine-tuned local model) over
+     ``query + answer + cited_node_ids`` that emits a single
+     boolean: *self-referential to the Chronik?*
+  2. **Persist the meta-flag.** If yes: stamp every cited
+     node with ``properties["self_referential_in_runs"] += [run_id]``
+     and emit a ``MnemosyneObservation`` to disk.
+  3. **Aggregate observations.** A new periodic
+     ``BacklogProposalPhase`` (TickPhase, default-off, daily
+     cadence) scans recent ``MnemosyneObservation``s,
+     clusters them by region descriptor (reusing W3's
+     pattern), and identifies recurring meta-themes.
+  4. **Draft a Phoenix Backlog proposal.** When a meta-theme
+     accumulates ``min_observations`` independent hits within
+     ``window_days``, Mnemosyne drafts a YAML skeleton and
+     persists it as a ``BacklogProposal`` (NOT a real
+     PHX-XXXX yaml — see Knob 4 below). Operator reviews,
+     promotes to PHX, or discards.
+  5. **Hestia review.** Every proposal — like every
+     curiosity-triggered acquisition — passes through
+     Hestia's check (PHX-0039) before becoming actionable.
+     Mnemosyne herself does not file PHX tickets. She
+     proposes; the human (or, much later, an authorised
+     builder agent) decides.
+
+  Reflexive loop: when Mnemosyne is herself the topic of a
+  query (someone asks "how does Mnemosyne classify
+  meta-queries?"), the system handles it like any other
+  query — there is no special bootstrap. Mnemosyne
+  classifies her own description as self-referential too;
+  the proposal output is just slightly more often about
+  Mnemosyne. That is fine and honest.
+
+cost_benefit_guardrails:
+  - |
+    Default classifier path is **pattern-based**, not LLM-based.
+    Cheap regex + heuristic check (does the query mention
+    the substring "Chronik", "Pantheon", "embedding", "schema",
+    "agent", "vector dimension", "OneirosWorker", etc.?).
+    LLM classification is opt-in via
+    ``Settings.mnemosyne.classifier_mode = "llm"`` and only
+    runs when the heuristic is uncertain (a small middle band).
+  - |
+    The ``BacklogProposalPhase`` is **default-off** in
+    ``OneirosSettings.enabled_phases``. Mnemosyne's
+    per-query classification IS default-on (sub-millisecond
+    cost) — the priority signal is always collected even
+    when the proposal pass is not running.
+  - |
+    Per-query overhead bounded: ≤ 1 ms for heuristic
+    classification, ≤ 200 ms for LLM-uncertain-band escalation.
+    The latter is opt-in, rare, and capped at
+    ``Settings.mnemosyne.max_llm_classifications_per_hour``
+    (default 30).
+  - |
+    BacklogProposalPhase output cap:
+    ``Settings.mnemosyne.max_proposals_per_pass`` (default 5)
+    so the operator is never flooded. Top-N by aggregate
+    signal strength; the long tail is summarised in the
+    pass report.
+  - |
+    Drafts go to ``settings.run_reports_dir/backlog_proposals/``,
+    NOT to ``phoenix-backlog/``. The proposal directory is
+    gitignored by default; the operator promotes to a real
+    PHX manually (or via a small helper CLI).
+  - |
+    Read-only by construction. Mnemosyne never mutates a
+    knowledge node beyond the additive
+    ``self_referential_in_runs`` properties append. She
+    never writes to ``phoenix-backlog/``. She never publishes
+    proposals externally.
+
+service_to_humanity: |
+  A planetary knowledge substrate that cannot recognise
+  questions about its own structure cannot improve. Every
+  great human knowledge institution (Wikipedia's policy
+  pages, Linux's mailing-list discussions, scientific
+  meta-research, the IETF process) eventually produces an
+  internal sub-discipline of self-reflection — an explicit,
+  recorded, debate-able layer of "questions about how we
+  organise our questions". Mnemosyne names that layer for
+  Pantheon and gives it an architecturally-supported
+  surface, instead of leaving it scattered across one-off
+  Composer conversations. Without her, every meta-question
+  evaporates the moment the immediate answer is delivered;
+  the system loses the architectural signal it most needs
+  to grow honestly.
+
+acceptance_criteria:
+  - |
+    New module ``src/theogony/agents/mnemosyne.py`` exposing:
+    ``classify_meta_query(query, answer, cited_node_ids,
+    settings) -> MetaClassification`` (pure, fast, no I/O).
+  - |
+    Pydantic models in ``src/theogony/reporting/models.py``:
+    ``MetaClassification`` (verdict: ``self_referential | not |
+    uncertain``, plus optional ``llm_review`` field for the
+    uncertain-band escalation), ``MnemosyneObservation``
+    (per-query record), ``BacklogProposal`` (the YAML-skeleton
+    Pydantic shape), ``MnemosyneAuditReport``.
+  - |
+    ``QueryPipeline._finalize_report`` invokes
+    ``classify_meta_query`` and persists the
+    ``MetaClassification`` alongside the ``QueryRunReport``.
+    The ``self_referential`` flag is also added to the
+    cited nodes' ``properties["self_referential_in_runs"]``
+    via a small store helper.
+  - |
+    New ``BacklogProposalPhase`` (default-off TickPhase) lives
+    at ``src/theogony/agents/mnemosyne_phase.py``. Reuses W3's
+    cadence-check pattern + clustering machinery on the
+    Mnemosyne observations.
+  - |
+    ``BacklogProposal`` is written to
+    ``settings.run_reports_dir/backlog_proposals/<id>.json``
+    AND, optionally, to a ``draft_phx/PHX-DRAFT-<short>.yaml``
+    file (gitignored). The CLI command
+    ``theogony backlog proposals list/show/promote`` lets the
+    operator inspect and promote drafts.
+  - |
+    Settings group ``Settings.mnemosyne`` with: ``enabled``
+    (default true for classification, false for the proposal
+    phase), ``classifier_mode`` (literal heuristic / llm /
+    heuristic_with_llm_fallback, default
+    heuristic_with_llm_fallback), ``window_days`` (default
+    14), ``min_observations_for_proposal`` (default 3),
+    ``max_proposals_per_pass`` (default 5),
+    ``max_llm_classifications_per_hour`` (default 30).
+  - |
+    Two integration tests:
+    (a) Submit 10 synthetic meta-queries to QueryPipeline;
+    assert all are classified self_referential and the
+    cited nodes have the runs appended.
+    (b) Run the BacklogProposalPhase against 10 such
+    observations; assert one BacklogProposal is emitted with
+    the expected ``draft_title``, ``signal_strength``, and
+    contributing run_ids.
+  - |
+    HestiaReview hook: every BacklogProposal carries a
+    ``requires_hestia_review: bool = True`` field by default
+    (Mnemosyne is suggesting a system change — Hestia
+    always gets first read).
+  - |
+    ``docs/HIVE.md`` updated with Mnemosyne row in the agent
+    table. ``docs/GLOSSARY.md`` learns Mnemosyne entry.
+    New ``docs/MNEMOSYNE.md`` documents the meta-cognitive
+    layer. ``docs/PHILOSOPHY.md`` cross-links: "the chronicle
+    grows where it is asked questions about its growth".
+
+related:
+  - PHX-0035  # Reviewer Agent — Mnemosyne is its meta-cognitive cousin (Reviewer reviews answers; Mnemosyne reviews architecture-implications-of-answers)
+  - PHX-0037  # Curiosity Loop — Mnemosyne consumes the result of curiosity-triggered research
+  - PHX-0039  # Hestia Curiosity Auditing — every BacklogProposal goes through Hestia
+  - PHX-0058  # Aggregated Stub Detection (W3) — sister pattern: stubs aggregate, meta-questions aggregate
+  - PHX-0067  # Eris — external adversarial auditor; sister role
+  - PHX-0068  # Nemesis — internal hubris auditor; sister role
+  - PHX-0072  # Proteus — twin-agent A/B testing; consumes Mnemosyne's proposals as one source of "best practice candidates" to test
+
+referenced_in:
+  - "docs/QUESTIONS_FROM_THE_FIELD.md — first manual Mnemosyne-style observation: the embedding-dimensions question"
+  - "Composer conversation 2026-04-22 — user proposed the meta-aware-PHX-filing pattern; Hesiod named the agent Mnemosyne and filed this ticket"
+  - "docs/CURIOSITY.md §'Curiosity and Oneiros' — Mnemosyne is the meta-layer above both"
