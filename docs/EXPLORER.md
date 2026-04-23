@@ -29,6 +29,25 @@ The response payload is shaped for direct visualisation:
 | `entry_plan` | When LLM entry planning is on: `sub_queries`, `rationale`, `used_llm_planner`, `planner_duration_ms` |
 | `verdict` | `QueryRunReport.verdict` |
 
+## Anthropic / real LLM locally
+
+The Explorer runs the same :class:`~theogony.retrieval.pipeline.QueryPipeline` and
+honours :class:`~theogony.config.settings.LLMSettings` (``THEOGONY_LLM__PROVIDER``,
+``THEOGONY_LLM__MODEL_ID``, and the usual API keys). For **full model prose** in the
+answer panel (and optional Chronicle entry planning below), use **`theogony serve`**
+and open ``/cockpit/explorer``. The **standalone** cockpit app keeps the LLM on
+**stub** by design so it stays usable without keys; it does not call Anthropic.
+
+With defaults (provider Anthropic, model **Sonnet 4.6**):
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+# optional: THEOGONY_LLM__MODEL_ID=claude-sonnet-4-6  # same as default when omitted
+theogony serve
+```
+
+Then browse to ``http://127.0.0.1:8000/cockpit/explorer`` (or your configured bind).
+
 ## LLM Chronicle entry planner (optional)
 
 When a **non-stub** LLM is configured and you set:
