@@ -199,6 +199,8 @@ Gated CI ping against the **real** default provider/model so retired or typo mod
 
 The architectural coupling between attention and acquisition. Stub detection on every Constellation produces a structured `StubVerdict`; when the verdict crosses threshold a `CuriosityTrigger` is emitted; Helios dispatches Prometheus → Argus → Jason → Morpheus → Athene to acquire new content in exactly the focused region; the Constellation re-assembles progressively; a `CuriosityRunReport` is emitted per run. Cold regions may be slow, never silent. Generation 1 emits `StubVerdict` as a foothold (no trigger) so calibration data accumulates. See [`CURIOSITY.md`](CURIOSITY.md). Hard dependency on PHX-0039 (Hestia auditing) — neither ships without the other.
 
+**Phase 1 closed (W7-A + W7-B + W8 + W9, see Living Demo Plan):** trigger schema + Argus + HestiaLite + cockpit live stream + reproducible demo. Phase 2 remains open for additional source types and real Hestia (PHX-0039).
+
 ### PHX-0038: Mind-Map Response Format
 
 - **Category**: improvement
@@ -237,6 +239,8 @@ Today's pheromone signal is node-only (`RelevanceTracker.bump`). This ticket ext
 
 **Phase 1 closed (W2 / PHX-0057, PR [#55](https://github.com/theogony-project/theogony/pull/55)):** `pheromone_delta` + `last_traversed` on edges, `ConstellationEdge.edge_id`, `EdgePheromoneTracker`, `PheromoneDecayPhase` (default-off in `enabled_phases`), `pheromone_mode` honoured in `fixed_depth` / `edge_product` / `cluster_narrow`, `QueryPipeline` + API + CLI + MCP plumbing, and [`docs/PHEROMONE.md`](PHEROMONE.md). Phase 2 sub-tickets: per-cluster pheromone spaces, LLM-cited edges, differential bump.
 
+**Frozen for Living Demo W7-W9, may activate post-demo.**
+
 Implementation plugs into the TickPhase pipeline introduced by F2; Slow-path retrieval composes with the F3 strategy protocol via the shared budget.
 
 ### PHX-0058: Aggregated Stub Detection — Recurring Blind Spots
@@ -249,6 +253,8 @@ Implementation plugs into the TickPhase pipeline introduced by F2; Slow-path ret
 [`CURIOSITY.md`](CURIOSITY.md) §"Stub Detection" covers per-query detection. This ticket adds the *aggregation across queries over time* that the user explicitly distinguished (conversation 2026-04-20): a periodic worker scans recent `QueryRunReports`, clusters thin-firing region descriptors by embedding centroid, and emits `BlindSpotReport` records for clusters that recur ≥ K times in N days. These reports are the strategic priority signal PHX-0037's reactive Curiosity Loop currently lacks. Hestia review is mandatory before promotion to actionable status (aggregation amplifies the surveillance risk PHX-0039 catches at the per-trigger level). YAML: [`phoenix-backlog/PHX-0058.yaml`](../phoenix-backlog/PHX-0058.yaml).
 
 **Phase 1 closed (W3 / PHX-0058, PR [#57](https://github.com/theogony-project/theogony/pull/57)):** per-query `StubVerdict` + `RegionDescriptor` on `QueryRunReport`; `ConstellationNode.cluster_id`; `Settings.curiosity`; `BlindSpotAggregationPhase` registered on `DEFAULT_PHASE_REGISTRY` (default-off in `enabled_phases`); HDBSCAN reuse; `RunReportWriter` + CLI (`theogony curiosity blindspots`) + MCP `blindspot` type; [`docs/BLIND_SPOTS.md`](BLIND_SPOTS.md). Phase 2 sub-tickets: NER-fed entity coverage, Hestia review (PHX-0039), differential bump intensity, per-cluster stub statistics.
+
+**Frozen for Living Demo W7-W9, may activate post-demo.**
 
 Implementation plugs into the TickPhase pipeline introduced by F2.
 
@@ -265,6 +271,8 @@ Implementation will plug into the TickPhase pipeline introduced by F2.
 
 **Phase 1 closed (W4 / PHX-0059, PR https://github.com/theogony-project/theogony/pull/63):** `MorpheusAssociator` + `MorpheusPhase` (default-off; embedding-band + co-occurrence signals), `depth_band` schema + `DepthBandPhase` (default-off; one-band-per-tick smoothing; layer transitions follow band crossings), `KnowledgeStore` additions (`list_low_connectivity_nodes`, `find_similar_nodes_in_band`, `update_depth_band`, `list_nodes_by_source_identifier`), pheromone-aware `effective_connectivity`, `OneirosTickReport` breakdown fields, CLI `theogony oneiros tick`, MCP `morpheus_proposals_recent`. Phase 2 sub-tickets: temporal-proximity signal, glossary-mention signal, LLM-driven dreaming (PHX-0004), Athene verification (PHX-0007), `bridge_score`, blind-spot-aware targeting.
 
+**Frozen for Living Demo W7-W9, may activate post-demo.**
+
 ### PHX-0060: Domain Clusters / Cognitive Centers
 
 - **Category**: vision
@@ -279,6 +287,8 @@ Implementation will plug into the TickPhase pipeline introduced by F2.
 **F3 note:** `ClusterNarrowingRetrievalStrategy` ships as a further `RetrievalStrategy` on the F3 protocol.
 
 **Phase 1 (W1) status:** implemented — `ClusteringStrategy` + HDBSCAN/k-means + `ReclusterPhase` + `ClusterIndex` + `ClusterNarrowingRetrievalStrategy`, `cluster_label`, `cross_cluster` on edges, `ClusteringRunReport`. Details: [`CLUSTERING.md`](CLUSTERING.md). Phase 2 sub-tickets: hierarchical centroids, LLM cluster naming, Argonaut sub-agents, soft clustering, `bridge_score`.
+
+**Frozen for Living Demo W7-W9, may activate post-demo.**
 
 ### PHX-0061: Vector-Routed Federation
 
@@ -372,6 +382,8 @@ Hosted MCP runs with `THEOGONY_LLM__PROVIDER=stub`; `StubLLMProvider` returned e
 - **YAML**: [`phoenix-backlog/PHX-0071.yaml`](../phoenix-backlog/PHX-0071.yaml)
 
 Greek goddess of memory; in Pantheon she holds **knowledge about how knowledge is organised**. Phase 1 (W5) ships `MetaQueryClassifier` (heuristic-first + optional rate-limited LLM fallback), `meta_classification` on every `QueryRunReport`, append-only `properties.self_referential_in_runs` on cited nodes when the verdict is `self_referential`, and an optional default-off Oneiros phase `mnemosyne_aggregation` that emits `MnemosyneObservationCluster` reports (reuses W1 HDBSCAN on region descriptors). Phase 2 sub-tickets: BacklogProposal drafter, Hestia review hook, gitignored draft directory write path, `theogony backlog proposals` CLI. Operator doc: [`MNEMOSYNE.md`](MNEMOSYNE.md).
+
+**Frozen for Living Demo W7-W9, may activate post-demo.**
 
 ### PHX-0074: Iris — Pantheon Cockpit (human-facing dashboard)
 

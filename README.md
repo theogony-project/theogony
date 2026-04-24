@@ -157,6 +157,10 @@ python -m theogony.docs_ingest.regenerate
 
 This walks the current repo, extracts the docs structure, embeds with the configured local embedder, and writes `src/theogony/seeds/pantheon_self.jsonl.gz`.
 
+### Living Demo
+
+The **Living Demo** is the closed-loop walkthrough (gap → Argus → HestiaLite → live growth in the Cockpit → better second answer) documented in [`docs/LIVING_DEMO.md`](docs/LIVING_DEMO.md). Follow the operator script in [`demo/living_growth.md`](demo/living_growth.md) after running [`demo/reset_living_growth.sh`](demo/reset_living_growth.sh).
+
 ### MCP server (Claude Desktop, Cursor, Codex, …)
 
 Theogony ships a Model Context Protocol (MCP) server so any MCP-compatible host can discover and call the Chronik as a native tool — no custom integration code.
