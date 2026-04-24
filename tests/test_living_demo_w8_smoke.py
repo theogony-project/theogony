@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.cockpit.test_growth_stream import _stub_argus_session, _stub_gutenberg_cm
+from theogony.agents.llm import StubLLMProvider
 from theogony.config.settings import Settings
 from theogony.curiosity.run_report import CuriosityRunReport
 from theogony.reporting.models import IngestRunReport
@@ -46,6 +47,7 @@ def test_w8_growth_stream_inline_smoke(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """End-to-end growth SSE with stub acquisition; reports land under run_reports_dir."""
+    api_client.app.state.llm = StubLLMProvider(default="")
     monkeypatch.setattr(
         "theogony.cockpit.growth_stream._gutenberg_adapter",
         _stub_gutenberg_cm,

@@ -19,33 +19,28 @@ brief amendment — those are by-design out of scope for slice 1.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from theogony.config.settings import GrowthBridgeSettings
 from theogony.curiosity.trigger import (
     AcquisitionSpec,
     CuriosityTrigger,
     GapClass,
     TriggerBudget,
+    TriggerReason,
 )
 from theogony.reporting.models import RegionDescriptor, StubVerdict
 
 
-def _pick_gap_class(stub_verdict: StubVerdict) -> GapClass:
-    """Deterministic GapClass selection (W7-A Knob 2).
-
-    Priority order is fixed:
-
-    1. ``poor_named_entity_coverage`` → ``ENTITY_UNKNOWN``
-    2. ``low_node_count`` → ``REGION_THIN``
-    3. otherwise → ``EDGE_DENSITY_LOW``
-
-    Every ``StubVerdict`` lands in exactly one class. Adding more
-    vocabulary requires a fresh PHX ticket and a brief amendment.
-    """
-    if stub_verdict.poor_named_entity_coverage:
+def _pick_gap_class(*, stub_verdict: StubVerdict, cited_node_count: int) -> GapClass:
+    """Deterministic GapClass selection (W10 Knob 2)."""
+    if cited_node_count == 0 and stub_verdict.poor_named_entity_coverage:
         return GapClass.ENTITY_UNKNOWN
-    if stub_verdict.low_node_count:
+    if cited_node_count <= 1:
         return GapClass.REGION_THIN
-    return GapClass.EDGE_DENSITY_LOW
+    if stub_verdict.low_edge_density:
+        return GapClass.EDGE_DENSITY_LOW
+    return GapClass.REGION_THIN
 
 
 def _build_acquisition_spec(
@@ -87,17 +82,21 @@ class GrowthBridge:
         *,
         origin_query: str,
         origin_query_run_id: str,
+        answer_verdict: Literal["good", "partial", "poor", "failed"],
+        cited_node_count: int,
         stub_verdict: StubVerdict,
         region_descriptor: RegionDescriptor,
+        explicit_user_request: bool = False,
     ) -> CuriosityTrigger | None:
         """Return a :class:`CuriosityTrigger` if a trigger should fire, else ``None``.
 
-        Decision rules (W7-A Knob 5):
+        Decision rules (W10 Knob 1):
 
         - bridge disabled → ``None``;
-        - stub_signal_strength below threshold → ``None``;
-        - otherwise build the trigger from the deterministic Knob 2 + 3
-          derivations and return it.
+        - ``explicit_user_request`` → emit (skip other checks);
+        - ``answer_verdict in ("partial", "poor", "failed")`` and
+          ``cited_node_count < min_cited_for_no_research`` → emit;
+        - otherwise → ``None``.
 
         ``max_triggers_per_query`` is enforced by the caller because
         this method is, by contract, called at most once per query in
@@ -106,9 +105,18 @@ class GrowthBridge:
         """
         if not self._settings.enabled:
             return None
-        if stub_verdict.stub_signal_strength < self._settings.trigger_threshold:
+
+        trigger_reason: TriggerReason
+        if explicit_user_request:
+            trigger_reason = TriggerReason.USER_REQUEST
+        elif answer_verdict in ("partial", "poor", "failed") and cited_node_count < int(
+            self._settings.min_cited_for_no_research
+        ):
+            trigger_reason = TriggerReason.WEAK_ANSWER
+        else:
             return None
-        gap_class = _pick_gap_class(stub_verdict)
+
+        gap_class = _pick_gap_class(stub_verdict=stub_verdict, cited_node_count=cited_node_count)
         acquisition_spec = _build_acquisition_spec(
             origin_query=origin_query,
             gap_class=gap_class,
@@ -123,6 +131,10 @@ class GrowthBridge:
             stub_signal_strength=stub_verdict.stub_signal_strength,
             proposed_acquisition_spec=acquisition_spec,
             budget=TriggerBudget(),
+            trigger_reason=trigger_reason,
+            answer_verdict=answer_verdict,
+            cited_node_count=cited_node_count,
+            research_plan=None,
         )
 
 

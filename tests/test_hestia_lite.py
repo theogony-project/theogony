@@ -10,6 +10,7 @@ from theogony.curiosity.trigger import (
     CuriosityTrigger,
     GapClass,
     TriggerBudget,
+    TriggerReason,
 )
 from theogony.reporting.models import RegionDescriptor
 
@@ -23,6 +24,9 @@ def _trigger(search_query: str = "safe query") -> CuriosityTrigger:
         stub_signal_strength=0.7,
         proposed_acquisition_spec=AcquisitionSpec(search_query=search_query),
         budget=TriggerBudget(),
+        trigger_reason=TriggerReason.WEAK_ANSWER,
+        answer_verdict="partial",
+        cited_node_count=1,
     )
 
 

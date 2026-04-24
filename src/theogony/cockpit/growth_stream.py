@@ -274,7 +274,7 @@ async def stream_growth_run(
     conversation_messages: list[dict[str, Any]] | None = None,
 ) -> AsyncIterator[bytes]:
     """Stream one inline growth run (query + optional Argus) as SSE bytes."""
-    forced_bridge = GrowthBridge(GrowthBridgeSettings(enabled=True, trigger_threshold=0.0))
+    forced_bridge = GrowthBridge(GrowthBridgeSettings(enabled=True))
     demo_budget = TriggerBudget(
         max_sources_to_fetch=1,
         max_total_bytes=2 * 1024 * 1024,
@@ -356,9 +356,10 @@ async def stream_growth_run(
 
     argus_settings = _force_argus_enabled_settings(settings)
     try:
-        async with _gutenberg_adapter() as adapter, _cockpit_argus_dispatch_session(
-            argus_settings, store, adapter, report_writer
-        ) as argus:
+        async with (
+            _gutenberg_adapter() as adapter,
+            _cockpit_argus_dispatch_session(argus_settings, store, adapter, report_writer) as argus,
+        ):
             result = await argus.process(trig)
     except Exception as exc:
         yield _sse_chunk(

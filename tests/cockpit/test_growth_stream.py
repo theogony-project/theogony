@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tests.cockpit.async_util import run_async
@@ -14,6 +15,7 @@ from tests.test_extraction_pipeline import FakeWikidataClient, _hedin_responses
 from tests.test_living_demo_w7b_smoke import _StubGutenbergAdapter
 from theogony.agents.argus import ArgusAgent, ArgusSettings
 from theogony.agents.hestia_lite import HestiaLiteApproval
+from theogony.agents.llm import StubLLMProvider
 from theogony.clustering.cluster_index import ClusterIndex
 from theogony.cockpit.growth_stream import _PersistingIngestRunner
 from theogony.config.settings import HestiaLiteSettings, Settings
@@ -85,7 +87,11 @@ def test_growth_stream_emits_query_phases_then_complete(
     assert "constellation" in qc
 
 
-def test_growth_stream_emits_trigger_when_thin(cockpit_client: TestClient) -> None:
+def test_growth_stream_emits_trigger_when_thin(
+    cockpit_client: TestClient,
+    api_app: FastAPI,
+) -> None:
+    api_app.state.llm = StubLLMProvider(default="")
     with cockpit_client.stream(
         "POST",
         "/cockpit/api/growth-stream",
@@ -132,8 +138,10 @@ async def _stub_argus_session(
 
 def test_growth_stream_emits_argus_phases_after_trigger(
     cockpit_client: TestClient,
+    api_app: FastAPI,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    api_app.state.llm = StubLLMProvider(default="")
     monkeypatch.setattr(
         "theogony.cockpit.growth_stream._gutenberg_adapter",
         _stub_gutenberg_cm,
@@ -157,8 +165,10 @@ def test_growth_stream_emits_argus_phases_after_trigger(
 
 def test_growth_stream_emits_argus_complete_with_outcome(
     cockpit_client: TestClient,
+    api_app: FastAPI,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    api_app.state.llm = StubLLMProvider(default="")
     monkeypatch.setattr(
         "theogony.cockpit.growth_stream._gutenberg_adapter",
         _stub_gutenberg_cm,

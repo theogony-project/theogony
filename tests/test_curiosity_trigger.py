@@ -19,6 +19,7 @@ from theogony.curiosity.trigger import (
     CuriosityTrigger,
     GapClass,
     TriggerBudget,
+    TriggerReason,
 )
 from theogony.reporting.models import RegionDescriptor
 
@@ -42,6 +43,9 @@ def _trigger() -> CuriosityTrigger:
             rationale="seed_node_count=2",
         ),
         budget=TriggerBudget(),
+        trigger_reason=TriggerReason.WEAK_ANSWER,
+        answer_verdict="partial",
+        cited_node_count=0,
     )
 
 
@@ -91,6 +95,9 @@ class TestSchemaShape:
                 stub_signal_strength=1.5,
                 proposed_acquisition_spec=AcquisitionSpec(search_query="q"),
                 budget=TriggerBudget(),
+                trigger_reason=TriggerReason.WEAK_ANSWER,
+                answer_verdict="partial",
+                cited_node_count=0,
             )
 
     def test_trigger_default_factories_unique(self) -> None:

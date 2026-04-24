@@ -32,6 +32,7 @@ from theogony.curiosity.trigger import (
     CuriosityTrigger,
     GapClass,
     TriggerBudget,
+    TriggerReason,
 )
 from theogony.extraction.pipeline import IngestionPipeline
 from theogony.extraction.resolve import EntityResolver
@@ -97,6 +98,9 @@ async def test_argus_happy_path_smoke(tmp_path: Path) -> None:
         stub_signal_strength=0.9,
         proposed_acquisition_spec=AcquisitionSpec(search_query="Sven Hedin Tibet exploration"),
         budget=TriggerBudget(),
+        trigger_reason=TriggerReason.WEAK_ANSWER,
+        answer_verdict="partial",
+        cited_node_count=0,
     )
     t0 = datetime(2026, 4, 24, 12, 0, 0, tzinfo=UTC)
     t1 = datetime(2026, 4, 24, 12, 0, 2, tzinfo=UTC)

@@ -501,17 +501,12 @@ class StubThresholds(BaseModel):
 
 
 class GrowthBridgeSettings(BaseModel):
-    """Couple stub detection to acquisition triggers (Living Demo W7-A, PHX-0037).
-
-    Default ``enabled=False`` is mandatory: ordinary operation must not
-    emit triggers. The demo path enables it explicitly via
-    ``THEOGONY_CURIOSITY__GROWTH_BRIDGE__ENABLED=true``.
-    """
+    """Couple verdict + user request to acquisition triggers (Wave 2 W10)."""
 
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = False
-    trigger_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
+    min_cited_for_no_research: int = Field(default=3, ge=0, le=20)
     max_triggers_per_query: int = Field(default=1, ge=1, le=5)
 
 

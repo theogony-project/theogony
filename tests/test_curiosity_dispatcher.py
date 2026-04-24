@@ -13,6 +13,7 @@ from theogony.curiosity.trigger import (
     CuriosityTrigger,
     GapClass,
     TriggerBudget,
+    TriggerReason,
 )
 from theogony.reporting.models import RegionDescriptor, new_run_id
 from theogony.reporting.writer import RunReportWriter
@@ -27,6 +28,9 @@ def _minimal_report(search_query: str = "test query") -> CuriosityRunReport:
         stub_signal_strength=0.6,
         proposed_acquisition_spec=AcquisitionSpec(search_query=search_query),
         budget=TriggerBudget(),
+        trigger_reason=TriggerReason.WEAK_ANSWER,
+        answer_verdict="partial",
+        cited_node_count=0,
     )
     t0 = datetime(2026, 1, 1, tzinfo=UTC)
     t1 = datetime(2026, 1, 1, 0, 0, 1, tzinfo=UTC)

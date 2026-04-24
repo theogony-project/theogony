@@ -46,6 +46,112 @@
     logEl.scrollTop = logEl.scrollHeight;
   }
 
+  function showGrowthToast(text) {
+    const host = document.getElementById("explorer-growth-toast-host");
+    if (!host) return;
+    const el = document.createElement("div");
+    el.className =
+      "pointer-events-auto rounded-lg border border-emerald-700/50 bg-slate-900/95 px-3 py-2 text-xs text-emerald-100 shadow-lg";
+    el.textContent = text;
+    host.appendChild(el);
+    setTimeout(() => el.remove(), 7000);
+  }
+
+  function appendGrowthAnswerTurn(payload) {
+    const chatThreadEl = document.getElementById("explorer-chat-thread");
+    if (!chatThreadEl) return;
+    const emptyEl = document.getElementById("explorer-chat-empty");
+    if (emptyEl) emptyEl.classList.add("hidden");
+    const q = String(payload.query || "").trim();
+    const runId = String(payload.run_id || "").trim();
+    const ansText = String((payload.answer && payload.answer.text) || "").trim();
+
+    function addBubble(role, bodyEl) {
+      const wrap = document.createElement("div");
+      wrap.className =
+        "explorer-chat-msg flex flex-col gap-0.5 " + (role === "user" ? "items-end" : "items-start");
+      const bubble = document.createElement("div");
+      bubble.className =
+        role === "user"
+          ? "max-w-[min(92%,28rem)] rounded-2xl rounded-br-md border border-sky-700/40 bg-sky-950/50 px-3 py-2 text-sm text-sky-50/95 shadow-sm"
+          : "max-w-[min(98%,36rem)] w-full rounded-2xl rounded-bl-md border border-slate-600/50 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 shadow-sm";
+      const lab = document.createElement("div");
+      lab.className =
+        "text-[10px] uppercase tracking-wide text-slate-500 mb-0.5 " + (role === "user" ? "text-right" : "");
+      lab.textContent = role === "user" ? "You" : "Chronicle";
+      bubble.appendChild(lab);
+      bubble.appendChild(bodyEl);
+      wrap.appendChild(bubble);
+      chatThreadEl.appendChild(wrap);
+    }
+
+    const userBody = document.createElement("div");
+    userBody.className = "leading-snug break-words text-[13px] whitespace-pre-wrap";
+    userBody.textContent = q;
+    addBubble("user", userBody);
+
+    const asstWrap = document.createElement("div");
+    asstWrap.className = "leading-snug break-words text-[13px] space-y-2";
+    if (!ansText) {
+      const em = document.createElement("span");
+      em.className = "text-slate-500 italic";
+      em.textContent = "(no answer text)";
+      asstWrap.appendChild(em);
+    } else {
+      const prose = document.createElement("div");
+      prose.className = "whitespace-pre-wrap";
+      prose.textContent = ansText;
+      asstWrap.appendChild(prose);
+    }
+    if (runId && q) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = "Research this further";
+      btn.className =
+        "explorer-research-further rounded border border-amber-600/60 bg-amber-950/40 px-2 py-1 text-[11px] text-amber-100 hover:border-amber-400/70";
+      btn.dataset.runId = runId;
+      btn.dataset.query = q;
+      btn.addEventListener("click", onResearchFurtherClick);
+      asstWrap.appendChild(btn);
+    }
+    addBubble("assistant", asstWrap);
+    chatThreadEl.scrollTop = chatThreadEl.scrollHeight;
+  }
+
+  async function onResearchFurtherClick(ev) {
+    const t = ev.currentTarget;
+    if (!(t instanceof HTMLElement)) return;
+    const runId = t.dataset.runId;
+    const query = t.dataset.query;
+    if (!runId || !query) return;
+    t.disabled = true;
+    try {
+      const resp = await fetch("/cockpit/api/research-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ run_id: runId, query: query }),
+      });
+      let data = {};
+      try {
+        data = await resp.json();
+      } catch (_) {
+        /* ignore */
+      }
+      if (!resp.ok) {
+        const detail = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail || "");
+        showGrowthToast("Research request failed: " + (detail || String(resp.status)));
+        t.disabled = false;
+        return;
+      }
+      showGrowthToast(
+        "Research requested. Trigger emitted; planning + acquisition land in W11/W12.",
+      );
+    } catch (err) {
+      showGrowthToast("Research request failed: " + String(err && err.message ? err.message : err));
+      t.disabled = false;
+    }
+  }
+
   function setPhase(name, on) {
     const el = phases[name];
     if (!el) return;
@@ -432,6 +538,7 @@
     }
     if (qEl) qEl.value = "";
     applyPayload(payload);
+    appendGrowthAnswerTurn(payload);
   }
 
   form.addEventListener("submit", growthAsk, true);

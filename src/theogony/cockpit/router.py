@@ -14,6 +14,8 @@ from markdown_it import MarkdownIt
 from starlette.responses import PlainTextResponse
 from starlette.templating import Jinja2Templates
 
+from theogony.agents.factory import build_llm_from_settings
+from theogony.agents.llm import LLMProvider, StubLLMProvider
 from theogony.chronicle.append_fragments import append_text_fragments
 from theogony.cockpit.aggregations import (
     build_hover_lupe_payload,
@@ -31,6 +33,7 @@ from theogony.cockpit.dependencies import (
     require_cockpit_access,
 )
 from theogony.cockpit.explorer import (
+    _build_pipeline,
     explorer_page_context,
     run_explorer_query,
     stream_explorer_ask_sse,
@@ -53,7 +56,9 @@ from theogony.core.model import (
     NodeType,
 )
 from theogony.core.store import KnowledgeStore
+from theogony.curiosity.growth_bridge import GrowthBridge
 from theogony.extraction.embedding import EmbeddingProvider
+from theogony.reporting.models import QueryRunReport
 from theogony.reporting.writer import RunReportWriter
 
 _PKG = Path(__file__).resolve().parent
@@ -577,6 +582,68 @@ def build_cockpit_router() -> APIRouter:
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+
+    @router.post("/api/research-request", response_class=JSONResponse)
+    async def explorer_research_request(
+        request: Request,
+        store: Annotated[KnowledgeStore, Depends(get_store_readonly)],
+        embedder: Annotated[EmbeddingProvider, Depends(get_embedder)],
+        writer: Annotated[RunReportWriter, Depends(get_report_writer)],
+        settings: Annotated[Settings, Depends(get_settings)],
+    ) -> JSONResponse:
+        """Emit a CuriosityTrigger with explicit_user_request=True for the named completed run."""
+        try:
+            body = await request.json()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"invalid json: {exc}") from exc
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="body must be a JSON object")
+        run_id = str(body.get("run_id") or "").strip()
+        query = str(body.get("query") or "").strip()
+        if not run_id or not query:
+            raise HTTPException(status_code=400, detail="run_id and query are required")
+        qpath = writer.directory_for("query") / f"{run_id}.json"
+        if not qpath.is_file():
+            raise HTTPException(status_code=404, detail="query run not found")
+        try:
+            report = QueryRunReport.model_validate_json(qpath.read_text(encoding="utf-8"))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"invalid query report: {exc}") from exc
+        if report.query.strip() != query:
+            raise HTTPException(status_code=400, detail="query does not match saved run")
+        if report.stub_verdict is None or report.region_descriptor is None:
+            raise HTTPException(
+                status_code=422,
+                detail="query run is missing stub_verdict or region_descriptor",
+            )
+        raw_llm = getattr(request.app.state, "llm", None)
+        llm: LLMProvider
+        if raw_llm is not None:
+            llm = raw_llm
+        else:
+            try:
+                llm = build_llm_from_settings(settings)
+            except (ValueError, NotImplementedError):
+                llm = StubLLMProvider(model_id=settings.llm.model_id or "stub-llm")
+        audit = getattr(request.app.state, "audit", None)
+        pipeline = _build_pipeline(
+            settings=settings,
+            store=store,
+            embedder=embedder,
+            llm=llm,
+            audit=audit,
+            report_writer=writer,
+            growth_bridge=GrowthBridge(settings.curiosity.growth_bridge),
+        )
+        trigger = await pipeline.emit_user_research_request(
+            origin_query=query,
+            origin_query_run_id=run_id,
+            answer_verdict=report.verdict,
+            cited_node_count=report.citation_quality.cited_node_count,
+            stub_verdict=report.stub_verdict,
+            region_descriptor=report.region_descriptor,
+        )
+        return JSONResponse({"trigger_id": trigger.trigger_id if trigger else None})
 
     @router.post("/api/chronicle-append", response_class=JSONResponse)
     async def explorer_chronicle_append(

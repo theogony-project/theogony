@@ -312,10 +312,10 @@ class TestGrowthBridge:
         # Empty store → thin retrieval → high stub_signal_strength → trigger.
         store = InMemoryKnowledgeStore()
         writer = RunReportWriter(tmp_path)
-        bridge = GrowthBridge(GrowthBridgeSettings(enabled=True, trigger_threshold=0.0))
+        bridge = GrowthBridge(GrowthBridgeSettings(enabled=True))
         pipeline = _build_pipeline(
             store,
-            "I do not know.",
+            "",
             writer=writer,
             growth_bridge=bridge,
         )

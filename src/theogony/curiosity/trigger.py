@@ -1,5 +1,5 @@
 """
-CuriosityTrigger — typed intent to grow the chronicle (PHX-0037 slice 1, W7-A).
+CuriosityTrigger — typed intent to grow the chronicle (PHX-0037 slice 1, W7-A; W10).
 
 A trigger is the **decision-shaped object** that turns a passive
 ``StubVerdict`` + ``RegionDescriptor`` observation into an auditable
@@ -34,6 +34,41 @@ class GapClass(StrEnum):
     ENTITY_UNKNOWN = "entity_unknown"
     REGION_THIN = "region_thin"
     EDGE_DENSITY_LOW = "edge_density_low"
+
+
+class TriggerReason(StrEnum):
+    WEAK_ANSWER = "weak_answer"
+    USER_REQUEST = "user_request"
+
+
+class ResearchStepKind(StrEnum):
+    WIKIDATA_LOOKUP = "wikidata_lookup"
+    GUTENBERG_SEARCH = "gutenberg_search"
+    WIKIPEDIA_FETCH = "wikipedia_fetch"
+    WEB_FETCH = "web_fetch"
+
+
+class ResearchStep(BaseModel):
+    """One typed planned step. The Planner (W11) constructs this; W10 only defines the shape."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: ResearchStepKind
+    target: str = Field(min_length=1, max_length=500)
+    rationale: str = Field(default="", max_length=500)
+    expected_evidence_kind: Literal[
+        "entity", "biographical", "geographic", "primary_text", "encyclopedic", "current_events"
+    ] = "encyclopedic"
+
+
+class ResearchPlan(BaseModel):
+    """A small typed plan; produced by the LLM planner in W11."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    steps: list[ResearchStep] = Field(default_factory=list, max_length=5)
+    planner_model_id: str = ""
+    planner_cost_eur: float = Field(default=0.0, ge=0.0)
 
 
 class TriggerBudget(BaseModel):
@@ -74,10 +109,19 @@ class CuriosityTrigger(BaseModel):
     proposed_acquisition_spec: AcquisitionSpec
     budget: TriggerBudget
 
+    trigger_reason: TriggerReason
+    answer_verdict: Literal["good", "partial", "poor", "failed"]
+    cited_node_count: int = Field(ge=0)
+    research_plan: ResearchPlan | None = None
+
 
 __all__ = [
     "AcquisitionSpec",
     "CuriosityTrigger",
     "GapClass",
+    "ResearchPlan",
+    "ResearchStep",
+    "ResearchStepKind",
     "TriggerBudget",
+    "TriggerReason",
 ]
