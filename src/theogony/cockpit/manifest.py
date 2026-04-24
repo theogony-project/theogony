@@ -16,14 +16,14 @@ def _default_manifest_markdown() -> str:
     host = socket.gethostname()
     return (
         f"# Manifest of {host}\n\n"
-        "## Primäre Wissensdomäne\n\n"
-        "(declare what knowledge this Pantheon instance is for)\n\n"
-        "## Sprachen\n\n"
-        "- Primär: en\n\n"
-        "## Ausschlüsse\n\n"
-        "(declare what this instance does NOT cover)\n\n"
-        "## Aktualisierungs-Verhalten\n\n"
-        "(declare how new knowledge is acquired)\n"
+        "## Primary knowledge domain\n\n"
+        "(Describe what knowledge this Pantheon instance is for.)\n\n"
+        "## Languages\n\n"
+        "- Primary: en\n\n"
+        "## Exclusions\n\n"
+        "(Describe what this instance does not cover.)\n\n"
+        "## Update policy\n\n"
+        "(Describe how new knowledge is acquired.)\n"
     )
 
 

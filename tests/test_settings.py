@@ -10,6 +10,7 @@ from pydantic import SecretStr
 
 from theogony.config.settings import (
     AnomalyThresholds,
+    ChronicleEntryPlannerSettings,
     EmbeddingSettings,
     IngestStageBaselines,
     IngestVerdictThresholds,
@@ -65,6 +66,10 @@ class TestSettingsDefaults:
 
     def test_default_data_dir_is_data(self) -> None:
         assert Settings().data_dir == Path("data")
+
+    def test_default_chronicle_entry_planner_enabled(self) -> None:
+        assert Settings().retrieval.chronicle_entry_planner.enabled is True
+        assert ChronicleEntryPlannerSettings().enabled is True
 
     def test_no_api_keys_set_by_default(self) -> None:
         s = Settings()

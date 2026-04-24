@@ -22,16 +22,28 @@ from theogony.retrieval.multi_hop import MultiHopResult
 
 log = get_logger("retrieval.chronicle_entry_planner")
 
+_RETRIEVAL_CONTEXT_MARKER = "\n---\nCurrent question:\n"
+
 _PLANNER_SYSTEM = """You plan vector-graph retrieval for the Pantheon Chronik.
 
-Given a user question, output JSON with distinct **search_queries**: short
-English strings (not full sentences) that should each be embedded and used
-as a separate entry point into the knowledge graph. Prefer concrete entity
-names, document titles, doctrine keywords, and complementary angles — avoid
-near-duplicates.
+The input may be a single user turn, OR a long block: rolling summary / prior user &
+assistant turns, then "---" and "Current question:" with the latest user turn
+(Explorer chat). Treat **the entire block** as evidence of intent — not only the
+last line.
 
-The Chronik is self-referential (Theogony docs, prompts, architecture); bias
-queries toward that corpus when the user asks about the system itself."""
+Infer from the **whole thread**: themes already opened, entities and proper names
+on both sides, technical terms the user adopted, implicit constraints, whether the
+user is deepening a topic or changing angle. Turn that understanding into **several
+distinct search_queries** (short phrases, ideally several when any prior context
+exists) so vector search gets **multiple independent hooks** into the graph: core
+concepts, named things, adjacent subtopics, alternate phrasings, and Chronicle-
+specific vocabulary where relevant.
+
+Each string is embedded alone — avoid near-duplicates, avoid one long vague
+sentence; prefer concrete anchors a dense knowledge base would index under.
+
+The Chronik is self-referential (Theogony docs, prompts, architecture); when the
+thread is about the system itself, include seeds that hit that meta-corpus too."""
 
 
 class _PlanPayload(BaseModel):
@@ -74,6 +86,20 @@ def _strip_json_fences(text: str) -> str:
     return t.strip()
 
 
+def anchor_turn_for_subqueries(user_query: str, *, max_chars: int) -> str:
+    """The short latest user line for seeds — not the full retrieval blend (can be 10k+ chars)."""
+    u = (user_query or "").strip()
+    if not u:
+        return ""
+    if _RETRIEVAL_CONTEXT_MARKER in u:
+        tail = u.split(_RETRIEVAL_CONTEXT_MARKER, 1)[-1].strip()
+        if tail:
+            u = tail
+    if len(u) > max_chars:
+        return u[: max_chars - 1].rstrip() + "…"
+    return u
+
+
 def normalize_sub_queries(
     raw: list[str],
     *,
@@ -82,6 +108,7 @@ def normalize_sub_queries(
 ) -> list[str]:
     """Trim, cap length, dedupe (case-fold), cap count, ensure non-empty."""
     uq = user_query.strip()
+    anchor = anchor_turn_for_subqueries(uq, max_chars=limits.max_chars_per_sub_query)
     out: list[str] = []
     seen: set[str] = set()
     max_c = limits.max_chars_per_sub_query
@@ -98,9 +125,13 @@ def normalize_sub_queries(
         if len(out) >= max_n:
             break
     if not out:
-        return [uq] if uq else ["theogony chronicle"]
-    if uq and uq.casefold() not in {x.casefold() for x in out}:
-        out.insert(0, uq)
+        return [anchor] if anchor else ["theogony chronicle"]
+    # Keep model-chosen keywords first in the list; append the short current turn if
+    # there is room (never insert the full multi-turn blend — that broke follow-ups).
+    if anchor and anchor.casefold() not in {x.casefold() for x in out} and len(out) < max_n:
+        out.append(anchor)
+    elif anchor and anchor.casefold() not in {x.casefold() for x in out}:
+        out.insert(0, anchor)
         out = out[:max_n]
     return out
 
@@ -151,11 +182,20 @@ async def plan_chronicle_entry_queries(
     if not uq:
         return ChronicleEntryPlan([""], "", False)
     if isinstance(llm, StubLLMProvider) or not limits.enabled:
-        return ChronicleEntryPlan([uq], "", False)
+        a = anchor_turn_for_subqueries(uq, max_chars=limits.max_chars_per_sub_query)
+        return ChronicleEntryPlan([a] if a else ["theogony chronicle"], "", False)
 
+    follow = _RETRIEVAL_CONTEXT_MARKER in uq
     prompt = (
-        f"User question:\n{uq}\n\n"
-        "Respond with JSON only matching the schema: search_queries (1–8 strings) "
+        f"Retrieval planning input:\n{uq}\n\n"
+        + (
+            "The block above is the **full retrieval context** (summary + dialogue + "
+            "final 'Current question:'). Design search_queries using **everything** in "
+            "it that could matter for recall — not paraphrasing the last sentence alone.\n\n"
+            if follow
+            else ""
+        )
+        + "Respond with JSON only matching the schema: search_queries (1–8 strings) "
         "and optional rationale (one short sentence)."
     )
     try:
@@ -170,10 +210,12 @@ async def plan_chronicle_entry_queries(
         payload = _PlanPayload.model_validate_json(_strip_json_fences(result.text))
     except (ValidationError, json.JSONDecodeError, ValueError, TypeError) as exc:
         log.warning("chronicle entry planner parse failed: %s", exc)
-        return ChronicleEntryPlan([uq], "", False)
+        a = anchor_turn_for_subqueries(uq, max_chars=limits.max_chars_per_sub_query)
+        return ChronicleEntryPlan([a] if a else ["theogony chronicle"], "", False)
     except Exception as exc:  # pragma: no cover - network / vendor
         log.warning("chronicle entry planner LLM failed: %s", exc)
-        return ChronicleEntryPlan([uq], "", False)
+        a = anchor_turn_for_subqueries(uq, max_chars=limits.max_chars_per_sub_query)
+        return ChronicleEntryPlan([a] if a else ["theogony chronicle"], "", False)
 
     normalized = normalize_sub_queries(
         list(payload.search_queries),
@@ -190,6 +232,7 @@ async def plan_chronicle_entry_queries(
 __all__ = [
     "ENTRY_PLAN_JSON_SCHEMA",
     "ChronicleEntryPlan",
+    "anchor_turn_for_subqueries",
     "merge_multi_hop_results",
     "normalize_sub_queries",
     "plan_chronicle_entry_queries",

@@ -24,13 +24,13 @@
     {% if settings.retrieval.chronicle_entry_planner.enabled %}
       <span class="text-emerald-200/80"> · Chronicle entry planner on</span>
     {% else %}
-      <span class="text-slate-500"> · optional: <code class="text-slate-400">THEOGONY_RETRIEVAL__CHRONICLE_ENTRY_PLANNER__ENABLED=true</code></span>
+      <span class="text-slate-500"> · Chronicle entry planner off for this process (env override). Stock default is on; remove <code class="text-slate-400">THEOGONY_RETRIEVAL__CHRONICLE_ENTRY_PLANNER__ENABLED=false</code> or set it to true.</span>
     {% endif %}
   {% endif %}
 </div>
 <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
-  <!-- LEFT: chat + answer -->
-  <section class="lg:col-span-2 flex flex-col gap-3">
+  <!-- LEFT: chat-first column -->
+  <section class="lg:col-span-2 flex flex-col gap-3 min-h-0">
     <header class="flex flex-col gap-1">
       <div class="flex items-baseline gap-2 flex-wrap">
         <h2 class="text-xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500">
@@ -69,49 +69,48 @@
       </button>
     </div>
 
-    <div class="flex items-center justify-between gap-2 mb-1">
-      <span class="text-[11px] text-slate-500">Conversation (server compacts toward ~100k tokens)</span>
-      <button type="button" id="explorer-new-chat"
-        class="text-[11px] px-2 py-0.5 rounded border border-slate-600 text-slate-400 hover:text-amber-200 hover:border-amber-500/40 transition">
-        New chat
-      </button>
-    </div>
-    <div id="explorer-chat-log"
-      class="explorer-glass rounded-lg border border-slate-700/50 p-2 max-h-64 min-h-[4.5rem] overflow-y-auto text-xs text-slate-300 mb-2 space-y-2">
-    </div>
-
-    <form id="explorer-form" class="explorer-glass rounded-lg border border-slate-600/60 p-3 space-y-2">
-      <label for="explorer-q" class="block text-[11px] font-medium text-slate-400 mb-0.5">Your message</label>
-      <textarea id="explorer-q" rows="4"
-        class="w-full min-h-[5.5rem] bg-slate-950/70 border border-slate-600 rounded-md p-2 text-sm text-slate-100
-               focus:outline-none focus:ring-1 focus:ring-amber-400/70 focus:border-amber-400/50"
-        placeholder="Ask a question; follow-ups use the transcript above. Pronouns (e.g. &quot;he&quot;) resolve from prior turns."
-        maxlength="1000"></textarea>
-      <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-        <label class="flex items-center gap-1">k
-          <input id="explorer-k" type="number" value="10" min="1" max="25"
-            class="w-14 bg-slate-950/80 border border-slate-600 rounded px-1 text-slate-100"></label>
-        <label class="flex items-center gap-1">hops
-          <input id="explorer-hops" type="number" value="2" min="0" max="3"
-            class="w-12 bg-slate-950/80 border border-slate-600 rounded px-1 text-slate-100"></label>
-        <label class="flex items-center gap-1" title="Extra post-synthesis &quot;thinking&quot; rounds (0–8); planner may stop early.">
-          think
-          <input id="explorer-thinking-max" type="number" value="2" min="0" max="8"
-            class="w-11 bg-slate-950/80 border border-slate-600 rounded px-1 text-slate-100"></label>
-        <button type="submit"
-          class="ml-auto px-4 py-1.5 rounded-md bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-900 text-sm font-semibold shadow shadow-amber-500/20">
-          Ask
+    <div id="explorer-chat-shell"
+      class="explorer-glass rounded-xl border border-slate-700/60 flex flex-col min-h-[min(62vh,560px)] max-h-[min(78vh,820px)] overflow-hidden shadow-inner shadow-black/20">
+      <div class="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-700/50 bg-slate-950/40 shrink-0">
+        <span class="text-[11px] text-slate-400">Chronicle chat · context compacts toward ~100k tokens server-side</span>
+        <button type="button" id="explorer-new-chat"
+          class="text-[11px] px-2 py-0.5 rounded border border-slate-600 text-slate-400 hover:text-amber-200 hover:border-amber-500/40 transition shrink-0">
+          New chat
         </button>
       </div>
-    </form>
+      <div id="explorer-chat-thread"
+        class="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3 text-sm">
+        <div id="explorer-chat-empty" class="text-slate-500 text-xs italic text-center py-8 px-2">
+          Ask the Chronicle below. Follow-ups stay in this thread; pronouns (e.g. “he”) use prior turns.
+        </div>
+      </div>
+      <form id="explorer-form" class="shrink-0 border-t border-slate-700/50 bg-slate-950/50 p-3 space-y-2">
+        <label for="explorer-q" class="block text-[11px] font-medium text-slate-400">Message</label>
+        <textarea id="explorer-q" rows="3"
+          class="w-full min-h-[4.5rem] bg-slate-950/80 border border-slate-600 rounded-md p-2 text-sm text-slate-100
+                 focus:outline-none focus:ring-1 focus:ring-amber-400/70 focus:border-amber-400/50 resize-y"
+          placeholder="Type a message…"
+          maxlength="1000"></textarea>
+        <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+          <label class="flex items-center gap-1">k
+            <input id="explorer-k" type="number" value="10" min="1" max="25"
+              class="w-14 bg-slate-950/80 border border-slate-600 rounded px-1 text-slate-100"></label>
+          <label class="flex items-center gap-1">hops
+            <input id="explorer-hops" type="number" value="2" min="0" max="3"
+              class="w-12 bg-slate-950/80 border border-slate-600 rounded px-1 text-slate-100"></label>
+          <label class="flex items-center gap-1" title="Extra post-synthesis &quot;thinking&quot; rounds (0–8); planner may stop early.">
+            think
+            <input id="explorer-thinking-max" type="number" value="2" min="0" max="8"
+              class="w-11 bg-slate-950/80 border border-slate-600 rounded px-1 text-slate-100"></label>
+          <button type="submit"
+            class="ml-auto px-4 py-1.5 rounded-md bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-900 text-sm font-semibold shadow shadow-amber-500/20">
+            Send
+          </button>
+        </div>
+      </form>
+    </div>
 
     <div id="explorer-status" class="text-xs text-slate-500 min-h-[1rem] font-mono"></div>
-
-    <article id="explorer-answer"
-      class="explorer-glass rounded-lg border border-slate-700/50 p-3 text-sm leading-relaxed
-             whitespace-pre-wrap text-slate-200 min-h-[9rem]">
-      <span class="text-slate-500 italic">Latest reply (synthesis + citations) appears here after Ask.</span>
-    </article>
 
     <div class="flex flex-wrap gap-2">
       <button type="button" id="explorer-save"
@@ -136,7 +135,7 @@
       <svg id="explorer-graph" class="w-full h-full block"></svg>
       <div id="explorer-legend"
         class="absolute top-2 left-2 text-[10px] text-slate-400 space-x-2 pointer-events-none drop-shadow max-w-[min(100%,18rem)] leading-snug">
-        <span><span class="inline-block w-2 h-2 rounded-full bg-amber-400 align-middle"></span> query</span>
+        <span><span class="inline-block w-2 h-2 rounded-full bg-amber-400 align-middle"></span> query (vector seeds)</span>
         <span><span class="inline-block w-2 h-2 rounded-full bg-emerald-400 align-middle"></span> cited</span>
         <span><span class="inline-block w-2 h-2 rounded-full bg-amber-300/80 align-middle"></span> dashed = vector hit</span>
         <span class="opacity-90">nodes by type (concept=sky, ...)</span>

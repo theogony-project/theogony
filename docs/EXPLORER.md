@@ -54,20 +54,23 @@ theogony serve
 Then browse to ``http://127.0.0.1:8000/cockpit/explorer`` (or your configured bind).
 The Explorer page shows an **Antwortmodus** ribbon (stub vs live LLM) at load time.
 
-## LLM Chronicle entry planner (optional)
+## LLM Chronicle entry planner
 
-When a **non-stub** LLM is configured and you set:
+**On by default** in :class:`~theogony.config.settings.ChronicleEntryPlannerSettings`
+(`enabled=True`). With a **non-stub** LLM, the pipeline asks the model for several
+**short search strings** before retrieval. Each string is embedded and run through
+multi-hop retrieval; hits are **merged by best cosine score per node** so the Chronik
+is not anchored only on the raw user question. The Explorer lists them under
+**Retrieval seeds (Chronicle entry)**.
+
+To turn it off:
 
 ```bash
-export THEOGONY_RETRIEVAL__CHRONICLE_ENTRY_PLANNER__ENABLED=true
+export THEOGONY_RETRIEVAL__CHRONICLE_ENTRY_PLANNER__ENABLED=false
 ```
 
-the pipeline asks the model for several **short search strings** before
-retrieval. Each string is embedded and run through multi-hop retrieval; hits
-are **merged by best cosine score per node** so the Chronik is not anchored
-only on the raw user question. The Explorer shows the chosen strings under
-**Chronik-Einstieg**. Tunables: `THEOGONY_RETRIEVAL__CHRONICLE_ENTRY_PLANNER__MAX_SUB_QUERIES`
-(1–8), `__MAX_CHARS_PER_SUB_QUERY`, `__MAX_PLANNER_TOKENS`.
+Tunables: `THEOGONY_RETRIEVAL__CHRONICLE_ENTRY_PLANNER__MAX_SUB_QUERIES` (1–8),
+`__MAX_CHARS_PER_SUB_QUERY`, `__MAX_PLANNER_TOKENS`.
 
 ## What you see
 
