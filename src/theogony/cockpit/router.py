@@ -35,6 +35,7 @@ from theogony.cockpit.explorer import (
     run_explorer_query,
     stream_explorer_ask_sse,
 )
+from theogony.cockpit.growth_stream import stream_growth_run
 from theogony.cockpit.manifest import ManifestRepository, _default_manifest_markdown
 from theogony.cockpit.sample_mode import (
     cluster_drill_member_cap,
@@ -386,10 +387,12 @@ def build_cockpit_router() -> APIRouter:
     ) -> HTMLResponse:
         llm = getattr(request.app.state, "llm", None)
         ctx = explorer_page_context(settings, llm)
+        raw_growth = (request.query_params.get("growth") or "").strip().lower()
+        growth_enabled = raw_growth in ("on", "true", "1")
         return templates.TemplateResponse(
             request,
             "explorer.html",
-            {"settings": settings, **ctx},
+            {"settings": settings, "growth_enabled": growth_enabled, **ctx},
         )
 
     @router.post("/api/ask", response_class=JSONResponse)
@@ -487,6 +490,73 @@ def build_cockpit_router() -> APIRouter:
 
         async def gen() -> AsyncIterator[bytes]:
             async for chunk in stream_explorer_ask_sse(
+                settings=settings,
+                store=store,
+                embedder=embedder,
+                llm=llm,
+                audit=audit,
+                report_writer=writer,
+                query=query,
+                k=k,
+                hops=hops,
+                thinking_max=thinking_max,
+                conversation_summary=raw_cs,
+                conversation_messages=raw_cm,
+            ):
+                yield chunk
+
+        return StreamingResponse(
+            gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    @router.post("/api/growth-stream")
+    async def explorer_growth_stream(
+        request: Request,
+        store: Annotated[KnowledgeStore, Depends(get_store_readonly)],
+        embedder: Annotated[EmbeddingProvider, Depends(get_embedder)],
+        writer: Annotated[RunReportWriter, Depends(get_report_writer)],
+        settings: Annotated[Settings, Depends(get_settings)],
+    ) -> StreamingResponse:
+        try:
+            body = await request.json()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"invalid json: {exc}") from exc
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="body must be a JSON object")
+        if body.get("growth") is not True:
+            raise HTTPException(
+                status_code=400,
+                detail="use /cockpit/api/ask-stream when growth is not requested",
+            )
+        query = str(body.get("q") or body.get("query") or "")
+        try:
+            k = int(body.get("k", 10))
+            hops = int(body.get("hops", 2))
+            thinking_max = int(body.get("thinking_max", 2))
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"k/hops/thinking_max not int: {exc}",
+            ) from exc
+        raw_cs = body.get("conversation_summary")
+        if raw_cs is not None and not isinstance(raw_cs, str):
+            raise HTTPException(
+                status_code=400,
+                detail="conversation_summary must be a string or null",
+            )
+        raw_cm = body.get("conversation_messages")
+        if raw_cm is not None and not isinstance(raw_cm, list):
+            raise HTTPException(
+                status_code=400,
+                detail="conversation_messages must be an array or null",
+            )
+        llm = getattr(request.app.state, "llm", None)
+        audit = getattr(request.app.state, "audit", None)
+
+        async def gen() -> AsyncIterator[bytes]:
+            async for chunk in stream_growth_run(
                 settings=settings,
                 store=store,
                 embedder=embedder,

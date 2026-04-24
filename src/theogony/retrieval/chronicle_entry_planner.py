@@ -161,10 +161,15 @@ def merge_multi_hop_results(results: list[MultiHopResult], *, cap: int) -> Multi
                     duplicates_removed += 1
                 best[sn.node.id] = sn
     merged = sorted(best.values(), key=lambda x: x.score, reverse=True)[:cap]
+    # PHX-0051: merged multi-seed runs cannot truthfully combine per-hop lists.
+    # A single partial result still carries the strategy's hop visibility unchanged.
+    hop_meta: list[int] | None = None
+    if len(results) == 1:
+        hop_meta = results[0].nodes_per_hop
     return MultiHopResult(
         scored_nodes=merged,
         seed_count=min(total_seeds, len(merged)),
-        nodes_per_hop=None,
+        nodes_per_hop=hop_meta,
         final_node_count=len(merged),
         duplicates_removed=duplicates_removed,
         duration_ms=total_duration,

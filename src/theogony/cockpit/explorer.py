@@ -50,6 +50,7 @@ from theogony.cockpit.explorer_chat import (
 from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
 from theogony.core.store import KnowledgeStore
+from theogony.curiosity.growth_bridge import GrowthBridge
 from theogony.curiosity.stub_detector import StubDetector
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.embedding import EmbeddingProvider
@@ -122,6 +123,7 @@ def _build_pipeline(
     llm: LLMProvider,
     audit: ExtractionAuditLog | None,
     report_writer: RunReportWriter | None,
+    growth_bridge: GrowthBridge | None = None,
 ) -> QueryPipeline:
     """Compose a QueryPipeline that mirrors mcp/server.py wiring."""
     mnemosyne = build_mnemosyne_classifier(settings, llm)
@@ -146,6 +148,7 @@ def _build_pipeline(
         stub_detector=StubDetector(settings.curiosity.stub_thresholds),
         mnemosyne=mnemosyne,
         entry_planner_llm=llm,
+        growth_bridge=growth_bridge,
     )
 
 
@@ -212,6 +215,7 @@ async def run_explorer_query(
     thinking_max: int,
     conversation_summary: str | None = None,
     conversation_messages: list[dict[str, Any]] | None = None,
+    growth_bridge: GrowthBridge | None = None,
 ) -> dict[str, Any]:
     """Run one query and return a JSON-serialisable payload for d3."""
     q = (query or "").strip()
@@ -263,6 +267,7 @@ async def run_explorer_query(
         llm=llm_eff,
         audit=audit,
         report_writer=report_writer,
+        growth_bridge=growth_bridge,
     )
 
     try:
@@ -371,6 +376,7 @@ async def stream_explorer_ask_sse(
     thinking_max: int,
     conversation_summary: str | None = None,
     conversation_messages: list[dict[str, Any]] | None = None,
+    growth_bridge: GrowthBridge | None = None,
 ) -> AsyncIterator[bytes]:
     """SSE-style ``data:`` lines for the Explorer (one POST, streamed body)."""
     payload = await run_explorer_query(
@@ -386,6 +392,7 @@ async def stream_explorer_ask_sse(
         thinking_max=thinking_max,
         conversation_summary=conversation_summary,
         conversation_messages=conversation_messages,
+        growth_bridge=growth_bridge,
     )
     if "error" in payload:
         yield (
