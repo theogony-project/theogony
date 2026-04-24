@@ -410,8 +410,24 @@ def build_cockpit_router() -> APIRouter:
         try:
             k = int(body.get("k", 10))
             hops = int(body.get("hops", 2))
+            thinking_max = int(body.get("thinking_max", 2))
         except (TypeError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=f"k/hops not int: {exc}") from exc
+            raise HTTPException(
+                status_code=400,
+                detail=f"k/hops/thinking_max not int: {exc}",
+            ) from exc
+        raw_cs = body.get("conversation_summary")
+        if raw_cs is not None and not isinstance(raw_cs, str):
+            raise HTTPException(
+                status_code=400,
+                detail="conversation_summary must be a string or null",
+            )
+        raw_cm = body.get("conversation_messages")
+        if raw_cm is not None and not isinstance(raw_cm, list):
+            raise HTTPException(
+                status_code=400,
+                detail="conversation_messages must be an array or null",
+            )
         llm = getattr(request.app.state, "llm", None)
         audit = getattr(request.app.state, "audit", None)
         payload = await run_explorer_query(
@@ -424,6 +440,9 @@ def build_cockpit_router() -> APIRouter:
             query=query,
             k=k,
             hops=hops,
+            thinking_max=thinking_max,
+            conversation_summary=raw_cs,
+            conversation_messages=raw_cm,
         )
         return JSONResponse(payload)
 
@@ -445,8 +464,24 @@ def build_cockpit_router() -> APIRouter:
         try:
             k = int(body.get("k", 10))
             hops = int(body.get("hops", 2))
+            thinking_max = int(body.get("thinking_max", 2))
         except (TypeError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail=f"k/hops not int: {exc}") from exc
+            raise HTTPException(
+                status_code=400,
+                detail=f"k/hops/thinking_max not int: {exc}",
+            ) from exc
+        raw_cs = body.get("conversation_summary")
+        if raw_cs is not None and not isinstance(raw_cs, str):
+            raise HTTPException(
+                status_code=400,
+                detail="conversation_summary must be a string or null",
+            )
+        raw_cm = body.get("conversation_messages")
+        if raw_cm is not None and not isinstance(raw_cm, list):
+            raise HTTPException(
+                status_code=400,
+                detail="conversation_messages must be an array or null",
+            )
         llm = getattr(request.app.state, "llm", None)
         audit = getattr(request.app.state, "audit", None)
 
@@ -461,6 +496,9 @@ def build_cockpit_router() -> APIRouter:
                 query=query,
                 k=k,
                 hops=hops,
+                thinking_max=thinking_max,
+                conversation_summary=raw_cs,
+                conversation_messages=raw_cm,
             ):
                 yield chunk
 

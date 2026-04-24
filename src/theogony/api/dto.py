@@ -59,6 +59,12 @@ class QueryRequest(BaseModel):
     layer: Layer | None = None
     k: int = Field(default=10, ge=1, le=50)
     hops: int = Field(default=2, ge=0, le=4)
+    thinking_max: int | None = Field(
+        default=None,
+        ge=0,
+        le=8,
+        description="Extra post-retrieval LLM rounds; None uses settings.retrieval.chronicle_thinking.max_rounds.",
+    )
     strategy: Literal["fixed_depth", "edge_product", "cluster_narrow"] | None = None
     pheromone_mode: Literal["follow", "ignore", "invert"] = "follow"
 

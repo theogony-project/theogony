@@ -10,8 +10,10 @@ without further round-trips:
 - ``query_embedding_preview``: first ``preview_dim`` (32) coordinates of the
   query vector — enough for a small "vector signature" sparkline without
   shipping the full embedding to the browser
-- ``timing_ms``: stage breakdown (embed / retrieve / synthesize / total)
-- ``retrieval``: ``seed_count``, ``final_node_count``, ``hops``, ``strategy``,
+- ``timing_ms``: stage breakdown (chat prep / embed / retrieve / synthesize / total)
+- ``chat``: rolling summary, ``prior_messages_kept`` (sync after compaction), token estimates
+- ``retrieval``: ``seed_count``, ``final_node_count``, ``hops``, ``k``,
+  ``thinking_max`` (cap on extra post-synthesis rounds), ``strategy``,
   optional ``nodes_per_hop`` (``None`` for ``fixed_depth``)
 - ``entry_plan``: optional LLM-chosen sub-queries when
   ``retrieval.chronicle_entry_planner.enabled`` is true
@@ -19,9 +21,9 @@ without further round-trips:
   produced the answer (UI can warn that prose is a placeholder)
 
 For the SPA, :func:`stream_explorer_ask_sse` emits short **SSE** ``data:``
-lines (embed → retrieve → synthesize phases, then a ``complete`` event with
-the same JSON shape as :func:`run_explorer_query`). ``POST /cockpit/api/ask``
-remains a single JSON round-trip for agents and tests.
+lines (chat compaction → embed → retrieve → synthesize, then a ``complete``
+event with the same JSON shape as :func:`run_explorer_query`).
+``POST /cockpit/api/ask`` remains a single JSON round-trip for agents and tests.
 
 Payloads are passed through :func:`scrub_json_floats` so ``nan`` / ``inf`` scores
 from the store never break JSON encoding (Python 3.13+ rejects them by default).
@@ -35,9 +37,16 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
+from pydantic import ValidationError
+
 from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.llm import LLMProvider, StubLLMProvider
 from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
+from theogony.cockpit.explorer_chat import (
+    parse_explorer_chat_messages,
+    parse_explorer_rolling_summary,
+    prepare_explorer_chat_for_synthesis,
+)
 from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
 from theogony.core.store import KnowledgeStore
@@ -98,6 +107,8 @@ class ExplorerLimits:
     max_k: int = 25
     min_hops: int = 0
     max_hops: int = 3
+    min_thinking_max: int = 0
+    max_thinking_max: int = 8
 
 
 _LIMITS = ExplorerLimits()
@@ -198,6 +209,9 @@ async def run_explorer_query(
     query: str,
     k: int,
     hops: int,
+    thinking_max: int,
+    conversation_summary: str | None = None,
+    conversation_messages: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Run one query and return a JSON-serialisable payload for d3."""
     q = (query or "").strip()
@@ -208,8 +222,40 @@ async def run_explorer_query(
 
     k_eff = max(_LIMITS.min_k, min(_LIMITS.max_k, int(k)))
     hops_eff = max(_LIMITS.min_hops, min(_LIMITS.max_hops, int(hops)))
+    thinking_eff = max(
+        _LIMITS.min_thinking_max,
+        min(_LIMITS.max_thinking_max, int(thinking_max)),
+    )
 
     llm_eff = llm if llm is not None else _resolve_llm(settings, None)
+    chat_block: str | None = None
+    summary_out = ""
+    msgs_out: list[dict[str, Any]] = []
+    chat_meta: dict[str, Any] = {}
+    try:
+        prior = parse_explorer_chat_messages(conversation_messages)
+        summary_in = parse_explorer_rolling_summary(conversation_summary)
+        if prior or summary_in:
+            block, summary_out, turns_out, chat_meta = await prepare_explorer_chat_for_synthesis(
+                rolling_summary=summary_in,
+                prior_messages=prior,
+                llm=llm_eff,
+            )
+            chat_block = block if block.strip() else None
+            msgs_out = [t.model_dump(mode="json") for t in turns_out]
+        else:
+            chat_meta = {
+                "compacted": False,
+                "summarization_ms": 0,
+                "llm_summary_rounds": 0,
+                "stub_dropped_turns": 0,
+                "tokens_estimated_before": 0,
+                "tokens_estimated_after": 0,
+                "chat_prep_total_ms": 0,
+            }
+    except (ValueError, ValidationError) as exc:
+        return {"error": str(exc)}
+
     pipeline = _build_pipeline(
         settings=settings,
         store=store,
@@ -220,7 +266,14 @@ async def run_explorer_query(
     )
 
     try:
-        result = await pipeline.ask(q, layer=None, k=k_eff, hops=hops_eff)
+        result = await pipeline.ask(
+            q,
+            layer=None,
+            k=k_eff,
+            hops=hops_eff,
+            thinking_max=thinking_eff,
+            synthesis_conversation_context=chat_block,
+        )
     except Exception as exc:  # pragma: no cover - surfaced to UI
         log.exception("explorer ask failed")
         return {"error": f"pipeline failed: {exc}"}
@@ -248,6 +301,7 @@ async def run_explorer_query(
         "embed_ms": int(report.embedding_duration_ms),
         "multi_hop_ms": int(report.multi_hop.duration_ms),
         "synthesis_ms": int(report.synthesis.latency_ms),
+        "chat_prep_ms": int(chat_meta.get("chat_prep_total_ms", 0)),
         "total_ms": int(report.duration_s * 1000),
     }
     retrieval = {
@@ -258,6 +312,7 @@ async def run_explorer_query(
         "k": k_eff,
         "strategy": settings.retrieval.strategy,
         "nodes_per_hop": report.multi_hop.nodes_per_hop,
+        "thinking_max": thinking_eff,
     }
     synth_llm = llm_eff
     is_stub = isinstance(synth_llm, StubLLMProvider) or settings.llm.provider == "stub"
@@ -286,6 +341,17 @@ async def run_explorer_query(
         "timing_ms": timing,
         "retrieval": retrieval,
         "entry_plan": result.entry_plan,
+        "chat": {
+            "rolling_summary": summary_out,
+            "prior_messages_kept": msgs_out,
+            "compacted": bool(chat_meta.get("compacted")),
+            "summarization_ms": int(chat_meta.get("summarization_ms", 0)),
+            "llm_summary_rounds": int(chat_meta.get("llm_summary_rounds", 0)),
+            "stub_dropped_turns": int(chat_meta.get("stub_dropped_turns", 0)),
+            "tokens_estimated_before": int(chat_meta.get("tokens_estimated_before", 0)),
+            "tokens_estimated_after": int(chat_meta.get("tokens_estimated_after", 0)),
+            "chat_prep_total_ms": int(chat_meta.get("chat_prep_total_ms", 0)),
+        },
     }
     return scrub_json_floats(out)
 
@@ -301,6 +367,9 @@ async def stream_explorer_ask_sse(
     query: str,
     k: int,
     hops: int,
+    thinking_max: int,
+    conversation_summary: str | None = None,
+    conversation_messages: list[dict[str, Any]] | None = None,
 ) -> AsyncIterator[bytes]:
     """SSE-style ``data:`` lines for the Explorer (one POST, streamed body)."""
     payload = await run_explorer_query(
@@ -313,6 +382,9 @@ async def stream_explorer_ask_sse(
         query=query,
         k=k,
         hops=hops,
+        thinking_max=thinking_max,
+        conversation_summary=conversation_summary,
+        conversation_messages=conversation_messages,
     )
     if "error" in payload:
         yield (
@@ -323,6 +395,7 @@ async def stream_explorer_ask_sse(
         return
     timing = payload["timing_ms"]
     for phase, key in (
+        ("chat_compact", "chat_prep_ms"),
         ("embed", "embed_ms"),
         ("retrieve", "multi_hop_ms"),
         ("synthesize", "synthesis_ms"),

@@ -801,6 +801,16 @@ def ask(
         "--pheromone-mode",
         help="Pheromone semantics: follow | ignore | invert (PHX-0057 Phase 1).",
     ),
+    thinking_max: int | None = typer.Option(
+        None,
+        "--thinking-max",
+        min=0,
+        max=8,
+        help=(
+            "Extra post-retrieval Chronik 'thinking' rounds after the first synthesis "
+            "(0–8). Omit to use settings.retrieval.chronicle_thinking.max_rounds."
+        ),
+    ),
 ) -> None:
     """Ask the Chronik a question and render the cited answer.
 
@@ -825,6 +835,7 @@ def ask(
             store_kind=store_kind,
             strategy=strategy_override,
             pheromone_mode=pm,
+            thinking_max=thinking_max,
         )
     )
 
@@ -876,6 +887,7 @@ async def _run_ask(
     store_kind: str,
     strategy: Literal["fixed_depth", "edge_product", "cluster_narrow"] | None,
     pheromone_mode: Literal["follow", "ignore", "invert"],
+    thinking_max: int | None,
 ) -> None:
     settings = _load_settings()
     audit_path = settings.data_dir / "audit.sqlite"
@@ -927,6 +939,7 @@ async def _run_ask(
                 hops=hops,
                 strategy=strategy,
                 pheromone_mode=pheromone_mode,
+                thinking_max=thinking_max,
             )
 
     _print_ask_result(query=query, result=result)

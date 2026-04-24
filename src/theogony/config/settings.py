@@ -435,6 +435,24 @@ class ChronicleEntryPlannerSettings(BaseModel):
     max_planner_tokens: int = Field(default=600, ge=128, le=2000)
 
 
+class ChronicleThinkingSettings(BaseModel):
+    """Optional post-retrieval refinement rounds (LLM sees constellation, proposes new searches)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_rounds: int = Field(
+        default=0,
+        ge=0,
+        le=8,
+        description=(
+            "Max extra thinking rounds after the first retrieve+assemble+synthesize when "
+            "``thinking_max`` is not passed explicitly to ``QueryPipeline.ask`` (0=off). "
+            "The Explorer defaults ``thinking_max`` to 2 in the request body instead."
+        ),
+    )
+    max_planner_tokens: int = Field(default=640, ge=128, le=2000)
+
+
 class RetrievalSettings(BaseModel):
     """Tunables for the retrieval stack (PHX-0056 Phase 1)."""
 
@@ -447,6 +465,9 @@ class RetrievalSettings(BaseModel):
     cluster_narrow_top_n_clusters: int = Field(default=3, ge=1, le=20)
     chronicle_entry_planner: ChronicleEntryPlannerSettings = Field(
         default_factory=ChronicleEntryPlannerSettings,
+    )
+    chronicle_thinking: ChronicleThinkingSettings = Field(
+        default_factory=ChronicleThinkingSettings,
     )
 
 

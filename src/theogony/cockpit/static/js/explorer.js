@@ -6,12 +6,16 @@
   const qEl = document.getElementById("explorer-q");
   const kEl = document.getElementById("explorer-k");
   const hopsEl = document.getElementById("explorer-hops");
+  const thinkingMaxEl = document.getElementById("explorer-thinking-max");
   const statusEl = document.getElementById("explorer-status");
   const answerEl = document.getElementById("explorer-answer");
   const vectorEl = document.getElementById("explorer-vector");
   const timingEl = document.getElementById("explorer-timing");
   const saveBtn = document.getElementById("explorer-save");
+  const chatLogEl = document.getElementById("explorer-chat-log");
+  const newChatBtn = document.getElementById("explorer-new-chat");
   const phases = {
+    chat: document.getElementById("phase-chat"),
     embed: document.getElementById("phase-embed"),
     retrieve: document.getElementById("phase-retrieve"),
     synth: document.getElementById("phase-synth"),
@@ -39,6 +43,9 @@
   let simulation = null;
   /** @type {object | null} */
   let lastPayload = null;
+  /** @type {{ role: string, content: string }[]} */
+  let chatTurns = [];
+  let rollingSummary = "";
 
   if (saveBtn) {
     if (sampleOnly || !appendEnabled) {
@@ -61,9 +68,46 @@
   }
 
   function resetPhases() {
+    setPhase("chat", false);
     setPhase("embed", false);
     setPhase("retrieve", false);
     setPhase("synth", false);
+  }
+
+  function renderChatLog() {
+    if (!chatLogEl) return;
+    chatLogEl.innerHTML = "";
+    for (const t of chatTurns) {
+      const row = document.createElement("div");
+      const isUser = t.role === "user";
+      row.className =
+        "rounded-md px-2 py-1.5 border " +
+        (isUser
+          ? "border-sky-700/50 bg-sky-950/35 text-sky-100/95 ml-4"
+          : "border-slate-600/50 bg-slate-900/60 text-slate-200 mr-4");
+      const lab = document.createElement("div");
+      lab.className = "text-[9px] uppercase tracking-wider text-slate-500 mb-0.5";
+      lab.textContent = isUser ? "Du" : "Chronik";
+      const body = document.createElement("div");
+      body.className = "whitespace-pre-wrap break-words leading-snug";
+      body.textContent = t.content || "";
+      row.appendChild(lab);
+      row.appendChild(body);
+      chatLogEl.appendChild(row);
+    }
+    chatLogEl.scrollTop = chatLogEl.scrollHeight;
+  }
+
+  function resetExplorerChat() {
+    chatTurns = [];
+    rollingSummary = "";
+    renderChatLog();
+    clearGraph();
+    lastPayload = null;
+    if (answerEl) {
+      answerEl.innerHTML =
+        '<span class="text-slate-500 italic">Neuer Chat — stelle die erste Frage.</span>';
+    }
   }
 
   function setStatus(text, level) {
@@ -112,28 +156,32 @@
       timingEl.textContent = "";
       return;
     }
-    const total = Math.max(1, t.total_ms || 0);
+    const chatMs = t.chat_prep_ms != null ? t.chat_prep_ms : 0;
     const parts = [
+      ["chat", chatMs],
       ["embed", t.embed_ms],
       ["retrieve", t.multi_hop_ms],
       ["synth", t.synthesis_ms],
     ];
+    const barTotal = Math.max(1, parts.reduce((a, p) => a + (p[1] || 0), 0));
     timingEl.innerHTML = `
       <div class="flex gap-1 h-2 rounded overflow-hidden bg-slate-800">
         ${parts
           .map(
             (p, i) =>
               `<div title="${p[0]}: ${p[1]}ms"
-                class="${["bg-sky-500", "bg-emerald-500", "bg-amber-500"][i]}"
-                style="width:${Math.max(2, ((p[1] || 0) / total) * 100)}%"></div>`
+                class="${["bg-indigo-500", "bg-sky-500", "bg-emerald-500", "bg-amber-500"][i]}"
+                style="width:${Math.max(2, ((p[1] || 0) / barTotal) * 100)}%"></div>`
           )
           .join("")}
       </div>
       <div class="text-[10px] text-slate-500 mt-1">
-        ${t.embed_ms}ms embed · ${t.multi_hop_ms}ms retrieve ·
+        ${chatMs}ms chat · ${t.embed_ms}ms embed · ${t.multi_hop_ms}ms retrieve ·
         ${t.synthesis_ms}ms synth · total ${t.total_ms}ms ·
         ${retrieval.seed_count} seeds → ${retrieval.final_node_count} nodes
-        (k=${retrieval.k}, hops=${retrieval.hops}, ${retrieval.strategy})
+        (k=${retrieval.k}, hops=${retrieval.hops}, think≤${
+          retrieval.thinking_max != null ? retrieval.thinking_max : "?"
+        }, ${retrieval.strategy})
       </div>`;
   }
 
@@ -358,14 +406,22 @@
     const nph = retrieval.nodes_per_hop;
     let body;
     if (Array.isArray(nph) && nph.length) {
-      body = `Knoten pro Hop: ${nph.join(" → ")}`;
+      const tm0 =
+        retrieval.thinking_max != null && retrieval.thinking_max !== undefined
+          ? retrieval.thinking_max
+          : "?";
+      body = `Knoten pro Hop: ${nph.join(" → ")} · think≤${tm0}`;
     } else {
       const stratNote =
         strat === "fixed_depth"
           ? `Bei <code class="text-slate-400">fixed_depth</code> enthält der Report keine Liste „Knoten pro Hop“.`
           : "Der Report liefert hier keine „Knoten pro Hop“-Liste.";
+      const tm =
+        retrieval.thinking_max != null && retrieval.thinking_max !== undefined
+          ? retrieval.thinking_max
+          : "?";
       body =
-        `Abruf-Parameter: maximal <strong>${hops}</strong> Hop(s), Strategie <code class="text-slate-400">${strat}</code>. ` +
+        `Abruf-Parameter: maximal <strong>${hops}</strong> Hop(s), bis zu <strong>${tm}</strong> zusätzliche Denk-Runde(n) nach der ersten Synthese, Strategie <code class="text-slate-400">${strat}</code>. ` +
         `${stratNote} ` +
         `Die Zahl <strong>${hops}</strong> begrenzt die Suchtiefe im Store; der d3-Graph zeigt keine getrennte Schicht pro Hop-Stufe, sondern die Konstellation insgesamt.`;
       const hn = Number(hops);
@@ -385,8 +441,12 @@
     const nConstEdges = (payload.constellation.edges || []).length;
     const nSpokes = Math.min(nNodes, 32);
     const hops = payload.retrieval && payload.retrieval.hops != null ? payload.retrieval.hops : "?";
+    const tm =
+      payload.retrieval && payload.retrieval.thinking_max != null
+        ? payload.retrieval.thinking_max
+        : "?";
     setStatus(
-      `verdict=${payload.verdict} · ${nNodes} nodes · ${nConstEdges} graph edges · ${nSpokes} query links · hops≤${hops}`,
+      `verdict=${payload.verdict} · ${nNodes} nodes · ${nConstEdges} graph edges · ${nSpokes} query links · hops≤${hops} · think≤${tm}`,
       "ok"
     );
     const meta = payload.synthesis_meta || {};
@@ -466,6 +526,7 @@
           }
           if (obj.type === "phase") {
             resetPhases();
+            if (obj.phase === "chat_compact") setPhase("chat", true);
             if (obj.phase === "embed") setPhase("embed", true);
             if (obj.phase === "retrieve") setPhase("retrieve", true);
             if (obj.phase === "synthesize") setPhase("synth", true);
@@ -484,6 +545,7 @@
     ev.preventDefault();
     const q = (qEl.value || "").trim();
     if (!q) return;
+    const priorForApi = chatTurns.map((t) => ({ role: t.role, content: t.content }));
     resetPhases();
     setStatus("connecting…");
     answerEl.innerHTML = `<span class="text-slate-500">Listening to the Chronik…</span>`;
@@ -498,6 +560,11 @@
           q,
           k: parseInt(kEl.value, 10) || 10,
           hops: parseInt(hopsEl.value, 10) || 2,
+          thinking_max: thinkingMaxEl
+            ? Math.max(0, Math.min(8, parseInt(thinkingMaxEl.value, 10) || 0))
+            : 2,
+          conversation_summary: rollingSummary || "",
+          conversation_messages: priorForApi,
         }),
       });
     } catch (err) {
@@ -532,12 +599,35 @@
       resetPhases();
       return;
     }
+    const ch = payload.chat || {};
+    if (Array.isArray(ch.prior_messages_kept)) {
+      chatTurns = ch.prior_messages_kept.map((x) => ({
+        role: x.role,
+        content: String(x.content || ""),
+      }));
+    } else {
+      chatTurns = priorForApi.map((x) => ({ role: x.role, content: String(x.content || "") }));
+    }
+    chatTurns.push({ role: "user", content: q });
+    chatTurns.push({
+      role: "assistant",
+      content: (payload.answer && payload.answer.text) || "",
+    });
+    rollingSummary = typeof ch.rolling_summary === "string" ? ch.rolling_summary : rollingSummary;
+    renderChatLog();
+    qEl.value = "";
     applyPayload(payload);
   }
 
   async function saveHypothesis() {
     if (!lastPayload || sampleOnly || !appendEnabled) return;
-    const q = lastPayload.query || "";
+    let q = lastPayload.query || "";
+    for (let i = chatTurns.length - 1; i >= 0; i--) {
+      if (chatTurns[i].role === "user") {
+        q = chatTurns[i].content;
+        break;
+      }
+    }
     const ans = (lastPayload.answer && lastPayload.answer.text) || "";
     const body =
       (ans.trim() ? ans : "") +
@@ -575,6 +665,7 @@
 
   form.addEventListener("submit", ask);
   if (saveBtn) saveBtn.addEventListener("click", saveHypothesis);
+  if (newChatBtn) newChatBtn.addEventListener("click", resetExplorerChat);
 
   document.querySelectorAll("#explorer-examples .explorer-example").forEach((btn) => {
     btn.addEventListener("click", () => {
