@@ -520,11 +520,11 @@ class ArgusSettings(BaseModel):
     min_candidate_score: float = Field(default=0.3, ge=0.0, le=1.0)
 
 
-HestiaAllowlistedSource = Literal["gutenberg", "wikidata"]
+HestiaAllowlistedSource = Literal["gutenberg", "wikidata", "wikipedia"]
 
 
 def _default_hestia_allowlist() -> list[HestiaAllowlistedSource]:
-    return ["gutenberg", "wikidata"]
+    return ["gutenberg", "wikidata", "wikipedia"]
 
 
 class ResearchPlannerSettings(BaseModel):
@@ -545,6 +545,17 @@ class EvaluatorSettings(BaseModel):
 
     enabled: bool = False
     max_total_tokens: int = Field(default=2000, ge=200, le=10000)
+
+
+class HestiaSentinelSettings(BaseModel):
+    """HestiaSentinel per-candidate auditor (Living Demo W12)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    llm_fallback_enabled: bool = True
+    llm_fallback_max_total_tokens: int = Field(default=300, ge=100, le=2000)
+    max_candidate_bytes: int = Field(default=5 * 1024 * 1024, ge=1)
 
 
 class HestiaLiteSettings(BaseModel):
@@ -573,6 +584,7 @@ class CuriositySettings(BaseModel):
     hestia_lite: HestiaLiteSettings = Field(default_factory=HestiaLiteSettings)
     research_planner: ResearchPlannerSettings = Field(default_factory=ResearchPlannerSettings)
     evaluator: EvaluatorSettings = Field(default_factory=EvaluatorSettings)
+    hestia_sentinel: HestiaSentinelSettings = Field(default_factory=HestiaSentinelSettings)
 
 
 class MnemosyneSettings(BaseModel):

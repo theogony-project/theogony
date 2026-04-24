@@ -115,6 +115,9 @@ anthropic = [
 mcp = [
     "mcp>=1.0.0",
 ]
+research = [
+    "trafilatura>=1.12,<2.0",
+]
 
 [project.scripts]
 theogony = "theogony.cli:app"

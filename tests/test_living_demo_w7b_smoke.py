@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+import trafilatura
 
 from tests.test_extraction_pipeline import (
     FakeWikidataClient,
@@ -82,6 +83,74 @@ class _StubGutenbergAdapter:
         return None
 
 
+class _StubWikipediaAdapter:
+    """Offline Wikipedia surface for the living-demo gate (W12)."""
+
+    @property
+    def source_type(self) -> str:
+        return "wikipedia"
+
+    def supports(self, source_type: str) -> bool:
+        return source_type == "wikipedia"
+
+    async def search(self, query: str, *, limit: int = 5) -> list[SourceCandidate]:
+        del query, limit
+        return [
+            SourceCandidate(
+                source_type="wikipedia",
+                identifier="Sven_Hedin",
+                title="Sven Hedin",
+                authors=[],
+                languages=["en"],
+                url="https://en.wikipedia.org/wiki/Sven_Hedin",
+                download_url="https://en.wikipedia.org/wiki/Sven_Hedin",
+                metadata={
+                    "wikipedia_lang": "en",
+                    "wikipedia_pageid": 529134,
+                    "estimated_bytes": 500,
+                    "summary": "explorer",
+                },
+            )
+        ]
+
+    async def acquire(self, candidate: SourceCandidate) -> RawContent:
+        fixture = Path(__file__).resolve().parent / "fixtures" / "wikipedia_sample.html"
+        html = fixture.read_text(encoding="utf-8")
+        text = trafilatura.extract(html, url="https://en.wikipedia.org/wiki/Sven_Hedin") or ""
+        return RawContent(
+            source_type="wikipedia",
+            identifier=candidate.identifier,
+            title=candidate.title,
+            language="en",
+            content=text,
+            content_format="text/plain; charset=utf-8",
+            url=candidate.url,
+            bytes_acquired=len(text.encode("utf-8")),
+            metadata={"wikipedia_lang": "en", "wikidata_qid": "Q154759"},
+        )
+
+    async def aclose(self) -> None:
+        return None
+
+
+class _UnusedWebAdapter:
+    @property
+    def source_type(self) -> str:
+        return "web"
+
+    def supports(self, source_type: str) -> bool:
+        return source_type == "web"
+
+    async def search(self, query: str, *, limit: int = 5) -> list[SourceCandidate]:
+        raise NotImplementedError
+
+    async def acquire(self, candidate: SourceCandidate) -> RawContent:
+        raise AssertionError(candidate)
+
+    async def aclose(self) -> None:
+        return None
+
+
 class _LivingDemoLLM(StubLLMProvider):
     """Stub planner + evaluator JSON for the living-demo gate."""
 
@@ -89,7 +158,7 @@ class _LivingDemoLLM(StubLLMProvider):
         super().__init__(default="")
         self.add_response(
             '{"origin_query"',
-            json.dumps({"selected": [0], "rejected": [], "rationale": "living_demo"}),
+            json.dumps({"selected": [1], "rejected": [], "rationale": "living_demo"}),
         )
 
     async def complete_with_web_search_for_research_plan(
@@ -102,12 +171,19 @@ class _LivingDemoLLM(StubLLMProvider):
         max_total_tokens: int = 4000,
     ) -> tuple[object, ResearchPlannerCost]:
         del system_prompt, user_prompt, max_search_calls, max_total_tokens
-        step = ResearchStep(
-            kind=ResearchStepKind.WIKIDATA_LOOKUP,
-            target="Sven",
-            rationale="living_demo deterministic planner",
-        )
-        body = output_schema(steps=[step])
+        steps = [
+            ResearchStep(
+                kind=ResearchStepKind.WIKIDATA_LOOKUP,
+                target="Sven",
+                rationale="living_demo deterministic planner",
+            ),
+            ResearchStep(
+                kind=ResearchStepKind.WIKIPEDIA_FETCH,
+                target="Sven Hedin",
+                rationale="living_demo wikipedia step",
+            ),
+        ]
+        body = output_schema(steps=steps)
         cost = ResearchPlannerCost(
             usd_cost=0.0, eur_cost=0.0, search_call_count=0, model_id=self.model_id
         )
@@ -144,6 +220,9 @@ async def test_argus_happy_path_smoke(tmp_path: Path) -> None:
                     ),
                     "evaluator": Settings().curiosity.evaluator.model_copy(
                         update={"enabled": True}
+                    ),
+                    "hestia_sentinel": Settings().curiosity.hestia_sentinel.model_copy(
+                        update={"enabled": True, "llm_fallback_enabled": False}
                     ),
                 }
             ),
@@ -192,6 +271,8 @@ async def test_argus_happy_path_smoke(tmp_path: Path) -> None:
         ingest_runner=runner,
         llm=llm,
         wd_client=client,  # type: ignore[arg-type]
+        wikipedia=_StubWikipediaAdapter(),
+        web_fetch=_UnusedWebAdapter(),
     )
     dispatcher = CuriosityDispatcher(reports_dir=tmp_path, argus=argus, writer=writer)
     results = await dispatcher.process_pending(max_triggers=1, dry_run=False)
@@ -206,5 +287,8 @@ async def test_argus_happy_path_smoke(tmp_path: Path) -> None:
     assert on_disk.bytes_acquired == results[0].bytes_acquired
     assert on_disk.decision.hestia_status == "approved"
     assert on_disk.trigger.research_plan is not None
-    assert len(on_disk.trigger.research_plan.steps) >= 1
+    assert len(on_disk.trigger.research_plan.steps) >= 2
+    kinds = {s.kind for s in on_disk.trigger.research_plan.steps}
+    assert ResearchStepKind.WIKIDATA_LOOKUP in kinds
+    assert ResearchStepKind.WIKIPEDIA_FETCH in kinds
     assert on_disk.evaluator_decision is not None

@@ -18,14 +18,20 @@ from typing import Literal, Protocol, runtime_checkable
 from pydantic import BaseModel, ConfigDict, Field
 
 from theogony.acquisition.base import AcquisitionAdapter, SourceCandidate
+from theogony.acquisition.web_fetch import ContentExtractionFailedError, RobotsDisallowedError
 from theogony.agents.argus_ingest_runner import IngestRunner
-from theogony.agents.hestia_lite import HestiaApprovalStatus, HestiaLiteApproval
+from theogony.agents.hestia_lite import (
+    HestiaApproval,
+    HestiaApprovalStatus,
+    HestiaLiteApproval,
+)
+from theogony.agents.hestia_sentinel import HestiaReview, HestiaSentinel
 from theogony.agents.research_evaluator import Evaluator, EvaluatorCandidate, EvaluatorDecision
 from theogony.agents.research_planner import PlannerContext, ResearchPlanner
 from theogony.config.settings import ArgusSettings
 from theogony.curiosity.research_executor import ResearchExecutor
 from theogony.curiosity.run_report import AcquisitionDecision
-from theogony.curiosity.trigger import CuriosityTrigger
+from theogony.curiosity.trigger import CuriosityTrigger, ResearchStep, ResearchStepKind
 from theogony.reporting.models import QueryRunReport
 
 # --- Knob 2: fixed EN+DE stopword list (30 tokens; no NLTK / spaCy) ---
@@ -178,6 +184,16 @@ def _source_from_evaluator_row(ec: EvaluatorCandidate) -> SourceCandidate:
     return SourceCandidate.model_validate(raw)
 
 
+def _hestia_review_to_approval(hr: HestiaReview) -> HestiaApproval:
+    return HestiaApproval(
+        status=HestiaApprovalStatus.APPROVED
+        if hr.decision == "approved"
+        else HestiaApprovalStatus.REJECTED,
+        reason=hr.reason,
+        rule_fired=hr.rule_fired,
+    )
+
+
 class ArgusAgent:
     """Acquisition loop: W11 planner path or W7-B legacy Gutenberg path."""
 
@@ -185,7 +201,7 @@ class ArgusAgent:
         self,
         *,
         adapter: AcquisitionAdapter | None,
-        hestia: HestiaLiteApproval,
+        hestia: HestiaLiteApproval | HestiaSentinel,
         ingest_runner: IngestRunner,
         settings: ArgusSettings,
         use_research_planner: bool = False,
@@ -210,6 +226,43 @@ class ArgusAgent:
         self._executor = executor
         self._evaluator = evaluator
         self._run_reports_dir = run_reports_dir
+
+    async def _hestia_planner_review(
+        self,
+        sel: EvaluatorCandidate,
+        *,
+        ctx: PlannerContext,
+        trigger: CuriosityTrigger,
+    ) -> HestiaApproval:
+        if isinstance(self._hestia, HestiaSentinel):
+            hr = await self._hestia.review(candidate=sel, context=ctx)
+            return _hestia_review_to_approval(hr)
+        source = _source_from_evaluator_row(sel)
+        return self._hestia.review(candidate=source, trigger=trigger)
+
+    async def _hestia_legacy_review(
+        self,
+        *,
+        candidate: SourceCandidate,
+        trigger: CuriosityTrigger,
+    ) -> HestiaApproval:
+        if isinstance(self._hestia, HestiaSentinel):
+            ctx = _planner_context_from_trigger(trigger, None)
+            step = ResearchStep(
+                kind=ResearchStepKind.GUTENBERG_SEARCH,
+                target=candidate.identifier,
+                rationale="legacy_argus_path",
+            )
+            ec = EvaluatorCandidate(
+                source_step=step,
+                candidate_label=candidate.title,
+                summary="; ".join(candidate.authors) if candidate.authors else "",
+                estimated_bytes=int(candidate.metadata.get("estimated_bytes", 0) or 0),
+                metadata={"_source_candidate": candidate.model_dump()},
+            )
+            hr = await self._hestia.review(candidate=ec, context=ctx)
+            return _hestia_review_to_approval(hr)
+        return self._hestia.review(candidate=candidate, trigger=trigger)
 
     async def process(self, trigger: CuriosityTrigger, *, dry_run: bool = False) -> ArgusResult:
         """Run the step machine; never raises — failures become ``ArgusResult``."""
@@ -302,7 +355,7 @@ class ArgusAgent:
                 ingest_error = str(exc)[:500]
                 break
 
-            approval = self._hestia.review(candidate=source, trigger=trig_after_plan)
+            approval = await self._hestia_planner_review(sel, ctx=ctx, trigger=trig_after_plan)
             if approval.status != HestiaApprovalStatus.APPROVED:
                 any_hestia_rejection = True
                 last_decision = _decision_from_candidate(
@@ -326,7 +379,16 @@ class ArgusAgent:
                     evaluator_decision=decision,
                 )
 
-            raw = await self._executor.acquire_source(source)
+            try:
+                raw = await self._executor.acquire_source(source)
+            except (RobotsDisallowedError, ContentExtractionFailedError) as exc:
+                any_hestia_rejection = True
+                last_decision = _decision_from_candidate(
+                    source,
+                    hestia_status="rejected",
+                    hestia_reason=str(exc)[:500],
+                )
+                continue
             if raw.bytes_acquired > trigger.budget.max_total_bytes:
                 return ArgusResult(
                     outcome=ArgusOutcome.BUDGET_EXCEEDED,
@@ -337,8 +399,7 @@ class ArgusAgent:
                     ),
                     bytes_acquired=bytes_total + raw.bytes_acquired,
                     reason=(
-                        f"acquired {raw.bytes_acquired} B > budget "
-                        f"{trigger.budget.max_total_bytes}"
+                        f"acquired {raw.bytes_acquired} B > budget {trigger.budget.max_total_bytes}"
                     ),
                     updated_trigger=trig_after_plan,
                     evaluator_decision=decision,
@@ -389,7 +450,7 @@ class ArgusAgent:
                 outcome=ArgusOutcome.ALL_REJECTED_BY_HESTIA,
                 decision=last_decision,
                 bytes_acquired=0,
-                reason="all selected candidates rejected by HestiaLite",
+                reason="all selected candidates rejected by Hestia",
                 updated_trigger=trig_after_plan,
                 evaluator_decision=decision,
             )
@@ -442,7 +503,7 @@ class ArgusAgent:
                 reason=f"best score {best_score:.4f} < min_candidate_score {thr}",
             )
 
-        approval = self._hestia.review(candidate=best, trigger=trigger)
+        approval = await self._hestia_legacy_review(candidate=best, trigger=trigger)
         if approval.status != HestiaApprovalStatus.APPROVED:
             return ArgusResult(
                 outcome=ArgusOutcome.REJECTED_BY_HESTIA,
