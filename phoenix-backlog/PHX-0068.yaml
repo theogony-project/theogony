@@ -174,6 +174,31 @@ acceptance_criteria:
     overconfidence``). ``docs/GLOSSARY.md`` learns "Nemesis"
     entry. Optional ``docs/NEMESIS.md`` companion document.
 
+wave_3_context: |
+  Nemesis is Living Demo W16 work. In the immune-system doctrine (docs/IMMUNE_SYSTEM.md), she is
+  the antibody-memory layer: a periodic structural auditor that detects recurring pathological
+  patterns even when individual samples look benign.
+
+  Key alignments with the doctrine that revise the original ticket description:
+
+  - Nemesis findings are written as first-class chronicle nodes (Finding typed nodes with
+    finding_type in {"confidence_inflation", "echo_chamber", "pheromone_autobahn",
+    "persistent_contradiction"}), not only as disk reports or HestiaReview escalations.
+  - HestiaReview escalation for critical findings is preserved as an optional escalation
+    channel but is no longer the primary output. The primary output is a Finding node in the
+    chronicle. Mnemosyne reads Nemesis findings as part of her A/B-test loop.
+  - The four audit classes (confidence inflation, echo chambers, pheromone autobahns,
+    persistent contradictions) are retained exactly as specified. They map cleanly to the
+    immune-system doctrine's structural audit mandate.
+  - Nemesis remains structurally read-only with respect to chronicle content. She annotates;
+    Chronos acts on her annotations.
+  - Nemesis coordinates with Chronos: her confidence-inflation and echo-chamber findings are
+    the primary input Chronos uses when deciding whether to demote a node's confidence or
+    write a CONTRADICTS edge.
+
+  The original acceptance criteria are mostly valid; the schema changes (Finding node IDs in
+  the report) and the Chronos coordination interface will be specified in the W16 brief.
+
 related:
   - PHX-0035  # Reviewer Agent — natural consumer of Nemesis audit reports
   - PHX-0039  # Hestia Curiosity Auditing — escalation target for Nemesis findings
