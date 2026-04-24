@@ -92,6 +92,8 @@ This path is about open problems, future directions, and the original conceptual
 - [`PANTHEON_VISION.md`](PANTHEON_VISION.md): Pantheon as planetary chronicle / knowledge substrate (long horizon)
 - [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md): compact doctrine companion to the Pantheon vision
 - [`VISION.md`](VISION.md): the compact vision (Chronik-forward; links upward to Pantheon)
+- [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md): canonical doctrine for defense and self-improvement — pre-gates forbidden, sample-based post-hoc cells (Athene, Chronos, Nemesis, Eris, Mnemosyne) that observe and improve the chronicle
+- [`SELF_MODIFICATION.md`](SELF_MODIFICATION.md): canonical long-horizon doctrine — the Pantheon eventually writes its own next version; conditions and constraints
 - [`PHILOSOPHY.md`](../PHILOSOPHY.md): the civilizational and ethical foundation
 
 ### Deep Concept Documents
