@@ -14,11 +14,14 @@ from contextlib import AbstractContextManager, asynccontextmanager, nullcontext
 from typing import TYPE_CHECKING
 
 from theogony.acquisition.base import AcquisitionAdapter
+from theogony.acquisition.web_fetch import WebFetchAdapter
 from theogony.acquisition.wikidata import WikidataAdapter
+from theogony.acquisition.wikipedia import WikipediaAdapter
 from theogony.agents.argus import ArgusAgent
 from theogony.agents.argus_ingest_runner import IngestRunner, RealIngestRunner
 from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.hestia_lite import HestiaLiteApproval
+from theogony.agents.hestia_sentinel import HestiaSentinel
 from theogony.agents.llm import LLMProvider
 from theogony.agents.research_evaluator import Evaluator
 from theogony.agents.research_planner import ResearchPlanner
@@ -43,10 +46,16 @@ def make_argus_agent(
     ingest_runner: IngestRunner,
     llm: LLMProvider,
     wd_client: WikidataClient,
+    wikipedia: AcquisitionAdapter | None = None,
+    web_fetch: AcquisitionAdapter | None = None,
 ) -> ArgusAgent:
     """Build :class:`ArgusAgent` with W11 planner wiring when settings enable it."""
-    hestia = HestiaLiteApproval(settings.curiosity.hestia_lite)
     use = settings.curiosity.research_planner.enabled and settings.curiosity.evaluator.enabled
+    hestia: HestiaLiteApproval | HestiaSentinel
+    if settings.curiosity.hestia_sentinel.enabled and use:
+        hestia = HestiaSentinel(llm=llm, settings=settings.curiosity.hestia_sentinel)
+    else:
+        hestia = HestiaLiteApproval(settings.curiosity.hestia_lite)
     if not use:
         return ArgusAgent(
             adapter=adapter,
@@ -56,7 +65,14 @@ def make_argus_agent(
             use_research_planner=False,
         )
     wikidata = WikidataAdapter(client=wd_client)
-    executor = ResearchExecutor(wikidata=wikidata, gutenberg=adapter)
+    wiki = wikipedia if wikipedia is not None else WikipediaAdapter()
+    web = web_fetch if web_fetch is not None else WebFetchAdapter()
+    executor = ResearchExecutor(
+        wikidata=wikidata,
+        gutenberg=adapter,
+        wikipedia=wiki,
+        web_fetch=web,
+    )
     planner = ResearchPlanner(llm=llm, settings=settings.curiosity.research_planner)
     evaluator = Evaluator(llm=llm, settings=settings.curiosity.evaluator)
     return ArgusAgent(
@@ -94,7 +110,11 @@ async def argus_dispatch_session(
     )
 
     with ExtractionAuditLog(audit_path) as audit, wd_cache_cm as wd_cache:
-        async with WikidataClient(cache=wd_cache) as wd_client:
+        async with (
+            WikidataClient(cache=wd_cache) as wd_client,
+            WikipediaAdapter() as wiki,
+            WebFetchAdapter() as web,
+        ):
             resolver = EntityResolver(client=wd_client, llm=llm, audit_log=audit)
             cluster_index = ClusterIndex()
             await cluster_index.rebuild_from_store(store)
@@ -114,6 +134,8 @@ async def argus_dispatch_session(
                 ingest_runner=runner,
                 llm=llm,
                 wd_client=wd_client,
+                wikipedia=wiki,
+                web_fetch=web,
             )
 
 

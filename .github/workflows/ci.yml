@@ -110,7 +110,7 @@ jobs:
           key: spacy-${{ runner.os }}-${{ matrix.python-version }}-en_core_web_sm-v1
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,research]"
 
       - name: Install spaCy English model
         # NerExtractor + IngestionPipeline tests load en_core_web_sm
@@ -165,7 +165,7 @@ jobs:
             hf-models-${{ runner.os }}-
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,research]"
 
       - name: Install spaCy English model
         run: python -m spacy download en_core_web_sm
