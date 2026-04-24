@@ -51,6 +51,8 @@ from theogony.clustering.cluster_index import ClusterIndex
 from theogony.clustering.runner import run_one_recluster_pass
 from theogony.config import Settings, setup_logging
 from theogony.core.store import KnowledgeStore
+from theogony.curiosity.argus_wiring import argus_dispatch_session
+from theogony.curiosity.dispatcher import CuriosityDispatcher, pending_curiosity_report_count
 from theogony.curiosity.runner import run_one_aggregation_pass
 from theogony.curiosity.stub_detector import StubDetector
 from theogony.extraction.audit import ExtractionAuditLog
@@ -105,7 +107,10 @@ app.add_typer(reports_app, name="reports")
 curiosity_app = typer.Typer(
     name="curiosity",
     no_args_is_help=True,
-    help="Curiosity signals: blind-spot aggregation over stub QueryRunReports (PHX-0058).",
+    help=(
+        "Curiosity signals: blind-spot aggregation (PHX-0058) and Argus dispatch "
+        "over CuriosityRunReport files (W7-B / PHX-0037)."
+    ),
 )
 app.add_typer(curiosity_app, name="curiosity")
 
@@ -520,6 +525,67 @@ async def _run_blind_spot_aggregation(*, force: bool, store_kind: str) -> None:
             f"{c.stub_signal_strength:.3f}",
         )
     _console.print(Panel.fit(table, title="theogony curiosity blindspots", border_style="green"))
+
+
+@curiosity_app.command("run-pending")
+def curiosity_run_pending(
+    max_n: int = typer.Option(5, "--max", help="Max curiosity reports to process (clamped 1–100)."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Search/score/Hestia only; no acquire/ingest."
+    ),
+    store_kind: str = typer.Option(
+        "memory",
+        "--store",
+        help="Storage backend: neo4j (default ingest path) or memory.",
+    ),
+) -> None:
+    """Process pending CuriosityRunReport files through Argus (Living Demo W7-B)."""
+    if store_kind not in ("neo4j", "memory"):
+        _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
+        raise typer.Exit(code=2)
+    asyncio.run(_run_curiosity_run_pending(max_n=max_n, dry_run=dry_run, store_kind=store_kind))
+
+
+async def _run_curiosity_run_pending(*, max_n: int, dry_run: bool, store_kind: str) -> None:
+    max_n = max(1, min(max_n, 100))
+    settings = _load_settings()
+    report_writer = RunReportWriter(settings.run_reports_dir)
+    if not settings.curiosity.argus.enabled:
+        _console.print(
+            Panel.fit(
+                "[yellow]Argus is disabled[/yellow] — set "
+                "THEOGONY_CURIOSITY__ARGUS__ENABLED=true for the demo path.",
+                title="theogony curiosity run-pending",
+            )
+        )
+        return
+    if pending_curiosity_report_count(settings.run_reports_dir) == 0:
+        _console.print(
+            Panel.fit(
+                "[dim]0 pending curiosity reports[/dim] (none with hestia_status=not_evaluated).",
+                title="theogony curiosity run-pending",
+            )
+        )
+        return
+    async with _open_store(settings, store_kind, settings.embedding.dim) as store, GutenbergAdapter(
+        inter_request_delay_s=0.0
+    ) as adapter, argus_dispatch_session(settings, store, adapter) as argus:
+        dispatcher = CuriosityDispatcher(
+            reports_dir=settings.run_reports_dir,
+            argus=argus,
+            writer=report_writer,
+        )
+        results = await dispatcher.process_pending(max_triggers=max_n, dry_run=dry_run)
+        for r in results:
+            _console.print(f"[cyan]{r.outcome.value}[/cyan] — {r.reason or '(no reason)'}")
+        _console.print(
+            Panel.fit(
+                f"[green]processed={len(results)}[/green]"
+                + (" [dim](dry-run)[/dim]" if dry_run else ""),
+                title="theogony curiosity run-pending",
+                border_style="green",
+            )
+        )
 
 
 async def _run_recluster(*, force: bool, store_kind: str) -> None:
