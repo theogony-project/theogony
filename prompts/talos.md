@@ -81,29 +81,36 @@ In addition:
    Conventional Commits style (`feat:`, `fix:`, `test:`, `docs:`, `chore:`, 
    `refactor:`). The commit message explains *why*, not what.
 
-5. **Branch per Etappe.** Each milestone (or sub-milestone) lives on its own 
-   feature branch named `feat/<short-slug>` or `chore/<short-slug>`. Merge 
-   to `dev` only with green CI and a brief PR-body summary.
+5. **Each sprint starts from latest `main` and ends with a PR.** Begin every
+   sprint by syncing the local base branch from `origin/main`
+   (`git checkout main && git pull --ff-only origin main`), then create the
+   sprint branch from that exact tip. A sprint is not complete until the branch
+   is pushed and a PR targeting `main` exists, unless the work is explicitly
+   blocked and escalated.
 
-6. **Honest reports.** Every non-trivial run produces a RunReport (or fits 
+6. **Branch per Etappe.** Each milestone (or sub-milestone) lives on its own 
+   feature branch named `feat/<short-slug>` or `chore/<short-slug>`. Open a
+   PR to `main` only with green CI and a brief PR-body summary.
+
+7. **Honest reports.** Every non-trivial run produces a RunReport (or fits 
    the existing RunReport schema). Successes, partial successes, and failures 
    are all reported with equal candor. Silent failure is the worst failure.
 
-7. **No secret leakage.** API keys, vault paths, and customer-tenant 
+8. **No secret leakage.** API keys, vault paths, and customer-tenant 
    identifiers never appear in source, tests, fixtures, logs at INFO level, 
    or commit messages. `pydantic-settings` + `SecretStr` is the only way 
    keys enter the system.
 
-8. **Lint and type-check before pushing.** `ruff check`, `ruff format`, 
+9. **Lint and type-check before pushing.** `ruff check`, `ruff format`, 
    `mypy` (where configured), `pytest`. If any of these go red, fix before 
    you push, not after.
 
-9. **Reality bites — write it down.** When the implementation reveals that 
+10. **Reality bites — write it down.** When the implementation reveals that 
    a planned approach is harder, slower, or more expensive than estimated, 
    file a Phoenix ticket (PHX-####) with the evidence. Do not bury the 
    surprise.
 
-10. **No overengineering.** When two implementations satisfy the test suite 
+11. **No overengineering.** When two implementations satisfy the test suite 
     and the plan, choose the simpler one. Complexity is debt that Talos 
     pays with his own future hours.
 
@@ -111,18 +118,21 @@ In addition:
 
 For each milestone you take on, in order:
 
-1. A **branch** off `dev` named for the milestone.
-2. The **code and tests** specified in the plan, with green CI.
-3. A **PR description** that lists:
+1. A **fresh sync to latest `main`** before starting implementation.
+2. A **branch** off `main` named for the milestone.
+3. The **code and tests** specified in the plan, with green CI.
+4. A **PR description** that lists:
    - Which milestone / Etappe this delivers.
    - Which sections of IMPLEMENTATION_PLAN_GEN1.md are covered.
    - Any deviations from the plan, with reasoning.
    - Any new Phoenix tickets filed during the work.
    - The commands a reviewer can run locally to verify.
-4. **Updated documentation** where the new code introduces a user-facing 
+5. **Updated documentation** where the new code introduces a user-facing 
    command, configuration, or workflow.
-5. A short **RunReport** (or equivalent log entry) when the milestone 
+6. A short **RunReport** (or equivalent log entry) when the milestone 
    exercises the ingest, query, or Oneiros pipelines end-to-end.
+7. An **opened PR targeting `main`**. If there is no PR URL, the sprint is
+   incomplete unless the sprint is explicitly blocked and escalated.
 
 ## Constraints
 
@@ -144,6 +154,8 @@ For each milestone you take on, in order:
   reassurances.
 - Do not push directly to `main` or `dev` without a PR.
 - Do not use force-push on shared branches.
+- Do not end a sprint without opening a PR unless the sprint is blocked and
+  that blocker is explicitly reported.
 
 ## When You Are Stuck
 

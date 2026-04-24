@@ -62,10 +62,12 @@ The single most dangerous failure mode is a green CI hiding a real problem. PR #
 
 ### 4. Branch per change, atomic commits, single-issue PRs
 
+- Every sprint starts by syncing the local base branch from `origin/main`: `git checkout main && git pull --ff-only origin main`. The sprint branch is created from that exact tip.
 - New work lives on a branch off `main` named `feat/<slug>`, `fix/<slug>`, `docs/<slug>`, or `chore/<slug>`.
 - Commits are atomic and use Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `refactor:`).
 - Commit messages explain **why**, not what.
 - One coherent change per PR. Do not bundle unrelated work.
+- Every sprint ends with a pushed branch and an opened PR targeting `main`. A sprint without a PR URL is incomplete unless the work is explicitly blocked and that blocker is escalated. The human reviewer should only have to review the PR (and optionally test it), not chase the agent for sprint hygiene.
 - Do not push directly to `main`. Do not force-push shared branches.
 
 ### 5. Lint, type-check, test before pushing
