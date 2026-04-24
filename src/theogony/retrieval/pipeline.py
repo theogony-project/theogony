@@ -51,6 +51,7 @@ from theogony.curiosity.growth_bridge import GrowthBridge
 from theogony.curiosity.region_descriptor import compute_region_descriptor
 from theogony.curiosity.run_report import CuriosityRunReport
 from theogony.curiosity.stub_detector import StubDetector
+from theogony.curiosity.trigger import CuriosityTrigger
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.embedding import EmbeddingProvider, LocalSentenceTransformerEmbedder
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
@@ -570,20 +571,19 @@ class QueryPipeline:
             trigger = self._growth_bridge.maybe_emit(
                 origin_query=query,
                 origin_query_run_id=run_id,
+                answer_verdict=verdict,
+                cited_node_count=cited_count,
                 stub_verdict=stub_verdict,
                 region_descriptor=region_descriptor,
+                explicit_user_request=False,
             )
             if trigger is not None:
-                curiosity_report = CuriosityRunReport(
+                self._write_curiosity_report_for(
+                    trigger,
                     started_at=started_at,
                     finished_at=finished_at,
                     duration_s=duration_s,
-                    status="completed",
-                    verdict="good",
-                    verdict_reasoning="curiosity trigger emitted",
-                    trigger=trigger,
                 )
-                self._report_writer.write(curiosity_report)
 
         meta_classification = await self._mnemosyne.classify(
             query=query,
@@ -625,6 +625,60 @@ class QueryPipeline:
             meta_classification=meta_classification,
             cited_node_ids=list(answer.cited_node_ids),
         )
+
+    def _write_curiosity_report_for(
+        self,
+        trigger: CuriosityTrigger,
+        *,
+        started_at: datetime,
+        finished_at: datetime,
+        duration_s: float,
+    ) -> None:
+        if self._report_writer is None:
+            return
+        curiosity_report = CuriosityRunReport(
+            started_at=started_at,
+            finished_at=finished_at,
+            duration_s=duration_s,
+            status="completed",
+            verdict="good",
+            verdict_reasoning="curiosity trigger emitted",
+            trigger=trigger,
+        )
+        self._report_writer.write(curiosity_report)
+
+    async def emit_user_research_request(
+        self,
+        *,
+        origin_query: str,
+        origin_query_run_id: str,
+        answer_verdict: Literal["good", "partial", "poor", "failed"],
+        cited_node_count: int,
+        stub_verdict: StubVerdict,
+        region_descriptor: RegionDescriptor,
+    ) -> CuriosityTrigger | None:
+        """Emit a trigger as if the user clicked 'research this further'."""
+        if self._growth_bridge is None or self._report_writer is None:
+            return None
+        trigger = self._growth_bridge.maybe_emit(
+            origin_query=origin_query,
+            origin_query_run_id=origin_query_run_id,
+            answer_verdict=answer_verdict,
+            cited_node_count=cited_node_count,
+            stub_verdict=stub_verdict,
+            region_descriptor=region_descriptor,
+            explicit_user_request=True,
+        )
+        if trigger is None:
+            return None
+        now = datetime.now(UTC)
+        self._write_curiosity_report_for(
+            trigger,
+            started_at=now,
+            finished_at=now,
+            duration_s=0.0,
+        )
+        return trigger
 
 
 async def build_pipeline_from_settings(

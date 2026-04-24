@@ -18,8 +18,8 @@ from theogony.agents.llm import LLMProvider, StubLLMProvider
 from theogony.config.logging import get_logger
 from theogony.config.settings import ChronicleEntryPlannerSettings, ChronicleThinkingSettings
 from theogony.core.model import Constellation
-from theogony.retrieval.synthesize import Answer
 from theogony.retrieval.chronicle_entry_planner import normalize_sub_queries
+from theogony.retrieval.synthesize import Answer
 
 log = get_logger("retrieval.chronicle_thinking")
 
@@ -128,7 +128,7 @@ async def plan_chronicle_thinking_refine(
     prompt = (
         "Retrieval summary (JSON):\n"
         f"{json.dumps(context, ensure_ascii=False)}\n\n"
-        "Respond with JSON only: {\"continue\": boolean, "
+        'Respond with JSON only: {"continue": boolean, '
         '"search_queries": string[] (only if continue is true), '
         '"rationale": string (optional)}.'
     )
@@ -151,7 +151,9 @@ async def plan_chronicle_thinking_refine(
 
     duration_ms = int((time.perf_counter() - t0) * 1000)
     if not payload.continue_retrieval:
-        return ChronicleThinkingRefine(False, [], (payload.rationale or "").strip(), duration_ms, True)
+        return ChronicleThinkingRefine(
+            False, [], (payload.rationale or "").strip(), duration_ms, True
+        )
 
     normalized = normalize_sub_queries(
         list(payload.search_queries),

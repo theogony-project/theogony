@@ -54,12 +54,12 @@ async def test_growth_bridge_demo_path_smoke(tmp_path: Path) -> None:
     """W7-A demo path: a thin query enabled-bridge produces a curiosity report on disk."""
     store = InMemoryKnowledgeStore()
     writer = RunReportWriter(tmp_path)
-    bridge = GrowthBridge(GrowthBridgeSettings(enabled=True, trigger_threshold=0.0))
+    bridge = GrowthBridge(GrowthBridgeSettings(enabled=True))
     pipeline = QueryPipeline(
         embedder=_ConstantEmbedder(),
         retriever=MultiHopRetriever(store),
         assembler=ConstellationAssembler(store),
-        synthesizer=AnswerSynthesizer(StubLLMProvider(default="I do not know.")),
+        synthesizer=AnswerSynthesizer(StubLLMProvider(default="")),
         relevance=RelevanceTracker(store),
         settings=Settings(),
         report_writer=writer,
@@ -75,7 +75,8 @@ async def test_growth_bridge_demo_path_smoke(tmp_path: Path) -> None:
     report = CuriosityRunReport.model_validate_json(files[0].read_text(encoding="utf-8"))
     assert report.report_type == "curiosity"
     assert report.trigger.origin_query.startswith("Who was Sven Hedin")
-    # Empty chronicle ⇒ low_node_count ⇒ REGION_THIN per Knob 2 priority 2.
+    # Empty chronicle + empty synthesis ⇒ failed verdict, weak-answer gate;
+    # gap_class REGION_THIN per W10 Knob 2 (cited=0, no entity-unknown pair).
     assert report.trigger.gap_class == GapClass.REGION_THIN
     # The W7-A trigger carries no acquisition decision yet — that is W7-B.
     assert report.decision.hestia_status == "not_evaluated"

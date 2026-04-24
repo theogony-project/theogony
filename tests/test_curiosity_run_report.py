@@ -22,6 +22,7 @@ from theogony.curiosity.trigger import (
     CuriosityTrigger,
     GapClass,
     TriggerBudget,
+    TriggerReason,
 )
 from theogony.reporting.models import RegionDescriptor
 from theogony.reporting.writer import RunReportWriter
@@ -39,6 +40,9 @@ def _trigger() -> CuriosityTrigger:
             rationale="seed_node_count=1",
         ),
         budget=TriggerBudget(),
+        trigger_reason=TriggerReason.WEAK_ANSWER,
+        answer_verdict="partial",
+        cited_node_count=1,
     )
 
 
