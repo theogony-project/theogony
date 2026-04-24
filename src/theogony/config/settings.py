@@ -515,6 +515,32 @@ class GrowthBridgeSettings(BaseModel):
     max_triggers_per_query: int = Field(default=1, ge=1, le=5)
 
 
+class ArgusSettings(BaseModel):
+    """Argus acquisition agent (Living Demo W7-B, PHX-0037 slice 2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    search_limit: int = Field(default=5, ge=1, le=25)
+    min_candidate_score: float = Field(default=0.3, ge=0.0, le=1.0)
+
+
+def _default_hestia_allowlist() -> list[Literal["gutenberg"]]:
+    return ["gutenberg"]
+
+
+class HestiaLiteSettings(BaseModel):
+    """HestiaLite governance (Living Demo W7-B).
+
+    ``blocked_keywords`` are intentionally a module constant in
+    ``hestia_lite.py`` (``BLOCKED_KEYWORDS``) — not configurable via env.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    allowlist: list[Literal["gutenberg"]] = Field(default_factory=_default_hestia_allowlist)
+
+
 class CuriositySettings(BaseModel):
     """Stub detection + blind-spot aggregation (PHX-0058 Phase 1 / W3)."""
 
@@ -525,6 +551,8 @@ class CuriositySettings(BaseModel):
     min_hits: int = Field(default=3, ge=2)
     aggregation_interval_s: float = Field(default=86400.0, ge=0.0)
     growth_bridge: GrowthBridgeSettings = Field(default_factory=GrowthBridgeSettings)
+    argus: ArgusSettings = Field(default_factory=ArgusSettings)
+    hestia_lite: HestiaLiteSettings = Field(default_factory=HestiaLiteSettings)
 
 
 class MnemosyneSettings(BaseModel):
