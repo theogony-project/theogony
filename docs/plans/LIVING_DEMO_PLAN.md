@@ -1,7 +1,7 @@
 # Living Demo Plan
 
-**Status:** binding execution plan for W7-W9.  
-**Purpose:** replace broad roadmap language with a narrow build sequence that produces the first honest living Pantheon demo.  
+**Status:** binding execution plan. Wave 1 (W7-W9) shipped; Wave 2 (W10-W13) is in progress.
+**Purpose:** replace broad roadmap language with a narrow build sequence that produces the first honest living Pantheon demo.
 **Supersedes:** former `docs/plans/AUTONOMOUS_CHRONICLE_GROWTH_ROADMAP.md`.
 
 ## Why this plan exists
@@ -251,8 +251,109 @@ W7-W9 is complete only when all of the following are true:
 5. Re-asking in the same region yields a visibly better cited answer.
 6. The recording script can be executed honestly without hidden operator steps.
 
-## Next step after this document lands
+## Wave 1 — what shipped, what it lacked
 
-The next plan-mode round drafts `docs/etappes/W7A_curiosity_trigger_brief.md`.
+W7-A through W9 all merged on `main` (PRs #89, #90, #91, #92). The closed loop technically works: a query that triggers can drive Argus through Hestia into the existing ingest pipeline, with phases visible in the cockpit. The demo recording can be rehearsed end-to-end without manual intervention.
 
-Talos does **not** start in auto-mode before that W7-A brief exists, is locked, and is explicitly approved.
+Honest postmortem of what Wave 1 still does not deliver:
+
+- **Trigger fires on the wrong signal.** The W7-A bridge gates on `stub_signal_strength` (constellation thinness). In practice it fires even when the answer was strong — observed live as `verdict=good, nodes=10, edges=9, cited=7` followed by a Gutenberg search that returned zero. The trigger should respond to whether the answer actually held, not to graph topology.
+- **Argus is single-source lookup, not research.** The W7-B brief locked Argus to `source_type="gutenberg"`, with the user query passed verbatim as a Gutendex search string. Natural-language queries like "What does Daedalus do?" have no business being passed to a 19th-century-book catalogue, and the result is "0 candidates" theatre. This is the dominant failure of the Wave 1 demo.
+- **Hestia is a whitelist gatekeeper, not a per-candidate auditor.** The W7-B HestiaLite blocks unknown source types instead of evaluating individual sources for individual safety questions. That contradicts the Pantheon vision of governed-but-permissive autonomy.
+- **The SSE vocabulary makes lookup look like failure.** "search → 0 candidates → done" reads as "the system tried and gave up", not as "the system researched the question and concluded no Gutenberg book matched". Phase names matter for the demo.
+
+Wave 2 fixes those four problems in the smallest cohesive shape that still yields a recording you would actually publish.
+
+---
+
+## Wave 2 — locked decisions
+
+User approval recorded in the Hesiod-2 design conversation of 2026-04-24:
+
+1. **Trigger semantics.** The bridge fires only when the synthesized answer's verdict is `partial` or `poor`, OR when the user explicitly clicks "research this further" in the cockpit. No automatic research on `verdict=good`.
+2. **Research planning is LLM-driven.** A small Anthropic call per trigger decomposes (origin_query, gap_summary) into 1-3 typed `ResearchStep`s. Cap: one planner call + one evaluator call per trigger. Budget: ~0.005 EUR per trigger.
+3. **No source allowlist.** Web search is enabled. Argus may use any source type. Wikidata identifiers are cross-referenced wherever possible (the existing `extraction/wikidata_client.py` infrastructure already supports this). HestiaLite is replaced by `HestiaSentinel`, which audits per-candidate (URL, content, claim profile) using deterministic defensive rules first and a small Sonnet 4.6 fallback for the unsure cases (~10% of candidates).
+4. **Web search uses the LLM provider's native web_search tool**, not a separate Brave / DuckDuckGo adapter. Anthropic Sonnet 4.6 ships a `web_search` server tool; the planner uses it directly. We remain provider-portable but skip a second vendor relationship.
+5. **Web fetch uses `httpx` + `trafilatura`** for robots-aware retrieval and clean main-content extraction. New repo dependency, the right one.
+
+---
+
+## Wave 2 — closed loop architecture
+
+```mermaid
+flowchart TD
+    answer{Answer verdict?}
+    user_click[User clicks 'research this further']
+    bridge[GrowthBridge emits CuriosityTrigger]
+    planner[ResearchPlanner LLM Sonnet 4.6 + web_search tool]
+    plan[ResearchPlan: 1-3 typed steps]
+    exec[ResearchExecutor]
+    wd[WikidataAdapter wraps existing client]
+    gut[GutenbergAdapter existing]
+    wp[WikipediaAdapter NEW REST]
+    wf[WebFetchAdapter NEW httpx + robots + trafilatura]
+    sentinel[HestiaSentinel deterministic + LLM fallback]
+    eval[Evaluator LLM ranks + selects]
+    ingest[IngestionPipeline + Wikidata cross-reference]
+    grow[Chronik grows]
+
+    answer -->|good| skip[No research]
+    answer -->|partial or poor| bridge
+    user_click --> bridge
+    bridge --> planner
+    planner --> plan
+    plan --> exec
+    exec --> wd
+    exec --> gut
+    exec --> wp
+    exec --> wf
+    wd --> sentinel
+    gut --> sentinel
+    wp --> sentinel
+    wf --> sentinel
+    sentinel --> eval
+    eval --> ingest
+    ingest --> grow
+```
+
+---
+
+## Wave 2 — execution plan (W10-W13)
+
+| Sprint | Focus | New brief | Approx LOC |
+|---|---|---|---|
+| **W10** | Trigger-semantics fix (verdict-based + manual cockpit button), `ResearchPlan` schema, deprecate the W7-A constellation-thinness gate. | `docs/etappes/W10_research_trigger_semantics_brief.md` | ~300 |
+| **W11** | `ResearchPlanner` (LLM with `web_search` tool), `Evaluator` (LLM ranker), `WikidataAdapter` thin wrapper. | `docs/etappes/W11_research_planner_brief.md` | ~500 |
+| **W12** | `WikipediaAdapter`, `WebFetchAdapter` (httpx + robots + trafilatura), `HestiaSentinel` replaces HestiaLite. | `docs/etappes/W12_web_fetch_hestia_sentinel_brief.md` | ~600 |
+| **W13** | New SSE vocabulary, cockpit panel rework, new 3-minute recording. | `docs/etappes/W13_research_demo_relock_brief.md` | ~300 + docs |
+
+---
+
+## Stop list (Wave 2)
+
+The Wave 1 stop list above stays in force. Add for Wave 2:
+
+- No new LLM provider. Sonnet 4.6 only. (Settings remain provider-agnostic; default is fixed.)
+- No new web-search vendor. Tool-use only.
+- No HestiaLite extension; W12 replaces it cleanly.
+- No new Pantheon agents besides what is named in the brief table. Prometheus/Jason/Athene stay mythology until Wave 3 at the earliest.
+- No backlog clean-up PR during W10-W13. After W13 only.
+
+---
+
+## What W7-W9 code stays in place vs gets refactored
+
+- `src/theogony/curiosity/trigger.py` — schema **extended** (a `ResearchPlan` field is added in W10); existing fields stay.
+- `src/theogony/curiosity/growth_bridge.py` — gate **rewritten** in W10 (verdict instead of stub_signal_strength); module stays.
+- `src/theogony/agents/argus.py` — **refactored** in W11; stops being a Gutenberg-only single-step lookup, becomes the executor of a `ResearchPlan` over a pluggable `AcquisitionAdapter` set.
+- `src/theogony/agents/hestia_lite.py` — **deleted** in W12, replaced by `src/theogony/agents/hestia_sentinel.py`.
+- `src/theogony/curiosity/argus_wiring.py`, `dispatcher.py`, `runner.py` — adjusted to the new entry point.
+- `src/theogony/cockpit/growth_stream.py` — **vocabulary updated** in W13.
+
+The branch / PR pattern remains identical to Wave 1: each sprint a separate branch off latest `main`, ending with a PR Hesiod-2 reviews against the brief.
+
+---
+
+## Next step after this Wave 2 plan amendment lands
+
+Talos picks up `docs/etappes/W10_research_trigger_semantics_brief.md` first, from a fresh sync of `main`. The four briefs land on `main` together with this plan amendment in one PR; Talos does not begin W10 before that PR is merged.
