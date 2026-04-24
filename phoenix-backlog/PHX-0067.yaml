@@ -186,3 +186,32 @@ referenced_in:
   - "Composer conversation 2026-04-21 — user identified the missing white-hat / adversarial-defender role and approved its formal addition"
   - "docs/HIVE.md §'The Promotor Principle' — Eris's expression rises under detected drift, mirroring the existing pattern for Hestia"
   - "docs/PANTHEON_VISION.md §'The Role of Humans' — adversarial robustness is the structural precondition the doctrine requires"
+  - "docs/IMMUNE_SYSTEM.md §'Adaptive immunity — Eris the Red-Team' — Eris is formally named as the adaptive-immunity cell class in the immune-system doctrine"
+
+wave_3_context: |
+  Eris is Living Demo W16 work. In the immune-system doctrine (docs/IMMUNE_SYSTEM.md), she is
+  the adaptive-immunity layer: scheduled red-team campaigns against an isolated test pantheon,
+  designed to expose vulnerabilities before live adversarial data does.
+
+  Key alignments with the doctrine that revise the original ticket description:
+
+  - Findings from Eris campaigns are written as first-class chronicle nodes (Finding typed
+    nodes with finding_type="adversarial_test_outcome"), not only as disk reports. The
+    ErisCampaignReport on disk is supplemented by Finding nodes in the chronicle that are
+    queryable and federation-ready.
+  - HestiaReview promotion is removed. Under the immune-system doctrine, Eris findings do not
+    need Hestia's approval before they enter the chronicle — they are Findings (observational
+    nodes), not content nodes. Mnemosyne reads Eris's campaign findings as part of her
+    self-improvement A/B-test loop.
+  - The "opt-in per operator" model is preserved. Eris is default-disabled. She runs against
+    an isolated test pantheon only. The live chronicle is never mutated by Eris directly.
+  - The three probe classes (source poisoning, adversarial query crafting, bias sweeps) are
+    structurally unchanged. The bias-sweep class is renamed for clarity: "cultural-axis
+    systematic coverage gap" rather than "bias detection" to reflect the chronicle-as-witness
+    framing.
+  - Eris's findings feed Mnemosyne's self-improvement loop (Mnemosyne reads ErisFinding
+    nodes as part of her A/B-test evidence base).
+
+  The original acceptance criteria are mostly valid; the schema for ErisCampaignReport is
+  extended to include a list of Finding node IDs written into the chronicle. The W16 brief
+  will specify this precisely.

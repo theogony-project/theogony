@@ -192,6 +192,53 @@ acceptance_criteria:
     layer. ``docs/PHILOSOPHY.md`` cross-links: "the chronicle
     grows where it is asked questions about its growth".
 
+wave_3_context: |
+  Mnemosyne is Living Demo W17 work. In the immune-system doctrine (docs/IMMUNE_SYSTEM.md
+  §"Consciousness — Mnemosyne the Self-Improvement Conductor"), her role is significantly
+  expanded beyond the original ticket description.
+
+  The original ticket (2026-04-22) described Mnemosyne primarily as a per-query meta-query
+  classifier: detects when a query is "about the chronicle itself", stamps self_referential
+  flags, and periodically drafts BacklogProposal entries for human review.
+
+  The expanded role (2026-04-25, immune-system doctrine):
+
+  1. She reads metrics across ALL cell-class outputs: Athene findings, Chronos clearances,
+     Nemesis structural audits, Eris campaign results, query verdicts, ingest cost, retrieval
+     cost, user behaviour signals.
+
+  2. She defines her own success metrics (LLM-driven). The user explicitly chose this:
+     Mnemosyne self-defines metrics; the human reviewer audits the metric definitions (not
+     the per-decision outcomes). Hardcoded metrics and human-defined metrics are both rejected.
+
+  3. She runs A/B tests against her own thresholds: sampling rates, planner prompts,
+     evaluator prompts, cell-class parameters. She emits MnemosyneExperiment nodes into the
+     chronicle (not only disk reports) as first-class chronicle data.
+
+  4. She auto-applies winning parameters within a pre-set "auto-apply ceiling" (default:
+     small threshold tweaks; prompt rewrites require operator explicit approval). The
+     parameter changes and the rationale are written as MnemosyneExperiment nodes.
+
+  5. She drafts structured PHX-Backlog entries for things A/B testing alone cannot fix.
+     These drafts land in settings.run_reports_dir/backlog_proposals/ (not directly in
+     phoenix-backlog/). The operator promotes them to real PHX tickets.
+
+  The original meta-query classifier functionality is a small subset of the W17 scope. It
+  remains valid as a component; the BacklogProposalPhase is a concrete early deliverable
+  of W17. The broader A/B-test conductor and the MnemosyneExperiment chronicle writing
+  are the larger, new additions.
+
+  The original acceptance criteria are partially superseded. The W17 brief will specify the
+  full scope precisely. Key new schema additions:
+  - MnemosyneExperiment (chronicle node): metric_definition, hypothesis, regime_a, regime_b,
+    winner, auto_applied, rationale, drafted_at, closed_at.
+  - The existing BacklogProposal and MnemosyneObservation schemas remain valid but are
+    joined by MnemosyneExperiment as the primary new output.
+
+  PHX-0072 (Proteus twin-agent A/B testing) relationship: Mnemosyne IS the A/B test
+  conductor described in PHX-0072 for the self-improvement context. The two tickets should
+  be considered for merger in the W17 brief planning session.
+
 related:
   - PHX-0035  # Reviewer Agent — Mnemosyne is its meta-cognitive cousin (Reviewer reviews answers; Mnemosyne reviews architecture-implications-of-answers)
   - PHX-0037  # Curiosity Loop — Mnemosyne consumes the result of curiosity-triggered research
