@@ -51,7 +51,15 @@ class RunReportBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     run_id: str = Field(default_factory=new_run_id)
-    report_type: Literal["ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne"]
+    report_type: Literal[
+        "ingest",
+        "query",
+        "oneiros",
+        "clustering",
+        "blindspot",
+        "mnemosyne",
+        "curiosity",
+    ]
     started_at: datetime
     finished_at: datetime
     duration_s: float = Field(ge=0.0)

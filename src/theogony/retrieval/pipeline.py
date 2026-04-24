@@ -47,7 +47,9 @@ from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
 from theogony.core.model import Constellation, Layer
 from theogony.core.store import KnowledgeStore
+from theogony.curiosity.growth_bridge import GrowthBridge
 from theogony.curiosity.region_descriptor import compute_region_descriptor
+from theogony.curiosity.run_report import CuriosityRunReport
 from theogony.curiosity.stub_detector import StubDetector
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.embedding import EmbeddingProvider, LocalSentenceTransformerEmbedder
@@ -183,6 +185,7 @@ class QueryPipeline:
         stub_detector: StubDetector | None = None,
         mnemosyne: MetaQueryClassifier | None = None,
         entry_planner_llm: LLMProvider | None = None,
+        growth_bridge: GrowthBridge | None = None,
     ) -> None:
         self._embedder = embedder
         if strategy is not None:
@@ -203,6 +206,7 @@ class QueryPipeline:
         )
         self._mnemosyne = mnemosyne or build_mnemosyne_classifier(self._settings, None)
         self._entry_planner_llm = entry_planner_llm
+        self._growth_bridge = growth_bridge
 
     async def ask(
         self,
@@ -558,6 +562,29 @@ class QueryPipeline:
             retrieval_result=retrieval_result,
         )
 
+        # --- W7-A: emit a CuriosityRunReport when the growth bridge is wired
+        # and the stub signal warrants it. The bridge is a pure decision; the
+        # writer is the side effect. Default-off in ordinary settings; demo
+        # path enables it explicitly via THEOGONY_CURIOSITY__GROWTH_BRIDGE__*.
+        if self._growth_bridge is not None and self._report_writer is not None:
+            trigger = self._growth_bridge.maybe_emit(
+                origin_query=query,
+                origin_query_run_id=run_id,
+                stub_verdict=stub_verdict,
+                region_descriptor=region_descriptor,
+            )
+            if trigger is not None:
+                curiosity_report = CuriosityRunReport(
+                    started_at=started_at,
+                    finished_at=finished_at,
+                    duration_s=duration_s,
+                    status="completed",
+                    verdict="good",
+                    verdict_reasoning="curiosity trigger emitted",
+                    trigger=trigger,
+                )
+                self._report_writer.write(curiosity_report)
+
         meta_classification = await self._mnemosyne.classify(
             query=query,
             answer=answer,
@@ -642,6 +669,7 @@ async def build_pipeline_from_settings(
         stub_detector=StubDetector(settings.curiosity.stub_thresholds),
         mnemosyne=mnemosyne,
         entry_planner_llm=resolved_llm,
+        growth_bridge=GrowthBridge(settings.curiosity.growth_bridge),
     )
 
 

@@ -22,8 +22,10 @@ from pathlib import Path
 import pytest
 
 from theogony.agents.llm import StubLLMProvider
-from theogony.config.settings import Settings
+from theogony.config.settings import GrowthBridgeSettings, Settings
 from theogony.core.model import KnowledgeEdge, KnowledgeNode, NodeType, SourceRef
+from theogony.curiosity.growth_bridge import GrowthBridge
+from theogony.curiosity.run_report import CuriosityRunReport
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
@@ -102,6 +104,7 @@ def _build_pipeline(
     llm_response: str,
     *,
     writer: RunReportWriter | None = None,
+    growth_bridge: GrowthBridge | None = None,
 ) -> QueryPipeline:
     embedder = _ConstantEmbedder()
     retriever = MultiHopRetriever(store)
@@ -117,6 +120,7 @@ def _build_pipeline(
         relevance=relevance,
         settings=Settings(),
         report_writer=writer,
+        growth_bridge=growth_bridge,
     )
 
 
@@ -278,3 +282,49 @@ class TestReportFields:
         result = await pipeline.ask("query")
         assert result.answer.text == ""
         assert result.report.status == "partial"
+
+
+class TestGrowthBridge:
+    """W7-A wiring: bridge default-off; demo path emits one curiosity report."""
+
+    async def test_bridge_default_off_writes_no_curiosity_report(self, tmp_path: Path) -> None:
+        # Default Settings() has growth_bridge.enabled=False. Even with a
+        # writer attached, no CuriosityRunReport must land on disk.
+        store = InMemoryKnowledgeStore()
+        hedin, tibet = await _populate_two_node_chronik(store)
+        writer = RunReportWriter(tmp_path)
+        pipeline = _build_pipeline(
+            store,
+            f"Hedin [{hedin.id}] explored Tibet [{tibet.id}].",
+            writer=writer,
+        )
+        await pipeline.ask("Wer war Sven Hedin?")
+        curiosity_dir = tmp_path / "curiosity"
+        # The directory may exist (test_writer touches it), but no JSON
+        # files for this run.
+        if curiosity_dir.exists():
+            files = [p for p in curiosity_dir.iterdir() if p.suffix == ".json"]
+            assert files == []
+
+    async def test_query_pipeline_with_growth_bridge_enabled_writes_curiosity_report(
+        self, tmp_path: Path
+    ) -> None:
+        # Empty store → thin retrieval → high stub_signal_strength → trigger.
+        store = InMemoryKnowledgeStore()
+        writer = RunReportWriter(tmp_path)
+        bridge = GrowthBridge(GrowthBridgeSettings(enabled=True, trigger_threshold=0.0))
+        pipeline = _build_pipeline(
+            store,
+            "I do not know.",
+            writer=writer,
+            growth_bridge=bridge,
+        )
+        await pipeline.ask("Wer war Sven Hedin?")
+        curiosity_dir = tmp_path / "curiosity"
+        files = [p for p in curiosity_dir.iterdir() if p.suffix == ".json"]
+        assert len(files) == 1
+        report = CuriosityRunReport.model_validate_json(files[0].read_text(encoding="utf-8"))
+        assert report.report_type == "curiosity"
+        assert report.trigger.origin_query == "Wer war Sven Hedin?"
+        # Empty store ⇒ low_node_count fires ⇒ REGION_THIN per priority 2.
+        assert report.trigger.gap_class.value == "region_thin"
