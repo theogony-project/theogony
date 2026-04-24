@@ -8,11 +8,10 @@
   const hopsEl = document.getElementById("explorer-hops");
   const thinkingMaxEl = document.getElementById("explorer-thinking-max");
   const statusEl = document.getElementById("explorer-status");
-  const answerEl = document.getElementById("explorer-answer");
   const vectorEl = document.getElementById("explorer-vector");
   const timingEl = document.getElementById("explorer-timing");
   const saveBtn = document.getElementById("explorer-save");
-  const chatLogEl = document.getElementById("explorer-chat-log");
+  const chatThreadEl = document.getElementById("explorer-chat-thread");
   const newChatBtn = document.getElementById("explorer-new-chat");
   const phases = {
     chat: document.getElementById("phase-chat"),
@@ -43,9 +42,14 @@
   let simulation = null;
   /** @type {object | null} */
   let lastPayload = null;
-  /** @type {{ role: string, content: string }[]} */
+  /** @type {{ role: string, content: string, detailHtml?: string }[]} */
   let chatTurns = [];
   let rollingSummary = "";
+
+  const ASSISTANT_WORKING_HTML =
+    '<div class="text-slate-400 text-xs flex items-center gap-2 py-0.5">' +
+    '<span class="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>' +
+    "Working…</div>";
 
   if (saveBtn) {
     if (sampleOnly || !appendEnabled) {
@@ -74,40 +78,51 @@
     setPhase("synth", false);
   }
 
-  function renderChatLog() {
-    if (!chatLogEl) return;
-    chatLogEl.innerHTML = "";
+  function renderChatThread() {
+    if (!chatThreadEl) return;
+    const emptyEl = document.getElementById("explorer-chat-empty");
+    if (emptyEl) {
+      emptyEl.classList.toggle("hidden", chatTurns.length > 0);
+    }
+    chatThreadEl.querySelectorAll(".explorer-chat-msg").forEach((n) => n.remove());
     for (const t of chatTurns) {
-      const row = document.createElement("div");
       const isUser = t.role === "user";
-      row.className =
-        "rounded-md px-2 py-1.5 border " +
-        (isUser
-          ? "border-sky-700/50 bg-sky-950/35 text-sky-100/95 ml-4"
-          : "border-slate-600/50 bg-slate-900/60 text-slate-200 mr-4");
+      const wrap = document.createElement("div");
+      wrap.className =
+        "explorer-chat-msg flex flex-col gap-0.5 " + (isUser ? "items-end" : "items-start");
+      const bubble = document.createElement("div");
+      bubble.className = isUser
+        ? "max-w-[min(92%,28rem)] rounded-2xl rounded-br-md border border-sky-700/40 bg-sky-950/50 px-3 py-2 text-sm text-sky-50/95 shadow-sm"
+        : "max-w-[min(98%,36rem)] w-full rounded-2xl rounded-bl-md border border-slate-600/50 bg-slate-900/80 px-3 py-2.5 text-sm text-slate-100 shadow-sm";
       const lab = document.createElement("div");
-      lab.className = "text-[9px] uppercase tracking-wider text-slate-500 mb-0.5";
+      lab.className =
+        "text-[10px] uppercase tracking-wide text-slate-500 mb-0.5 " + (isUser ? "text-right" : "");
       lab.textContent = isUser ? "You" : "Chronicle";
       const body = document.createElement("div");
-      body.className = "whitespace-pre-wrap break-words leading-snug";
-      body.textContent = t.content || "";
-      row.appendChild(lab);
-      row.appendChild(body);
-      chatLogEl.appendChild(row);
+      body.className =
+        "leading-snug break-words text-[13px] [&_a]:text-amber-300 [&_a:hover]:text-amber-200";
+      if (isUser) {
+        body.classList.add("whitespace-pre-wrap");
+        body.textContent = t.content || "";
+      } else if (t.detailHtml) {
+        body.innerHTML = t.detailHtml;
+      } else {
+        body.innerHTML = renderAnswerProse(t.content || "");
+      }
+      bubble.appendChild(lab);
+      bubble.appendChild(body);
+      wrap.appendChild(bubble);
+      chatThreadEl.appendChild(wrap);
     }
-    chatLogEl.scrollTop = chatLogEl.scrollHeight;
+    chatThreadEl.scrollTop = chatThreadEl.scrollHeight;
   }
 
   function resetExplorerChat() {
     chatTurns = [];
     rollingSummary = "";
-    renderChatLog();
+    renderChatThread();
     clearGraph();
     lastPayload = null;
-    if (answerEl) {
-      answerEl.innerHTML =
-        '<span class="text-slate-500 italic">New chat — ask your first question.</span>';
-    }
   }
 
   function setStatus(text, level) {
@@ -191,6 +206,39 @@
     return [String(s), String(t)];
   }
 
+  /** Labels for the fixed center node: show retrieval seeds, not only the chat line. */
+  function buildQuerySeedVisual(payload) {
+    const q = String(payload.query || "").trim();
+    const ep = payload.entry_plan;
+    const subs =
+      ep && Array.isArray(ep.sub_queries)
+        ? ep.sub_queries.map((s) => String(s || "").trim()).filter((s) => s.length)
+        : [];
+    const uniq = subs.length ? [...new Set(subs)] : q ? [q] : [];
+    const lines = (() => {
+      if (!uniq.length) return ["(no query)"];
+      if (uniq.length === 1) {
+        const s = uniq[0];
+        return [s.length > 34 ? s.slice(0, 33) + "…" : s];
+      }
+      if (uniq.length === 2) {
+        return uniq.map((s) => (s.length > 30 ? s.slice(0, 29) + "…" : s));
+      }
+      return [
+        `${uniq.length} retrieval seeds`,
+        uniq
+          .slice(0, 3)
+          .map((s) => (s.length > 22 ? s.slice(0, 21) + "…" : s))
+          .join(" · ") + (uniq.length > 3 ? " · …" : ""),
+      ];
+    })();
+    const tooltip =
+      `Your message:\n${q || "(empty)"}\n\n` +
+      `Vector seeds embedded for retrieval (${uniq.length}):\n` +
+      uniq.join("\n");
+    return { lines, tooltip, uniq };
+  }
+
   function renderGraph(payload) {
     clearGraph();
     const width = svg.node().clientWidth;
@@ -203,11 +251,14 @@
       r: 6 + (n.confidence || 0.4) * 10,
       color: cited.has(n.id) ? "#34d399" : TYPE_COLOR[n.node_type] || "#94a3b8",
     }));
+    const seedVis = buildQuerySeedVisual(payload);
     const queryNode = {
       id: "__query__",
       label: payload.query,
+      graphLines: seedVis.lines,
+      queryTooltip: seedVis.tooltip,
       isQuery: true,
-      r: 14,
+      r: seedVis.lines.length > 1 ? 16 : 14,
       color: "#fbbf24",
       x: width / 2,
       y: height / 2,
@@ -301,12 +352,12 @@
       .text(
         (d) =>
           d.isQuery
-            ? `query: ${d.label}`
+            ? d.queryTooltip || `query: ${d.label}`
             : `${d.label} [${d.node_type}] conf=${(d.confidence || 0).toFixed(2)}`
       );
 
     nodeSel
-      .filter((d) => d.is_cited || d.isQuery)
+      .filter((d) => d.is_cited && !d.isQuery)
       .append("text")
       .text((d) => (d.label.length > 28 ? d.label.slice(0, 27) + "…" : d.label))
       .attr("dy", (d) => -d.r - 4)
@@ -314,6 +365,23 @@
       .attr("font-size", 10)
       .attr("fill", "#e2e8f0")
       .attr("pointer-events", "none");
+
+    nodeSel.filter((d) => d.isQuery).each(function (d) {
+      const te = d3
+        .select(this)
+        .append("text")
+        .attr("text-anchor", "middle")
+        .attr("font-size", 10)
+        .attr("fill", "#e2e8f0")
+        .attr("pointer-events", "none");
+      const lines = d.graphLines && d.graphLines.length ? d.graphLines : [d.label];
+      lines.forEach((line, i) => {
+        te.append("tspan")
+          .attr("x", 0)
+          .attr("dy", i === 0 ? -d.r - 4 : 12)
+          .text(line);
+      });
+    });
 
     if (simulation) simulation.stop();
     simulation = d3
@@ -435,20 +503,7 @@
     return `<div class="text-slate-400 text-xs mb-2 border-l-2 border-sky-600/55 pl-2 leading-snug">${body}</div>`;
   }
 
-  function applyPayload(payload) {
-    lastPayload = payload;
-    const nNodes = (payload.constellation.nodes || []).length;
-    const nConstEdges = (payload.constellation.edges || []).length;
-    const nSpokes = Math.min(nNodes, 32);
-    const hops = payload.retrieval && payload.retrieval.hops != null ? payload.retrieval.hops : "?";
-    const tm =
-      payload.retrieval && payload.retrieval.thinking_max != null
-        ? payload.retrieval.thinking_max
-        : "?";
-    setStatus(
-      `verdict=${payload.verdict} · ${nNodes} nodes · ${nConstEdges} graph edges · ${nSpokes} query links · hops≤${hops} · think≤${tm}`,
-      "ok"
-    );
+  function buildAssistantDetailHtml(payload) {
     const meta = payload.synthesis_meta || {};
     const isOffline = meta.mode === "offline_citations" || meta.stub_llm === true;
     const banner = isOffline
@@ -467,30 +522,37 @@
         : "";
     const hopNote = payload.retrieval ? renderRetrievalHopNote(payload.retrieval) : "";
     const ep = payload.entry_plan;
+    const qRaw = String(payload.query || "").trim();
+    const subs =
+      ep && Array.isArray(ep.sub_queries)
+        ? ep.sub_queries.map((s) => String(s || "").trim()).filter((s) => s.length)
+        : [];
     const entryPlanHtml =
-      ep &&
-      (ep.used_llm_planner === true ||
-        (Array.isArray(ep.sub_queries) && ep.sub_queries.length > 1))
+      ep && subs.length
         ? `<div class="text-xs mb-2 rounded border border-violet-600/40 bg-violet-950/30 px-2 py-1.5 text-violet-100/95 leading-snug">
-             <div class="font-semibold text-violet-200/95">Chronicle entry</div>
-             <div class="text-slate-400 mt-1 text-[10px] font-mono break-words">
-               ${(ep.sub_queries || []).map((s) => escapeHtml(s)).join(" · ")}
-             </div>
+             <div class="font-semibold text-violet-200/95">Retrieval seeds (Chronicle entry)</div>
+             <ul class="mt-1 ml-1 list-disc list-inside text-slate-200 space-y-0.5 text-[11px]">
+               ${subs.map((s) => `<li class="break-words">${escapeHtml(s)}</li>`).join("")}
+             </ul>
              ${
                ep.rationale
                  ? `<div class="text-slate-500 mt-1 text-[11px]">${escapeHtml(ep.rationale)}</div>`
                  : ""
              }
-             ${
+             <div class="text-[10px] text-violet-300/80 mt-1">${
                ep.used_llm_planner
-                 ? `<div class="text-[10px] text-violet-300/80 mt-1">LLM chose search strings (${ep.planner_duration_ms || 0} ms planning in retrieve).</div>`
-                 : ""
-             }
+                 ? `Entry planner: LLM · ${ep.planner_duration_ms || 0} ms in retrieve.`
+                 : isOffline
+                   ? "Entry planner needs a non-stub LLM; stub/offline mode only uses your message as the seed."
+                   : subs.length > 1 || subs.some((s) => s.toLowerCase() !== qRaw.toLowerCase())
+                     ? "Planner did not run as LLM (parse/timeout fallback); seeds may be widened heuristics or a single line."
+                     : "Chronicle entry planner did not run for this request (env disabled it, planner parse/timeout fallback, or similar). Stock server default is planner on with a real LLM; remove THEOGONY_RETRIEVAL__CHRONICLE_ENTRY_PLANNER__ENABLED=false if set."
+             }</div>
            </div>`
         : "";
     const proseHtml = renderAnswerProse(payload.answer.text || "");
     const chips = renderCitationChips(payload);
-    answerEl.innerHTML =
+    return (
       banner +
       hopNote +
       entryPlanHtml +
@@ -499,7 +561,36 @@
       `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Answer (synthesis)</div>` +
       `<div class="text-slate-100 text-sm">${proseHtml}</div>` +
       chips +
-      `</div>`;
+      `</div>`
+    );
+  }
+
+  function assistantErrorDetailHtml(title, raw) {
+    const body = escapeHtml(String(raw !== undefined && raw !== null ? raw : "").slice(0, 4000));
+    return (
+      `<div class="rounded border border-rose-700/45 bg-rose-950/35 px-2.5 py-2 text-rose-100/95 text-sm">` +
+      `<div class="font-semibold text-rose-200/95">${escapeHtml(title)}</div>` +
+      (body
+        ? `<pre class="mt-1 text-xs text-rose-200/85 whitespace-pre-wrap font-mono">${body}</pre>`
+        : "") +
+      `</div>`
+    );
+  }
+
+  function applyPayload(payload) {
+    lastPayload = payload;
+    const nNodes = (payload.constellation.nodes || []).length;
+    const nConstEdges = (payload.constellation.edges || []).length;
+    const nSpokes = Math.min(nNodes, 32);
+    const hops = payload.retrieval && payload.retrieval.hops != null ? payload.retrieval.hops : "?";
+    const tm =
+      payload.retrieval && payload.retrieval.thinking_max != null
+        ? payload.retrieval.thinking_max
+        : "?";
+    setStatus(
+      `verdict=${payload.verdict} · ${nNodes} nodes · ${nConstEdges} graph edges · ${nSpokes} query links · hops≤${hops} · think≤${tm}`,
+      "ok",
+    );
     renderVector(payload.query_embedding_preview);
     renderTiming(payload.timing_ms, payload.retrieval);
     renderGraph(payload);
@@ -546,9 +637,11 @@
     const q = (qEl.value || "").trim();
     if (!q) return;
     const priorForApi = chatTurns.map((t) => ({ role: t.role, content: t.content }));
+    chatTurns.push({ role: "user", content: q });
+    chatTurns.push({ role: "assistant", content: "", detailHtml: ASSISTANT_WORKING_HTML });
+    renderChatThread();
     resetPhases();
     setStatus("connecting…");
-    answerEl.innerHTML = `<span class="text-slate-500">Querying the Chronicle…</span>`;
     clearGraph();
     lastPayload = null;
     let resp;
@@ -569,15 +662,30 @@
       });
     } catch (err) {
       setStatus("network error: " + err, "error");
+      chatTurns.pop();
+      chatTurns.push({
+        role: "assistant",
+        content: "",
+        detailHtml: assistantErrorDetailHtml("Network error", err),
+      });
+      renderChatThread();
       return;
     }
     if (!resp.ok) {
       setStatus("HTTP " + resp.status, "error");
+      let errTxt = "";
       try {
-        answerEl.textContent = await resp.text();
+        errTxt = await resp.text();
       } catch (_) {
         /* ignore */
       }
+      chatTurns.pop();
+      chatTurns.push({
+        role: "assistant",
+        content: "",
+        detailHtml: assistantErrorDetailHtml(`HTTP ${resp.status}`, errTxt || "(no body)"),
+      });
+      renderChatThread();
       return;
     }
     let payload;
@@ -585,20 +693,45 @@
       payload = await parseSseStream(resp);
     } catch (e) {
       setStatus(String(e.message || e), "error");
-      answerEl.textContent = String(e.message || e);
+      chatTurns.pop();
+      chatTurns.push({
+        role: "assistant",
+        content: "",
+        detailHtml: assistantErrorDetailHtml("Stream error", e.message || e),
+      });
+      renderChatThread();
       resetPhases();
       return;
     }
     if (!payload) {
       setStatus("empty stream", "error");
+      chatTurns.pop();
+      chatTurns.push({
+        role: "assistant",
+        content: "",
+        detailHtml: assistantErrorDetailHtml(
+          "Empty stream",
+          "The server closed the stream without a result.",
+        ),
+      });
+      renderChatThread();
+      resetPhases();
       return;
     }
     if (payload.error) {
       setStatus(payload.error, "error");
-      answerEl.textContent = payload.error;
+      chatTurns.pop();
+      chatTurns.push({
+        role: "assistant",
+        content: "",
+        detailHtml: assistantErrorDetailHtml("Explorer error", payload.error),
+      });
+      renderChatThread();
       resetPhases();
       return;
     }
+    chatTurns.pop();
+    chatTurns.pop();
     const ch = payload.chat || {};
     if (Array.isArray(ch.prior_messages_kept)) {
       chatTurns = ch.prior_messages_kept.map((x) => ({
@@ -612,9 +745,10 @@
     chatTurns.push({
       role: "assistant",
       content: (payload.answer && payload.answer.text) || "",
+      detailHtml: buildAssistantDetailHtml(payload),
     });
     rollingSummary = typeof ch.rolling_summary === "string" ? ch.rolling_summary : rollingSummary;
-    renderChatLog();
+    renderChatThread();
     qEl.value = "";
     applyPayload(payload);
   }

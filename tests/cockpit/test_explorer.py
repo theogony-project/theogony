@@ -65,7 +65,8 @@ def test_explorer_page_renders_chat_input_and_d3_chart(
     assert "explorer-save" in r.text
     assert "explorer-graph" in r.text
     assert "explorer-thinking-max" in r.text
-    assert "explorer-chat-log" in r.text
+    assert "explorer-chat-thread" in r.text
+    assert "explorer-chat-shell" in r.text
     assert "explorer-new-chat" in r.text
     assert "phase-chat" in r.text
     assert "d3@7" in r.text

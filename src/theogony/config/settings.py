@@ -423,11 +423,13 @@ class ChronicleEntryPlannerSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(
-        default=False,
+        default=True,
         description=(
             "When true and QueryPipeline receives a non-stub entry_planner_llm, "
             "the model outputs multiple search_queries that are embedded separately "
-            "and merged — the raw user question is not the only retrieval anchor."
+            "and merged — the raw user question is not the only retrieval anchor. "
+            "Set false (env THEOGONY_RETRIEVAL__CHRONICLE_ENTRY_PLANNER__ENABLED=false) "
+            "to embed only the user question."
         ),
     )
     max_sub_queries: int = Field(default=4, ge=1, le=8)

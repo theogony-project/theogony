@@ -9,6 +9,7 @@ from theogony.config.settings import ChronicleEntryPlannerSettings
 from theogony.core.model import KnowledgeNode, NodeType, SourceRef
 from theogony.core.store import ScoredNode
 from theogony.retrieval.chronicle_entry_planner import (
+    anchor_turn_for_subqueries,
     merge_multi_hop_results,
     normalize_sub_queries,
     plan_chronicle_entry_queries,
@@ -64,6 +65,31 @@ def test_normalize_sub_queries_inserts_user_query_and_caps() -> None:
     )
     assert len(out) == 2
     assert out[0] == "user q"
+
+
+def test_anchor_turn_extracts_current_question_from_blend() -> None:
+    blend = (
+        "User: Who is Daedalus?\n\nAssistant: A craftsman.\n\n"
+        "---\nCurrent question:\nHow does he relate to Athene?"
+    )
+    assert anchor_turn_for_subqueries(blend, max_chars=240) == "How does he relate to Athene?"
+
+
+def test_normalize_never_inserts_full_multi_turn_blend() -> None:
+    blend = (
+        "Rolling summary:\nDaedalus labyrinth wings\n\n"
+        "---\nCurrent question:\nHow does he relate to Athene?"
+    )
+    limits = ChronicleEntryPlannerSettings(max_sub_queries=4, max_chars_per_sub_query=120)
+    out = normalize_sub_queries(
+        ["Daedalus Athena myth", "labyrinth craftsman"],
+        user_query=blend,
+        limits=limits,
+    )
+    assert all(len(s) <= 120 for s in out)
+    assert "Rolling summary" not in "\n".join(out)
+    assert "How does he relate to Athene?" in out
+    assert "Daedalus Athena myth" in out
 
 
 @pytest.mark.asyncio
