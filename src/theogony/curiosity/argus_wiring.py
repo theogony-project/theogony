@@ -1,5 +1,5 @@
 """
-Argus wiring for the CLI / dispatcher (W7-B).
+Argus wiring for the CLI / dispatcher (W7-B, W11).
 
 Wraps audit log + Wikidata + embedder + :class:`IngestionPipeline` in an
 async context manager so resource lifetimes stay correct while
@@ -14,12 +14,17 @@ from contextlib import AbstractContextManager, asynccontextmanager, nullcontext
 from typing import TYPE_CHECKING
 
 from theogony.acquisition.base import AcquisitionAdapter
+from theogony.acquisition.wikidata import WikidataAdapter
 from theogony.agents.argus import ArgusAgent
-from theogony.agents.argus_ingest_runner import RealIngestRunner
+from theogony.agents.argus_ingest_runner import IngestRunner, RealIngestRunner
 from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.hestia_lite import HestiaLiteApproval
+from theogony.agents.llm import LLMProvider
+from theogony.agents.research_evaluator import Evaluator
+from theogony.agents.research_planner import ResearchPlanner
 from theogony.clustering.cluster_index import ClusterIndex
 from theogony.config.settings import Settings
+from theogony.curiosity.research_executor import ResearchExecutor
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
 from theogony.extraction.pipeline import IngestionPipeline
@@ -29,6 +34,42 @@ from theogony.extraction.wikidata_client import WikidataClient
 
 if TYPE_CHECKING:
     from theogony.core.store import KnowledgeStore
+
+
+def make_argus_agent(
+    *,
+    settings: Settings,
+    adapter: AcquisitionAdapter,
+    ingest_runner: IngestRunner,
+    llm: LLMProvider,
+    wd_client: WikidataClient,
+) -> ArgusAgent:
+    """Build :class:`ArgusAgent` with W11 planner wiring when settings enable it."""
+    hestia = HestiaLiteApproval(settings.curiosity.hestia_lite)
+    use = settings.curiosity.research_planner.enabled and settings.curiosity.evaluator.enabled
+    if not use:
+        return ArgusAgent(
+            adapter=adapter,
+            hestia=hestia,
+            ingest_runner=ingest_runner,
+            settings=settings.curiosity.argus,
+            use_research_planner=False,
+        )
+    wikidata = WikidataAdapter(client=wd_client)
+    executor = ResearchExecutor(wikidata=wikidata, gutenberg=adapter)
+    planner = ResearchPlanner(llm=llm, settings=settings.curiosity.research_planner)
+    evaluator = Evaluator(llm=llm, settings=settings.curiosity.evaluator)
+    return ArgusAgent(
+        adapter=adapter,
+        hestia=hestia,
+        ingest_runner=ingest_runner,
+        settings=settings.curiosity.argus,
+        use_research_planner=True,
+        planner=planner,
+        executor=executor,
+        evaluator=evaluator,
+        run_reports_dir=settings.run_reports_dir,
+    )
 
 
 @asynccontextmanager
@@ -67,13 +108,13 @@ async def argus_dispatch_session(
                 ner_sentence_limit=200,
             )
             runner = RealIngestRunner(pipeline)
-            hestia = HestiaLiteApproval(settings.curiosity.hestia_lite)
-            yield ArgusAgent(
+            yield make_argus_agent(
+                settings=settings,
                 adapter=adapter,
-                hestia=hestia,
                 ingest_runner=runner,
-                settings=settings.curiosity.argus,
+                llm=llm,
+                wd_client=wd_client,
             )
 
 
-__all__ = ["argus_dispatch_session"]
+__all__ = ["argus_dispatch_session", "make_argus_agent"]

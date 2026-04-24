@@ -21,14 +21,15 @@ import json
 import time
 from typing import Any
 
-from pydantic import SecretStr
+from pydantic import BaseModel, SecretStr
 
-from theogony.agents.llm import LLMResult
+from theogony.agents.llm import LLMResult, ResearchPlannerCost
 from theogony.config.logging import get_logger
 
 log = get_logger("agents.llm_anthropic")
 
 _TOOL_NAME = "theogony_structured_output"
+_RESEARCH_PLAN_TOOL = "theogony_research_plan"
 
 
 class AnthropicLLMProvider:
@@ -163,6 +164,76 @@ class AnthropicLLMProvider:
             latency_ms=latency_ms,
             model_id=self._model_id,
         )
+
+    async def complete_with_web_search_for_research_plan(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        output_schema: type[BaseModel],
+        max_search_calls: int = 3,
+        max_total_tokens: int = 4000,
+    ) -> tuple[BaseModel, ResearchPlannerCost]:
+        client = self._ensure_client()
+        schema = output_schema.model_json_schema()
+        _started = time.perf_counter()
+        message = await client.messages.create(
+            model=self._model_id,
+            max_tokens=max_total_tokens,
+            temperature=0.0,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+            tools=[
+                {
+                    "type": "web_search_20250305",
+                    "name": "web_search",
+                    "max_uses": max_search_calls,
+                },
+                {
+                    "name": _RESEARCH_PLAN_TOOL,
+                    "description": "Return the research plan JSON matching the locked schema.",
+                    "input_schema": schema,
+                },
+            ],
+            tool_choice={"type": "auto"},
+        )
+        _ = int((time.perf_counter() - _started) * 1000)
+
+        plan_payload: dict[str, Any] | None = None
+        for block in message.content:
+            if (
+                getattr(block, "type", None) == "tool_use"
+                and getattr(block, "name", None) == _RESEARCH_PLAN_TOOL
+            ):
+                plan_payload = dict(block.input)
+                break
+        if plan_payload is None:
+            raise RuntimeError(
+                f"AnthropicLLMProvider: research plan tool {_RESEARCH_PLAN_TOOL!r} missing; "
+                f"blocks={[getattr(b, 'type', None) for b in message.content]}"
+            )
+
+        validated = output_schema.model_validate(plan_payload)
+        usage = message.usage
+        input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+        output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+        usd = (input_tokens / 1_000_000) * self._usd_per_m_input + (
+            output_tokens / 1_000_000
+        ) * self._usd_per_m_output
+        n_search = 0
+        for block in message.content:
+            if (
+                getattr(block, "type", None) == "server_tool_use"
+                and getattr(block, "name", None) == "web_search"
+            ):
+                n_search += 1
+        cost = ResearchPlannerCost(
+            usd_cost=usd,
+            eur_cost=self._cost_eur(input_tokens, output_tokens),
+            search_call_count=n_search,
+            model_id=self._model_id,
+        )
+        return validated, cost
 
 
 __all__ = ["AnthropicLLMProvider"]

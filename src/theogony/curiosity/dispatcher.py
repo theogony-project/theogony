@@ -88,11 +88,19 @@ def _merge_curiosity_report(report: CuriosityRunReport, result: ArgusResult) -> 
         extra += f":{result.reason}"
     vr = report.verdict_reasoning
     new_vr = f"{vr} | {extra}" if vr else extra
+    trig = result.updated_trigger if result.updated_trigger is not None else report.trigger
+    ev = (
+        result.evaluator_decision
+        if result.evaluator_decision is not None
+        else report.evaluator_decision
+    )
     return report.model_copy(
         update={
+            "trigger": trig,
             "decision": result.decision,
             "bytes_acquired": result.bytes_acquired,
             "verdict_reasoning": new_vr[:5000],
+            "evaluator_decision": ev,
         }
     )
 

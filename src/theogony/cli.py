@@ -567,9 +567,11 @@ async def _run_curiosity_run_pending(*, max_n: int, dry_run: bool, store_kind: s
             )
         )
         return
-    async with _open_store(settings, store_kind, settings.embedding.dim) as store, GutenbergAdapter(
-        inter_request_delay_s=0.0
-    ) as adapter, argus_dispatch_session(settings, store, adapter) as argus:
+    async with (
+        _open_store(settings, store_kind, settings.embedding.dim) as store,
+        GutenbergAdapter(inter_request_delay_s=0.0) as adapter,
+        argus_dispatch_session(settings, store, adapter) as argus,
+    ):
         dispatcher = CuriosityDispatcher(
             reports_dir=settings.run_reports_dir,
             argus=argus,

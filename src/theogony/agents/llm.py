@@ -22,7 +22,18 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ResearchPlannerCost(BaseModel):
+    """Cost + search telemetry for one ResearchPlanner LLM call (W11)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    usd_cost: float = Field(default=0.0, ge=0.0)
+    eur_cost: float = Field(default=0.0, ge=0.0)
+    search_call_count: int = Field(default=0, ge=0)
+    model_id: str = ""
 
 
 class LLMResult(BaseModel):
@@ -78,6 +89,18 @@ class LLMProvider(Protocol):
         timeout_s: float = 30.0,
     ) -> LLMResult:
         """Send `prompt` to the model and return its response."""
+        ...
+
+    async def complete_with_web_search_for_research_plan(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        output_schema: type[BaseModel],
+        max_search_calls: int = 3,
+        max_total_tokens: int = 4000,
+    ) -> tuple[BaseModel, ResearchPlannerCost]:
+        """Structured research plan with optional Anthropic web_search tool (W11)."""
         ...
 
 
@@ -164,3 +187,45 @@ class StubLLMProvider:
             latency_ms=self._latency_ms,
             model_id=self._model_id,
         )
+
+    async def complete_with_web_search_for_research_plan(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        output_schema: type[BaseModel],
+        max_search_calls: int = 3,
+        max_total_tokens: int = 4000,
+    ) -> tuple[BaseModel, ResearchPlannerCost]:
+        import json
+        import re
+
+        from theogony.curiosity.trigger import ResearchPlan, ResearchStep, ResearchStepKind
+
+        del max_search_calls, max_total_tokens, system_prompt
+        try:
+            payload = json.loads(user_prompt)
+            text_for_tokens = str(payload.get("origin_query") or "")
+        except (json.JSONDecodeError, TypeError, ValueError):
+            text_for_tokens = user_prompt
+        tokens = re.findall(r"[A-Za-zÄÖÜäöüß]{3,}", text_for_tokens)
+        target = tokens[0] if tokens else "Unknown"
+        plan = ResearchPlan(
+            steps=[
+                ResearchStep(
+                    kind=ResearchStepKind.WIKIDATA_LOOKUP,
+                    target=target,
+                    rationale="stub deterministic first token run",
+                )
+            ],
+            planner_model_id=self._model_id,
+            planner_cost_eur=0.0,
+        )
+        validated = output_schema.model_validate({"steps": [s.model_dump() for s in plan.steps]})
+        cost = ResearchPlannerCost(
+            usd_cost=0.0,
+            eur_cost=0.0,
+            search_call_count=0,
+            model_id=self._model_id,
+        )
+        return validated, cost

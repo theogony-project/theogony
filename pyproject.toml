@@ -213,4 +213,6 @@ consumes ~0.15-0.25 EUR Gemini per run.""",
     """living_demo: W7-W9 living-demo path smoke tests (Living Demo Plan). \
 Truthful end-to-end checks for the demo loop; selectable via `pytest -m living_demo`. \
 Must pass with InMemory store + StubLLM — no real services, no money spent.""",
+    """live_anthropic: optional real Anthropic planner / web_search smoke (W11). \
+Run locally with ANTHROPIC_API_KEY and THEOGONY_RUN_LIVE_ANTHROPIC=1; never enabled in CI.""",
 ]
