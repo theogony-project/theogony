@@ -58,7 +58,7 @@ def test_explorer_page_renders_chat_input_and_d3_chart(
     r = seeded_explorer_client.get("/cockpit/explorer")
     assert r.status_code == 200
     assert "explorer-llm-ribbon" in r.text
-    assert "Antwortmodus" in r.text
+    assert "Answer mode" in r.text
     assert "explorer-root" in r.text
     assert "explorer-q" in r.text
     assert "phase-embed" in r.text

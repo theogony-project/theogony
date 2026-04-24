@@ -273,6 +273,7 @@ async def run_explorer_query(
             hops=hops_eff,
             thinking_max=thinking_eff,
             synthesis_conversation_context=chat_block,
+            retrieval_query_expansion=chat_block,
         )
     except Exception as exc:  # pragma: no cover - surfaced to UI
         log.exception("explorer ask failed")

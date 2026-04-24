@@ -302,7 +302,8 @@ class AnswerSynthesizer:
             convo = (
                 "Prior conversation (reference only; every factual claim you cite "
                 "must still use [AKA-…] ids from the Constellation below, not from "
-                "this dialogue):\n\n"
+                "this dialogue). Use it to resolve pronouns (he/she/they/it) and "
+                "implicit references when reading the User query line below.\n\n"
                 f"{conversation_context.strip()}\n\n---\n\n"
             )
         return (
