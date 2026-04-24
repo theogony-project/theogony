@@ -54,6 +54,21 @@ def test_merge_multi_hop_results_keeps_best_score_per_node() -> None:
     assert by_id[a.id] == 0.9
     assert by_id[b.id] == 0.4
     assert merged.duration_ms == 8
+    assert merged.nodes_per_hop is None
+
+
+def test_merge_multi_hop_results_preserves_nodes_per_hop_for_single_input() -> None:
+    a = _node("A", "AKA-a")
+    r = MultiHopResult(
+        scored_nodes=[ScoredNode(node=a, score=0.5)],
+        seed_count=1,
+        nodes_per_hop=[1, 2, 3],
+        final_node_count=1,
+        duration_ms=1,
+    )
+    merged = merge_multi_hop_results([r], cap=10)
+    assert merged.nodes_per_hop == [1, 2, 3]
+    assert len(merged.scored_nodes) == 1
 
 
 def test_normalize_sub_queries_inserts_user_query_and_caps() -> None:
