@@ -1,6 +1,6 @@
 # Living Demo Plan
 
-**Status:** binding execution plan. Wave 1 (W7-W9) shipped; Wave 2 (W10-W13) is in progress.
+**Status:** binding execution plan. Wave 1 (W7-W9) shipped; Wave 2 (W10-W12) shipped (W13 rewritten under new doctrine); Wave 3 (W13-W17) in planning.
 **Purpose:** replace broad roadmap language with a narrow build sequence that produces the first honest living Pantheon demo.
 **Supersedes:** former `docs/plans/AUTONOMOUS_CHRONICLE_GROWTH_ROADMAP.md`.
 
@@ -354,6 +354,85 @@ The branch / PR pattern remains identical to Wave 1: each sprint a separate bran
 
 ---
 
-## Next step after this Wave 2 plan amendment lands
+## Wave 2 — postmortem (closed 2026-04-24)
 
-Talos picks up `docs/etappes/W10_research_trigger_semantics_brief.md` first, from a fresh sync of `main`. The four briefs land on `main` together with this plan amendment in one PR; Talos does not begin W10 before that PR is merged.
+W10, W11, W12 all shipped and merged (PRs #94, #95, #96). The research loop is real: verdict-based trigger → LLM ResearchPlanner with Anthropic web_search tool → multi-source ResearchExecutor (Wikidata, Wikipedia, Gutenberg, generic web fetch via httpx + trafilatura) → LLM Evaluator → HestiaSentinel per-candidate auditor → ingest → Chronik grows.
+
+**Honest postmortem of what Wave 2 still baked in wrong:**
+
+The original W13 brief (see `docs/etappes/W13_research_demo_relock_brief.md`) was drafted under the clinic doctrine. It retained HestiaSentinel as a synchronous content judge before ingest and designed the cockpit vocabulary around the HestiaLite-shaped review metaphor (`hestia_review` event type). Both are now rejected by the immune-system doctrine (see `docs/IMMUNE_SYSTEM.md`).
+
+- **HestiaLite and HestiaSentinel are deprecated.** Both are synchronous pre-gate content filters. W13 removes them.
+- **Hestia's correct role is post-hoc**, not pre-gate. Her full role (PHX-0039) remains valid as a drift monitor and escalation receiver — that is a Wave 3+ concern, not a W13 cleanup.
+- **The SSE vocabulary retains one wrong event type.** `hestia_review` in the W13 brief implies a synchronous approve/reject gate visible to the user. Under the immune system doctrine, content flows into a verification pool and cells observe asynchronously. The corrected W13 renames this event and the overall cockpit vocabulary accordingly.
+- **Demo recording is deferred to Wave 3.** The Wave 2 demo recording script in the W13 brief still shows the clinic flow (HestiaSentinel approved → ingested). The real demo recording waits until Wave 3 has the verification-pool concept visible in the cockpit.
+
+The corrected W13 brief (rewritten in this PR) implements the doctrine-clean shape.
+
+---
+
+## Wave 3 — doctrine and execution plan
+
+**Governing doctrine:** [`docs/IMMUNE_SYSTEM.md`](../IMMUNE_SYSTEM.md) (cell types, verification pool, 98% sampling, Findings as first-class data, self-improvement loop).
+**Long-horizon doctrine:** [`docs/SELF_MODIFICATION.md`](../SELF_MODIFICATION.md) (Pantheon eventually writes its own next version).
+
+Wave 3 builds the immune system. It is the first wave that is genuinely "alive" in the sense the project has always promised: content flows in without a gate, a background organism samples, marks, recycles, and learns.
+
+### Wave 3 sprint table
+
+| Sprint | Label | Focus | New brief |
+|---|---|---|---|
+| **W13** | Pre-gate removal | Remove HestiaLite + HestiaSentinel. Route ingest directly into a typed verification pool. Update cockpit vocabulary (`acquired_into_pool` replaces `hestia_review`). Update demo scripts to reflect the open-flow posture. | `docs/etappes/W13_pre_gate_removal_brief.md` (this PR rewrites the brief) |
+| **W14** | Athene v0.1 — T-helper | Verification pool as a queryable sampling reservoir. Athene worker pulls ~2% of pool entries, runs structured truth/consistency checks, writes `Finding` nodes into the chronicle. | `docs/etappes/W14_athene_brief.md` (drafted before Talos pickup) |
+| **W15** | Chronos v0.1 — T-killer | Reads Athene Findings + existing Oneiros aging signals. Writes `CONTRADICTS` / `SUPERSEDED_BY` edges (PHX-0062 Negative Knowledge). Demotes confidence + vitality. Hard-deletion logged to `chronicle_deletions/` append-only. | `docs/etappes/W15_chronos_brief.md` (drafted before Talos pickup) |
+| **W16** | Nemesis + Eris | Nemesis: periodic structural auditor (confidence inflation, echo chambers, pheromone autobahns). Eris: scheduled red-team campaigns on an isolated test pantheon. Both write Findings as first-class chronicle data. | `docs/etappes/W16_nemesis_eris_brief.md` (drafted before Talos pickup) |
+| **W17** | Mnemosyne as conductor | Self-improvement conductor: defines her own success metrics (LLM-driven), A/B-tests her own thresholds + prompts + sampling rates, writes `MnemosyneExperiment` nodes back into the chronicle, drafts structured PHX-Backlog entries for the next Phoenix incarnation. | `docs/etappes/W17_mnemosyne_conductor_brief.md` (drafted before Talos pickup) |
+
+**Wave 3 → Wave 4:** The first Phoenix incarnation is manually curated by humans. Wave 4 work begins when Mnemosyne's accumulated PHX-Backlog drafts and the human review corpus are sufficient to define a real generation transition. The long-horizon principle of self-modification (Pantheon writing its own PRs) lives in Wave 4+.
+
+### Wave 3 closed-loop architecture
+
+```mermaid
+flowchart TD
+    acquire[Content acquired — no pre-gate]
+    pool[(Verification pool)]
+    ingest[IngestionPipeline → Chronik]
+    athene[Athene worker T-helper sample 2%]
+    chronos[Chronos worker T-killer aging + findings]
+    nemesis[Nemesis periodic structural auditor]
+    eris[Eris scheduled red-team isolated test]
+    findings[Findings as typed chronicle nodes]
+    mnemosyne[Mnemosyne conductor A/B tests + PHX drafts]
+    phx[PHX Backlog drafts]
+
+    acquire --> pool
+    pool --> ingest
+    pool -->|2% sample| athene
+    pool -->|aging signals| chronos
+    pool -->|periodic sweep| nemesis
+    pool -->|scheduled campaign| eris
+    athene --> findings
+    chronos --> findings
+    nemesis --> findings
+    eris --> findings
+    findings -.->|observes| mnemosyne
+    mnemosyne -.->|tunes| pool
+    mnemosyne --> phx
+```
+
+### Wave 3 stop list
+
+- No extension of HestiaLite or HestiaSentinel in any form. Both are structurally removed in W13.
+- No new synchronous pre-gate content filter for any reason. Operative self-defense (rate limits, robots.txt, size caps, HTTPS enforcement) is the only gate. If a brief asks for a pre-gate — the brief is wrong; stop and escalate to Hesiod.
+- No new LLM provider beyond what Wave 2 established. Anthropic Sonnet 4.6 remains the default.
+- No demo recording until Wave 3 has a visible verification pool in the cockpit (earliest W14, realistically W15).
+- One brief per Talos pickup. Wave 3 briefs are written one at a time, each immediately before the sprint, not batched. Lesson from Wave 2.
+- Diff cap remains 600 LOC per PR excluding tests and docs. Cell-class workers are small by design; if a brief asks for more, it needs splitting.
+
+---
+
+## Auto-mode discipline for Talos (Wave 3 addendum)
+
+The Wave 2 discipline above stays in force. One additional rule:
+
+**The immune-system architecture is asynchronous and parallel by definition.** Any brief or implementation that serialises cell-class workers against the ingest path has violated the doctrine. Talos must STOP and escalate to Hesiod if a brief asks him to await a cell-class worker result before completing an ingest operation.
