@@ -73,6 +73,14 @@ There is no nightly batch job. Instead, a continuous, low-priority "dreaming" pr
 
 This is the heart of the system. It is where new knowledge is woven into the existing fabric, where contradictions are surfaced, where the network becomes wiser over time. Oneiros never sleeps.
 
+## The Immune System
+
+The Chronik is not a sterile clinic. Falsehoods, contradictions, and noise must be allowed in — biology cannot pre-filter every infection, and neither can a planetary chronicle. What makes the system trustworthy is not a perfect gate, but a living **immune system** of sample-based, asynchronous, parallel-running cell types: Athene as T-helper (surveillance), Chronos as T-killer (clearance), Nemesis as antibody memory (structural patterns), Eris as adaptive immunity (red-team probing), Mnemosyne as the consciousness layer that observes the immune system itself, A/B-tests its own thresholds, and drafts plans for the next Phoenix incarnation.
+
+This is not a metaphor. It is the architectural posture. Pre-gates that block content based on judgement of truth or sensitivity are forbidden by doctrine; only operative self-defense (rate limits, robots.txt, response-size caps) lives at the gate. Everything else is handled post-hoc, in parallel, by cells that learn.
+
+See [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md) for the canonical specification, and [`SELF_MODIFICATION.md`](SELF_MODIFICATION.md) for the long-horizon principle that the Pantheon will eventually write its own next version.
+
 ## The Civilizational Bet
 
 We believe that if the foundational knowledge layer that future AI depends on is:

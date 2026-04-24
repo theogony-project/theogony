@@ -21,12 +21,14 @@ Before any non-trivial contribution:
 2. [`docs/INDEX.md`](docs/INDEX.md)
 3. [`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md)
 4. [`docs/CHRONICLE_PRINCIPLES.md`](docs/CHRONICLE_PRINCIPLES.md)
-5. [`PHILOSOPHY.md`](PHILOSOPHY.md)
-6. [`docs/VISION.md`](docs/VISION.md)
-7. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-8. [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — **especially** the Pantheon-substrate vs Pantheon-agents vs builder-agents distinction
-9. [`docs/IMPLEMENTATION_PLAN_GEN1.md`](docs/IMPLEMENTATION_PLAN_GEN1.md) — the binding plan for current work
-10. [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md) — the structured queue you may pick from
+5. [`docs/IMMUNE_SYSTEM.md`](docs/IMMUNE_SYSTEM.md) — **binding doctrine for defense and self-improvement.** Pre-gates that judge content are forbidden; verification is sample-based, asynchronous, post-hoc, parallel. Read this before designing or implementing any verifier, validator, sentinel, or filter.
+6. [`docs/SELF_MODIFICATION.md`](docs/SELF_MODIFICATION.md) — long-horizon principle: the Pantheon eventually writes its own next version. Today's substrate must not foreclose this.
+7. [`PHILOSOPHY.md`](PHILOSOPHY.md)
+8. [`docs/VISION.md`](docs/VISION.md)
+9. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+10. [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — **especially** the Pantheon-substrate vs Pantheon-agents vs builder-agents distinction
+11. [`docs/IMPLEMENTATION_PLAN_GEN1.md`](docs/IMPLEMENTATION_PLAN_GEN1.md) — the binding plan for current work
+12. [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md) — the structured queue you may pick from
 
 For deeper concepts, [`docs/INDEX.md`](docs/INDEX.md) lists the reading paths by intent.
 

@@ -542,6 +542,30 @@ All technology choices are behind abstract interfaces. Every component can be re
 
 The architecture supports this progression without fundamental redesign. The KnowledgeStore interface, the cluster hierarchy, and the agent protocols remain the same. What changes is the backing infrastructure and the sophistication of the agents.
 
+## Defense and Self-Improvement (Immune-System Pattern)
+
+The Chronik's defense, repair, and self-improvement layers do not sit in front of the ingest pipeline. They sit beside it, as asynchronous parallel cell types that sample, observe, and act on already-ingested content. This is a deliberate architectural choice; the reasoning is in [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md).
+
+The five cell classes:
+
+| Cell type | Pantheon agent | What it does |
+|---|---|---|
+| T-helper (surveillance) | Athene | Samples ~2% of new chronicle content, runs verification checks, writes Findings as first-class nodes |
+| T-killer (clearance) | Chronos | Acts on Athene findings + aging signals, writes `CONTRADICTS` / `SUPERSEDED_BY` edges, demotes vitality, in extreme cases logs deletions |
+| Antibody memory (structural audit) | Nemesis | Detects recurring pathologies (confidence inflation, echo chambers, pheromone autobahns); structurally read-only |
+| Adaptive immunity (red-team) | Eris | Synthesizes adversarial probes against an isolated test pantheon; finds blind spots before live data does |
+| Consciousness (self-improvement) | Mnemosyne | Observes all cells, defines her own success metrics, A/B-tests thresholds and prompts, writes drafts into the Phoenix Backlog for the next incarnation |
+
+All cells consume from a structured **verification pool**: a sampling reservoir (not a queue) of recently produced or modified content. Each cell has its own sampling strategy. Findings are written back as typed nodes/edges; the chronicle thus contains its own self-observation.
+
+What does **not** live in this architecture: a pre-gate that filters content based on judgement of truth, sensitivity, or appropriateness. The HestiaLite (W7-B) and HestiaSentinel (W12) shapes are deprecated by the immune-system doctrine and are being removed in W13.
+
+What does live at the gate: only operative self-defense — HTTPS-only enforcement on web fetch, robots.txt compliance, rate limits per host, response size cap, redirect-chain cap, content-type validation, IP-literal-host rejection, request timeouts. These are physical-barrier reflexes (skin, mucous membranes), not epistemic judgement.
+
+### Long-horizon: self-modification
+
+The self-improvement loop closes when the Pantheon writes its own next version. This is documented as a long-horizon principle in [`SELF_MODIFICATION.md`](SELF_MODIFICATION.md). It is not implemented in any current generation. The architecture must, however, be built today in a way that does not foreclose it: deterministic deploys, tests as canonical specification, agent-readable documentation (AGENTS.md), no folk-knowledge deploy steps.
+
 ## Project Structure
 
 ```

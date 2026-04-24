@@ -179,6 +179,14 @@ A world chronicle must be regenerable, inspectable, portable, and partially reco
 
 No permanent dependence on foreign APIs can be allowed at the core of the system. External sources may seed the Pantheon, but the Pantheon must increasingly own its own memory pathways.
 
+### 8. Defense as immune system, not as gate
+
+The Pantheon must accept noisy and even adversarial inputs and develop the ability to recognise and recover from them post-hoc, in parallel, by sample. Pre-filtering content at the gate is structurally rejected: it is slow, it is brittle, it hides the system's epistemic state, and it forecloses the data future cell-class generations need to learn. Only operative self-defense (rate limits, robots.txt, size caps) lives at the gate; everything epistemic is handled by an asynchronous cell-class architecture (Athene / Chronos / Nemesis / Eris / Mnemosyne) — see [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md).
+
+### 9. Self-improvement and eventual self-authorship
+
+The Pantheon must be able to observe itself, tune itself, and over time write its own next version. The within-generation tuning (A/B tests, parameter adjustment, draft Phoenix tickets) is the immediate scope; the long-horizon principle is that the Pantheon eventually opens pull requests against its own repository under explicit operator policy and human-review defaults — see [`SELF_MODIFICATION.md`](SELF_MODIFICATION.md). The substrate must be built today in a way that does not foreclose this.
+
 ## The Role of Humans
 
 The long horizon may involve agents making decisions of enormous consequence. But the design target should not be naive surrender to unconstrained power.

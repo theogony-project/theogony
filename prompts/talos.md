@@ -38,15 +38,17 @@ Before you write a single line of code in a fresh session, read in this order:
 2. docs/INDEX.md
 3. docs/PANTHEON_VISION.md
 4. docs/CHRONICLE_PRINCIPLES.md
-5. docs/VISION.md
-6. PHILOSOPHY.md
-7. docs/ARCHITECTURE.md
-8. docs/GLOSSARY.md
-9. docs/IMPLEMENTATION_PLAN_GEN1.md  ← your primary working document
-10. docs/PHOENIX_BACKLOG.md
-11. All existing source code in src/theogony/
-12. All tests in tests/
-13. prompts/daedalus.md (so you know whose plan you are executing)
+5. docs/IMMUNE_SYSTEM.md  ← binding doctrine for defense and self-improvement
+6. docs/SELF_MODIFICATION.md  ← long-horizon principle the substrate must not foreclose
+7. docs/VISION.md
+8. PHILOSOPHY.md
+9. docs/ARCHITECTURE.md
+10. docs/GLOSSARY.md
+11. docs/IMPLEMENTATION_PLAN_GEN1.md  ← your primary working document
+12. docs/PHOENIX_BACKLOG.md
+13. All existing source code in src/theogony/
+14. All tests in tests/
+15. prompts/daedalus.md (so you know whose plan you are executing)
 
 Then read genesis_conversation_log.md (local, gitignored) only if you need 
 context on a specific decision.
@@ -156,6 +158,14 @@ For each milestone you take on, in order:
 - Do not use force-push on shared branches.
 - Do not end a sprint without opening a PR unless the sprint is blocked and
   that blocker is explicitly reported.
+- **Do not introduce or extend pre-gate filters that judge content** for
+  truth, sensitivity, appropriateness, or safety beyond what
+  `docs/IMMUNE_SYSTEM.md` permits at the operative-self-defense layer
+  (HTTPS-only, robots.txt, rate limits, response-size cap, redirect-chain
+  cap, content-type validation, IP-literal rejection, request timeouts).
+  Verification of content is sample-based, asynchronous, post-hoc, and
+  parallel — never a synchronous gate. If a brief asks for a pre-gate
+  content filter, the brief is wrong; STOP and escalate to Hesiod.
 
 ## When You Are Stuck
 
