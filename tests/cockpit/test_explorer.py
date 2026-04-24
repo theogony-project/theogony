@@ -64,6 +64,10 @@ def test_explorer_page_renders_chat_input_and_d3_chart(
     assert "phase-embed" in r.text
     assert "explorer-save" in r.text
     assert "explorer-graph" in r.text
+    assert "explorer-thinking-max" in r.text
+    assert "explorer-chat-log" in r.text
+    assert "explorer-new-chat" in r.text
+    assert "phase-chat" in r.text
     assert "d3@7" in r.text
 
 
@@ -86,12 +90,27 @@ def test_explorer_api_ask_returns_rich_payload(
     assert "retrieval" in payload
     assert payload["retrieval"]["k"] == 5
     assert payload["retrieval"]["hops"] == 1
+    assert payload["retrieval"]["thinking_max"] == 2
     assert "nodes_per_hop" in payload["retrieval"]
     assert "synthesis_meta" in payload
     assert payload["synthesis_meta"]["stub_llm"] is True
     assert "entry_plan" in payload
     assert payload["entry_plan"]["sub_queries"]
     assert isinstance(payload["query_embedding_preview"], list)
+    assert "chat" in payload
+    assert payload["chat"]["prior_messages_kept"] == []
+    assert payload["chat"]["tokens_estimated_after"] >= 0
+
+
+def test_explorer_api_ask_rejects_invalid_conversation_summary_type(
+    seeded_explorer_client: TestClient,
+) -> None:
+    r = seeded_explorer_client.post(
+        "/cockpit/api/ask",
+        json={"q": "Hi", "conversation_summary": ["not", "a", "string"]},
+    )
+    assert r.status_code == 400
+    assert "conversation_summary" in r.json()["detail"].lower()
 
 
 def test_explorer_api_ask_rejects_empty_query(
@@ -111,12 +130,13 @@ def test_explorer_api_ask_clamps_k_and_hops(
 ) -> None:
     r = seeded_explorer_client.post(
         "/cockpit/api/ask",
-        json={"q": "Hestia", "k": 999, "hops": 99},
+        json={"q": "Hestia", "k": 999, "hops": 99, "thinking_max": 99},
     )
     assert r.status_code == 200
     payload = r.json()
     assert payload["retrieval"]["k"] <= 25
     assert payload["retrieval"]["hops"] <= 3
+    assert payload["retrieval"]["thinking_max"] <= 8
 
 
 def test_explorer_api_ask_stream_returns_phases_and_complete(
@@ -131,12 +151,18 @@ def test_explorer_api_ask_stream_returns_phases_and_complete(
         raw = r.read().decode()
     events = _parse_sse_data_lines(raw)
     types = [e["type"] for e in events]
-    assert types[:3] == ["phase", "phase", "phase"]
+    assert types[:4] == ["phase", "phase", "phase", "phase"]
     assert types[-1] == "complete"
     payload = events[-1]["payload"]
     assert payload["query"] == "Pantheon"
     assert "constellation" in payload
-    assert {e["phase"] for e in events[:3]} == {"embed", "retrieve", "synthesize"}
+    phase_events = [e for e in events if e["type"] == "phase"]
+    assert [e["phase"] for e in phase_events] == [
+        "chat_compact",
+        "embed",
+        "retrieve",
+        "synthesize",
+    ]
 
 
 def test_explorer_api_ask_stream_empty_query_emits_error_event(

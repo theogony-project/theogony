@@ -286,6 +286,7 @@ async def tool_ask(
     k: int = 10,
     hops: int = 2,
     pheromone_mode: str | None = None,
+    thinking_max: int | None = None,
 ) -> dict[str, Any]:
     """Run :func:`pantheon_ask` and return the JSON-serialisable payload."""
     if res.mcp_ask_blocked_message is not None:
@@ -295,7 +296,14 @@ async def tool_ask(
     except ValueError as exc:
         return {"error": str(exc)}
     pipeline = _build_query_pipeline(res)
-    result = await pipeline.ask(q, layer=None, k=k, hops=hops, pheromone_mode=mode)
+    result = await pipeline.ask(
+        q,
+        layer=None,
+        k=k,
+        hops=hops,
+        pheromone_mode=mode,
+        thinking_max=thinking_max,
+    )
     return {
         "answer": result.answer.text,
         "cited_node_ids": list(result.answer.cited_node_ids),
@@ -504,6 +512,16 @@ def _tool_descriptors() -> list[dict[str, Any]]:
                         "enum": ["follow", "ignore", "invert"],
                         "default": "follow",
                     },
+                    "thinking_max": {
+                        "type": "integer",
+                        "description": (
+                            "Optional cap on extra post-retrieval 'thinking' rounds "
+                            "(0–8) after the first synthesis; omit to use "
+                            "settings.retrieval.chronicle_thinking.max_rounds."
+                        ),
+                        "minimum": 0,
+                        "maximum": 8,
+                    },
                 },
                 "required": ["q"],
                 "additionalProperties": False,
@@ -698,12 +716,15 @@ def build_server(res: McpResources) -> Any:
         if name == "pantheon_ask":
             raw_mode = arguments.get("pheromone_mode")
             mode_arg = None if raw_mode is None else str(raw_mode)
+            raw_tm = arguments.get("thinking_max")
+            tm_arg: int | None = None if raw_tm is None else int(raw_tm)
             payload = await tool_ask(
                 res,
                 q=arguments["q"],
                 k=int(arguments.get("k", 10)),
                 hops=int(arguments.get("hops", 2)),
                 pheromone_mode=mode_arg,
+                thinking_max=tm_arg,
             )
         elif name == "pantheon_node":
             payload = await tool_node(res, node_id=arguments["node_id"])

@@ -117,6 +117,7 @@ class AnswerSynthesizerLike(Protocol):
         max_output_tokens: int | None = None,
         temperature: float = 0.0,
         run_id: str | None = None,
+        conversation_context: str | None = None,
     ) -> Answer:
         """Return a cited :class:`Answer` for the given constellation."""
         ...
@@ -158,6 +159,7 @@ class AnswerSynthesizer:
         max_output_tokens: int | None = 600,
         temperature: float = 0.0,
         run_id: str | None = None,
+        conversation_context: str | None = None,
     ) -> Answer:
         """Synthesise a cited answer for the given Constellation.
 
@@ -171,8 +173,12 @@ class AnswerSynthesizer:
         when both are provided. When neither is set and an audit_log
         is configured, the call is silently not audited (the audit
         log requires a run_id).
+
+        ``conversation_context`` is optional prior dialogue (e.g. Explorer
+        chat). It is for disambiguation only; citations must still use
+        node ids from the Constellation.
         """
-        prompt = self._build_user_prompt(constellation)
+        prompt = self._build_user_prompt(constellation, conversation_context=conversation_context)
         identifier = constellation.query
 
         try:
@@ -266,7 +272,12 @@ class AnswerSynthesizer:
                 ordered.append(cid)
         return ordered
 
-    def _build_user_prompt(self, constellation: Constellation) -> str:
+    def _build_user_prompt(
+        self,
+        constellation: Constellation,
+        *,
+        conversation_context: str | None = None,
+    ) -> str:
         """Compose the user-facing prompt body.
 
         The slim Constellation is dumped as JSON (Pydantic's
@@ -286,8 +297,17 @@ class AnswerSynthesizer:
                 "not yet have enough on this topic.\n\n"
             )
         )
+        convo = ""
+        if conversation_context and conversation_context.strip():
+            convo = (
+                "Prior conversation (reference only; every factual claim you cite "
+                "must still use [AKA-…] ids from the Constellation below, not from "
+                "this dialogue):\n\n"
+                f"{conversation_context.strip()}\n\n---\n\n"
+            )
         return (
             f"{sufficiency_note}"
+            f"{convo}"
             f"User query: {constellation.query}\n\n"
             f"Constellation (slim DTOs — every node id is citable):\n"
             f"{body}\n\n"
@@ -347,8 +367,9 @@ class OfflineAnswerSynthesizer:
         max_output_tokens: int | None = None,
         temperature: float = 0.0,
         run_id: str | None = None,
+        conversation_context: str | None = None,
     ) -> Answer:
-        del max_output_tokens, temperature, run_id  # offline path ignores LLM knobs
+        del max_output_tokens, temperature, run_id, conversation_context  # offline path
         nodes = constellation.nodes
         if not nodes:
             return Answer(

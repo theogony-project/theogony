@@ -69,6 +69,10 @@ from theogony.retrieval.chronicle_entry_planner import (
     merge_multi_hop_results,
     plan_chronicle_entry_queries,
 )
+from theogony.retrieval.chronicle_thinking import (
+    build_thinking_context,
+    plan_chronicle_thinking_refine,
+)
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopResult, MultiHopRetriever
 from theogony.retrieval.strategies.protocol import RetrievalStrategy
@@ -83,6 +87,30 @@ log = get_logger("retrieval.pipeline")
 #: the brief's "node.confidence >= 0.7" rule and the existing
 #: ``QueryVerdictThresholds`` semantics.
 HIGH_CONFIDENCE_FLOOR = 0.7
+
+
+async def _retrieve_merged_for_sub_pairs(
+    retriever: MultiHopRetriever,
+    sub_pairs: list[tuple[str, list[float]]],
+    *,
+    k: int,
+    hops: int,
+    layer: Layer | None,
+    pheromone_mode: Literal["follow", "ignore", "invert"],
+) -> MultiHopResult:
+    """Parallel multi-hop retrieve per sub-query; merge by best score."""
+    coros = [
+        retriever.retrieve(
+            emb,
+            k=k,
+            hops=hops,
+            layer=layer,
+            pheromone_mode=pheromone_mode,
+        )
+        for _, emb in sub_pairs
+    ]
+    partial = await asyncio.gather(*coros)
+    return merge_multi_hop_results(list(partial), cap=k)
 
 
 def derive_cited_edge_ids(
@@ -162,36 +190,36 @@ class QueryPipeline:
         hops: int = 2,
         strategy: Literal["fixed_depth", "edge_product", "cluster_narrow"] | None = None,
         pheromone_mode: Literal["follow", "ignore", "invert"] = "follow",
+        thinking_max: int | None = None,
+        synthesis_conversation_context: str | None = None,
     ) -> QueryResult:
         """Run the retrieval loop for ``query`` and return answer + constellation + report.
 
-        Order of operations (matters for the report's "constellation as
-        the user saw it" property):
+        Optional ``thinking_max`` (0–8): after the first synthesize pass, the
+        entry LLM may inspect the constellation and propose **new** search strings
+        for up to that many **extra** retrieve+assemble+synthesize rounds (stub LLM
+        disables thinking). When ``None``, uses
+        ``settings.retrieval.chronicle_thinking.max_rounds``.
 
-            1. Embed query
-            2. multi_hop retrieve
-            3. Assemble Constellation
-            4. Synthesize Answer (LLM)
-            5. ``_finalize_report`` — captures pre-bump confidence /
-               relevance values
-            6. Persist report (if a writer was supplied)
-            7. RelevanceTracker.bump_all on the cited ids
-
-        Step 5 happens before step 7 on purpose. The report records the
-        Chronik state *as observed* by this query — bumping first
-        would have it record post-bump relevance, which is not what
-        the user saw.
+        Optional ``synthesis_conversation_context``: prepended to the synthesis user
+        prompt for multi-turn chat (Explorer). Retrieval still uses ``query`` only.
         """
         run_id = new_run_id()
         started_at = datetime.now(UTC)
         run_perf = time.perf_counter()
+        thinking_cfg = self._settings.retrieval.chronicle_thinking
+        if thinking_max is None:
+            effective_thinking = max(0, min(8, thinking_cfg.max_rounds))
+        else:
+            effective_thinking = max(0, min(8, int(thinking_max)))
         log.info(
-            "ask start run_id=%s query=%r k=%d hops=%d strategy=%s",
+            "ask start run_id=%s query=%r k=%d hops=%d strategy=%s thinking_max=%d",
             run_id,
             query,
             k,
             hops,
             strategy or "default",
+            effective_thinking,
         )
 
         q_original = (query or "").strip()
@@ -233,7 +261,7 @@ class QueryPipeline:
             sub_pairs = list(zip(uniq_subs, vecs, strict=True))
         embedding_duration_ms = int((time.perf_counter() - embed_perf) * 1000)
 
-        # ---- 2. retrieve (one multi-hop pass per sub-query, merged by best score)
+        # ---- 2. retrieve (parallel multi-hop per sub-query, merged by best score)
         retriever = self._retriever
         if strategy is not None:
             retriever = MultiHopRetriever(
@@ -242,36 +270,120 @@ class QueryPipeline:
                     self._retriever.store, self._settings, override=strategy
                 ),
             )
-        partial: list[MultiHopResult] = []
-        for _sq, emb in sub_pairs:
-            partial.append(
-                await retriever.retrieve(
-                    emb,
-                    k=k,
-                    hops=hops,
-                    layer=layer,
-                    pheromone_mode=pheromone_mode,
-                )
-            )
-        retrieval_result = merge_multi_hop_results(partial, cap=k)
+        retrieval_result = await _retrieve_merged_for_sub_pairs(
+            retriever,
+            sub_pairs,
+            k=k,
+            hops=hops,
+            layer=layer,
+            pheromone_mode=pheromone_mode,
+        )
         retrieval_result.duration_ms += planner_ms
+
+        tried_subqueries: list[str] = list(dict.fromkeys(uniq_subs))
+        thinking_rounds: list[dict[str, Any]] = []
+        synthesis_total_latency_ms = 0
 
         entry_plan: dict[str, Any] = {
             "used_llm_planner": plan_used_llm,
             "sub_queries": sub_queries,
             "rationale": plan_rationale,
             "planner_duration_ms": planner_ms,
+            "thinking": {
+                "max_rounds_requested": effective_thinking,
+                "rounds": thinking_rounds,
+            },
         }
 
-        # ---- 3. assemble
+        # ---- 3–4. assemble + synthesize (+ optional thinking rounds)
         constellation = await self._assembler.assemble(
             query, retrieval_result, query_embedding=query_embedding
         )
-
-        # ---- 4. synthesize
         synthesis_perf = time.perf_counter()
-        answer = await self._synthesizer.synthesize(constellation, run_id=run_id)
-        synthesis_total_latency_ms = int((time.perf_counter() - synthesis_perf) * 1000)
+        answer = await self._synthesizer.synthesize(
+            constellation,
+            run_id=run_id,
+            conversation_context=synthesis_conversation_context,
+        )
+        synthesis_total_latency_ms += int((time.perf_counter() - synthesis_perf) * 1000)
+
+        for round_idx in range(effective_thinking):
+            if self._entry_planner_llm is None or isinstance(
+                self._entry_planner_llm,
+                StubLLMProvider,
+            ):
+                break
+            ctx = build_thinking_context(
+                user_query=q_original,
+                constellation=constellation,
+                answer=answer,
+                tried_subqueries=tried_subqueries,
+                round_index=round_idx + 1,
+            )
+            decision = await plan_chronicle_thinking_refine(
+                llm=self._entry_planner_llm,
+                user_query=q_original,
+                context=ctx,
+                thinking_limits=thinking_cfg,
+                planner_limits=planner_cfg,
+            )
+            if not decision.continue_retrieval or not decision.search_queries:
+                thinking_rounds.append(
+                    {
+                        "round": round_idx + 1,
+                        "continue": False,
+                        "search_queries": [],
+                        "rationale": decision.rationale,
+                        "duration_ms": decision.duration_ms,
+                        "used_llm": decision.used_llm,
+                    }
+                )
+                break
+            retrieval_result.duration_ms += decision.duration_ms
+            new_queries = decision.search_queries
+            for q in new_queries:
+                if q.casefold() not in {x.casefold() for x in tried_subqueries}:
+                    tried_subqueries.append(q)
+            emb_extra = time.perf_counter()
+            new_vecs = await self._embedder.embed_many(new_queries)
+            embedding_duration_ms += int((time.perf_counter() - emb_extra) * 1000)
+            new_pairs = list(zip(new_queries, new_vecs, strict=True))
+            merged_more = await _retrieve_merged_for_sub_pairs(
+                retriever,
+                new_pairs,
+                k=k,
+                hops=hops,
+                layer=layer,
+                pheromone_mode=pheromone_mode,
+            )
+            retrieval_result = merge_multi_hop_results(
+                [retrieval_result, merged_more],
+                cap=k,
+            )
+            constellation = await self._assembler.assemble(
+                query, retrieval_result, query_embedding=query_embedding
+            )
+            synthesis_perf = time.perf_counter()
+            answer = await self._synthesizer.synthesize(
+                constellation,
+                run_id=run_id,
+                conversation_context=synthesis_conversation_context,
+            )
+            synthesis_total_latency_ms += int((time.perf_counter() - synthesis_perf) * 1000)
+            thinking_rounds.append(
+                {
+                    "round": round_idx + 1,
+                    "continue": True,
+                    "search_queries": new_queries,
+                    "rationale": decision.rationale,
+                    "duration_ms": decision.duration_ms,
+                    "used_llm": decision.used_llm,
+                }
+            )
+
+        entry_plan["thinking"]["rounds_completed"] = len(
+            [r for r in thinking_rounds if r.get("continue") is True]
+        )
 
         # ---- 5. finalize report (BEFORE the relevance write-back)
         finished_at = datetime.now(UTC)

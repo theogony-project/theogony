@@ -128,6 +128,19 @@ class TestSynthesizeBasics:
         # No json_schema constraint (E8 brief: plain-text completion).
         assert call["json_schema"] is None
 
+    async def test_conversation_context_prepended_to_user_prompt(self) -> None:
+        constellation = _two_node_constellation()
+        llm = StubLLMProvider(default="Answer [AKA-1c73fabddadd].")
+        synth = AnswerSynthesizer(llm)
+        await synth.synthesize(
+            constellation,
+            conversation_context="Earlier we discussed Tibet.",
+        )
+        assert len(llm.calls) == 1
+        prompt = llm.calls[0]["prompt"]
+        assert "Earlier we discussed Tibet." in prompt
+        assert "Prior conversation" in prompt
+
     async def test_synthesis_breakdown_carries_token_costs(self) -> None:
         constellation = _two_node_constellation()
         llm = StubLLMProvider(default="Answer with [AKA-1c73fabddadd] cite.")
