@@ -18,9 +18,9 @@ import asyncio
 import time
 from typing import Any
 
-from pydantic import SecretStr
+from pydantic import BaseModel, SecretStr
 
-from theogony.agents.llm import LLMResult
+from theogony.agents.llm import LLMResult, ResearchPlannerCost
 from theogony.config.logging import get_logger
 
 log = get_logger("agents.llm_openai")
@@ -135,6 +135,18 @@ class OpenAILLMProvider:
             latency_ms=latency_ms,
             model_id=self._model_id,
         )
+
+    async def complete_with_web_search_for_research_plan(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        output_schema: type,
+        max_search_calls: int = 3,
+        max_total_tokens: int = 4000,
+    ) -> tuple[BaseModel, ResearchPlannerCost]:
+        del system_prompt, user_prompt, output_schema, max_search_calls, max_total_tokens
+        raise NotImplementedError("web_search planning requires Anthropic")
 
 
 __all__ = ["OpenAILLMProvider"]

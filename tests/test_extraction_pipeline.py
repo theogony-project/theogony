@@ -38,6 +38,10 @@ class FakeWikidataClient:
     async def search_multi_language(self, mention, *, languages, limit=10):  # type: ignore[no-untyped-def]
         return {lang: list(self.responses.search.get((mention, lang), [])) for lang in languages}
 
+    async def search(self, mention, *, language, limit=10):  # type: ignore[no-untyped-def]
+        key = (mention.strip(), language)
+        return list(self.responses.search.get(key, []))[:limit]
+
     async def fetch_labels_aliases(self, qids, *, languages):  # type: ignore[no-untyped-def]
         out: dict[str, dict[str, list[str]]] = {}
         for qid in qids:

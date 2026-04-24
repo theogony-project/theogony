@@ -18,12 +18,12 @@ from theogony.acquisition.gutenberg import GutenbergAdapter
 from theogony.agents.argus import ArgusAgent, ArgusOutcome, ArgusResult
 from theogony.agents.argus_ingest_runner import RealIngestRunner
 from theogony.agents.factory import build_llm_from_settings
-from theogony.agents.hestia_lite import HestiaLiteApproval
 from theogony.agents.llm import LLMProvider
 from theogony.clustering.cluster_index import ClusterIndex
 from theogony.cockpit.explorer import run_explorer_query
 from theogony.config.settings import GrowthBridgeSettings, Settings
 from theogony.core.store import KnowledgeStore
+from theogony.curiosity.argus_wiring import make_argus_agent
 from theogony.curiosity.growth_bridge import GrowthBridge
 from theogony.curiosity.run_report import CuriosityRunReport
 from theogony.curiosity.trigger import CuriosityTrigger, TriggerBudget
@@ -94,12 +94,12 @@ async def _cockpit_argus_dispatch_session(
                 ner_sentence_limit=200,
             )
             runner = _PersistingIngestRunner(pipeline, report_writer)
-            hestia = HestiaLiteApproval(settings.curiosity.hestia_lite)
-            yield ArgusAgent(
+            yield make_argus_agent(
+                settings=settings,
                 adapter=adapter,
-                hestia=hestia,
                 ingest_runner=runner,
-                settings=settings.curiosity.argus,
+                llm=llm,
+                wd_client=wd_client,
             )
 
 

@@ -5,10 +5,15 @@ No Gutendex HTTP and no paid LLM — the ``FakeWikidataClient`` fixture data
 from ``test_extraction_pipeline`` matches the bundled Hedin-shaped raw
 content. Argus + HestiaLite + ``RealIngestRunner`` run for real; only the
 acquisition transport is replaced by an in-process stub.
+
+W11: the demo path runs Argus with planner + evaluator enabled (StubLLM),
+Wikidata acquisition via the fake client ``search`` surface, and the legacy
+Gutenberg adapter for executor wiring only.
 """
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -20,22 +25,26 @@ from tests.test_extraction_pipeline import (
     _hedin_responses,
 )
 from theogony.acquisition.base import RawContent, SourceCandidate
-from theogony.agents.argus import ArgusAgent, ArgusOutcome, ArgusSettings
+from theogony.agents.argus import ArgusOutcome
 from theogony.agents.argus_ingest_runner import RealIngestRunner
-from theogony.agents.hestia_lite import HestiaLiteApproval
+from theogony.agents.llm import ResearchPlannerCost, StubLLMProvider
 from theogony.clustering.cluster_index import ClusterIndex
-from theogony.config.settings import HestiaLiteSettings, Settings
+from theogony.config.settings import Settings
+from theogony.curiosity.argus_wiring import make_argus_agent
 from theogony.curiosity.dispatcher import CuriosityDispatcher
 from theogony.curiosity.run_report import CuriosityRunReport
 from theogony.curiosity.trigger import (
     AcquisitionSpec,
     CuriosityTrigger,
     GapClass,
+    ResearchStep,
+    ResearchStepKind,
     TriggerBudget,
     TriggerReason,
 )
 from theogony.extraction.pipeline import IngestionPipeline
 from theogony.extraction.resolve import EntityResolver
+from theogony.extraction.wikidata_client import WikidataCandidate
 from theogony.reporting.models import RegionDescriptor
 from theogony.reporting.writer import RunReportWriter
 from theogony.stores.memory import InMemoryKnowledgeStore
@@ -73,25 +82,85 @@ class _StubGutenbergAdapter:
         return None
 
 
+class _LivingDemoLLM(StubLLMProvider):
+    """Stub planner + evaluator JSON for the living-demo gate."""
+
+    def __init__(self) -> None:
+        super().__init__(default="")
+        self.add_response(
+            '{"origin_query"',
+            json.dumps({"selected": [0], "rejected": [], "rationale": "living_demo"}),
+        )
+
+    async def complete_with_web_search_for_research_plan(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        output_schema: type,
+        max_search_calls: int = 3,
+        max_total_tokens: int = 4000,
+    ) -> tuple[object, ResearchPlannerCost]:
+        del system_prompt, user_prompt, max_search_calls, max_total_tokens
+        step = ResearchStep(
+            kind=ResearchStepKind.WIKIDATA_LOOKUP,
+            target="Sven",
+            rationale="living_demo deterministic planner",
+        )
+        body = output_schema(steps=[step])
+        cost = ResearchPlannerCost(
+            usd_cost=0.0, eur_cost=0.0, search_call_count=0, model_id=self.model_id
+        )
+        return body, cost
+
+
 @pytest.mark.living_demo
 async def test_argus_happy_path_smoke(tmp_path: Path) -> None:
     """W7-B demo path: one pending curiosity report → stub acquire → ingest → disk update."""
     store = InMemoryKnowledgeStore()
-    client = FakeWikidataClient(_hedin_responses())
+    hed = _hedin_responses()
+    search = dict(hed.search)
+    search[("Sven", "en")] = [
+        WikidataCandidate(
+            qid="Q154759",
+            label="Sven Hedin",
+            description="Swedish explorer",
+            match_text=None,
+            language="en",
+        )
+    ]
+    responses = hed.model_copy(update={"search": search})
+    client = FakeWikidataClient(responses)
     resolver = EntityResolver(client=client)  # type: ignore[arg-type]
     cluster_index = ClusterIndex()
     await cluster_index.rebuild_from_store(store)
+    demo_settings = Settings().model_copy(
+        update={
+            "data_dir": tmp_path,
+            "curiosity": Settings().curiosity.model_copy(
+                update={
+                    "research_planner": Settings().curiosity.research_planner.model_copy(
+                        update={"enabled": True}
+                    ),
+                    "evaluator": Settings().curiosity.evaluator.model_copy(
+                        update={"enabled": True}
+                    ),
+                }
+            ),
+        }
+    )
+    (demo_settings.run_reports_dir / "query").mkdir(parents=True, exist_ok=True)
     pipeline = IngestionPipeline(
         entity_resolver=resolver,
         store=store,
-        settings=Settings(),
+        settings=demo_settings,
         cluster_index=cluster_index,
         ner_sentence_limit=80,
     )
     runner = RealIngestRunner(pipeline)
 
     trig = CuriosityTrigger(
-        origin_query="Who was Sven Hedin?",
+        origin_query="Sven Hedin explored Tibet",
         origin_query_run_id="query-run-1",
         gap_class=GapClass.REGION_THIN,
         region_descriptor=RegionDescriptor(query_embedding=[0.1, 0.2, 0.3], seed_node_count=0),
@@ -116,11 +185,13 @@ async def test_argus_happy_path_smoke(tmp_path: Path) -> None:
     writer = RunReportWriter(tmp_path)
     path = writer.write(report)
 
-    argus = ArgusAgent(
+    llm = _LivingDemoLLM()
+    argus = make_argus_agent(
+        settings=demo_settings,
         adapter=_StubGutenbergAdapter(),
-        hestia=HestiaLiteApproval(HestiaLiteSettings()),
         ingest_runner=runner,
-        settings=ArgusSettings(enabled=True, min_candidate_score=0.0, search_limit=5),
+        llm=llm,
+        wd_client=client,  # type: ignore[arg-type]
     )
     dispatcher = CuriosityDispatcher(reports_dir=tmp_path, argus=argus, writer=writer)
     results = await dispatcher.process_pending(max_triggers=1, dry_run=False)
@@ -134,3 +205,6 @@ async def test_argus_happy_path_smoke(tmp_path: Path) -> None:
     assert on_disk.decision.ingest_run_id == results[0].decision.ingest_run_id
     assert on_disk.bytes_acquired == results[0].bytes_acquired
     assert on_disk.decision.hestia_status == "approved"
+    assert on_disk.trigger.research_plan is not None
+    assert len(on_disk.trigger.research_plan.steps) >= 1
+    assert on_disk.evaluator_decision is not None

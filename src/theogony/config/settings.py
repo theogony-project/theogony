@@ -520,8 +520,31 @@ class ArgusSettings(BaseModel):
     min_candidate_score: float = Field(default=0.3, ge=0.0, le=1.0)
 
 
-def _default_hestia_allowlist() -> list[Literal["gutenberg"]]:
-    return ["gutenberg"]
+HestiaAllowlistedSource = Literal["gutenberg", "wikidata"]
+
+
+def _default_hestia_allowlist() -> list[HestiaAllowlistedSource]:
+    return ["gutenberg", "wikidata"]
+
+
+class ResearchPlannerSettings(BaseModel):
+    """LLM-driven research planner (Living Demo W11)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    max_search_calls: int = Field(default=3, ge=0, le=10)
+    max_total_tokens: int = Field(default=4000, ge=500, le=20000)
+    max_steps_per_plan: int = Field(default=3, ge=0, le=5)
+
+
+class EvaluatorSettings(BaseModel):
+    """LLM-driven research evaluator (Living Demo W11)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    max_total_tokens: int = Field(default=2000, ge=200, le=10000)
 
 
 class HestiaLiteSettings(BaseModel):
@@ -533,7 +556,7 @@ class HestiaLiteSettings(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    allowlist: list[Literal["gutenberg"]] = Field(default_factory=_default_hestia_allowlist)
+    allowlist: list[HestiaAllowlistedSource] = Field(default_factory=_default_hestia_allowlist)
 
 
 class CuriositySettings(BaseModel):
@@ -548,6 +571,8 @@ class CuriositySettings(BaseModel):
     growth_bridge: GrowthBridgeSettings = Field(default_factory=GrowthBridgeSettings)
     argus: ArgusSettings = Field(default_factory=ArgusSettings)
     hestia_lite: HestiaLiteSettings = Field(default_factory=HestiaLiteSettings)
+    research_planner: ResearchPlannerSettings = Field(default_factory=ResearchPlannerSettings)
+    evaluator: EvaluatorSettings = Field(default_factory=EvaluatorSettings)
 
 
 class MnemosyneSettings(BaseModel):

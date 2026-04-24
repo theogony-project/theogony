@@ -23,6 +23,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from theogony.agents.research_evaluator import EvaluatorDecision
 from theogony.curiosity.trigger import CuriosityTrigger
 from theogony.reporting.models import RunReportBase
 
@@ -47,6 +48,7 @@ class CuriosityRunReport(RunReportBase):
     trigger: CuriosityTrigger
     decision: AcquisitionDecision = Field(default_factory=AcquisitionDecision)
     bytes_acquired: int = Field(default=0, ge=0)
+    evaluator_decision: EvaluatorDecision | None = None
 
 
 __all__ = ["AcquisitionDecision", "CuriosityRunReport"]
