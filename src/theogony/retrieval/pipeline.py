@@ -113,6 +113,29 @@ async def _retrieve_merged_for_sub_pairs(
     return merge_multi_hop_results(list(partial), cap=k)
 
 
+def compose_query_for_retrieval(
+    query: str,
+    expansion: str | None,
+    *,
+    max_chars: int = 14_000,
+) -> str:
+    """Blend optional dialogue into the text used for embed + chronicle entry planner.
+
+    ``query`` stays the short user turn on ``Constellation.query``; this widens
+    the *retrieval* surface so pronouns (e.g. \"he\") and ellipsis resolve against
+    prior turns (Explorer chat).
+    """
+    q = (query or "").strip()
+    exp = (expansion or "").strip()
+    if not exp:
+        return q
+    body = f"{exp}\n\n---\nCurrent question:\n{q}"
+    if len(body) <= max_chars:
+        return body
+    head = body[: max_chars - 120].rstrip()
+    return f"{head}\n\n[… retrieval context truncated …]\n\nCurrent question:\n{q}"
+
+
 def derive_cited_edge_ids(
     constellation: Constellation,
     cited_node_ids: Sequence[str],
@@ -192,6 +215,7 @@ class QueryPipeline:
         pheromone_mode: Literal["follow", "ignore", "invert"] = "follow",
         thinking_max: int | None = None,
         synthesis_conversation_context: str | None = None,
+        retrieval_query_expansion: str | None = None,
     ) -> QueryResult:
         """Run the retrieval loop for ``query`` and return answer + constellation + report.
 
@@ -202,7 +226,12 @@ class QueryPipeline:
         ``settings.retrieval.chronicle_thinking.max_rounds``.
 
         Optional ``synthesis_conversation_context``: prepended to the synthesis user
-        prompt for multi-turn chat (Explorer). Retrieval still uses ``query`` only.
+        prompt for multi-turn chat (Explorer).
+
+        Optional ``retrieval_query_expansion``: prior dialogue (same shape as the
+        synthesis block) folded into the **embedding and chronicle entry planner**
+        input via :func:`compose_query_for_retrieval` so follow-ups retrieve relevant
+        nodes; ``Constellation.query`` remains the short ``query`` string.
         """
         run_id = new_run_id()
         started_at = datetime.now(UTC)
@@ -223,6 +252,7 @@ class QueryPipeline:
         )
 
         q_original = (query or "").strip()
+        q_for_retrieval = compose_query_for_retrieval(q_original, retrieval_query_expansion)
         planner_cfg = self._settings.retrieval.chronicle_entry_planner
         planner_ms = 0
         plan_rationale = ""
@@ -238,7 +268,7 @@ class QueryPipeline:
             try:
                 plan = await plan_chronicle_entry_queries(
                     llm=self._entry_planner_llm,
-                    user_query=q_original,
+                    user_query=q_for_retrieval,
                     limits=planner_cfg,
                 )
                 sub_queries = plan.search_queries or [q_original]
@@ -249,9 +279,9 @@ class QueryPipeline:
                 sub_queries = [q_original]
             planner_ms = int((time.perf_counter() - t_pl) * 1000)
 
-        # ---- 1. embed (region / report vector follows the user's wording)
+        # ---- 1. embed (region / report vector — widened when ``retrieval_query_expansion`` set)
         embed_perf = time.perf_counter()
-        query_embedding = await self._embedder.embed(q_original)
+        query_embedding = await self._embedder.embed(q_for_retrieval)
         uniq_subs = list(dict.fromkeys(sub_queries))
         sub_pairs: list[tuple[str, list[float]]] = []
         if len(uniq_subs) == 1 and uniq_subs[0].casefold() == q_original.casefold():

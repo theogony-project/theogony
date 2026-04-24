@@ -87,7 +87,7 @@
           : "border-slate-600/50 bg-slate-900/60 text-slate-200 mr-4");
       const lab = document.createElement("div");
       lab.className = "text-[9px] uppercase tracking-wider text-slate-500 mb-0.5";
-      lab.textContent = isUser ? "Du" : "Chronik";
+      lab.textContent = isUser ? "You" : "Chronicle";
       const body = document.createElement("div");
       body.className = "whitespace-pre-wrap break-words leading-snug";
       body.textContent = t.content || "";
@@ -106,7 +106,7 @@
     lastPayload = null;
     if (answerEl) {
       answerEl.innerHTML =
-        '<span class="text-slate-500 italic">Neuer Chat — stelle die erste Frage.</span>';
+        '<span class="text-slate-500 italic">New chat — ask your first question.</span>';
     }
   }
 
@@ -355,7 +355,7 @@
 
   function renderAnswerProse(text) {
     if (!text) {
-      return "<span class='text-slate-500 italic'>(kein Antworttext)</span>";
+      return "<span class='text-slate-500 italic'>(no answer text)</span>";
     }
     const lines = text.split("\n");
     const html = lines
@@ -395,7 +395,7 @@
       })
       .join("");
     return `<div class="mt-3 pt-2 border-t border-slate-700/50">
-              <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Zitate</div>
+              <div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Citations</div>
               <div class="flex flex-wrap gap-1.5">${chips}</div>
             </div>`;
   }
@@ -410,26 +410,26 @@
         retrieval.thinking_max != null && retrieval.thinking_max !== undefined
           ? retrieval.thinking_max
           : "?";
-      body = `Knoten pro Hop: ${nph.join(" → ")} · think≤${tm0}`;
+      body = `Nodes per hop: ${nph.join(" → ")} · think≤${tm0}`;
     } else {
       const stratNote =
         strat === "fixed_depth"
-          ? `Bei <code class="text-slate-400">fixed_depth</code> enthält der Report keine Liste „Knoten pro Hop“.`
-          : "Der Report liefert hier keine „Knoten pro Hop“-Liste.";
+          ? `With <code class="text-slate-400">fixed_depth</code> the report does not include a per-hop node list.`
+          : "No per-hop node list in this report.";
       const tm =
         retrieval.thinking_max != null && retrieval.thinking_max !== undefined
           ? retrieval.thinking_max
           : "?";
       body =
-        `Abruf-Parameter: maximal <strong>${hops}</strong> Hop(s), bis zu <strong>${tm}</strong> zusätzliche Denk-Runde(n) nach der ersten Synthese, Strategie <code class="text-slate-400">${strat}</code>. ` +
+        `Retrieval: up to <strong>${hops}</strong> hop(s), up to <strong>${tm}</strong> extra thinking round(s) after the first synthesis, strategy <code class="text-slate-400">${strat}</code>. ` +
         `${stratNote} ` +
-        `Die Zahl <strong>${hops}</strong> begrenzt die Suchtiefe im Store; der d3-Graph zeigt keine getrennte Schicht pro Hop-Stufe, sondern die Konstellation insgesamt.`;
+        `The hop count bounds graph depth in the store; the d3 view shows the merged constellation, not one ring per hop.`;
       const hn = Number(hops);
       if (Number.isFinite(hn) && hn > 1) {
         body += `<br><span class="text-slate-500 mt-1 inline-block">` +
-          `<strong>Grafik:</strong> Gestrichelte Linien = nur vom <strong>Query</strong> zu Treffern (eine Stern-Schicht). ` +
-          `Weitere Hops laufen im Substrat über <em>Kanten zwischen</em> Knoten; wenn die Konstellation <strong>0</strong> Graph-Kanten hat, ` +
-          `gibt es keinen zweiten sichtbaren „Hop-Ring“ — die Knoten liegen trotzdem im <strong>${hn}</strong>-Hop-Budget gefunden worden.</span>`;
+          `<strong>Graph:</strong> dashed links are only from the <strong>query</strong> to hits (one star layer). ` +
+          `Further hops use <em>edges between</em> nodes below; if the constellation has <strong>0</strong> graph edges, ` +
+          `you will not see a second “hop ring”, but nodes were still found within the <strong>${hn}</strong>-hop budget.</span>`;
       }
     }
     return `<div class="text-slate-400 text-xs mb-2 border-l-2 border-sky-600/55 pl-2 leading-snug">${body}</div>`;
@@ -453,12 +453,12 @@
     const isOffline = meta.mode === "offline_citations" || meta.stub_llm === true;
     const banner = isOffline
       ? `<div class="mb-2 rounded border border-sky-600/40 bg-sky-950/35 px-2 py-1.5 text-xs text-sky-100/95 leading-snug">
-           <strong>Offline-Antwort</strong> — Zitate sind echte Vektor-Treffer im Chronik-Seed.
-           Für Claude-Synthese: <code class="text-sky-200/90">ANTHROPIC_API_KEY</code> setzen und
-           <code class="text-sky-200/90">theogony cockpit serve</code> oder <code class="text-sky-200/90">theogony serve</code> neu starten.
+           <strong>Offline answer</strong> — citations are real vector hits from the Chronicle seed.
+           For Claude synthesis: set <code class="text-sky-200/90">ANTHROPIC_API_KEY</code> and restart
+           <code class="text-sky-200/90">theogony cockpit serve</code> or <code class="text-sky-200/90">theogony serve</code>.
          </div>`
       : `<div class="mb-2 rounded border border-emerald-600/45 bg-emerald-950/30 px-2 py-1.5 text-xs text-emerald-100/95 leading-snug">
-           <strong>LLM-Synthese</strong> — Provider <code class="text-emerald-200/90">${escapeHtml(meta.llm_provider || "?")}</code>
+           <strong>LLM synthesis</strong> — provider <code class="text-emerald-200/90">${escapeHtml(meta.llm_provider || "?")}</code>
            ${meta.llm_model_id ? `· <code class="text-emerald-200/90">${escapeHtml(meta.llm_model_id)}</code>` : ""}
          </div>`;
     const gaps =
@@ -472,7 +472,7 @@
       (ep.used_llm_planner === true ||
         (Array.isArray(ep.sub_queries) && ep.sub_queries.length > 1))
         ? `<div class="text-xs mb-2 rounded border border-violet-600/40 bg-violet-950/30 px-2 py-1.5 text-violet-100/95 leading-snug">
-             <div class="font-semibold text-violet-200/95">Chronik-Einstieg</div>
+             <div class="font-semibold text-violet-200/95">Chronicle entry</div>
              <div class="text-slate-400 mt-1 text-[10px] font-mono break-words">
                ${(ep.sub_queries || []).map((s) => escapeHtml(s)).join(" · ")}
              </div>
@@ -483,7 +483,7 @@
              }
              ${
                ep.used_llm_planner
-                 ? `<div class="text-[10px] text-violet-300/80 mt-1">LLM hat Suchstrings gewählt (${ep.planner_duration_ms || 0} ms Planung in der Retrieve-Phase).</div>`
+                 ? `<div class="text-[10px] text-violet-300/80 mt-1">LLM chose search strings (${ep.planner_duration_ms || 0} ms planning in retrieve).</div>`
                  : ""
              }
            </div>`
@@ -496,7 +496,7 @@
       entryPlanHtml +
       gaps +
       `<div class="mt-2 border-t border-slate-600/45 pt-2">` +
-      `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Antwort (Synthese)</div>` +
+      `<div class="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Answer (synthesis)</div>` +
       `<div class="text-slate-100 text-sm">${proseHtml}</div>` +
       chips +
       `</div>`;
@@ -548,7 +548,7 @@
     const priorForApi = chatTurns.map((t) => ({ role: t.role, content: t.content }));
     resetPhases();
     setStatus("connecting…");
-    answerEl.innerHTML = `<span class="text-slate-500">Listening to the Chronik…</span>`;
+    answerEl.innerHTML = `<span class="text-slate-500">Querying the Chronicle…</span>`;
     clearGraph();
     lastPayload = null;
     let resp;
@@ -634,7 +634,7 @@
       (ans.trim() && q ? "\n\n—\n\n" : "") +
       (q ? `Question:\n${q}` : "");
     const title = (q.length > 80 ? q.slice(0, 77) + "…" : q) || "Explorer hypothesis";
-    setStatus("writing to Chronik…");
+    setStatus("writing to Chronicle…");
     let resp;
     try {
       resp = await fetch("/cockpit/api/chronicle-append", {

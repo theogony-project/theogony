@@ -11,18 +11,18 @@
             {% if explorer_llm_stub %}border-sky-600/45 bg-sky-950/45 text-sky-100/95
             {% else %}border-emerald-600/45 bg-emerald-950/40 text-emerald-50/95{% endif %}">
   {% if explorer_llm_stub %}
-    <strong class="text-sky-200">Antwortmodus:</strong>
-    Offline — Zitate aus dem Chronik-Seed (Stub-LLM).
+    <strong class="text-sky-200">Answer mode:</strong>
+    Offline — citations from the Chronicle seed (stub LLM).
     <span class="block sm:inline sm:ml-1 text-sky-200/85">
-      Für <strong>Claude</strong>-Prosa: <code class="text-sky-100/90">export ANTHROPIC_API_KEY=...</code>
-      (optional <code class="text-sky-100/90">THEOGONY_LLM__MODEL_ID=claude-sonnet-4-6</code>), dann Server neu starten.
+      For <strong>Claude</strong> prose: <code class="text-sky-100/90">export ANTHROPIC_API_KEY=...</code>
+      (optional <code class="text-sky-100/90">THEOGONY_LLM__MODEL_ID=claude-sonnet-4-6</code>), then restart the server.
     </span>
   {% else %}
-    <strong class="text-emerald-200">Antwortmodus:</strong>
-    LLM-Synthese aktiv —
+    <strong class="text-emerald-200">Answer mode:</strong>
+    LLM synthesis —
     <code class="text-emerald-100/90 font-mono text-[11px]">{{ explorer_llm_label }}</code>
     {% if settings.retrieval.chronicle_entry_planner.enabled %}
-      <span class="text-emerald-200/80"> · Chronik-Einstieg (Planner) an</span>
+      <span class="text-emerald-200/80"> · Chronicle entry planner on</span>
     {% else %}
       <span class="text-slate-500"> · optional: <code class="text-slate-400">THEOGONY_RETRIEVAL__CHRONICLE_ENTRY_PLANNER__ENABLED=true</code></span>
     {% endif %}
@@ -70,21 +70,22 @@
     </div>
 
     <div class="flex items-center justify-between gap-2 mb-1">
-      <span class="text-[11px] text-slate-500">Chat · Kontext bis ~100k Token (serverseitig verdichtet)</span>
+      <span class="text-[11px] text-slate-500">Conversation (server compacts toward ~100k tokens)</span>
       <button type="button" id="explorer-new-chat"
         class="text-[11px] px-2 py-0.5 rounded border border-slate-600 text-slate-400 hover:text-amber-200 hover:border-amber-500/40 transition">
-        Neuer Chat
+        New chat
       </button>
     </div>
     <div id="explorer-chat-log"
-      class="explorer-glass rounded-lg border border-slate-700/50 p-2 max-h-52 overflow-y-auto text-xs text-slate-300 mb-2 space-y-2">
+      class="explorer-glass rounded-lg border border-slate-700/50 p-2 max-h-64 min-h-[4.5rem] overflow-y-auto text-xs text-slate-300 mb-2 space-y-2">
     </div>
 
     <form id="explorer-form" class="explorer-glass rounded-lg border border-slate-600/60 p-3 space-y-2">
-      <textarea id="explorer-q"
-        class="w-full h-24 bg-slate-950/70 border border-slate-600 rounded-md p-2 text-sm text-slate-100
+      <label for="explorer-q" class="block text-[11px] font-medium text-slate-400 mb-0.5">Your message</label>
+      <textarea id="explorer-q" rows="4"
+        class="w-full min-h-[5.5rem] bg-slate-950/70 border border-slate-600 rounded-md p-2 text-sm text-slate-100
                focus:outline-none focus:ring-1 focus:ring-amber-400/70 focus:border-amber-400/50"
-        placeholder="Nachricht (Folgefragen nutzen den Verlauf)…"
+        placeholder="Ask a question; follow-ups use the transcript above. Pronouns (e.g. &quot;he&quot;) resolve from prior turns."
         maxlength="1000"></textarea>
       <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
         <label class="flex items-center gap-1">k
@@ -93,7 +94,7 @@
         <label class="flex items-center gap-1">hops
           <input id="explorer-hops" type="number" value="2" min="0" max="3"
             class="w-12 bg-slate-950/80 border border-slate-600 rounded px-1 text-slate-100"></label>
-        <label class="flex items-center gap-1" title="Extra Chronik-Denk-Runden nach erster Synthese (0–8); der Planner kann früh stoppen.">
+        <label class="flex items-center gap-1" title="Extra post-synthesis &quot;thinking&quot; rounds (0–8); planner may stop early.">
           think
           <input id="explorer-thinking-max" type="number" value="2" min="0" max="8"
             class="w-11 bg-slate-950/80 border border-slate-600 rounded px-1 text-slate-100"></label>
@@ -109,14 +110,14 @@
     <article id="explorer-answer"
       class="explorer-glass rounded-lg border border-slate-700/50 p-3 text-sm leading-relaxed
              whitespace-pre-wrap text-slate-200 min-h-[9rem]">
-      <span class="text-slate-500 italic">Antwort und Zitate erscheinen hier nach „Ask“.</span>
+      <span class="text-slate-500 italic">Latest reply (synthesis + citations) appears here after Ask.</span>
     </article>
 
     <div class="flex flex-wrap gap-2">
       <button type="button" id="explorer-save"
         class="px-3 py-1.5 rounded-md border border-emerald-500/50 text-emerald-300 text-xs font-medium
                hover:bg-emerald-500/10 hover:border-emerald-400 transition">
-        Save as hypothesis in Chronik
+        Save as hypothesis to Chronicle
       </button>
       <span class="text-[10px] text-slate-500 self-center">uses the same caps as <code class="text-slate-400">pantheon_chronicle_append</code></span>
     </div>
