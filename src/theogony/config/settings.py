@@ -500,6 +500,21 @@ class StubThresholds(BaseModel):
     min_named_entities_resolved_ratio: float = Field(default=0.5, ge=0.0, le=1.0)
 
 
+class GrowthBridgeSettings(BaseModel):
+    """Couple stub detection to acquisition triggers (Living Demo W7-A, PHX-0037).
+
+    Default ``enabled=False`` is mandatory: ordinary operation must not
+    emit triggers. The demo path enables it explicitly via
+    ``THEOGONY_CURIOSITY__GROWTH_BRIDGE__ENABLED=true``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    trigger_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
+    max_triggers_per_query: int = Field(default=1, ge=1, le=5)
+
+
 class CuriositySettings(BaseModel):
     """Stub detection + blind-spot aggregation (PHX-0058 Phase 1 / W3)."""
 
@@ -509,6 +524,7 @@ class CuriositySettings(BaseModel):
     window_days: float = Field(default=30.0, ge=0.0)
     min_hits: int = Field(default=3, ge=2)
     aggregation_interval_s: float = Field(default=86400.0, ge=0.0)
+    growth_bridge: GrowthBridgeSettings = Field(default_factory=GrowthBridgeSettings)
 
 
 class MnemosyneSettings(BaseModel):

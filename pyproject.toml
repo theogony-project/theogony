@@ -210,4 +210,7 @@ markers = [
     """characterization: opt-in pipeline characterization runs (Plan §3.8 layer 6). \
 Gated by both this marker and THEOGONY_RUN_CHARACTERIZATION=1 env var; \
 consumes ~0.15-0.25 EUR Gemini per run.""",
+    """living_demo: W7-W9 living-demo path smoke tests (Living Demo Plan). \
+Truthful end-to-end checks for the demo loop; selectable via `pytest -m living_demo`. \
+Must pass with InMemory store + StubLLM — no real services, no money spent.""",
 ]
