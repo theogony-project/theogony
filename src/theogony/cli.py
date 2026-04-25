@@ -47,17 +47,21 @@ from theogony import __version__
 from theogony.acquisition.gutenberg import GutenbergAdapter
 from theogony.agents.athene import AtheneVerifier
 from theogony.agents.chronos import ChronosRecycler
+from theogony.agents.eris import ErisRedTeam
 from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
+from theogony.agents.nemesis import NemesisAuditor
 from theogony.clustering.cluster_index import ClusterIndex
 from theogony.clustering.runner import run_one_recluster_pass
 from theogony.config import Settings, setup_logging
 from theogony.core.store import KnowledgeStore
 from theogony.curiosity.argus_wiring import argus_dispatch_session
+from theogony.curiosity.chronos_report import ChronosRunSummary, build_chronos_run_report
 from theogony.curiosity.dispatcher import CuriosityDispatcher, pending_curiosity_report_count
+from theogony.curiosity.eris_report import ErisCampaignSummary, build_eris_campaign_report
+from theogony.curiosity.nemesis_report import NemesisRunSummary, build_nemesis_run_report
 from theogony.curiosity.runner import run_one_aggregation_pass
 from theogony.curiosity.stub_detector import StubDetector
-from theogony.curiosity.chronos_report import ChronosRunSummary, build_chronos_run_report
 from theogony.curiosity.verification_pool import VerificationPool
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.book_context import BookContextExtractor
@@ -687,7 +691,9 @@ async def _run_curiosity_chronos_once(*, store_kind: str) -> None:
         _console.print("Chronos disabled")
         summary = ChronosRunSummary(skipped_reason="chronos disabled")
         finished_at = datetime.now(UTC)
-        report_writer.write(build_chronos_run_report(summary, started_at=started_at, finished_at=finished_at))
+        report_writer.write(
+            build_chronos_run_report(summary, started_at=started_at, finished_at=finished_at)
+        )
         return
     async with _open_store(settings, store_kind, settings.embedding.dim) as store:
         pool = VerificationPool(settings)
@@ -698,7 +704,9 @@ async def _run_curiosity_chronos_once(*, store_kind: str) -> None:
         )
         summary = await recycler.run_once()
     finished_at = datetime.now(UTC)
-    report_writer.write(build_chronos_run_report(summary, started_at=started_at, finished_at=finished_at))
+    report_writer.write(
+        build_chronos_run_report(summary, started_at=started_at, finished_at=finished_at)
+    )
     if summary.skipped_reason:
         _console.print(f"[dim]{summary.skipped_reason}[/dim]")
         return
@@ -709,6 +717,128 @@ async def _run_curiosity_chronos_once(*, store_kind: str) -> None:
         f"processed={summary.processed_entries} findings={summary.findings_seen} "
         f"cleared={summary.pool_entries_cleared} demoted={summary.nodes_demoted} "
         f"negative_edges={summary.negative_edges_written}"
+    )
+
+
+@curiosity_app.command("nemesis-run")
+def curiosity_nemesis_run(
+    once: bool = typer.Option(
+        False,
+        "--once",
+        help="Run a single Nemesis structural audit pass (required in W16).",
+    ),
+    store_kind: str = typer.Option(
+        "memory",
+        "--store",
+        help="Storage backend: neo4j or memory.",
+    ),
+) -> None:
+    """Scan the chronicle for structural pathologies; write Finding nodes (W16)."""
+    if not once:
+        _console.print(
+            "[red]Missing required flag:[/red] use [cyan]--once[/cyan] "
+            "(W16 ships only single-pass mode; no daemon loop)."
+        )
+        raise typer.Exit(code=2)
+    if store_kind not in ("neo4j", "memory"):
+        _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
+        raise typer.Exit(code=2)
+    asyncio.run(_run_curiosity_nemesis_once(store_kind=store_kind))
+
+
+async def _run_curiosity_nemesis_once(*, store_kind: str) -> None:
+    from datetime import UTC, datetime
+
+    settings = _load_settings()
+    started_at = datetime.now(UTC)
+    report_writer = RunReportWriter(settings.run_reports_dir)
+    if not settings.curiosity.nemesis.enabled:
+        _console.print("Nemesis disabled")
+        summary = NemesisRunSummary(skipped_reason="nemesis disabled")
+        finished_at = datetime.now(UTC)
+        report_writer.write(
+            build_nemesis_run_report(summary, started_at=started_at, finished_at=finished_at)
+        )
+        return
+    async with _open_store(settings, store_kind, settings.embedding.dim) as store:
+        auditor = NemesisAuditor(store=store, settings=settings.curiosity.nemesis)
+        summary = await auditor.run_once()
+    finished_at = datetime.now(UTC)
+    report_writer.write(
+        build_nemesis_run_report(summary, started_at=started_at, finished_at=finished_at)
+    )
+    if summary.skipped_reason:
+        _console.print(f"[dim]{summary.skipped_reason}[/dim]")
+        return
+    _console.print(
+        f"findings={summary.findings_written} "
+        f"confidence={summary.confidence_inflation_count} "
+        f"contradictions={summary.persistent_contradiction_count} "
+        f"autobahns={summary.pheromone_autobahn_count}"
+    )
+
+
+@curiosity_app.command("eris-run")
+def curiosity_eris_run(
+    once: bool = typer.Option(
+        False,
+        "--once",
+        help="Run a single Eris red-team campaign (required in W16).",
+    ),
+    store_kind: str = typer.Option(
+        "memory",
+        "--store",
+        help="Storage backend: neo4j or memory.",
+    ),
+    fixture: bool = typer.Option(
+        False,
+        "--fixture",
+        help="W16 requires fixture mode (no live pipeline red-team).",
+    ),
+) -> None:
+    """Bounded adversarial probe campaign; fixture-only in W16."""
+    if not once:
+        _console.print(
+            "[red]Missing required flag:[/red] use [cyan]--once[/cyan] "
+            "(W16 ships only single-pass mode; no daemon loop)."
+        )
+        raise typer.Exit(code=2)
+    if store_kind not in ("neo4j", "memory"):
+        _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
+        raise typer.Exit(code=2)
+    if not fixture:
+        _console.print("[red]Eris W16 requires --fixture[/red]")
+        raise typer.Exit(code=2)
+    asyncio.run(_run_curiosity_eris_once(store_kind=store_kind))
+
+
+async def _run_curiosity_eris_once(*, store_kind: str) -> None:
+    from datetime import UTC, datetime
+
+    settings = _load_settings()
+    started_at = datetime.now(UTC)
+    report_writer = RunReportWriter(settings.run_reports_dir)
+    if not settings.curiosity.eris.enabled:
+        _console.print("Eris disabled")
+        summary = ErisCampaignSummary(skipped_reason="eris disabled")
+        finished_at = datetime.now(UTC)
+        report_writer.write(
+            build_eris_campaign_report(summary, started_at=started_at, finished_at=finished_at)
+        )
+        return
+    async with _open_store(settings, store_kind, settings.embedding.dim) as store:
+        team = ErisRedTeam(store=store, settings=settings.curiosity.eris, answerer=None)
+        summary = await team.run_once()
+    finished_at = datetime.now(UTC)
+    report_writer.write(
+        build_eris_campaign_report(summary, started_at=started_at, finished_at=finished_at)
+    )
+    if summary.skipped_reason:
+        _console.print(f"[dim]{summary.skipped_reason}[/dim]")
+        return
+    _console.print(
+        f"probes={summary.probes_run} passed={summary.passed} failed={summary.failed} "
+        f"not_run={summary.not_run} findings={summary.findings_written}"
     )
 
 

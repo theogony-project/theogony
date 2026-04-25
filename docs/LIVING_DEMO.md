@@ -17,6 +17,8 @@ These points map to the exit criteria in [`docs/plans/LIVING_DEMO_PLAN.md`](plan
 - It does **not** prove factual correctness of ingested claims; post-hoc checks observe structure in run reports, not ground truth.
 - Optional Wave 3 beat (after research): run `theogony curiosity athene-run --once --store neo4j` so the Cockpit **Immune system** panel shows `sampled_by_athene` increasing and a Finding node appears in the graph. This proves sampling and first-class Findings, not a full worker pool.
 - Optional next beat: run `theogony curiosity chronos-run --once --store neo4j` so **cleared** increases on the Immune system panel. Chronos consumes persisted Findings and records actions; it does not prove factual repair.
+- Operator runs: `theogony curiosity nemesis-run --once --store neo4j`. The Immune system panel/report list shows a Nemesis report. If contradictions or overconfident low-evidence nodes exist, Nemesis writes Finding nodes.
+- Optional fixture: `THEOGONY_CURIOSITY__ERIS__ENABLED=true theogony curiosity eris-run --once --store memory --fixture`. Eris writes a campaign report and fixture Finding nodes without mutating live content.
 - It does **not** prove federation, time-machine queries, or a negative-knowledge layer.
 - It does **not** prove production cost, latency, or scale beyond what you observe in a single honest run.
 

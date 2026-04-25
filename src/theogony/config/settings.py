@@ -568,6 +568,30 @@ class ChronosSettings(BaseModel):
     hard_delete_enabled: bool = False
 
 
+class NemesisSettings(BaseModel):
+    """Nemesis structural auditor (Living Demo W16)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    max_findings_per_pass: int = Field(default=50, ge=1, le=500)
+    high_confidence_threshold: float = Field(default=0.85, ge=0.0, le=1.0)
+    low_evidence_source_count: int = Field(default=1, ge=0, le=10)
+    contradiction_confidence_threshold: float = Field(default=0.65, ge=0.0, le=1.0)
+    contradiction_weight_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
+    autobahn_pheromone_delta_threshold: float = Field(default=0.25, ge=0.0, le=1.0)
+
+
+class ErisSettings(BaseModel):
+    """Eris red-team harness (Living Demo W16)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    max_probes_per_campaign: int = Field(default=10, ge=1, le=100)
+    fixture_mode_required: bool = True
+
+
 class CuriositySettings(BaseModel):
     """Stub detection + blind-spot aggregation (PHX-0058 Phase 1 / W3)."""
 
@@ -583,6 +607,8 @@ class CuriositySettings(BaseModel):
     evaluator: EvaluatorSettings = Field(default_factory=EvaluatorSettings)
     athene: AtheneSettings = Field(default_factory=AtheneSettings)
     chronos: ChronosSettings = Field(default_factory=ChronosSettings)
+    nemesis: NemesisSettings = Field(default_factory=NemesisSettings)
+    eris: ErisSettings = Field(default_factory=ErisSettings)
 
 
 class MnemosyneSettings(BaseModel):
