@@ -554,6 +554,20 @@ class AtheneSettings(BaseModel):
     parse_error_rate_threshold: float = Field(default=0.1, ge=0.0, le=1.0)
 
 
+class ChronosSettings(BaseModel):
+    """Chronos recycler (Living Demo W15)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    max_entries_per_pass: int = Field(default=100, ge=1, le=1000)
+    min_severity_for_demotion: Literal["medium", "high", "critical"] = "medium"
+    confidence_demote_delta: float = Field(default=0.1, ge=0.0, le=1.0)
+    negative_edge_confidence: float = Field(default=0.8, ge=0.0, le=1.0)
+    negative_edge_weight: float = Field(default=0.7, ge=0.0, le=1.0)
+    hard_delete_enabled: bool = False
+
+
 class CuriositySettings(BaseModel):
     """Stub detection + blind-spot aggregation (PHX-0058 Phase 1 / W3)."""
 
@@ -568,6 +582,7 @@ class CuriositySettings(BaseModel):
     research_planner: ResearchPlannerSettings = Field(default_factory=ResearchPlannerSettings)
     evaluator: EvaluatorSettings = Field(default_factory=EvaluatorSettings)
     athene: AtheneSettings = Field(default_factory=AtheneSettings)
+    chronos: ChronosSettings = Field(default_factory=ChronosSettings)
 
 
 class MnemosyneSettings(BaseModel):

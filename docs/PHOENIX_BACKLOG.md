@@ -453,10 +453,13 @@ Tickets are reviewed during Phoenix process planning. Accepted tickets influence
   (not hardcoded, not human-defined). The original W5 Brief describes the meta-query-classifier
   part which becomes a small subset of the W17 scope.
 
-- PHX-0062 (Negative Knowledge): **W14 dependency note.** Athene v0.1 writes Finding nodes
-  and `FLAGGED_BY` edges only. Chronos in W15 consumes these Findings and starts writing
-  `CONTRADICTS` / `SUPERSEDED_BY` edges. W14 must not implement negative-knowledge actions.
+- PHX-0062 (Negative Knowledge): **W14–W15 (partial).** W14: Athene writes Finding nodes and
+  `FLAGGED_BY` edges only. W15: Chronos v0.1 consumes Findings and writes `CONTRADICTS` only for
+  semantically factual types (`factual_error_suspected`, `internal_contradiction`) with
+  explicit `target_node_ids`. `SUPERSEDED_BY`, negation-node surfacing in retrieval, and
+  synthesizer contradiction display remain open.
 
-- PHX-0071 (Mnemosyne): **W14 metric source.** VerificationPoolStats and Athene Findings
-  become one of Mnemosyne's metric streams in W17. The W14 schema should stay simple and
-  queryable: pool stats, finding types, severity, sampled_at.
+- PHX-0071 (Mnemosyne): **W14–W15 metric hooks.** VerificationPoolStats and Athene Finding fields
+  (W14); ChronosRunReport counters (W15): findings_seen, findings_resolved, negative_edges_written,
+  nodes_demoted, pool_entries_cleared — all candidate streams for the W17 consciousness layer
+  above.

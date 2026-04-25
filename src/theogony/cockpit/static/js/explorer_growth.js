@@ -53,10 +53,12 @@
       const unobsEl = document.getElementById("explorer-immune-unobserved");
       const sampEl = document.getElementById("explorer-immune-sampled");
       const findEl = document.getElementById("explorer-immune-findings");
+      const clearedEl = document.getElementById("explorer-immune-cleared");
       if (totalEl) totalEl.textContent = String(s.total ?? "—");
       if (unobsEl) unobsEl.textContent = String(s.unobserved ?? "—");
       if (sampEl) sampEl.textContent = String(s.sampled_by_athene ?? "—");
       if (findEl) findEl.textContent = String(s.findings_total ?? "—");
+      if (clearedEl) clearedEl.textContent = String(s.cleared ?? "—");
     } catch (_) {
       /* ignore */
     }

@@ -21,6 +21,7 @@ import os
 from pathlib import Path
 
 from theogony.config.logging import get_logger
+from theogony.curiosity.chronos_report import ChronosRunReport
 from theogony.curiosity.run_report import CuriosityRunReport
 from theogony.reporting.models import (
     BlindSpotReport,
@@ -42,6 +43,7 @@ ReportType = (
     | type[BlindSpotReport]
     | type[MnemosyneObservationCluster]
     | type[CuriosityRunReport]
+    | type[ChronosRunReport]
 )
 
 
@@ -150,4 +152,6 @@ class RunReportWriter:
             return MnemosyneObservationCluster.model_validate(raw)
         if rt == "curiosity":
             return CuriosityRunReport.model_validate(raw)
+        if rt == "chronos":
+            return ChronosRunReport.model_validate(raw)
         return None

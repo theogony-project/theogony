@@ -46,6 +46,7 @@ from rich.table import Table
 from theogony import __version__
 from theogony.acquisition.gutenberg import GutenbergAdapter
 from theogony.agents.athene import AtheneVerifier
+from theogony.agents.chronos import ChronosRecycler
 from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
 from theogony.clustering.cluster_index import ClusterIndex
@@ -56,6 +57,7 @@ from theogony.curiosity.argus_wiring import argus_dispatch_session
 from theogony.curiosity.dispatcher import CuriosityDispatcher, pending_curiosity_report_count
 from theogony.curiosity.runner import run_one_aggregation_pass
 from theogony.curiosity.stub_detector import StubDetector
+from theogony.curiosity.chronos_report import ChronosRunSummary, build_chronos_run_report
 from theogony.curiosity.verification_pool import VerificationPool
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.book_context import BookContextExtractor
@@ -646,6 +648,67 @@ async def _run_curiosity_athene_once(*, store_kind: str, seed: int | None) -> No
     _console.print(
         f"sampled={summary.sampled_count} findings={summary.findings_written} "
         f"pool_marked={summary.pool_entries_marked}"
+    )
+
+
+@curiosity_app.command("chronos-run")
+def curiosity_chronos_run(
+    once: bool = typer.Option(
+        False,
+        "--once",
+        help="Run a single Chronos recycler pass (required in W15).",
+    ),
+    store_kind: str = typer.Option(
+        "memory",
+        "--store",
+        help="Storage backend: neo4j or memory.",
+    ),
+) -> None:
+    """Consume Athene findings from the pool; write Chronos actions and run report (W15)."""
+    if not once:
+        _console.print(
+            "[red]Missing required flag:[/red] use [cyan]--once[/cyan] "
+            "(W15 ships only single-pass mode; no daemon loop)."
+        )
+        raise typer.Exit(code=2)
+    if store_kind not in ("neo4j", "memory"):
+        _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
+        raise typer.Exit(code=2)
+    asyncio.run(_run_curiosity_chronos_once(store_kind=store_kind))
+
+
+async def _run_curiosity_chronos_once(*, store_kind: str) -> None:
+    from datetime import UTC, datetime
+
+    settings = _load_settings()
+    started_at = datetime.now(UTC)
+    report_writer = RunReportWriter(settings.run_reports_dir)
+    if not settings.curiosity.chronos.enabled:
+        _console.print("Chronos disabled")
+        summary = ChronosRunSummary(skipped_reason="chronos disabled")
+        finished_at = datetime.now(UTC)
+        report_writer.write(build_chronos_run_report(summary, started_at=started_at, finished_at=finished_at))
+        return
+    async with _open_store(settings, store_kind, settings.embedding.dim) as store:
+        pool = VerificationPool(settings)
+        recycler = ChronosRecycler(
+            store=store,
+            pool=pool,
+            settings=settings.curiosity.chronos,
+        )
+        summary = await recycler.run_once()
+    finished_at = datetime.now(UTC)
+    report_writer.write(build_chronos_run_report(summary, started_at=started_at, finished_at=finished_at))
+    if summary.skipped_reason:
+        _console.print(f"[dim]{summary.skipped_reason}[/dim]")
+        return
+    if summary.processed_entries == 0:
+        _console.print("processed=0 findings=0 cleared=0")
+        return
+    _console.print(
+        f"processed={summary.processed_entries} findings={summary.findings_seen} "
+        f"cleared={summary.pool_entries_cleared} demoted={summary.nodes_demoted} "
+        f"negative_edges={summary.negative_edges_written}"
     )
 
 

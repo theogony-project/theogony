@@ -64,6 +64,7 @@ class RunReportBase(BaseModel):
         "blindspot",
         "mnemosyne",
         "curiosity",
+        "chronos",
     ]
     started_at: datetime
     finished_at: datetime

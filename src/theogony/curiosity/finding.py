@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,10 +26,12 @@ FindingType = Literal[
     "low_resolution_quality",
     "high_schema_violation_rate",
     "high_parse_error_rate",
+    "factual_error_suspected",
+    "internal_contradiction",
 ]
 
 FindingSeverity = Literal["info", "low", "medium", "high", "critical"]
-FindingCell = Literal["athene"]
+FindingCell = Literal["athene", "chronos"]
 
 
 class Finding(BaseModel):
@@ -88,6 +90,64 @@ class Finding(BaseModel):
         )
 
 
+def finding_from_node(node: KnowledgeNode) -> Finding:
+    """Parse a :class:`Finding` from ``KnowledgeNode(node_type=finding)``."""
+    if node.node_type != NodeType.FINDING:
+        msg = f"expected node_type=finding, got {node.node_type!r}"
+        raise ValueError(msg)
+    props = node.properties or {}
+    required = ("finding_id", "finding_type", "severity", "cell", "pool_entry_id", "sampled_at")
+    missing = [k for k in required if k not in props or props[k] is None]
+    if missing:
+        msg = f"missing required finding properties: {', '.join(missing)}"
+        raise ValueError(msg)
+    sampled_raw = props["sampled_at"]
+    if not isinstance(sampled_raw, str):
+        msg = "finding sampled_at must be an ISO 8601 string"
+        raise ValueError(msg)
+    sampled_at = datetime.fromisoformat(sampled_raw.replace("Z", "+00:00"))
+    resolved_at: datetime | None = None
+    if props.get("resolved_at") is not None and isinstance(props["resolved_at"], str):
+        resolved_at = datetime.fromisoformat(props["resolved_at"].replace("Z", "+00:00"))
+    evidence = props.get("evidence") or []
+    if not isinstance(evidence, list):
+        msg = "finding evidence must be a list"
+        raise ValueError(msg)
+    target_ids = props.get("target_node_ids") or []
+    if not isinstance(target_ids, list):
+        msg = "finding target_node_ids must be a list"
+        raise ValueError(msg)
+    return Finding(
+        finding_id=str(props["finding_id"]),
+        finding_type=cast(FindingType, props["finding_type"]),
+        severity=cast(FindingSeverity, props["severity"]),
+        cell=cast(FindingCell, props["cell"]),
+        pool_entry_id=str(props["pool_entry_id"]),
+        ingest_run_id=str(props["ingest_run_id"]) if props.get("ingest_run_id") else None,
+        target_node_ids=[str(x) for x in target_ids],
+        evidence=[str(x) for x in evidence],
+        sampled_at=sampled_at,
+        resolved_at=resolved_at,
+        resolution_action=cast(
+            Literal["none", "annotated", "demoted", "deleted", "escalated_to_human"],
+            props.get("resolution_action") or "none",
+        ),
+    )
+
+
+def resolved_finding_node(
+    finding: Finding,
+    *,
+    resolved_at: datetime,
+    resolution_action: Literal["none", "annotated", "demoted", "deleted", "escalated_to_human"],
+) -> KnowledgeNode:
+    """Return an updated :class:`KnowledgeNode` with resolution fields changed."""
+    updated = finding.model_copy(
+        update={"resolved_at": resolved_at, "resolution_action": resolution_action},
+    )
+    return updated.to_knowledge_node()
+
+
 def flag_edges_for_finding(finding: Finding) -> list[KnowledgeEdge]:
     """One ``FLAGGED_BY`` edge per target node (source node → finding)."""
     edges: list[KnowledgeEdge] = []
@@ -114,5 +174,7 @@ __all__ = [
     "FindingCell",
     "FindingSeverity",
     "FindingType",
+    "finding_from_node",
     "flag_edges_for_finding",
+    "resolved_finding_node",
 ]

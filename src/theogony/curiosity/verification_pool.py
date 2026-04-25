@@ -166,6 +166,20 @@ class VerificationPool:
         self._persist(updated)
         return updated
 
+    def mark_cleared(self, entry_id: str) -> PoolEntry:
+        entry = self.get(entry_id)
+        if entry is None:
+            msg = f"pool entry not found: {entry_id}"
+            raise ValueError(msg)
+        updated = entry.model_copy(
+            update={
+                "lifecycle": "cleared",
+                "cleared_at": datetime.now(UTC),
+            }
+        )
+        self._persist(updated)
+        return updated
+
     def entries(self) -> list[PoolEntry]:
         parsed = [
             PoolEntry.model_validate_json(p.read_text(encoding="utf-8"))
