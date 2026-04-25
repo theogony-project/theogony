@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from theogony.config.settings import Settings
 from theogony.curiosity.verification_pool import PoolEntry, VerificationPool
 
@@ -65,6 +67,15 @@ def test_pool_stats_counts_lifecycle_and_findings(tmp_path: Path) -> None:
     assert st.findings_total == 2
 
 
+def test_pool_stats_counts_cleared(tmp_path: Path) -> None:
+    pool = VerificationPool(_settings(tmp_path))
+    e = pool.register("cleared-one")
+    pool.mark_cleared(e.entry_id)
+    st = pool.stats()
+    assert st.cleared == 1
+    assert st.total == 1
+
+
 def test_sample_for_athene_samples_at_least_min_when_enabled(tmp_path: Path) -> None:
     pool = VerificationPool(_settings(tmp_path))
     for i in range(5):
@@ -95,3 +106,28 @@ def test_mark_sampled_by_athene_persists_finding_ids(tmp_path: Path) -> None:
 def test_get_returns_none_for_missing(tmp_path: Path) -> None:
     pool = VerificationPool(_settings(tmp_path))
     assert pool.get("does-not-exist") is None
+
+
+def test_mark_cleared_sets_lifecycle_and_timestamp(tmp_path: Path) -> None:
+    pool = VerificationPool(_settings(tmp_path))
+    e = pool.register("z", ingest_run_id="ing")
+    pool.mark_sampled_by_athene(e.entry_id, finding_ids=["FINDING-1"])
+    cleared = pool.mark_cleared(e.entry_id)
+    assert cleared.lifecycle == "cleared"
+    assert cleared.cleared_at is not None
+    assert cleared.finding_ids == ["FINDING-1"]
+
+
+def test_mark_cleared_persists_to_disk(tmp_path: Path) -> None:
+    pool = VerificationPool(_settings(tmp_path))
+    e = pool.register("y")
+    pool.mark_cleared(e.entry_id)
+    again = pool.get(e.entry_id)
+    assert again is not None
+    assert again.lifecycle == "cleared"
+
+
+def test_mark_cleared_raises_for_unknown_entry(tmp_path: Path) -> None:
+    pool = VerificationPool(_settings(tmp_path))
+    with pytest.raises(ValueError, match="not found"):
+        pool.mark_cleared("missing-id")

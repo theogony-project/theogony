@@ -84,6 +84,16 @@ theogony curiosity athene-run --once --store neo4j
 
 With `.demo.env` from the reset script, Athene is enabled and samples at rate `1.0`, so the **Immune system** panel in the Explorer should show `sampled_by_athene` increasing and one **Finding** node in the constellation. This demonstrates post-hoc sampling and Finding write-back, not factual verification of content.
 
+## Optional: Chronos pass (pool clear)
+
+After the Athene step (or any time pool rows are `sampled_by_athene`), you may run:
+
+```bash
+theogony curiosity chronos-run --once --store neo4j
+```
+
+The **Immune system** panel should show **cleared** increasing. If Athene only produced `no_issue_observed` findings, Chronos clears without negative edges. If a finding had targets and a factual contradiction type, Chronos may write `CONTRADICTS` edges and demote confidence. This proves immune response plumbing, not truth repair.
+
 ## Acceptance
 
 Tick **only** if the recording is honest:

@@ -23,6 +23,19 @@ def test_verification_pool_status_returns_stats(
     assert body["stats"]["unobserved"] >= 2
 
 
+def test_verification_pool_status_includes_cleared_count(
+    cockpit_client: TestClient, api_app: FastAPI
+) -> None:
+    settings = api_app.state.settings
+    pool = VerificationPool(settings)
+    e = pool.register("cleared-candidate")
+    pool.mark_cleared(e.entry_id)
+
+    r = cockpit_client.get("/cockpit/api/verification-pool")
+    assert r.status_code == 200
+    assert r.json()["stats"]["cleared"] >= 1
+
+
 def test_verification_pool_status_limits_recent_entries_to_ten(
     cockpit_client: TestClient,
     api_app: FastAPI,

@@ -67,6 +67,7 @@ THEOGONY_CURIOSITY__ATHENE__ENABLED=true
 THEOGONY_CURIOSITY__ATHENE__SAMPLE_RATE=1.0
 # Demo mode samples every pool entry so the immune-system panel visibly changes.
 # Production default remains 0.02.
+THEOGONY_CURIOSITY__CHRONOS__ENABLED=true
 EOF
 
 cat <<'EOF'
