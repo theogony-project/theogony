@@ -40,7 +40,7 @@ venv/bin/theogony cockpit serve --host 127.0.0.1 --port 8000
 
 ## 4. Ask and research
 
-1. Open: `http://127.0.0.1:8000/cockpit/explorer?growth=on`
+1. Open: `http://127.0.0.1:8000/cockpit/explorer` (Research live / growth UI is on by default; append `?growth=off` only if you want the slim Explorer without the live panel)
 2. Ask: `Wer war Sven Hedin und was hat er in Tibet erforscht?`
 3. In the research panel you should see phases such as `planning_started`, `executing_step`, `acquired_into_pool`, `ingested`, and `research_complete` (exact ordering may vary with timing).
 

@@ -77,6 +77,6 @@ cat <<'EOF'
 Living Demo reset complete.
 Source the env: source .demo.env
 Start the cockpit: theogony cockpit serve --host 127.0.0.1 --port 8000
-Open: http://127.0.0.1:8000/cockpit/explorer?growth=on
+Open: http://127.0.0.1:8000/cockpit/explorer
 Recording script: demo/living_growth.md
 EOF
