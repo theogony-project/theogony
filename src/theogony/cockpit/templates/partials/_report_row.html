@@ -21,7 +21,17 @@
         <td class="p-2">{{ "%.2f"|format(row.duration_s) }}s</td>
       </tr>
       {% else %}
-      <tr><td class="p-3 text-slate-500" colspan="4">No reports.</td></tr>
+      <tr>
+        <td class="p-3 text-slate-500" colspan="4">
+          {% if report_type == "mnemosyne_conductor" %}
+          Mnemosyne conductor has not run yet. Run <code>demo/run_wave3_workers.sh</code> or the mnemosyne conduct command.
+          {% elif report_type == "chronos" %}
+          Athene has not run yet. Run <code>demo/run_wave3_workers.sh</code> after research has produced pool entries.
+          {% else %}
+          No reports.
+          {% endif %}
+        </td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>

@@ -13,12 +13,19 @@ from fastapi.testclient import TestClient
 from tests.cockpit.async_util import run_async
 from tests.test_extraction_pipeline import FakeWikidataClient, _hedin_responses
 from tests.test_living_demo_w7b_smoke import _StubGutenbergAdapter
-from theogony.agents.argus import ArgusAgent, ArgusSettings
+from theogony.agents.argus import (
+    ArgusAgent,
+    ArgusFailedCandidate,
+    ArgusOutcome,
+    ArgusResult,
+    ArgusSettings,
+)
 from theogony.agents.llm import StubLLMProvider
 from theogony.clustering.cluster_index import ClusterIndex
 from theogony.cockpit.growth_stream import _PersistingIngestRunner
 from theogony.config.settings import Settings
 from theogony.core.model import KnowledgeEdge, KnowledgeNode
+from theogony.curiosity.run_report import AcquisitionDecision
 from theogony.curiosity.verification_pool import VerificationPool
 from theogony.docs_ingest import read_dump
 from theogony.extraction.pipeline import IngestionPipeline
@@ -220,6 +227,39 @@ def test_growth_stream_emits_research_complete_with_outcome(
     assert body.get("outcome") == "approved_and_ingested"
     assert body.get("total_nodes_added", 0) >= 0
     assert body.get("outcome") == "approved_and_ingested"
+
+
+def test_emit_research_complete_includes_failure_reason_fields() -> None:
+    from theogony.cockpit.growth_stream import _emit_research_events_from_result
+
+    result = ArgusResult(
+        outcome=ArgusOutcome.INGEST_FAILED,
+        decision=AcquisitionDecision(
+            candidate_source_type="wikidata",
+            candidate_identifier="Q42",
+            candidate_title="Douglas Adams",
+            status="failed",
+            reason="candidate broke",
+        ),
+        reason="boom",
+        failed_candidates=[
+            ArgusFailedCandidate(
+                candidate_label="Douglas Adams",
+                source_type="wikidata",
+                source_identifier="Q42",
+                reason="boom",
+            )
+        ],
+    )
+    events = _emit_research_events_from_result(result=result, ingest=None)
+    complete = next(data for name, data in events if name == "research_complete")
+    assert complete["outcome"] == "ingest_failed"
+    assert complete["reason"] == "boom"
+    assert complete["decision_reason"] == "candidate broke"
+    assert complete["decision_source_type"] == "wikidata"
+    assert complete["decision_identifier"] == "Q42"
+    assert complete["decision_title"] == "Douglas Adams"
+    assert isinstance(complete["failed_candidates"], list)
 
 
 def test_existing_explorer_ask_stream_byte_for_byte_unchanged_for_default_request(

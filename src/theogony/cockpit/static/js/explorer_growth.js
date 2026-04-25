@@ -40,6 +40,16 @@
   };
 
   let simulation = null;
+  const growthSteps = {
+    ask: document.querySelector('[data-step="ask"]'),
+    detect_gap: document.querySelector('[data-step="detect_gap"]'),
+    plan: document.querySelector('[data-step="plan"]'),
+    fetch: document.querySelector('[data-step="fetch"]'),
+    evaluate: document.querySelector('[data-step="evaluate"]'),
+    acquire: document.querySelector('[data-step="acquire"]'),
+    ingest: document.querySelector('[data-step="ingest"]'),
+    pool: document.querySelector('[data-step="pool"]'),
+  };
 
   async function refreshImmunePanel() {
     const host = document.getElementById("explorer-immune-panel");
@@ -55,23 +65,49 @@
       const findEl = document.getElementById("explorer-immune-findings");
       const clearedEl = document.getElementById("explorer-immune-cleared");
       if (totalEl) totalEl.textContent = String(s.total ?? "—");
+      const readinessTotalEl = document.getElementById("explorer-readiness-pool-total");
+      if (readinessTotalEl) readinessTotalEl.textContent = String(s.total ?? "0");
       if (unobsEl) unobsEl.textContent = String(s.unobserved ?? "—");
       if (sampEl) sampEl.textContent = String(s.sampled_by_athene ?? "—");
       if (findEl) findEl.textContent = String(s.findings_total ?? "—");
       if (clearedEl) clearedEl.textContent = String(s.cleared ?? "—");
+      const emptyEl = document.getElementById("explorer-immune-empty");
+      if (emptyEl) {
+        const total = Number(s.total ?? 0);
+        emptyEl.classList.toggle("hidden", total > 0);
+      }
     } catch (_) {
       /* ignore */
     }
+  }
+
+  function setGrowthStep(step, state) {
+    const el = growthSteps[step];
+    if (!el) return;
+    el.classList.remove("growth-step-active", "growth-step-done", "growth-step-failed");
+    if (state === "active") el.classList.add("growth-step-active");
+    if (state === "done") el.classList.add("growth-step-done");
+    if (state === "failed") el.classList.add("growth-step-failed");
+  }
+
+  function resetGrowthStepper() {
+    Object.keys(growthSteps).forEach((k) => setGrowthStep(k, "neutral"));
   }
 
   function appendGrowthLine(text) {
     appendSectionLine(outcomeEl || logEl, text);
   }
 
-  function appendSectionLine(host, text) {
+  function appendSectionLine(host, text, level) {
     if (!host) return;
     const row = document.createElement("div");
-    row.className = "text-[11px] font-mono text-slate-300 border-b border-slate-800/80 py-0.5";
+    const levelCls =
+      level === "warn"
+        ? "text-amber-200 border-amber-800/40 bg-amber-950/20"
+        : level === "error"
+          ? "text-rose-200 border-rose-800/40 bg-rose-950/20"
+          : "text-slate-300 border-slate-800/80";
+    row.className = `text-[11px] font-mono border-b py-0.5 px-1 rounded-sm ${levelCls}`;
     row.textContent = text;
     host.appendChild(row);
     if (logEl) logEl.scrollTop = logEl.scrollHeight;
@@ -151,6 +187,7 @@
       asstWrap.appendChild(prose);
     }
     if (runId && q) {
+      setGrowthStep("detect_gap", "active");
       const btn = document.createElement("button");
       btn.type = "button";
       btn.textContent = "Research this further";
@@ -192,7 +229,13 @@
       }
       const triggerId = data.trigger_id;
       if (!triggerId) {
-        showGrowthToast("Research request did not emit a trigger.");
+        showGrowthToast("No research trigger emitted. Is the growth bridge enabled?");
+        appendSectionLine(
+          outcomeEl,
+          "No research trigger emitted (growth bridge disabled or no qualifying gap).",
+          "warn",
+        );
+        setGrowthStep("plan", "failed");
         t.disabled = false;
         return;
       }
@@ -520,54 +563,117 @@
       if (obj.phase === "embed") setPhase("embed", true);
       if (obj.phase === "retrieve") setPhase("retrieve", true);
       if (obj.phase === "synthesize") setPhase("synth", true);
+      setGrowthStep("ask", "active");
     }
     if (eventName === "trigger_emitted") {
+      setGrowthStep("detect_gap", "done");
       appendSectionLine(
         outcomeEl,
         `trigger ${obj.trigger_id || "?"} · ${obj.trigger_reason || "?"} · ${obj.answer_verdict || "?"}`,
       );
     }
     if (eventName === "planning_started") {
+      setGrowthStep("plan", "active");
       appendSectionLine(planEl, `planning with ${obj.planner_model_id || "planner"}`);
     }
     if (eventName === "planning_complete") {
+      setGrowthStep("plan", "done");
       setPlanSteps(obj.steps || []);
     }
     if (eventName === "executing_step") {
+      setGrowthStep("fetch", "active");
       appendSectionLine(
         executionEl,
         `${obj.step_index ?? "?"}. ${obj.step_kind || "step"} — ${obj.step_target || ""}`,
       );
     }
     if (eventName === "step_candidates") {
+      setGrowthStep("fetch", "done");
       appendSectionLine(
         executionEl,
         `candidates=${obj.candidate_count ?? 0}: ${(obj.candidate_labels || []).join(" · ")}`,
       );
     }
-    if (eventName === "evaluating") appendSectionLine(outcomeEl, "evaluating candidates");
+    if (eventName === "evaluating") {
+      setGrowthStep("evaluate", "active");
+      appendSectionLine(outcomeEl, "evaluating candidates");
+    }
     if (eventName === "evaluation_complete") {
+      setGrowthStep("evaluate", "done");
       appendSectionLine(
         outcomeEl,
         `selected=${obj.selected_count ?? 0} rejected=${obj.rejected_count ?? 0} cost=${obj.cost_eur ?? 0}`,
       );
     }
-    if (eventName === "acquiring") appendSectionLine(outcomeEl, `acquiring ${obj.candidate_label || "candidate"}`);
+    if (eventName === "acquiring") {
+      setGrowthStep("acquire", "active");
+      appendSectionLine(outcomeEl, `acquiring ${obj.candidate_label || "candidate"}`);
+    }
     if (eventName === "acquired") {
+      setGrowthStep("acquire", "done");
       appendSectionLine(outcomeEl, `acquired ${obj.candidate_label || "candidate"} (${obj.bytes_acquired ?? 0} B)`);
     }
     if (eventName === "acquired_into_pool") {
+      setGrowthStep("pool", "done");
       appendSectionLine(outcomeEl, `📥 ${obj.candidate_label || "candidate"} acquired — verification pending`);
     }
-    if (eventName === "ingesting") appendSectionLine(outcomeEl, `ingesting ${obj.candidate_label || "candidate"}`);
+    if (eventName === "ingesting") {
+      setGrowthStep("ingest", "active");
+      appendSectionLine(outcomeEl, `ingesting ${obj.candidate_label || "candidate"}`);
+    }
     if (eventName === "ingested") {
+      setGrowthStep("ingest", "done");
       appendSectionLine(
         outcomeEl,
         `ingested ${obj.candidate_label || "candidate"} +${obj.nodes_added ?? 0} nodes +${obj.edges_added ?? 0} edges`,
       );
     }
     if (eventName === "research_complete") {
-      appendSectionLine(outcomeEl, `research_complete outcome=${obj.outcome || "?"}`);
+      const failureOutcomes = new Set([
+        "ingest_failed",
+        "approved_ingest_failed",
+        "budget_exceeded",
+        "no_candidate_selected",
+        "no_planned_steps",
+        "no_candidates",
+        "unsupported_source_type",
+      ]);
+      const level = failureOutcomes.has(String(obj.outcome || "")) ? "warn" : null;
+      appendSectionLine(outcomeEl, `research_complete outcome=${obj.outcome || "?"}`, level);
+      if (level) setGrowthStep("ingest", "failed");
+      if (obj.reason) appendSectionLine(outcomeEl, `reason=${obj.reason}`, level);
+      if (obj.decision_reason) appendSectionLine(outcomeEl, `decision_reason=${obj.decision_reason}`, level);
+      if (obj.decision_source_type || obj.decision_identifier || obj.decision_title) {
+        const src = obj.decision_source_type || "?";
+        const ident = obj.decision_identifier || "?";
+        const title = obj.decision_title || "";
+        appendSectionLine(outcomeEl, `decision=${src}:${ident} ${title}`.trim(), level);
+      }
+      if (Array.isArray(obj.pool_entry_ids) && obj.pool_entry_ids.length) {
+        appendSectionLine(outcomeEl, `pool entries=${obj.pool_entry_ids.length}`, level);
+      }
+      if (typeof obj.ingested_count === "number" || typeof obj.selected_count === "number") {
+        appendSectionLine(
+          outcomeEl,
+          `selected=${obj.selected_count ?? 0} rejected=${obj.rejected_count ?? 0} ingested=${obj.ingested_count ?? 0}`,
+          level,
+        );
+      }
+      if (Array.isArray(obj.failed_candidates) && obj.failed_candidates.length) {
+        const shown = obj.failed_candidates.slice(0, 5);
+        shown.forEach((fc) => {
+          const label = fc.candidate_label || "candidate";
+          const why = fc.reason || "unknown failure";
+          appendSectionLine(outcomeEl, `failed: ${label} - ${why}`, "warn");
+        });
+        if (obj.failed_candidates.length > shown.length) {
+          appendSectionLine(
+            outcomeEl,
+            `+${obj.failed_candidates.length - shown.length} more failures`,
+            "warn",
+          );
+        }
+      }
       void refreshImmunePanel();
     }
     return obj;
@@ -613,6 +719,8 @@
     const trimmed = String(q).trim();
     if (!trimmed) return;
     resetPhases();
+    resetGrowthStepper();
+    setGrowthStep("ask", "active");
     resetResearchPanel();
     setStatus("connecting (growth)…");
     clearGraph();
@@ -663,6 +771,7 @@
     if (qEl) qEl.value = "";
     applyPayload(payload);
     appendGrowthAnswerTurn(payload);
+    setGrowthStep("ask", "done");
   }
 
   form.addEventListener("submit", growthAsk, true);

@@ -158,7 +158,19 @@ class _StubIngestRunner(IngestRunner):
 
     async def run_from_raw_content(self, raw: RawContent) -> str:
         self.raws.append(raw)
-        return "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        return f"01ARZ3NDEKTSV4RRFFQ69G5FA{len(self.raws):02d}"
+
+
+class _FailingOnIdentifierRunner(IngestRunner):
+    def __init__(self, failing_identifiers: set[str]) -> None:
+        self._failing_identifiers = failing_identifiers
+        self.raws: list[RawContent] = []
+
+    async def run_from_raw_content(self, raw: RawContent) -> str:
+        self.raws.append(raw)
+        if raw.identifier in self._failing_identifiers:
+            raise RuntimeError(f"ingest failed for {raw.identifier}")
+        return f"01ARZ3NDEKTSV4RRFFQ69G5FA{len(self.raws):02d}"
 
 
 class _StubVerificationPool:
@@ -183,6 +195,64 @@ class _StubVerificationPool:
         )
         self.entries.append(entry)
         return entry
+
+
+class _MultiExec:
+    @property
+    def source_type(self) -> str:
+        return "wikidata"
+
+    async def search(self, query: str, *, limit: int = 5) -> list[SourceCandidate]:
+        del query, limit
+        return [
+            SourceCandidate(
+                source_type="wikidata",
+                identifier="A",
+                title="Candidate A",
+                authors=[],
+                languages=["en"],
+                url="https://example.org/A",
+                download_url="https://example.org/A",
+                metadata={"copyright": False},
+            ),
+            SourceCandidate(
+                source_type="wikidata",
+                identifier="B",
+                title="Candidate B",
+                authors=[],
+                languages=["en"],
+                url="https://example.org/B",
+                download_url="https://example.org/B",
+                metadata={"copyright": False},
+            ),
+            SourceCandidate(
+                source_type="wikidata",
+                identifier="C",
+                title="Candidate C",
+                authors=[],
+                languages=["en"],
+                url="https://example.org/C",
+                download_url="https://example.org/C",
+                metadata={"copyright": False},
+            ),
+        ]
+
+    async def acquire(self, candidate: SourceCandidate) -> RawContent:
+        body = f"payload for {candidate.identifier}"
+        return RawContent(
+            source_type="wikidata",
+            identifier=candidate.identifier,
+            title=candidate.title,
+            language="en",
+            content=body,
+            content_format="text/plain; charset=utf-8",
+            url=candidate.url,
+            bytes_acquired=len(body.encode("utf-8")),
+            metadata={"wikidata_qid": candidate.identifier, "copyright": False},
+        )
+
+    async def aclose(self) -> None:
+        return None
 
 
 def _run_reports_root(tmp_path: Path) -> Path:
@@ -297,3 +367,113 @@ async def test_argus_legacy_path_still_works_when_planner_disabled() -> None:
     )
     res = await agent.process(_trigger())
     assert res.outcome == ArgusOutcome.APPROVED_AND_INGESTED
+
+
+@pytest.mark.asyncio
+async def test_planner_mode_continues_after_one_ingest_failure(tmp_path: Path) -> None:
+    rr = _run_reports_root(tmp_path)
+    planner = ResearchPlanner(llm=_FixedPlanLLM(), settings=ResearchPlannerSettings(enabled=True))
+    executor = ResearchExecutor(wikidata=_MultiExec(), gutenberg=_GutenbergStub())
+    evaluator = Evaluator(
+        llm=StubLLMProvider(
+            default=json.dumps({"selected": [0, 1, 2], "rejected": [], "rationale": "take all"})
+        ),
+        settings=EvaluatorSettings(enabled=True),
+    )
+    runner = _FailingOnIdentifierRunner({"A"})
+    agent = ArgusAgent(
+        adapter=_GutenbergStub(),
+        ingest_runner=runner,
+        verification_pool=_StubVerificationPool(),  # type: ignore[arg-type]
+        settings=ArgusSettings(enabled=True),
+        use_research_planner=True,
+        planner=planner,
+        executor=executor,
+        evaluator=evaluator,
+        run_reports_dir=rr,
+    )
+    res = await agent.process(_trigger())
+    assert res.outcome == ArgusOutcome.APPROVED_AND_INGESTED
+    assert len(res.ingested_candidates) == 2
+    assert len(res.failed_candidates) == 1
+    assert "Candidate A" in res.failed_candidates[0].candidate_label
+    assert res.reason == "ingested=2 failed=1"
+
+
+@pytest.mark.asyncio
+async def test_planner_mode_ingest_failed_when_all_selected_fail(tmp_path: Path) -> None:
+    rr = _run_reports_root(tmp_path)
+    planner = ResearchPlanner(llm=_FixedPlanLLM(), settings=ResearchPlannerSettings(enabled=True))
+    executor = ResearchExecutor(wikidata=_MultiExec(), gutenberg=_GutenbergStub())
+    evaluator = Evaluator(
+        llm=StubLLMProvider(
+            default=json.dumps({"selected": [0, 1, 2], "rejected": [], "rationale": "take all"})
+        ),
+        settings=EvaluatorSettings(enabled=True),
+    )
+    runner = _FailingOnIdentifierRunner({"A", "B", "C"})
+    agent = ArgusAgent(
+        adapter=_GutenbergStub(),
+        ingest_runner=runner,
+        verification_pool=_StubVerificationPool(),  # type: ignore[arg-type]
+        settings=ArgusSettings(enabled=True),
+        use_research_planner=True,
+        planner=planner,
+        executor=executor,
+        evaluator=evaluator,
+        run_reports_dir=rr,
+    )
+    res = await agent.process(_trigger())
+    assert res.outcome == ArgusOutcome.INGEST_FAILED
+    assert len(res.ingested_candidates) == 0
+    assert len(res.failed_candidates) == 3
+    assert res.reason == "ingested=0 failed=3"
+
+
+@pytest.mark.asyncio
+async def test_planner_mode_skips_per_source_budget_overflow_and_continues(tmp_path: Path) -> None:
+    rr = _run_reports_root(tmp_path)
+    planner = ResearchPlanner(llm=_FixedPlanLLM(), settings=ResearchPlannerSettings(enabled=True))
+
+    class _BudgetExec(_MultiExec):
+        async def acquire(self, candidate: SourceCandidate) -> RawContent:
+            if candidate.identifier == "A":
+                body = "x" * (TriggerBudget().max_total_bytes + 1)
+            else:
+                body = f"payload for {candidate.identifier}"
+            return RawContent(
+                source_type="wikidata",
+                identifier=candidate.identifier,
+                title=candidate.title,
+                language="en",
+                content=body,
+                content_format="text/plain; charset=utf-8",
+                url=candidate.url,
+                bytes_acquired=len(body.encode("utf-8")),
+                metadata={"wikidata_qid": candidate.identifier, "copyright": False},
+            )
+
+    executor = ResearchExecutor(wikidata=_BudgetExec(), gutenberg=_GutenbergStub())
+    evaluator = Evaluator(
+        llm=StubLLMProvider(
+            default=json.dumps({"selected": [0, 1], "rejected": [], "rationale": "pick first two"})
+        ),
+        settings=EvaluatorSettings(enabled=True),
+    )
+    runner = _StubIngestRunner()
+    agent = ArgusAgent(
+        adapter=_GutenbergStub(),
+        ingest_runner=runner,
+        verification_pool=_StubVerificationPool(),  # type: ignore[arg-type]
+        settings=ArgusSettings(enabled=True),
+        use_research_planner=True,
+        planner=planner,
+        executor=executor,
+        evaluator=evaluator,
+        run_reports_dir=rr,
+    )
+    res = await agent.process(_trigger())
+    assert res.outcome == ArgusOutcome.APPROVED_AND_INGESTED
+    assert len(res.ingested_candidates) == 1
+    assert len(res.failed_candidates) == 1
+    assert "acquired" in res.failed_candidates[0].reason
