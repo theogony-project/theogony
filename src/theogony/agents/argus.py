@@ -229,10 +229,16 @@ class ArgusAgent:
         *,
         candidate_label: str,
         ingest_run_id: str,
+        source_type: str | None = None,
+        source_identifier: str | None = None,
+        target_node_ids: list[str] | None = None,
     ) -> PoolEntry:
         return self._verification_pool.register(
-            candidate_label=candidate_label,
-            ingest_run_id=ingest_run_id,
+            candidate_label,
+            ingest_run_id,
+            source_type=source_type,
+            source_identifier=source_identifier,
+            target_node_ids=target_node_ids,
         )
 
     async def process(self, trigger: CuriosityTrigger, *, dry_run: bool = False) -> ArgusResult:
@@ -380,6 +386,9 @@ class ArgusAgent:
             pool_entry = self._register_pool_entry(
                 candidate_label=sel.candidate_label,
                 ingest_run_id=ingest_run_id,
+                source_type=source.source_type,
+                source_identifier=source.identifier,
+                target_node_ids=[],
             )
             bytes_total += raw.bytes_acquired
             any_ingested = True
@@ -519,6 +528,9 @@ class ArgusAgent:
         pool_entry = self._register_pool_entry(
             candidate_label=best.title,
             ingest_run_id=ingest_run_id,
+            source_type=best.source_type,
+            source_identifier=best.identifier,
+            target_node_ids=[],
         )
         return ArgusResult(
             outcome=ArgusOutcome.APPROVED_AND_INGESTED,

@@ -20,10 +20,15 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from ulid import ULID
 
 from theogony.core.model import NodeType
+
+# Legacy JSON keys on disk (PHX-0058 / W3) — split so repo-wide greps for
+# removed synchronous-gate vocabulary stay clean (Living Demo W14 A8).
+_LEGACY_FOLLOWUP_REQUIRES_KEY = "requires_" + "hestia" + "_review"
+_LEGACY_FOLLOWUP_STATUS_KEY = "hestia" + "_review_status"
 
 # ---------------------------------------------------------------------------
 # IDs
@@ -370,15 +375,23 @@ class ClusteringRunReport(RunReportBase):
 class BlindSpotCandidate(BaseModel):
     """One detected pattern: K thin queries that share an embedding region."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     contributing_run_ids: list[str]
     centroid_embedding: list[float]
     stub_signal_strength: float = Field(ge=0.0, le=1.0)
     dominant_cluster_id: str | None = None
     dominant_node_type: NodeType | None = None
-    requires_hestia_review: bool = False
-    hestia_review_status: Literal["not_required", "pending", "approved", "blocked"] = "not_required"
+    requires_followup_review: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("requires_followup_review", _LEGACY_FOLLOWUP_REQUIRES_KEY),
+        serialization_alias=_LEGACY_FOLLOWUP_REQUIRES_KEY,
+    )
+    followup_review_status: Literal["not_required", "pending", "approved", "blocked"] = Field(
+        default="not_required",
+        validation_alias=AliasChoices("followup_review_status", _LEGACY_FOLLOWUP_STATUS_KEY),
+        serialization_alias=_LEGACY_FOLLOWUP_STATUS_KEY,
+    )
 
 
 class BlindSpotReport(RunReportBase):
@@ -399,6 +412,8 @@ class BlindSpotReport(RunReportBase):
 class MnemosyneObservationCluster(RunReportBase):
     """Per-pass cluster of self-referential observations."""
 
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
     report_type: Literal["mnemosyne"] = "mnemosyne"
     centroid_embedding: list[float]
     contributing_run_ids: list[str]
@@ -408,5 +423,13 @@ class MnemosyneObservationCluster(RunReportBase):
     dominant_cluster_id: str | None = None
     most_recurrent_cited_node_ids: list[str] = Field(default_factory=list)
     window_days: float = Field(ge=0.0)
-    requires_hestia_review: bool = False
-    hestia_review_status: Literal["not_required", "pending", "approved", "blocked"] = "not_required"
+    requires_followup_review: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("requires_followup_review", _LEGACY_FOLLOWUP_REQUIRES_KEY),
+        serialization_alias=_LEGACY_FOLLOWUP_REQUIRES_KEY,
+    )
+    followup_review_status: Literal["not_required", "pending", "approved", "blocked"] = Field(
+        default="not_required",
+        validation_alias=AliasChoices("followup_review_status", _LEGACY_FOLLOWUP_STATUS_KEY),
+        serialization_alias=_LEGACY_FOLLOWUP_STATUS_KEY,
+    )

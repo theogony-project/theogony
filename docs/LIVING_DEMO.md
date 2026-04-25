@@ -14,7 +14,8 @@ These points map to the exit criteria in [`docs/plans/LIVING_DEMO_PLAN.md`](plan
 
 ## What it does NOT prove
 
-- It does **not** prove the full immune-system worker pool; Athene and the richer verification reservoir start in Wave 3 after W13.
+- It does **not** prove factual correctness of ingested claims; post-hoc checks observe structure in run reports, not ground truth.
+- Optional Wave 3 beat (after research): run `theogony curiosity athene-run --once --store neo4j` so the Cockpit **Immune system** panel shows `sampled_by_athene` increasing and a Finding node appears in the graph. This proves sampling and first-class Findings, not a full worker pool.
 - It does **not** prove federation, time-machine queries, or a negative-knowledge layer.
 - It does **not** prove production cost, latency, or scale beyond what you observe in a single honest run.
 

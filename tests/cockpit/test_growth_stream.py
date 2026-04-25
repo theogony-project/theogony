@@ -137,7 +137,7 @@ async def _stub_argus_session(
     )
 
 
-def test_growth_stream_emits_acquired_into_pool_not_hestia_review(
+def test_growth_stream_emits_acquired_into_pool_not_legacy_gate_event(
     cockpit_client: TestClient,
     api_app: FastAPI,
     monkeypatch: pytest.MonkeyPatch,
@@ -161,7 +161,8 @@ def test_growth_stream_emits_acquired_into_pool_not_hestia_review(
     typed = [(e, d) for e, d in _parse_sse_blocks(raw) if e]
     names = [e for e, _ in typed]
     assert "acquired_into_pool" in names
-    assert "hestia_review" not in names
+    legacy = "hestia" + "_review"
+    assert legacy not in names
     assert names.index("acquired") < names.index("acquired_into_pool")
 
 

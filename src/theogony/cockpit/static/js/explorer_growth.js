@@ -36,9 +36,31 @@
     quantity: "#94a3b8",
     source: "#94a3b8",
     other: "#94a3b8",
+    finding: "#c084fc",
   };
 
   let simulation = null;
+
+  async function refreshImmunePanel() {
+    const host = document.getElementById("explorer-immune-panel");
+    if (!host) return;
+    try {
+      const resp = await fetch("/cockpit/api/verification-pool", { credentials: "same-origin" });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const s = data.stats || {};
+      const totalEl = document.getElementById("explorer-immune-total");
+      const unobsEl = document.getElementById("explorer-immune-unobserved");
+      const sampEl = document.getElementById("explorer-immune-sampled");
+      const findEl = document.getElementById("explorer-immune-findings");
+      if (totalEl) totalEl.textContent = String(s.total ?? "—");
+      if (unobsEl) unobsEl.textContent = String(s.unobserved ?? "—");
+      if (sampEl) sampEl.textContent = String(s.sampled_by_athene ?? "—");
+      if (findEl) findEl.textContent = String(s.findings_total ?? "—");
+    } catch (_) {
+      /* ignore */
+    }
+  }
 
   function appendGrowthLine(text) {
     appendSectionLine(outcomeEl || logEl, text);
@@ -544,6 +566,7 @@
     }
     if (eventName === "research_complete") {
       appendSectionLine(outcomeEl, `research_complete outcome=${obj.outcome || "?"}`);
+      void refreshImmunePanel();
     }
     return obj;
   }
@@ -641,4 +664,5 @@
   }
 
   form.addEventListener("submit", growthAsk, true);
+  void refreshImmunePanel();
 })();

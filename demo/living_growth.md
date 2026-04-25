@@ -74,6 +74,16 @@ Execute this Wave 3 open-flow timeline literally:
 - `[screenshot: t+02:15 — longer cited answer]` — second answer clearly longer / more citations than first pass.
 - `[screenshot: t+02:50 — Lhasa zoom]` — zoom/detail view after clicking **Lhasa**.
 
+## Optional: Athene pass (immune visibility)
+
+After **`research_complete`**, you may run:
+
+```bash
+theogony curiosity athene-run --once --store neo4j
+```
+
+With `.demo.env` from the reset script, Athene is enabled and samples at rate `1.0`, so the **Immune system** panel in the Explorer should show `sampled_by_athene` increasing and one **Finding** node in the constellation. This demonstrates post-hoc sampling and Finding write-back, not factual verification of content.
+
 ## Acceptance
 
 Tick **only** if the recording is honest:

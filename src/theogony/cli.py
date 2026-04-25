@@ -45,6 +45,7 @@ from rich.table import Table
 
 from theogony import __version__
 from theogony.acquisition.gutenberg import GutenbergAdapter
+from theogony.agents.athene import AtheneVerifier
 from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
 from theogony.clustering.cluster_index import ClusterIndex
@@ -55,6 +56,7 @@ from theogony.curiosity.argus_wiring import argus_dispatch_session
 from theogony.curiosity.dispatcher import CuriosityDispatcher, pending_curiosity_report_count
 from theogony.curiosity.runner import run_one_aggregation_pass
 from theogony.curiosity.stub_detector import StubDetector
+from theogony.curiosity.verification_pool import VerificationPool
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.book_context import BookContextExtractor
 from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
@@ -588,6 +590,63 @@ async def _run_curiosity_run_pending(*, max_n: int, dry_run: bool, store_kind: s
                 border_style="green",
             )
         )
+
+
+@curiosity_app.command("athene-run")
+def curiosity_athene_run(
+    once: bool = typer.Option(
+        False,
+        "--once",
+        help="Run a single Athene verification pass (required in W14).",
+    ),
+    store_kind: str = typer.Option(
+        "memory",
+        "--store",
+        help="Storage backend: neo4j or memory.",
+    ),
+    seed: int | None = typer.Option(
+        None,
+        "--seed",
+        help="Optional deterministic sampling seed (tests only).",
+    ),
+) -> None:
+    """Sample the verification pool and write Finding nodes from ingest reports (W14)."""
+    if not once:
+        _console.print(
+            "[red]Missing required flag:[/red] use [cyan]--once[/cyan] "
+            "(W14 ships only single-pass mode; no daemon loop)."
+        )
+        raise typer.Exit(code=2)
+    if store_kind not in ("neo4j", "memory"):
+        _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
+        raise typer.Exit(code=2)
+    asyncio.run(_run_curiosity_athene_once(store_kind=store_kind, seed=seed))
+
+
+async def _run_curiosity_athene_once(*, store_kind: str, seed: int | None) -> None:
+    settings = _load_settings()
+    if not settings.curiosity.athene.enabled:
+        _console.print("Athene disabled")
+        return
+    async with _open_store(settings, store_kind, settings.embedding.dim) as store:
+        pool = VerificationPool(settings)
+        verifier = AtheneVerifier(
+            store=store,
+            pool=pool,
+            settings=settings.curiosity.athene,
+            run_reports_dir=settings.run_reports_dir,
+        )
+        summary = await verifier.run_once(seed=seed)
+    if summary.skipped_reason:
+        _console.print(f"[dim]{summary.skipped_reason}[/dim]")
+        return
+    if summary.sampled_count == 0:
+        _console.print("sampled=0 findings=0")
+        return
+    _console.print(
+        f"sampled={summary.sampled_count} findings={summary.findings_written} "
+        f"pool_marked={summary.pool_entries_marked}"
+    )
 
 
 async def _run_recluster(*, force: bool, store_kind: str) -> None:

@@ -57,6 +57,7 @@ from theogony.core.model import (
 )
 from theogony.core.store import KnowledgeStore
 from theogony.curiosity.growth_bridge import GrowthBridge
+from theogony.curiosity.verification_pool import VerificationPool, VerificationPoolStatusDTO
 from theogony.extraction.embedding import EmbeddingProvider
 from theogony.reporting.models import QueryRunReport
 from theogony.reporting.writer import RunReportWriter
@@ -644,6 +645,16 @@ def build_cockpit_router() -> APIRouter:
             region_descriptor=report.region_descriptor,
         )
         return JSONResponse({"trigger_id": trigger.trigger_id if trigger else None})
+
+    @router.get("/api/verification-pool", response_class=JSONResponse)
+    async def verification_pool_status(
+        settings: Annotated[Settings, Depends(get_settings)],
+    ) -> JSONResponse:
+        pool = VerificationPool(settings)
+        entries = pool.entries()
+        recent = sorted(entries, key=lambda e: e.acquired_at, reverse=True)[:10]
+        dto = VerificationPoolStatusDTO(stats=pool.stats(), recent_entries=recent)
+        return JSONResponse(dto.model_dump(mode="json"))
 
     @router.get("/api/research-request-stream/{trigger_id}")
     async def explorer_research_request_stream(

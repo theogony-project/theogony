@@ -40,6 +40,7 @@ class NodeType(StrEnum):
     TIME = "time"
     QUANTITY = "quantity"
     SOURCE = "source"
+    FINDING = "finding"
     OTHER = "other"
 
 
