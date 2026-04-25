@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from tests.cockpit.async_util import run_async
@@ -40,3 +42,24 @@ def test_explorer_page_with_growth_on_includes_panel_and_script(
     assert "explorer_growth.js" in r.text
     assert 'data-growth="on"' in r.text
     assert "explorer-growth-log" in r.text
+    assert "Wave 3 Demo Readiness" in r.text
+    assert "growth mechanics, not guaranteed truth" in r.text
+    assert "Show known internal knowledge" in r.text
+    assert "Trigger a knowledge gap" in r.text
+    assert "Explain the organism" in r.text
+
+
+def test_growth_js_contains_failure_reason_and_no_trigger_messages() -> None:
+    js_path = (
+        Path(__file__).resolve().parents[2]
+        / "src"
+        / "theogony"
+        / "cockpit"
+        / "static"
+        / "js"
+        / "explorer_growth.js"
+    )
+    text = js_path.read_text(encoding="utf-8")
+    assert "reason=" in text
+    assert "failed:" in text
+    assert "No research trigger emitted" in text

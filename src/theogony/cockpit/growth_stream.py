@@ -288,6 +288,26 @@ def _emit_research_events_from_result(
             "research_complete",
             {
                 "outcome": result.outcome.value,
+                "reason": result.reason,
+                "decision_reason": result.decision.reason,
+                "decision_source_type": result.decision.candidate_source_type,
+                "decision_identifier": result.decision.candidate_identifier,
+                "decision_title": result.decision.candidate_title,
+                "ingested_count": len(result.ingested_candidates),
+                "selected_count": (
+                    len(result.evaluator_decision.selected)
+                    if result.evaluator_decision is not None
+                    else 0
+                ),
+                "rejected_count": (
+                    len(result.evaluator_decision.rejected)
+                    if result.evaluator_decision is not None
+                    else 0
+                ),
+                "pool_entry_ids": [c.pool_entry_id for c in result.ingested_candidates],
+                "failed_candidates": [
+                    fc.model_dump(mode="json") for fc in result.failed_candidates
+                ],
                 "total_cost_eur": planner_cost + evaluator_cost,
                 "total_nodes_added": ingest.store.nodes_upserted if ingest else 0,
                 "total_edges_added": ingest.store.edges_upserted if ingest else 0,

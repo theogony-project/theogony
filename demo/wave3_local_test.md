@@ -18,7 +18,24 @@ THEOGONY_ALLOW_DEMO_RESET=1 bash demo/reset_living_growth.sh
 ## 3. Run cockpit
 
 ```bash
-.venv/bin/theogony cockpit serve --host 127.0.0.1 --port 8000
+bash demo/start_wave3_cockpit.sh
+```
+
+Without these flags, `Research this further` may legitimately emit no trigger (`trigger_id=null`).
+
+If you prefer explicit flags instead of the helper script:
+
+```bash
+THEOGONY_CURIOSITY__GROWTH_BRIDGE__ENABLED=true \
+THEOGONY_CURIOSITY__ARGUS__ENABLED=true \
+THEOGONY_CURIOSITY__RESEARCH_PLANNER__ENABLED=true \
+THEOGONY_CURIOSITY__EVALUATOR__ENABLED=true \
+THEOGONY_CURIOSITY__ATHENE__ENABLED=true \
+THEOGONY_CURIOSITY__CHRONOS__ENABLED=true \
+THEOGONY_CURIOSITY__NEMESIS__ENABLED=true \
+THEOGONY_CURIOSITY__ERIS__ENABLED=true \
+THEOGONY_MNEMOSYNE__CONDUCTOR_ENABLED=true \
+venv/bin/theogony cockpit serve --host 127.0.0.1 --port 8000
 ```
 
 ## 4. Ask and research
@@ -32,14 +49,10 @@ THEOGONY_ALLOW_DEMO_RESET=1 bash demo/reset_living_growth.sh
 After research has produced pool entries and ingested material:
 
 ```bash
-.venv/bin/theogony curiosity athene-run --once --store neo4j
-.venv/bin/theogony curiosity chronos-run --once --store neo4j
-.venv/bin/theogony curiosity nemesis-run --once --store neo4j
-THEOGONY_CURIOSITY__ERIS__ENABLED=true .venv/bin/theogony curiosity eris-run --once --store memory --fixture
-.venv/bin/theogony mnemosyne conduct --once --store neo4j --metric-mode fixture
+bash demo/run_wave3_workers.sh
 ```
 
-Use `--store memory` instead of `neo4j` if you are not running a local graph; the runbook above matches the W17 brief default for the full stack.
+The script defaults to `STORE=memory`. Override with `STORE=neo4j` if you want graph-backed worker runs.
 
 ## 6. Inspect reports
 

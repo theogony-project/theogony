@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from fastapi.testclient import TestClient
+
 from theogony.agents.llm import StubLLMProvider
-from theogony.cockpit.standalone_app import _standalone_llm, _standalone_settings
+from theogony.cockpit.standalone_app import _standalone_llm, _standalone_settings, app
 from theogony.config.settings import EmbeddingSettings, LLMSettings, Settings
 
 _SEED_EMB = EmbeddingSettings(dim=384, model_id="BAAI/bge-small-en-v1.5")
@@ -54,3 +56,12 @@ def test_explorer_page_context_non_stub_llm() -> None:
     assert ctx["explorer_llm_stub"] is False
     assert "anthropic" in ctx["explorer_llm_label"]
     assert "claude-sonnet-4-6" in ctx["explorer_llm_label"]
+
+
+def test_cockpit_standalone_health_route() -> None:
+    with TestClient(app) as client:
+        r = client.get("/health")
+    assert r.status_code == 200
+    payload = r.json()
+    assert payload["status"] == "ok"
+    assert payload["app"] == "cockpit"

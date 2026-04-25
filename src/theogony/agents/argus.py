@@ -126,6 +126,17 @@ class ArgusIngestedCandidate(BaseModel):
     pool_entry_id: str
 
 
+class ArgusFailedCandidate(BaseModel):
+    """Candidate-level failure detail for acquisition/ingest attempts."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_label: str
+    source_type: str | None = None
+    source_identifier: str | None = None
+    reason: str
+
+
 class ArgusResult(BaseModel):
     """Full outcome of one :meth:`ArgusAgent.process` call."""
 
@@ -138,6 +149,7 @@ class ArgusResult(BaseModel):
     updated_trigger: CuriosityTrigger | None = None
     evaluator_decision: EvaluatorDecision | None = None
     ingested_candidates: list[ArgusIngestedCandidate] = Field(default_factory=list)
+    failed_candidates: list[ArgusFailedCandidate] = Field(default_factory=list)
 
 
 @runtime_checkable
@@ -321,67 +333,88 @@ class ArgusAgent:
 
         bytes_total = 0
         last_decision = empty
+        last_success_decision = empty
         any_ingested = False
-        ingest_error: str | None = None
         ingested_candidates: list[ArgusIngestedCandidate] = []
+        failed_candidates: list[ArgusFailedCandidate] = []
 
         for sel in decision.selected:
             try:
                 source = _source_from_evaluator_row(sel)
             except (TypeError, ValueError) as exc:
-                ingest_error = str(exc)[:500]
-                break
+                msg = str(exc)[:500]
+                failed_candidates.append(
+                    ArgusFailedCandidate(
+                        candidate_label=sel.candidate_label,
+                        reason=msg,
+                    )
+                )
+                continue
 
             estimated = source.metadata.get("estimated_bytes")
             if isinstance(estimated, int) and estimated > trigger.budget.max_total_bytes:
-                return ArgusResult(
-                    outcome=ArgusOutcome.BUDGET_EXCEEDED,
-                    decision=_decision_from_candidate(
-                        source,
-                        reason="estimated bytes exceed budget",
-                    ),
-                    reason=f"estimated_bytes={estimated} > budget {trigger.budget.max_total_bytes}",
-                    updated_trigger=trig_after_plan,
-                    evaluator_decision=decision,
-                    ingested_candidates=ingested_candidates,
+                failed_candidates.append(
+                    ArgusFailedCandidate(
+                        candidate_label=sel.candidate_label,
+                        source_type=source.source_type,
+                        source_identifier=source.identifier,
+                        reason=(
+                            f"estimated_bytes={estimated} > budget {trigger.budget.max_total_bytes}"
+                        ),
+                    )
                 )
+                continue
 
             try:
                 raw = await self._executor.acquire_source(source)
             except Exception as exc:
-                ingest_error = str(exc)[:500]
+                msg = str(exc)[:500]
+                failed_candidates.append(
+                    ArgusFailedCandidate(
+                        candidate_label=sel.candidate_label,
+                        source_type=source.source_type,
+                        source_identifier=source.identifier,
+                        reason=msg,
+                    )
+                )
                 last_decision = _decision_from_candidate(
                     source,
                     status="failed",
-                    reason=ingest_error,
+                    reason=msg,
                 )
-                break
+                continue
             if raw.bytes_acquired > trigger.budget.max_total_bytes:
-                return ArgusResult(
-                    outcome=ArgusOutcome.BUDGET_EXCEEDED,
-                    decision=_decision_from_candidate(
-                        source,
-                        reason="acquired bytes exceed budget",
-                    ),
-                    bytes_acquired=bytes_total + raw.bytes_acquired,
-                    reason=(
-                        f"acquired {raw.bytes_acquired} B > budget {trigger.budget.max_total_bytes}"
-                    ),
-                    updated_trigger=trig_after_plan,
-                    evaluator_decision=decision,
-                    ingested_candidates=ingested_candidates,
+                failed_candidates.append(
+                    ArgusFailedCandidate(
+                        candidate_label=sel.candidate_label,
+                        source_type=source.source_type,
+                        source_identifier=source.identifier,
+                        reason=(
+                            f"acquired {raw.bytes_acquired} B > budget "
+                            f"{trigger.budget.max_total_bytes}"
+                        ),
+                    )
                 )
+                continue
 
             try:
                 ingest_run_id = await self._ingest_runner.run_from_raw_content(raw)
             except Exception as exc:
-                ingest_error = str(exc)[:500]
+                msg = str(exc)[:500]
+                failed_candidates.append(
+                    ArgusFailedCandidate(
+                        candidate_label=sel.candidate_label,
+                        source_type=source.source_type,
+                        source_identifier=source.identifier,
+                        reason=msg,
+                    )
+                )
                 last_decision = _decision_from_candidate(
                     source,
                     status="failed",
-                    reason=ingest_error,
+                    reason=msg,
                 )
-                break
+                continue
 
             pool_entry = self._register_pool_entry(
                 candidate_label=sel.candidate_label,
@@ -406,36 +439,39 @@ class ArgusAgent:
                 ingest_run_id=ingest_run_id,
                 pool_entry_id=pool_entry.entry_id,
             )
-
-        if ingest_error is not None:
-            return ArgusResult(
-                outcome=ArgusOutcome.INGEST_FAILED,
-                decision=last_decision,
-                bytes_acquired=bytes_total,
-                reason=ingest_error,
-                updated_trigger=trig_after_plan,
-                evaluator_decision=decision,
-                ingested_candidates=ingested_candidates,
-            )
+            last_success_decision = last_decision
 
         if any_ingested:
             return ArgusResult(
                 outcome=ArgusOutcome.APPROVED_AND_INGESTED,
-                decision=last_decision,
+                decision=last_success_decision,
                 bytes_acquired=bytes_total,
-                reason="ingest completed",
+                reason=f"ingested={len(ingested_candidates)} failed={len(failed_candidates)}",
                 updated_trigger=trig_after_plan,
                 evaluator_decision=decision,
                 ingested_candidates=ingested_candidates,
+                failed_candidates=failed_candidates,
+            )
+
+        failure_decision = empty
+        if failed_candidates:
+            first_failed = failed_candidates[0]
+            failure_decision = AcquisitionDecision(
+                candidate_source_type=first_failed.source_type or "",
+                candidate_identifier=first_failed.source_identifier or "",
+                candidate_title=first_failed.candidate_label,
+                status="failed",
+                reason=first_failed.reason,
             )
 
         return ArgusResult(
-            outcome=ArgusOutcome.NO_CANDIDATE_SELECTED,
-            decision=empty,
-            reason="no successful acquisition",
+            outcome=ArgusOutcome.INGEST_FAILED,
+            decision=failure_decision,
+            reason=f"ingested={len(ingested_candidates)} failed={len(failed_candidates)}",
             updated_trigger=trig_after_plan,
             evaluator_decision=decision,
             ingested_candidates=ingested_candidates,
+            failed_candidates=failed_candidates,
         )
 
     async def _process_legacy(
@@ -555,6 +591,7 @@ class ArgusAgent:
 __all__ = [
     "ArgusAgent",
     "ArgusIngestedCandidate",
+    "ArgusFailedCandidate",
     "ArgusOutcome",
     "ArgusProcessable",
     "ArgusResult",

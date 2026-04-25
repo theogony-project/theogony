@@ -15,6 +15,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.llm import LLMProvider, StubLLMProvider
@@ -143,4 +144,22 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Theogony Cockpit", lifespan=_lifespan)
+
+
+@app.get("/health")
+async def cockpit_health() -> JSONResponse:
+    """Lightweight health endpoint for cockpit standalone mode."""
+    store = getattr(app.state, "store", None)
+    backend = "memory" if isinstance(store, InMemoryKnowledgeStore) else "unknown"
+    llm = getattr(app.state, "llm", None)
+    return JSONResponse(
+        {
+            "status": "ok",
+            "app": "cockpit",
+            "store": backend,
+            "llm_model_id": getattr(llm, "model_id", "unknown"),
+        }
+    )
+
+
 __all__ = ["app"]

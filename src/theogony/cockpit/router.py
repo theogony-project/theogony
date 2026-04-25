@@ -81,6 +81,31 @@ REPORT_TABS = (
     ("mnemosyne_conductor", "Mnemosyne conductor"),
 )
 
+REPORT_TAB_GROUPS = (
+    (
+        "Query and ingestion",
+        (("query", "Queries"), ("ingest", "Ingests"), ("curiosity", "Curiosity")),
+    ),
+    (
+        "Dream and structure",
+        (
+            ("oneiros", "Oneiros"),
+            ("clustering", "Clustering"),
+            ("blindspot", "Blindspots"),
+            ("mnemosyne", "Mnemosyne"),
+        ),
+    ),
+    (
+        "Immune system",
+        (
+            ("chronos", "Chronos"),
+            ("nemesis", "Nemesis"),
+            ("eris", "Eris"),
+            ("mnemosyne_conductor", "Mnemosyne conductor"),
+        ),
+    ),
+)
+
 
 def build_cockpit_router() -> APIRouter:
     router = APIRouter(
@@ -270,7 +295,11 @@ def build_cockpit_router() -> APIRouter:
         return templates.TemplateResponse(
             request,
             "reports.html",
-            {"report_tabs": REPORT_TABS, "settings": settings},
+            {
+                "report_tabs": REPORT_TABS,
+                "report_tab_groups": REPORT_TAB_GROUPS,
+                "settings": settings,
+            },
         )
 
     @router.get("/reports/{report_type}", response_class=HTMLResponse)

@@ -85,6 +85,13 @@ def test_reports_panel_default_tab_is_query(cockpit_client: TestClient) -> None:
     r = cockpit_client.get("/cockpit/reports")
     assert r.status_code == 200
     assert 'hx-get="/cockpit/reports/query"' in r.text
+    assert "Immune system" in r.text
+
+
+def test_reports_table_empty_state_for_mnemosyne_conductor(cockpit_client: TestClient) -> None:
+    r = cockpit_client.get("/cockpit/reports/mnemosyne_conductor")
+    assert r.status_code == 200
+    assert "Mnemosyne conductor has not run yet" in r.text
 
 
 def test_reports_show_returns_full_json_for_known_run_id(
