@@ -66,6 +66,12 @@ from theogony.reporting.writer import RunReportWriter
 _PKG = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(_PKG / "templates"))
 
+
+def _explorer_growth_enabled_from_query(value: str) -> bool:
+    """Growth / Research live panel: on by default; only explicit ``off`` disables."""
+    v = value.strip().lower()
+    return v not in ("off", "false", "0", "no")
+
 _MAX_MANIFEST_BYTES = 64 * 1024
 
 REPORT_TABS = (
@@ -428,8 +434,8 @@ def build_cockpit_router() -> APIRouter:
     ) -> HTMLResponse:
         llm = getattr(request.app.state, "llm", None)
         ctx = explorer_page_context(settings, llm)
-        raw_growth = (request.query_params.get("growth") or "").strip().lower()
-        growth_enabled = raw_growth in ("on", "true", "1")
+        raw_growth = request.query_params.get("growth") or ""
+        growth_enabled = _explorer_growth_enabled_from_query(raw_growth)
         return templates.TemplateResponse(
             request,
             "explorer.html",
