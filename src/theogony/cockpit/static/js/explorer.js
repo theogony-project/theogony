@@ -11,6 +11,7 @@
   const vectorEl = document.getElementById("explorer-vector");
   const timingEl = document.getElementById("explorer-timing");
   const saveBtn = document.getElementById("explorer-save");
+  const workerBtn = document.getElementById("explorer-worker-tick");
   const chatThreadEl = document.getElementById("explorer-chat-thread");
   const newChatBtn = document.getElementById("explorer-new-chat");
   const phases = {
@@ -24,6 +25,7 @@
 
   const sampleOnly = root && root.dataset.sampleOnly === "true";
   const appendEnabled = root && root.dataset.appendEnabled === "true";
+  const operatorWorkerEnabled = root && root.dataset.operatorWorker === "true";
 
   const TYPE_COLOR = {
     person: "#f472b6",
@@ -796,6 +798,59 @@
       return;
     }
     setStatus(`saved ${out.fragment_count} node(s): ${(out.upserted_node_ids || []).join(", ")}`, "ok");
+  }
+
+  async function runWorkerTick() {
+    if (!workerBtn || workerBtn.disabled) return;
+    workerBtn.disabled = true;
+    setStatus("Running worker tick…", "warn");
+    try {
+      const resp = await fetch("/cockpit/operator/worker-tick", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      let out = {};
+      try {
+        out = await resp.json();
+      } catch (_e) {
+        out = {};
+      }
+      const detailMsg =
+        typeof out.detail === "string"
+          ? out.detail
+          : Array.isArray(out.detail)
+            ? out.detail.map((x) => (x && x.msg) || JSON.stringify(x)).join("; ")
+            : null;
+      if (!resp.ok) {
+        setStatus(detailMsg || resp.statusText || "worker tick failed", "error");
+        return;
+      }
+      const steps = out.steps || [];
+      const bad = steps.find((s) => s && s.ok === false);
+      if (bad) {
+        setStatus(`Worker tick: ${bad.step} failed — ${bad.message || ""}`, "error");
+        return;
+      }
+      const summary = steps.map((s) => `${s.step}: ${s.message || "ok"}`).join(" · ");
+      setStatus(summary || "Worker tick completed", "ok");
+    } catch (err) {
+      setStatus("network error: " + err, "error");
+    } finally {
+      workerBtn.disabled = false;
+    }
+  }
+
+  if (workerBtn) {
+    if (!operatorWorkerEnabled || sampleOnly) {
+      workerBtn.disabled = true;
+      workerBtn.classList.add("opacity-40", "cursor-not-allowed");
+      workerBtn.title = sampleOnly
+        ? "Disabled in sample-only cockpit mode"
+        : "Disabled (THEOGONY_COCKPIT__OPERATOR_WORKER_FROM_UI=false)";
+    } else {
+      workerBtn.addEventListener("click", runWorkerTick);
+    }
   }
 
   form.addEventListener("submit", ask);

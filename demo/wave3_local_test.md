@@ -6,7 +6,7 @@ Repeatable steps to exercise the immune loop and Mnemosyne conductor after Livin
 
 - Local repo on `main` (or your sprint branch rebased on current `main`).
 - Python virtualenv at `.venv` with the project installed (`pip install -e ".[dev]"` or your usual set).
-- Local Neo4j available if you use `--store neo4j` for workers that persist to the graph.
+- Local Neo4j running for the default graph-backed path (`STORE` defaults to `neo4j`; the Cockpit standalone chronicle defaults to Neo4j as well — see `THEOGONY_COCKPIT__KNOWLEDGE_STORE`).
 - `ANTHROPIC_API_KEY` (or your configured provider key) is required only for the research planner and live LLM paths. The Mnemosyne conductor can run with `--metric-mode fixture` without calling a hosted model.
 
 ## 2. Reset
@@ -52,7 +52,9 @@ After research has produced pool entries and ingested material:
 bash demo/run_wave3_workers.sh
 ```
 
-The script defaults to `STORE=memory`. Override with `STORE=neo4j` if you want graph-backed worker runs.
+The script defaults to `STORE=neo4j` (persisted chronicle). Use `STORE=memory` for a quick offline run without Bolt.
+
+In the Explorer (operator drawer), **Run immune + Mnemosyne tick** calls `POST /cockpit/operator/worker-tick` on the same store as the running Cockpit process (disable with `THEOGONY_COCKPIT__OPERATOR_WORKER_FROM_UI=false`).
 
 ## 6. Inspect reports
 

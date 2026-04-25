@@ -13,7 +13,7 @@ Commands available in this module:
 - ``node <id>``      — Hover-Lupe node + neighbourhood (E9)
 - ``resolve [...]``  — manual-resolution surface (Plan §3.4); E9
 - ``serve [...]``    — uvicorn wrapper for the FastAPI app (E9)
-- ``cockpit serve``  — Iris dashboard only, in-memory seed (PHX-0074)
+- ``cockpit serve``  — Iris dashboard; Neo4j chronicle by default (PHX-0074)
 - ``mnemosyne classify`` — heuristic meta-query diagnostic (PHX-0071)
 
 The single-file CLI is a deliberate E9-brief decision (1000-line
@@ -265,9 +265,9 @@ def mnemosyne_conduct(
         help="Run a single Mnemosyne conductor pass (required in W17).",
     ),
     store_kind: str = typer.Option(
-        "memory",
+        "neo4j",
         "--store",
-        help="Storage backend: neo4j or memory.",
+        help="Storage backend: neo4j (default) or memory (offline / CI).",
     ),
     metric_mode: str | None = typer.Option(
         None,
@@ -618,9 +618,9 @@ def curiosity_run_pending(
         False, "--dry-run", help="Search/score/Hestia only; no acquire/ingest."
     ),
     store_kind: str = typer.Option(
-        "memory",
+        "neo4j",
         "--store",
-        help="Storage backend: neo4j (default ingest path) or memory.",
+        help="Storage backend: neo4j (default, persists) or memory (offline / CI).",
     ),
 ) -> None:
     """Process pending CuriosityRunReport files through Argus (Living Demo W7-B)."""
@@ -682,9 +682,9 @@ def curiosity_athene_run(
         help="Run a single Athene verification pass (required in W14).",
     ),
     store_kind: str = typer.Option(
-        "memory",
+        "neo4j",
         "--store",
-        help="Storage backend: neo4j or memory.",
+        help="Storage backend: neo4j (default) or memory (offline / CI).",
     ),
     seed: int | None = typer.Option(
         None,
@@ -739,9 +739,9 @@ def curiosity_chronos_run(
         help="Run a single Chronos recycler pass (required in W15).",
     ),
     store_kind: str = typer.Option(
-        "memory",
+        "neo4j",
         "--store",
-        help="Storage backend: neo4j or memory.",
+        help="Storage backend: neo4j (default) or memory (offline / CI).",
     ),
 ) -> None:
     """Consume Athene findings from the pool; write Chronos actions and run report (W15)."""
@@ -804,9 +804,9 @@ def curiosity_nemesis_run(
         help="Run a single Nemesis structural audit pass (required in W16).",
     ),
     store_kind: str = typer.Option(
-        "memory",
+        "neo4j",
         "--store",
-        help="Storage backend: neo4j or memory.",
+        help="Storage backend: neo4j (default) or memory (offline / CI).",
     ),
 ) -> None:
     """Scan the chronicle for structural pathologies; write Finding nodes (W16)."""
@@ -862,9 +862,9 @@ def curiosity_eris_run(
         help="Run a single Eris red-team campaign (required in W16).",
     ),
     store_kind: str = typer.Option(
-        "memory",
+        "neo4j",
         "--store",
-        help="Storage backend: neo4j or memory.",
+        help="Storage backend: neo4j (default) or memory (offline / CI).",
     ),
     fixture: bool = typer.Option(
         False,
@@ -1709,16 +1709,18 @@ def cockpit_serve(
         help="Uvicorn autoreload (dev only; bypasses lifespan quirks).",
     ),
 ) -> None:
-    """Run Iris cockpit alone (in-memory store + bundled pantheon_self seed).
+    """Run Iris cockpit alone (Neo4j chronicle by default + pantheon_self on empty DB).
 
-    Does not start Neo4j, MCP, or /query. For the full API plus cockpit,
+    Default store is Neo4j (``THEOGONY_COCKPIT__KNOWLEDGE_STORE``); use ``memory``
+    for offline. Does not start MCP or ``/query``. For the full API plus cockpit,
     use ``theogony serve`` instead.
     """
     if sample_only:
         os.environ["THEOGONY_COCKPIT__SAMPLE_ONLY"] = "true"
     _console.print(
         f"[bold]Theogony Cockpit[/bold] → http://{host}:{port}/cockpit/  "
-        f"(in-memory [cyan]pantheon_self[/cyan] seed)"
+        f"(chronicle: env [cyan]THEOGONY_COCKPIT__KNOWLEDGE_STORE[/cyan], "
+        "default neo4j; seeds [cyan]pantheon_self[/cyan] when the graph is empty)"
     )
     uvicorn.run(
         "theogony.cockpit.standalone_app:app",

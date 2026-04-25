@@ -6,6 +6,7 @@
      class="explorer-root rounded-xl border border-slate-700/80 p-4 md:p-5 shadow-lg shadow-black/20"
      data-sample-only="{{ 'true' if settings.cockpit.sample_only else 'false' }}"
      data-append-enabled="{{ 'true' if settings.mcp_append.enabled else 'false' }}"
+     data-operator-worker="{{ 'true' if explorer_operator_worker else 'false' }}"
      {% if growth_enabled %}data-growth="on"{% endif %}>
 <div id="explorer-llm-ribbon"
      class="mb-4 rounded-lg border px-3 py-2.5 text-xs leading-relaxed
@@ -192,7 +193,15 @@
 
     <details class="explorer-glass rounded-lg border border-slate-700/40 p-2 text-xs text-slate-400">
       <summary class="cursor-pointer text-slate-300">Operator commands</summary>
-      <p class="mt-2 leading-snug">Cockpit does not run immune workers automatically; they are independent post-hoc cells.</p>
+      <p class="mt-2 leading-snug">Cockpit does not run immune workers automatically; they are independent post-hoc cells. You can trigger one Wave-3 tick in-process (same store as this server) when the button below is enabled.</p>
+      <div class="mt-2 flex flex-wrap gap-2 items-center">
+        <button type="button" id="explorer-worker-tick"
+          class="px-3 py-1.5 rounded-md border border-amber-500/50 text-amber-200 text-xs font-medium
+                 hover:bg-amber-500/10 hover:border-amber-400 transition">
+          Run immune + Mnemosyne tick
+        </button>
+        <span class="text-[10px] text-slate-500">POST /cockpit/operator/worker-tick</span>
+      </div>
       <div class="mt-2 space-y-1">
         <code class="block">bash demo/start_wave3_cockpit.sh</code>
         <code class="block">bash demo/run_wave3_workers.sh</code>

@@ -40,6 +40,7 @@ from theogony.cockpit.explorer import (
 )
 from theogony.cockpit.growth_stream import stream_growth_run, stream_research_request_run
 from theogony.cockpit.manifest import ManifestRepository, _default_manifest_markdown
+from theogony.cockpit.operator_tick import OperatorWorkerTickResponse, run_wave3_worker_pass
 from theogony.cockpit.sample_mode import (
     cluster_drill_member_cap,
     effective_cluster_list_limit,
@@ -753,6 +754,22 @@ def build_cockpit_router() -> APIRouter:
         settings: Annotated[Settings, Depends(get_settings)],
     ) -> Response:
         return status_sse_response(store, writer, settings)
+
+    @router.post("/operator/worker-tick", response_class=JSONResponse)
+    async def operator_worker_tick(
+        store: Annotated[KnowledgeStore, Depends(get_store_readonly)],
+        report_writer: Annotated[RunReportWriter, Depends(get_report_writer)],
+        settings: Annotated[Settings, Depends(get_settings)],
+    ) -> JSONResponse:
+        """Run the Wave 3 one-shot immune + Mnemosyne sequence on this process's store."""
+        if not settings.cockpit.operator_worker_from_ui:
+            raise HTTPException(status_code=404, detail="operator worker tick disabled in settings")
+        steps = await run_wave3_worker_pass(
+            store=store,
+            settings=settings,
+            report_writer=report_writer,
+        )
+        return JSONResponse(OperatorWorkerTickResponse(steps=steps).model_dump())
 
     @router.get("/healthz", response_class=PlainTextResponse)
     async def cockpit_health() -> str:
