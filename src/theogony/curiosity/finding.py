@@ -28,10 +28,15 @@ FindingType = Literal[
     "high_parse_error_rate",
     "factual_error_suspected",
     "internal_contradiction",
+    "confidence_inflation",
+    "echo_chamber",
+    "pheromone_autobahn",
+    "persistent_contradiction",
+    "adversarial_test_outcome",
 ]
 
 FindingSeverity = Literal["info", "low", "medium", "high", "critical"]
-FindingCell = Literal["athene", "chronos"]
+FindingCell = Literal["athene", "chronos", "nemesis", "eris"]
 
 
 class Finding(BaseModel):
@@ -77,12 +82,12 @@ class Finding(BaseModel):
         return KnowledgeNode(
             id=self.finding_id,
             node_type=NodeType.FINDING,
-            label=f"Athene finding: {self.finding_type}",
+            label=f"{self.cell.title()} finding: {self.finding_type}",
             description=description,
             epistemic_status=EpistemicStatus.OBSERVED,
             layer=Layer.EPHEMERA,
             source_ref=SourceRef(
-                source_type="athene",
+                source_type=self.cell,
                 identifier=self.finding_id,
                 snippet=snippet or None,
             ),
@@ -161,7 +166,7 @@ def flag_edges_for_finding(finding: Finding) -> list[KnowledgeEdge]:
                 confidence=0.8,
                 epistemic_type=EdgeType.AGENT,
                 source_ref=SourceRef(
-                    source_type="athene",
+                    source_type=finding.cell,
                     identifier=finding.finding_id,
                 ),
             )

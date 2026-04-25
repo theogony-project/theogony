@@ -22,6 +22,8 @@ from pathlib import Path
 
 from theogony.config.logging import get_logger
 from theogony.curiosity.chronos_report import ChronosRunReport
+from theogony.curiosity.eris_report import ErisCampaignReport
+from theogony.curiosity.nemesis_report import NemesisRunReport
 from theogony.curiosity.run_report import CuriosityRunReport
 from theogony.reporting.models import (
     BlindSpotReport,
@@ -44,6 +46,8 @@ ReportType = (
     | type[MnemosyneObservationCluster]
     | type[CuriosityRunReport]
     | type[ChronosRunReport]
+    | type[NemesisRunReport]
+    | type[ErisCampaignReport]
 )
 
 
@@ -154,4 +158,8 @@ class RunReportWriter:
             return CuriosityRunReport.model_validate(raw)
         if rt == "chronos":
             return ChronosRunReport.model_validate(raw)
+        if rt == "nemesis":
+            return NemesisRunReport.model_validate(raw)
+        if rt == "eris":
+            return ErisCampaignReport.model_validate(raw)
         return None

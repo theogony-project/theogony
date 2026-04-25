@@ -463,3 +463,15 @@ Tickets are reviewed during Phoenix process planning. Accepted tickets influence
   (W14); ChronosRunReport counters (W15): findings_seen, findings_resolved, negative_edges_written,
   nodes_demoted, pool_entries_cleared — all candidate streams for the W17 consciousness layer
   above.
+
+- PHX-0067 (Eris): **W16 partial implementation.** Eris v0.1 is a fixture-mode red-team harness. It
+  writes ErisCampaignReport plus `adversarial_test_outcome` Finding nodes. It does not call the live
+  QueryPipeline, does not ingest adversarial content, and does not use an LLM. Live campaigns remain
+  open.
+
+- PHX-0068 (Nemesis): **W16 partial implementation.** Nemesis v0.1 writes first-class Finding nodes for
+  confidence-inflation proxy, persistent contradictions, and pheromone autobahns. Echo-chamber
+  auditing remains open until cluster/citation semantics are strong enough.
+
+- PHX-0071 (Mnemosyne): **W16 metric source.** NemesisRunReport and ErisCampaignReport become two
+  additional metric streams for W17: structural-audit findings and red-team campaign outcomes.

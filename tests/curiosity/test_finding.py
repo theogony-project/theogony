@@ -52,6 +52,7 @@ def test_flag_edges_for_finding_creates_flagged_by_edges() -> None:
         severity="info",
         pool_entry_id="p",
         target_node_ids=["N1", "N2"],
+        cell="chronos",
     )
     edges = flag_edges_for_finding(f)
     assert len(edges) == 2
@@ -63,6 +64,7 @@ def test_flag_edges_for_finding_creates_flagged_by_edges() -> None:
     assert edges[0].epistemic_type == EdgeType.AGENT
     assert edges[0].source_ref is not None
     assert edges[0].source_ref.identifier == f.finding_id
+    assert edges[0].source_ref.source_type == "chronos"
     assert edges[1].source_id == "N2"
 
 
@@ -99,6 +101,50 @@ def test_finding_from_node_rejects_non_finding_node() -> None:
     )
     with pytest.raises(ValueError, match="finding"):
         finding_from_node(n)
+
+
+def test_finding_to_knowledge_node_uses_cell_in_label_and_source_ref() -> None:
+    f = Finding(
+        finding_type="confidence_inflation",
+        severity="medium",
+        pool_entry_id="nemesis-structural-audit",
+        cell="nemesis",
+        sampled_at=datetime(2026, 4, 25, tzinfo=UTC),
+    )
+    node = f.to_knowledge_node()
+    assert node.label == "Nemesis finding: confidence_inflation"
+    assert node.source_ref.source_type == "nemesis"
+
+
+def test_nemesis_finding_round_trips_from_node() -> None:
+    f = Finding(
+        finding_id="FINDING-nemesis-1",
+        finding_type="pheromone_autobahn",
+        severity="medium",
+        cell="nemesis",
+        pool_entry_id="nemesis-structural-audit",
+        sampled_at=datetime(2026, 4, 25, tzinfo=UTC),
+        evidence=["e1"],
+    )
+    node = f.to_knowledge_node()
+    back = finding_from_node(node)
+    assert back.cell == "nemesis"
+    assert back.finding_type == "pheromone_autobahn"
+
+
+def test_eris_finding_round_trips_from_node() -> None:
+    f = Finding(
+        finding_id="FINDING-eris-1",
+        finding_type="adversarial_test_outcome",
+        severity="info",
+        cell="eris",
+        pool_entry_id="eris:w16-fixture",
+        sampled_at=datetime(2026, 4, 25, tzinfo=UTC),
+    )
+    node = f.to_knowledge_node()
+    back = finding_from_node(node)
+    assert back.cell == "eris"
+    assert back.finding_type == "adversarial_test_outcome"
 
 
 def test_resolved_finding_node_updates_resolution_fields_only() -> None:

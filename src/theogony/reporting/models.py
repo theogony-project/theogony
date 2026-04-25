@@ -65,6 +65,8 @@ class RunReportBase(BaseModel):
         "mnemosyne",
         "curiosity",
         "chronos",
+        "nemesis",
+        "eris",
     ]
     started_at: datetime
     finished_at: datetime

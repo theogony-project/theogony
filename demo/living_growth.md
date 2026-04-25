@@ -94,6 +94,24 @@ theogony curiosity chronos-run --once --store neo4j
 
 The **Immune system** panel should show **cleared** increasing. If Athene only produced `no_issue_observed` findings, Chronos clears without negative edges. If a finding had targets and a factual contradiction type, Chronos may write `CONTRADICTS` edges and demote confidence. This proves immune response plumbing, not truth repair.
 
+## Optional: Nemesis structural audit
+
+Operator runs:
+
+```bash
+theogony curiosity nemesis-run --once --store neo4j
+```
+
+The Immune system panel/report list shows a Nemesis report. If contradictions or overconfident low-evidence nodes exist, Nemesis writes Finding nodes.
+
+Optional fixture:
+
+```bash
+THEOGONY_CURIOSITY__ERIS__ENABLED=true theogony curiosity eris-run --once --store memory --fixture
+```
+
+Eris writes a campaign report and fixture Finding nodes without mutating live content.
+
 ## Acceptance
 
 Tick **only** if the recording is honest:

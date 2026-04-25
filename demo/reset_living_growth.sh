@@ -68,6 +68,9 @@ THEOGONY_CURIOSITY__ATHENE__SAMPLE_RATE=1.0
 # Demo mode samples every pool entry so the immune-system panel visibly changes.
 # Production default remains 0.02.
 THEOGONY_CURIOSITY__CHRONOS__ENABLED=true
+# Nemesis is read-only and safe for demo mode. Eris remains opt-in because red-team
+# campaigns are intentionally adversarial; W16 supports fixture runs only.
+THEOGONY_CURIOSITY__NEMESIS__ENABLED=true
 EOF
 
 cat <<'EOF'
