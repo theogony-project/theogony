@@ -540,6 +540,20 @@ class EvaluatorSettings(BaseModel):
     max_total_tokens: int = Field(default=2000, ge=200, le=10000)
 
 
+class AtheneSettings(BaseModel):
+    """Post-hoc verification worker (Living Demo W14)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False
+    sample_rate: float = Field(default=0.02, ge=0.0, le=1.0)
+    min_entries_per_pass: int = Field(default=1, ge=0, le=100)
+    max_entries_per_pass: int = Field(default=50, ge=1, le=500)
+    low_resolution_ratio_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
+    schema_violation_rate_threshold: float = Field(default=0.05, ge=0.0, le=1.0)
+    parse_error_rate_threshold: float = Field(default=0.1, ge=0.0, le=1.0)
+
+
 class CuriositySettings(BaseModel):
     """Stub detection + blind-spot aggregation (PHX-0058 Phase 1 / W3)."""
 
@@ -553,6 +567,7 @@ class CuriositySettings(BaseModel):
     argus: ArgusSettings = Field(default_factory=ArgusSettings)
     research_planner: ResearchPlannerSettings = Field(default_factory=ResearchPlannerSettings)
     evaluator: EvaluatorSettings = Field(default_factory=EvaluatorSettings)
+    athene: AtheneSettings = Field(default_factory=AtheneSettings)
 
 
 class MnemosyneSettings(BaseModel):

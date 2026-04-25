@@ -80,8 +80,22 @@ class _StubVerificationPool:
     def __init__(self) -> None:
         self.entries: list[PoolEntry] = []
 
-    def register(self, candidate_label: str, ingest_run_id: str | None = None) -> PoolEntry:
-        entry = PoolEntry(candidate_label=candidate_label, ingest_run_id=ingest_run_id)
+    def register(
+        self,
+        candidate_label: str,
+        ingest_run_id: str | None = None,
+        *,
+        source_type: str | None = None,
+        source_identifier: str | None = None,
+        target_node_ids: list[str] | None = None,
+    ) -> PoolEntry:
+        entry = PoolEntry(
+            candidate_label=candidate_label,
+            ingest_run_id=ingest_run_id,
+            source_type=source_type,
+            source_identifier=source_identifier,
+            target_node_ids=list(target_node_ids or ()),
+        )
         self.entries.append(entry)
         return entry
 

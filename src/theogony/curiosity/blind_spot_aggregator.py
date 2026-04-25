@@ -122,8 +122,8 @@ def aggregate_blind_spots(
                     if node_type_counts
                     else None
                 ),
-                requires_hestia_review=False,
-                hestia_review_status="not_required",
+                requires_followup_review=False,
+                followup_review_status="not_required",
             )
         )
     return candidates

@@ -36,6 +36,7 @@
     time: "#94a3b8",
     quantity: "#94a3b8",
     source: "#94a3b8",
+    finding: "#c084fc",
     other: "#94a3b8",
   };
 

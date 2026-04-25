@@ -1,4 +1,4 @@
-"""W13 settings guards for removed pre-gate configuration."""
+"""W13 settings guards for removed synchronous gate configuration."""
 
 from __future__ import annotations
 
