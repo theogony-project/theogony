@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Literal
 
 from theogony.config.settings import ChronosSettings
 from theogony.core.model import ScoreUpdate
@@ -13,6 +14,15 @@ from theogony.curiosity.negative_knowledge import contradiction_edges_for_findin
 from theogony.curiosity.verification_pool import PoolEntry, VerificationPool
 
 SEVERITY_RANK = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+
+_ResolutionAction = Literal["none", "annotated", "demoted", "deleted", "escalated_to_human"]
+_ChronosActionKind = Literal[
+    "cleared_no_issue",
+    "annotated",
+    "demoted",
+    "negative_edge_written",
+    "skipped_missing_finding",
+]
 
 
 class ChronosRecycler:
@@ -139,7 +149,7 @@ class ChronosRecycler:
                         await self._store.batch_update_scores(updates)
                         summary.nodes_demoted += finding_demoted
 
-                res_action = "demoted" if finding_demoted > 0 else "annotated"
+                res_action: _ResolutionAction = "demoted" if finding_demoted > 0 else "annotated"
                 resolved = resolved_finding_node(
                     finding,
                     resolved_at=now,
@@ -149,7 +159,7 @@ class ChronosRecycler:
                 summary.findings_resolved += 1
 
                 if edges:
-                    action_kind = "negative_edge_written"
+                    action_kind: _ChronosActionKind = "negative_edge_written"
                 elif finding_demoted > 0:
                     action_kind = "demoted"
                 else:
