@@ -50,6 +50,7 @@ from theogony.agents.chronos import ChronosRecycler
 from theogony.agents.eris import ErisRedTeam
 from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
+from theogony.agents.mnemosyne_conductor import MnemosyneConductor
 from theogony.agents.nemesis import NemesisAuditor
 from theogony.clustering.cluster_index import ClusterIndex
 from theogony.clustering.runner import run_one_recluster_pass
@@ -59,6 +60,7 @@ from theogony.curiosity.argus_wiring import argus_dispatch_session
 from theogony.curiosity.chronos_report import ChronosRunSummary, build_chronos_run_report
 from theogony.curiosity.dispatcher import CuriosityDispatcher, pending_curiosity_report_count
 from theogony.curiosity.eris_report import ErisCampaignSummary, build_eris_campaign_report
+from theogony.curiosity.mnemosyne_conductor_report import build_mnemosyne_conductor_report
 from theogony.curiosity.nemesis_report import NemesisRunSummary, build_nemesis_run_report
 from theogony.curiosity.runner import run_one_aggregation_pass
 from theogony.curiosity.stub_detector import StubDetector
@@ -74,7 +76,7 @@ from theogony.extraction.wikidata_client import WikidataClient
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.oneiros import OneirosWorker
 from theogony.memory.relevance import RelevanceTracker
-from theogony.reporting.writer import RunReportWriter
+from theogony.reporting.writer import RUN_REPORT_TYPE_SUBDIRS, RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
@@ -234,7 +236,7 @@ def status() -> None:
     counts_table = Table(title="Run reports", show_header=True, header_style="bold")
     counts_table.add_column("Type")
     counts_table.add_column("Count", justify="right")
-    for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne"):
+    for rtype in RUN_REPORT_TYPE_SUBDIRS:
         counts_table.add_row(rtype, str(_count_reports(settings, rtype)))
     _console.print(counts_table)
 
@@ -255,6 +257,85 @@ def mnemosyne_classify(
     _console.print_json(mc.model_dump_json(indent=2))
 
 
+@mnemosyne_app.command("conduct")
+def mnemosyne_conduct(
+    once: bool = typer.Option(
+        False,
+        "--once",
+        help="Run a single Mnemosyne conductor pass (required in W17).",
+    ),
+    store_kind: str = typer.Option(
+        "memory",
+        "--store",
+        help="Storage backend: neo4j or memory.",
+    ),
+    metric_mode: str | None = typer.Option(
+        None,
+        "--metric-mode",
+        help="Override metric definition mode for this run: llm | fixture.",
+    ),
+) -> None:
+    """Collect immune metrics, define success metrics, write experiment nodes and backlog drafts."""
+    if not once:
+        _console.print(
+            "[red]Missing required flag:[/red] use [cyan]--once[/cyan] "
+            "(W17 ships only single-pass mode; no daemon loop)."
+        )
+        raise typer.Exit(code=2)
+    if store_kind not in ("neo4j", "memory"):
+        _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
+        raise typer.Exit(code=2)
+    if metric_mode is not None and metric_mode not in ("llm", "fixture"):
+        _console.print("[red]--metric-mode must be llm or fixture[/red]")
+        raise typer.Exit(code=2)
+    asyncio.run(_run_mnemosyne_conduct_once(store_kind=store_kind, metric_mode=metric_mode))
+
+
+async def _run_mnemosyne_conduct_once(*, store_kind: str, metric_mode: str | None) -> None:
+    from datetime import UTC, datetime
+
+    settings = _load_settings()
+    if metric_mode is not None:
+        mode_lit = cast(Literal["llm", "fixture"], metric_mode)
+        settings = settings.model_copy(
+            update={
+                "mnemosyne": settings.mnemosyne.model_copy(
+                    update={"metric_definition_mode": mode_lit},
+                )
+            }
+        )
+    started_at = datetime.now(UTC)
+    report_writer = RunReportWriter(settings.run_reports_dir)
+    pool = VerificationPool(settings)
+    llm = None
+    with contextlib.suppress(ValueError):
+        llm = build_llm_from_settings(settings)
+    async with _open_store(settings, store_kind, settings.embedding.dim) as store:
+        conductor = MnemosyneConductor(
+            store=store,
+            pool=pool,
+            writer=report_writer,
+            settings=settings,
+            llm=llm,
+        )
+        summary, snapshot = await conductor.run_once()
+    finished_at = datetime.now(UTC)
+    report = build_mnemosyne_conductor_report(
+        summary, snapshot=snapshot, started_at=started_at, finished_at=finished_at
+    )
+    report_writer.write(report)
+    if not settings.mnemosyne.conductor_enabled:
+        _console.print("Mnemosyne conductor disabled")
+        return
+    if summary.skipped_reason:
+        _console.print(f"[dim]{summary.skipped_reason}[/dim]")
+        return
+    _console.print(
+        f"metrics={summary.metrics_defined} experiments={summary.experiment_nodes_written} "
+        f"drafts={summary.backlog_drafts_written} llm_cost_eur={summary.llm_cost_eur:.4f}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # `theogony reports list` / `reports show`
 # ---------------------------------------------------------------------------
@@ -267,8 +348,7 @@ def reports_list(
         "--type",
         "-t",
         help=(
-            "Filter by report type: ingest | query | oneiros | clustering | blindspot | mnemosyne. "
-            "Default: all."
+            "Filter by report type (see RUN_REPORT_TYPE_SUBDIRS in reporting.writer). Default: all."
         ),
     ),
     last: int = typer.Option(
@@ -281,11 +361,7 @@ def reports_list(
 ) -> None:
     """List recent run reports across types, newest first."""
     settings = _load_settings()
-    types = (
-        [report_type]
-        if report_type is not None
-        else ["ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne"]
-    )
+    types = [report_type] if report_type is not None else list(RUN_REPORT_TYPE_SUBDIRS)
 
     rows: list[tuple[str, str, str, str, str]] = []  # (run_id, type, verdict, status, duration)
     for rtype in types:
@@ -349,7 +425,7 @@ def reports_show(run_id: str = typer.Argument(..., help="The run_id (ULID).")) -
     """
     settings = _load_settings()
     matches: list[Path] = []
-    for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne"):
+    for rtype in RUN_REPORT_TYPE_SUBDIRS:
         d = settings.run_reports_dir / rtype
         if not d.exists():
             continue

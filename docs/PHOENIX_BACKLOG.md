@@ -475,3 +475,12 @@ Tickets are reviewed during Phoenix process planning. Accepted tickets influence
 
 - PHX-0071 (Mnemosyne): **W16 metric source.** NemesisRunReport and ErisCampaignReport become two
   additional metric streams for W17: structural-audit findings and red-team campaign outcomes.
+
+- PHX-0071 (Mnemosyne): **W17 partial implementation.** Mnemosyne conductor reads immune-system
+  metrics across pool stats, Finding nodes, Chronos reports, Nemesis reports, Eris reports, and
+  query/ingest verdict counts. It defines metrics (LLM-capable, fixture-backed for CI), writes
+  MnemosyneExperiment nodes, and writes BacklogProposalDraft JSON files under run_reports. It
+  does not auto-apply settings, write real PHX YAMLs, or modify code.
+
+- SELF_MODIFICATION.md: **Boundary reaffirmed.** W17 does not implement self-modifying Pantheon.
+  It only creates the observation and proposal surface that future Phoenix incarnations may use.

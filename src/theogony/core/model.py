@@ -41,6 +41,7 @@ class NodeType(StrEnum):
     QUANTITY = "quantity"
     SOURCE = "source"
     FINDING = "finding"
+    EXPERIMENT = "experiment"
     OTHER = "other"
 
 

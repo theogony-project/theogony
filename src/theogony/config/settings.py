@@ -625,6 +625,14 @@ class MnemosyneSettings(BaseModel):
     aggregation_interval_s: float = Field(default=86400.0, ge=0.0)
     max_llm_classifications_per_hour: int = Field(default=30, ge=0)
     llm_classification_max_cost_eur: float = Field(default=0.001, ge=0.0)
+    conductor_enabled: bool = False
+    metric_definition_mode: Literal["llm", "fixture"] = "llm"
+    metric_definition_timeout_s: float = Field(default=20.0, gt=0.0, le=120.0)
+    max_metric_definitions_per_pass: int = Field(default=5, ge=1, le=20)
+    max_experiment_proposals_per_pass: int = Field(default=3, ge=0, le=20)
+    max_backlog_drafts_per_pass: int = Field(default=3, ge=0, le=20)
+    auto_apply_enabled: bool = False
+    backlog_draft_dir_name: str = "backlog_proposals"
 
 
 class Settings(BaseSettings):

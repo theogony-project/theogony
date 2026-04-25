@@ -23,6 +23,7 @@ from pathlib import Path
 from theogony.config.logging import get_logger
 from theogony.curiosity.chronos_report import ChronosRunReport
 from theogony.curiosity.eris_report import ErisCampaignReport
+from theogony.curiosity.mnemosyne_conductor_report import MnemosyneConductorReport
 from theogony.curiosity.nemesis_report import NemesisRunReport
 from theogony.curiosity.run_report import CuriosityRunReport
 from theogony.reporting.models import (
@@ -37,6 +38,20 @@ from theogony.reporting.models import (
 
 log = get_logger("reporting.writer")
 
+RUN_REPORT_TYPE_SUBDIRS: tuple[str, ...] = (
+    "ingest",
+    "query",
+    "oneiros",
+    "clustering",
+    "blindspot",
+    "mnemosyne",
+    "curiosity",
+    "chronos",
+    "nemesis",
+    "eris",
+    "mnemosyne_conductor",
+)
+
 ReportType = (
     type[IngestRunReport]
     | type[QueryRunReport]
@@ -48,6 +63,7 @@ ReportType = (
     | type[ChronosRunReport]
     | type[NemesisRunReport]
     | type[ErisCampaignReport]
+    | type[MnemosyneConductorReport]
 )
 
 
@@ -162,4 +178,6 @@ class RunReportWriter:
             return NemesisRunReport.model_validate(raw)
         if rt == "eris":
             return ErisCampaignReport.model_validate(raw)
+        if rt == "mnemosyne_conductor":
+            return MnemosyneConductorReport.model_validate(raw)
         return None

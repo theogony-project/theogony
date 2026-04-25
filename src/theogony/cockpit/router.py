@@ -74,6 +74,11 @@ REPORT_TABS = (
     ("clustering", "Clustering"),
     ("blindspot", "Blindspots"),
     ("mnemosyne", "Mnemosyne"),
+    ("curiosity", "Curiosity"),
+    ("chronos", "Chronos"),
+    ("nemesis", "Nemesis"),
+    ("eris", "Eris"),
+    ("mnemosyne_conductor", "Mnemosyne conductor"),
 )
 
 
