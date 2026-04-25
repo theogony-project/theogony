@@ -16,6 +16,7 @@ For someone who wants to understand the project quickly:
 3. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — eight non-negotiables in one page
 4. [`VISION.md`](VISION.md)
 5. [`GLOSSARY.md`](GLOSSARY.md)
+6. [`STRATEGY_GAME_ANALOGY.md`](STRATEGY_GAME_ANALOGY.md) — product/control analogy: Chronik as map, Pantheon agents as workers, Cockpit as strategy interface
 
 This path explains what Theogony is, why it exists, how **Pantheon** (substrate) relates to **Chronik** (Gen 1 system), and the core language used to describe it.
 
@@ -92,6 +93,7 @@ This path is about open problems, future directions, and the original conceptual
 - [`PANTHEON_VISION.md`](PANTHEON_VISION.md): Pantheon as planetary chronicle / knowledge substrate (long horizon)
 - [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md): compact doctrine companion to the Pantheon vision
 - [`VISION.md`](VISION.md): the compact vision (Chronik-forward; links upward to Pantheon)
+- [`STRATEGY_GAME_ANALOGY.md`](STRATEGY_GAME_ANALOGY.md): canonical product/control analogy — the Chronik as map, Pantheon agents as workers, Cockpit as strategy interface; explicitly not literal architecture or gamification
 - [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md): canonical doctrine for defense and self-improvement — pre-gates forbidden, sample-based post-hoc cells (Athene, Chronos, Nemesis, Eris, Mnemosyne) that observe and improve the chronicle
 - [`SELF_MODIFICATION.md`](SELF_MODIFICATION.md): canonical long-horizon doctrine — the Pantheon eventually writes its own next version; conditions and constraints
 - [`PHILOSOPHY.md`](../PHILOSOPHY.md): the civilizational and ethical foundation

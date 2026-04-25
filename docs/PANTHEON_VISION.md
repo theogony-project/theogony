@@ -49,6 +49,16 @@ Two distinctions follow.
 
 **Normatively non-negotiable.** The Pantheon should not bend on provenance-first memory, structured contestability, intrinsic time, governed visibility, exportability, agent write discipline, and the refusal of silent ungrounded insertion. These are not preferences. They are the reason the Pantheon deserves to exist.
 
+## Map and Workers
+
+Another useful analogy lives at the operator layer: the Pantheon should eventually be legible like an Aufbau-strategy game. The Chronik is the map: not only storage, but the visible world of known terrain, unknown regions, resources, damage, contested zones, and historical memory. Pantheon agents are workers: autonomous units that can be started, budgeted, and assigned broad priorities while they find concrete work from markers on the map.
+
+This analogy is not architecture. It does not rename the substrate or require literal game mechanics. It clarifies the desired human control surface: an operator should be able to see active regions of the chronicle, launch worker classes, allocate scarce resources, and understand which autonomous agents are mining, transforming, defending, repairing, or planning.
+
+The critical substrate implication is that the map must contain discoverable work markers: gaps, weak regions, unresolved findings, failed ingests, contradiction edges, stale but important nodes, cost anomalies, and backlog drafts. Agents act by reading these markers, not by being synchronously summoned every time knowledge changes.
+
+See [`STRATEGY_GAME_ANALOGY.md`](STRATEGY_GAME_ANALOGY.md) for the canonical statement of this product analogy.
+
 ## What the Pantheon Is
 
 The Pantheon is a **living chronicle**, not merely a fact table.
