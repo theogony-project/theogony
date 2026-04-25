@@ -9,10 +9,9 @@ schema exists so the future Hestia runtime (Sentinel + Auditor agent
 classes, Gen 2 territory per ``docs/HESTIA.md`` "Generation 2") targets
 a stable, reviewed shape from day one.
 
-Two production prompts at ``prompts/hestia_sentinel.md`` and
-``prompts/hestia_auditor.md`` drive the agent classes when they exist;
-both require their LLM call to produce one :class:`HestiaReview` per
-artefact / sweep.
+Future production prompts drive the Hestia drift-monitoring agent classes when
+they exist; they require their LLM call to produce one :class:`HestiaReview`
+per artefact / sweep.
 
 The literal vocabularies (:data:`HestiaCategory`, :data:`HestiaSeverity`,
 :data:`HestiaUrgency`, :data:`HestiaVerdict`) are the contract the

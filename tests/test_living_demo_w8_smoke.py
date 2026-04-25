@@ -77,9 +77,9 @@ def test_w8_growth_stream_inline_smoke(
     assert len(qp) == 3
     assert "query_complete" in seq
     assert "trigger_emitted" in seq
-    assert "argus_phase" in seq
-    assert "argus_complete" in seq
-    assert seq.index("trigger_emitted") < seq.index("argus_complete")
+    assert "acquired_into_pool" in seq
+    assert "research_complete" in seq
+    assert seq.index("trigger_emitted") < seq.index("research_complete")
 
     curiosity_files = list((reports_dir / "curiosity").glob("*.json"))
     assert len(curiosity_files) >= 1

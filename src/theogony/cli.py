@@ -562,7 +562,7 @@ async def _run_curiosity_run_pending(*, max_n: int, dry_run: bool, store_kind: s
     if pending_curiosity_report_count(settings.run_reports_dir) == 0:
         _console.print(
             Panel.fit(
-                "[dim]0 pending curiosity reports[/dim] (none with hestia_status=not_evaluated).",
+                "[dim]0 pending curiosity reports[/dim] (none with decision.status=pending).",
                 title="theogony curiosity run-pending",
             )
         )

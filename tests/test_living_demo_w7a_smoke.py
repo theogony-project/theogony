@@ -78,6 +78,6 @@ async def test_growth_bridge_demo_path_smoke(tmp_path: Path) -> None:
     # Empty chronicle + empty synthesis ⇒ failed verdict, weak-answer gate;
     # gap_class REGION_THIN per W10 Knob 2 (cited=0, no entity-unknown pair).
     assert report.trigger.gap_class == GapClass.REGION_THIN
-    # The W7-A trigger carries no acquisition decision yet — that is W7-B.
-    assert report.decision.hestia_status == "not_evaluated"
+    # The W7-A trigger carries no acquisition decision yet.
+    assert report.decision.status == "pending"
     assert report.bytes_acquired == 0

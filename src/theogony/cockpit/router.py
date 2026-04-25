@@ -38,7 +38,7 @@ from theogony.cockpit.explorer import (
     run_explorer_query,
     stream_explorer_ask_sse,
 )
-from theogony.cockpit.growth_stream import stream_growth_run
+from theogony.cockpit.growth_stream import stream_growth_run, stream_research_request_run
 from theogony.cockpit.manifest import ManifestRepository, _default_manifest_markdown
 from theogony.cockpit.sample_mode import (
     cluster_drill_member_cap,
@@ -644,6 +644,28 @@ def build_cockpit_router() -> APIRouter:
             region_descriptor=report.region_descriptor,
         )
         return JSONResponse({"trigger_id": trigger.trigger_id if trigger else None})
+
+    @router.get("/api/research-request-stream/{trigger_id}")
+    async def explorer_research_request_stream(
+        trigger_id: str,
+        store: Annotated[KnowledgeStore, Depends(get_store_readonly)],
+        writer: Annotated[RunReportWriter, Depends(get_report_writer)],
+        settings: Annotated[Settings, Depends(get_settings)],
+    ) -> StreamingResponse:
+        async def gen() -> AsyncIterator[bytes]:
+            async for chunk in stream_research_request_run(
+                settings=settings,
+                store=store,
+                report_writer=writer,
+                trigger_id=trigger_id,
+            ):
+                yield chunk
+
+        return StreamingResponse(
+            gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     @router.post("/api/chronicle-append", response_class=JSONResponse)
     async def explorer_chronicle_append(

@@ -6,6 +6,9 @@
   if (!root || root.dataset.growth !== "on" || !form) return;
 
   const logEl = document.getElementById("explorer-growth-log");
+  const planEl = document.getElementById("explorer-research-plan");
+  const executionEl = document.getElementById("explorer-research-execution");
+  const outcomeEl = document.getElementById("explorer-research-outcome");
   const qEl = document.getElementById("explorer-q");
   const kEl = document.getElementById("explorer-k");
   const hopsEl = document.getElementById("explorer-hops");
@@ -38,12 +41,32 @@
   let simulation = null;
 
   function appendGrowthLine(text) {
-    if (!logEl) return;
+    appendSectionLine(outcomeEl || logEl, text);
+  }
+
+  function appendSectionLine(host, text) {
+    if (!host) return;
     const row = document.createElement("div");
     row.className = "text-[11px] font-mono text-slate-300 border-b border-slate-800/80 py-0.5";
     row.textContent = text;
-    logEl.appendChild(row);
-    logEl.scrollTop = logEl.scrollHeight;
+    host.appendChild(row);
+    if (logEl) logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function setPlanSteps(steps) {
+    if (!planEl) return;
+    planEl.innerHTML = "";
+    if (!Array.isArray(steps) || !steps.length) {
+      appendSectionLine(planEl, "no plan steps");
+      return;
+    }
+    steps.forEach((s, i) => {
+      const row = document.createElement("div");
+      row.className = "rounded border border-slate-800 bg-slate-950/60 px-2 py-1";
+      row.title = s.rationale || "";
+      row.textContent = `${i + 1}. ${s.kind || "step"} — ${s.target || ""}`;
+      planEl.appendChild(row);
+    });
   }
 
   function showGrowthToast(text) {
@@ -143,9 +166,43 @@
         t.disabled = false;
         return;
       }
-      showGrowthToast(
-        "Research requested. Trigger emitted; planning + acquisition land in W11/W12.",
-      );
+      const triggerId = data.trigger_id;
+      if (!triggerId) {
+        showGrowthToast("Research request did not emit a trigger.");
+        t.disabled = false;
+        return;
+      }
+      showGrowthToast("Research requested. Opening live research stream.");
+      const es = new EventSource(`/cockpit/api/research-request-stream/${encodeURIComponent(triggerId)}`);
+      es.onmessage = (msg) => {
+        handleGrowthEvent(null, msg.data);
+      };
+      [
+        "trigger_emitted",
+        "planning_started",
+        "planning_complete",
+        "executing_step",
+        "step_candidates",
+        "evaluating",
+        "evaluation_complete",
+        "acquiring",
+        "acquired",
+        "acquired_into_pool",
+        "ingesting",
+        "ingested",
+        "research_complete",
+        "error",
+      ].forEach((name) => {
+        es.addEventListener(name, (msg) => handleGrowthEvent(name, msg.data));
+      });
+      es.addEventListener("research_complete", () => {
+        es.close();
+        t.disabled = false;
+      });
+      es.addEventListener("error", () => {
+        es.close();
+        t.disabled = false;
+      });
     } catch (err) {
       showGrowthToast("Research request failed: " + String(err && err.message ? err.message : err));
       t.disabled = false;
@@ -163,6 +220,12 @@
     setPhase("embed", false);
     setPhase("retrieve", false);
     setPhase("synth", false);
+  }
+
+  function resetResearchPanel() {
+    if (planEl) planEl.innerHTML = '<div class="text-slate-500 italic">planning…</div>';
+    if (executionEl) executionEl.innerHTML = "";
+    if (outcomeEl) outcomeEl.innerHTML = "";
   }
 
   function setStatus(text, level) {
@@ -417,6 +480,74 @@
     renderGraph(payload);
   }
 
+  function handleGrowthEvent(eventName, raw) {
+    let obj;
+    try {
+      obj = JSON.parse(raw);
+    } catch (_) {
+      return null;
+    }
+    if (eventName === "error" || obj.type === "error") {
+      throw new Error(obj.message || "error");
+    }
+    if (obj.type === "phase") {
+      resetPhases();
+      if (obj.phase === "chat_compact") setPhase("chat", true);
+      if (obj.phase === "embed") setPhase("embed", true);
+      if (obj.phase === "retrieve") setPhase("retrieve", true);
+      if (obj.phase === "synthesize") setPhase("synth", true);
+    }
+    if (eventName === "trigger_emitted") {
+      appendSectionLine(
+        outcomeEl,
+        `trigger ${obj.trigger_id || "?"} · ${obj.trigger_reason || "?"} · ${obj.answer_verdict || "?"}`,
+      );
+    }
+    if (eventName === "planning_started") {
+      appendSectionLine(planEl, `planning with ${obj.planner_model_id || "planner"}`);
+    }
+    if (eventName === "planning_complete") {
+      setPlanSteps(obj.steps || []);
+    }
+    if (eventName === "executing_step") {
+      appendSectionLine(
+        executionEl,
+        `${obj.step_index ?? "?"}. ${obj.step_kind || "step"} — ${obj.step_target || ""}`,
+      );
+    }
+    if (eventName === "step_candidates") {
+      appendSectionLine(
+        executionEl,
+        `candidates=${obj.candidate_count ?? 0}: ${(obj.candidate_labels || []).join(" · ")}`,
+      );
+    }
+    if (eventName === "evaluating") appendSectionLine(outcomeEl, "evaluating candidates");
+    if (eventName === "evaluation_complete") {
+      appendSectionLine(
+        outcomeEl,
+        `selected=${obj.selected_count ?? 0} rejected=${obj.rejected_count ?? 0} cost=${obj.cost_eur ?? 0}`,
+      );
+    }
+    if (eventName === "acquiring") appendSectionLine(outcomeEl, `acquiring ${obj.candidate_label || "candidate"}`);
+    if (eventName === "acquired") {
+      appendSectionLine(outcomeEl, `acquired ${obj.candidate_label || "candidate"} (${obj.bytes_acquired ?? 0} B)`);
+    }
+    if (eventName === "acquired_into_pool") {
+      appendSectionLine(outcomeEl, `📥 ${obj.candidate_label || "candidate"} acquired — verification pending`);
+    }
+    if (eventName === "ingesting") appendSectionLine(outcomeEl, `ingesting ${obj.candidate_label || "candidate"}`);
+    if (eventName === "ingested") {
+      appendSectionLine(
+        outcomeEl,
+        `ingested ${obj.candidate_label || "candidate"} +${obj.nodes_added ?? 0} nodes +${obj.edges_added ?? 0} edges`,
+      );
+    }
+    if (eventName === "research_complete") {
+      appendSectionLine(outcomeEl, `research_complete outcome=${obj.outcome || "?"}`);
+    }
+    return obj;
+  }
+
   async function parseGrowthSse(resp) {
     const reader = resp.body.getReader();
     const dec = new TextDecoder();
@@ -438,44 +569,11 @@
           }
           if (!line.startsWith("data: ")) continue;
           const raw = line.slice(6);
-          let obj;
-          try {
-            obj = JSON.parse(raw);
-          } catch (_) {
-            continue;
-          }
-          if (eventName === "error") {
-            throw new Error(obj.message || "error");
-          }
-          if (obj.type === "error") {
-            throw new Error(obj.message || "error");
-          }
-          if (obj.type === "phase") {
-            resetPhases();
-            if (obj.phase === "chat_compact") setPhase("chat", true);
-            if (obj.phase === "embed") setPhase("embed", true);
-            if (obj.phase === "retrieve") setPhase("retrieve", true);
-            if (obj.phase === "synthesize") setPhase("synth", true);
-          }
+          const obj = handleGrowthEvent(eventName, raw);
+          if (!obj) continue;
           if (obj.type === "complete") {
             finalPayload = obj.payload;
             resetPhases();
-          }
-          if (eventName === "argus_phase" && obj.phase) {
-            const ts = new Date().toISOString().slice(11, 19);
-            const c = obj.count != null ? String(obj.count) : "—";
-            const ms = obj.elapsed_ms != null ? String(obj.elapsed_ms) : "—";
-            appendGrowthLine(`${ts}  ${obj.phase}  count=${c}  ${ms}ms`);
-          }
-          if (eventName === "trigger_emitted") {
-            appendGrowthLine(
-              `trigger  ${obj.trigger_id || "?"}  gap=${obj.gap_class || "?"}  strength=${obj.stub_signal_strength ?? "?"}`,
-            );
-          }
-          if (eventName === "argus_complete") {
-            appendGrowthLine(
-              `argus_complete  outcome=${obj.outcome}  bytes=${obj.bytes_acquired ?? 0}  ingest=${obj.ingest_run_id || "—"}`,
-            );
           }
         }
       }
@@ -490,9 +588,10 @@
     const trimmed = String(q).trim();
     if (!trimmed) return;
     resetPhases();
+    resetResearchPanel();
     setStatus("connecting (growth)…");
     clearGraph();
-    if (logEl) logEl.innerHTML = "";
+    resetResearchPanel();
     let resp;
     try {
       resp = await fetch("/cockpit/api/growth-stream", {

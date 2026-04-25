@@ -1,13 +1,13 @@
 # Living Demo — 3-minute recording script
 
-Operator-facing walk for the closed loop (query → gap → Argus → HestiaLite → ingest → live growth → better answer). See [`docs/LIVING_DEMO.md`](../docs/LIVING_DEMO.md) for what this proves.
+Operator-facing walk for the closed loop (query → gap → Argus → verification pool → ingest → live growth → better answer). See [`docs/LIVING_DEMO.md`](../docs/LIVING_DEMO.md) for what this proves.
 
 ## Prerequisites
 
 - A **real LLM API key** in the environment (for example `ANTHROPIC_API_KEY` with the default Anthropic provider). Stub synthesis alone is not valid for an honest recording.
 - **Neo4j** running if you use `THEOGONY_NEO4J__URI` so the reset script can wipe the graph before re-seeding; otherwise the script clears `data/run_reports/` + `data/audit.sqlite` and runs `theogony seed --store memory` (see [`reset_living_growth.sh`](reset_living_growth.sh)).
 - `theogony cockpit serve` uses the bundled in-memory chronicle; restart the cockpit after a reset so the in-memory graph matches a clean run.
-- After reset: `source .demo.env` from the repo root so **GrowthBridge** and **Argus** are enabled.
+- After reset: `source .demo.env` from the repo root so **GrowthBridge**, **Argus**, the **ResearchPlanner**, and the **Evaluator** are enabled.
 
 ## Pre-flight
 
@@ -34,22 +34,22 @@ Expected: a log line similar to `Theogony Cockpit → http://127.0.0.1:8000/cock
 
 Open `http://127.0.0.1:8000/cockpit/explorer?growth=on` in a normal browser window.
 
-Expected: Explorer loads; the **Growth live** panel is visible (not collapsed/hidden) because `growth=on` is set.
+Expected: Explorer loads; the **Research live** panel is visible (not collapsed/hidden) because `growth=on` is set.
 
 ## The 3-minute walk
 
-Copy the timeline from [`docs/plans/LIVING_DEMO_PLAN.md`](../docs/plans/LIVING_DEMO_PLAN.md) §1 verbatim, then execute it literally:
+Execute this Wave 3 open-flow timeline literally:
 
 ```text
 00:00  Cockpit open, chronicle close to empty (only pantheon_self seed).
 00:10  User asks: "Who was Sven Hedin and what did he investigate in Tibet?"
-00:15  Answer: "I only know a little. Blind spot detected in region
-        [Tibet, expedition, early 20th century]. Argus is searching..."
-        The growth panel opens.
-00:25  Argus: Gutenberg search -> 3 candidates -> #43497 score 0.87 ->
-        HestiaLite approved -> fetch starts.
-00:55  Pipeline: sentences extracted, entities resolved, relations stored,
-        embeddings written.
+00:15  Answer arrives with weak/partial evidence. Argus starts research.
+        The research panel opens.
+00:25  Plan section fills with research steps (Wikidata / Wikipedia / Gutenberg or web).
+00:55  Execution cards fill with candidates and evaluator selection.
+01:25  Acquiring and ingesting in parallel.
+       Pool entries created — verification happens asynchronously.
+       Counters tick: nodes added, edges added.
 01:40  The graph grows visibly in the cockpit.
 02:00  System: "Done. Ask again."
 02:10  User repeats the question.
@@ -70,7 +70,7 @@ Copy the timeline from [`docs/plans/LIVING_DEMO_PLAN.md`](../docs/plans/LIVING_D
 
 **Screenshot anchor markers** (place markers in your recording notes; they are not UI chrome):
 
-- `[screenshot: t+00:25 — three Gutenberg candidates]` — growth panel shows search/score/candidates with three Gutenberg rows and `#43497` visible.
+- `[screenshot: t+00:25 — research plan]` — research panel shows typed steps and candidate rows.
 - `[screenshot: t+02:15 — longer cited answer]` — second answer clearly longer / more citations than first pass.
 - `[screenshot: t+02:50 — Lhasa zoom]` — zoom/detail view after clicking **Lhasa**.
 
@@ -80,7 +80,7 @@ Tick **only** if the recording is honest:
 
 - [ ] Starting graph node count printed before t+00:00 matches the seed baseline (**278** nodes from `theogony seed --info`, or the equivalent your reset just established).
 - [ ] The cockpit shows a **`trigger_emitted`** event in the growth panel.
-- [ ] The cockpit shows at least one **`argus_phase`** named **`fetch`** followed by **`done`**.
+- [ ] The cockpit shows at least one **`acquired_into_pool`** event followed by **`ingested`** and **`research_complete`**.
 - [ ] Re-asking yields a longer cited answer than the first pass.
 - [ ] Post-demo node count is **strictly greater** than pre-demo node count (measure via Explorer graph or status surface you use consistently).
 - [ ] No manual flag flipping happened during the recording (all enablement came from `source .demo.env` / scripted env, not from editing live config mid-take).

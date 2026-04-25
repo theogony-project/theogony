@@ -20,14 +20,13 @@ from theogony.acquisition.wikipedia import WikipediaAdapter
 from theogony.agents.argus import ArgusAgent
 from theogony.agents.argus_ingest_runner import IngestRunner, RealIngestRunner
 from theogony.agents.factory import build_llm_from_settings
-from theogony.agents.hestia_lite import HestiaLiteApproval
-from theogony.agents.hestia_sentinel import HestiaSentinel
 from theogony.agents.llm import LLMProvider
 from theogony.agents.research_evaluator import Evaluator
 from theogony.agents.research_planner import ResearchPlanner
 from theogony.clustering.cluster_index import ClusterIndex
 from theogony.config.settings import Settings
 from theogony.curiosity.research_executor import ResearchExecutor
+from theogony.curiosity.verification_pool import VerificationPool
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
 from theogony.extraction.pipeline import IngestionPipeline
@@ -44,6 +43,7 @@ def make_argus_agent(
     settings: Settings,
     adapter: AcquisitionAdapter,
     ingest_runner: IngestRunner,
+    verification_pool: VerificationPool,
     llm: LLMProvider,
     wd_client: WikidataClient,
     wikipedia: AcquisitionAdapter | None = None,
@@ -51,16 +51,11 @@ def make_argus_agent(
 ) -> ArgusAgent:
     """Build :class:`ArgusAgent` with W11 planner wiring when settings enable it."""
     use = settings.curiosity.research_planner.enabled and settings.curiosity.evaluator.enabled
-    hestia: HestiaLiteApproval | HestiaSentinel
-    if settings.curiosity.hestia_sentinel.enabled and use:
-        hestia = HestiaSentinel(llm=llm, settings=settings.curiosity.hestia_sentinel)
-    else:
-        hestia = HestiaLiteApproval(settings.curiosity.hestia_lite)
     if not use:
         return ArgusAgent(
             adapter=adapter,
-            hestia=hestia,
             ingest_runner=ingest_runner,
+            verification_pool=verification_pool,
             settings=settings.curiosity.argus,
             use_research_planner=False,
         )
@@ -77,8 +72,8 @@ def make_argus_agent(
     evaluator = Evaluator(llm=llm, settings=settings.curiosity.evaluator)
     return ArgusAgent(
         adapter=adapter,
-        hestia=hestia,
         ingest_runner=ingest_runner,
+        verification_pool=verification_pool,
         settings=settings.curiosity.argus,
         use_research_planner=True,
         planner=planner,
@@ -128,10 +123,12 @@ async def argus_dispatch_session(
                 ner_sentence_limit=200,
             )
             runner = RealIngestRunner(pipeline)
+            verification_pool = VerificationPool(settings)
             yield make_argus_agent(
                 settings=settings,
                 adapter=adapter,
                 ingest_runner=runner,
+                verification_pool=verification_pool,
                 llm=llm,
                 wd_client=wd_client,
                 wikipedia=wiki,

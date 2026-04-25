@@ -421,3 +421,34 @@ These are questions that do not yet have answers. They should be resolved throug
 Anyone — human or agent — can file a Phoenix Backlog ticket by creating a YAML file in `phoenix-backlog/` following the format above. Ticket IDs are sequential: `PHX-NNNN`.
 
 Tickets are reviewed during Phoenix process planning. Accepted tickets influence the design of the next generation. Deferred tickets remain in the backlog for future generations.
+
+## Wave 3 annotations
+
+- PHX-0037: **Wave 3 starting (W13+):** Pre-gate removed. HestiaLite and HestiaSentinel
+  deleted. Content flows directly into verification pool after evaluator approval. Immune-system
+  doctrine (docs/IMMUNE_SYSTEM.md) governs. Cell types (Athene/Chronos/Nemesis/Eris/Mnemosyne)
+  will implement post-hoc verification in W14-W17.
+
+- PHX-0039 (Hestia full): **W12 HestiaSentinel shape removed in W13.** Hestia's correct
+  long-term role is as a post-hoc drift monitor and escalation receiver, not a synchronous gate.
+  The full PHX-0039 Hestia implementation remains open and aligns with the immune-system doctrine
+  (docs/IMMUNE_SYSTEM.md §'The cell types').
+
+- PHX-0067 (Eris): **Wave 3 context:** Eris is W16 work. She is the adaptive-immunity
+  layer in the immune system architecture. Red-team campaigns against an isolated test pantheon.
+  Findings as first-class chronicle nodes. See docs/IMMUNE_SYSTEM.md §'Adaptive immunity — Eris'.
+
+- PHX-0068 (Nemesis): **Wave 3 context:** Nemesis is W16 work. She is the antibody-memory
+  layer. Periodic structural auditor: confidence inflation, echo chambers, pheromone autobahns.
+  Read-only; findings as first-class chronicle nodes. See docs/IMMUNE_SYSTEM.md §'Antibody memory —
+  Nemesis'.
+
+- PHX-0071 (Mnemosyne): **Wave 3 context (major scope expansion):** Mnemosyne's role in
+  the immune-system doctrine (docs/IMMUNE_SYSTEM.md §'Consciousness — Mnemosyne') is significantly
+  larger than the original ticket described. She is no longer only a per-query meta-classifier.
+  She is the consciousness layer: reads all cell-class findings, defines her own success metrics
+  (LLM-driven), A/B-tests her own thresholds and prompts, writes MnemosyneExperiment nodes back
+  into the chronicle, and drafts structured PHX-Backlog entries for the next Phoenix incarnation.
+  W17 implements this expanded role. The user explicitly chose: Mnemosyne self-defines metrics
+  (not hardcoded, not human-defined). The original W5 Brief describes the meta-query-classifier
+  part which becomes a small subset of the W17 scope.

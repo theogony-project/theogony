@@ -24,7 +24,7 @@ def test_explorer_page_default_does_not_include_growth_panel(
     run_async(_load_pantheon(api_store))
     r = cockpit_client.get("/cockpit/explorer")
     assert r.status_code == 200
-    assert "Growth live" not in r.text
+    assert "Research live" not in r.text
     assert "explorer_growth.js" not in r.text
     assert 'data-growth="on"' not in r.text
 
@@ -36,7 +36,7 @@ def test_explorer_page_with_growth_on_includes_panel_and_script(
     run_async(_load_pantheon(api_store))
     r = cockpit_client.get("/cockpit/explorer?growth=on")
     assert r.status_code == 200
-    assert "Growth live" in r.text
+    assert "Research live" in r.text
     assert "explorer_growth.js" in r.text
     assert 'data-growth="on"' in r.text
     assert "explorer-growth-log" in r.text

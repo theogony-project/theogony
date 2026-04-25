@@ -15,7 +15,7 @@ from typing import Any
 
 from theogony.acquisition.base import AcquisitionAdapter, RawContent
 from theogony.acquisition.gutenberg import GutenbergAdapter
-from theogony.agents.argus import ArgusAgent, ArgusOutcome, ArgusResult
+from theogony.agents.argus import ArgusAgent, ArgusResult
 from theogony.agents.argus_ingest_runner import RealIngestRunner
 from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.llm import LLMProvider
@@ -27,6 +27,7 @@ from theogony.curiosity.argus_wiring import make_argus_agent
 from theogony.curiosity.growth_bridge import GrowthBridge
 from theogony.curiosity.run_report import CuriosityRunReport
 from theogony.curiosity.trigger import CuriosityTrigger, TriggerBudget
+from theogony.curiosity.verification_pool import VerificationPool
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.embedding import EmbeddingProvider, LocalSentenceTransformerEmbedder
 from theogony.extraction.pipeline import IngestionPipeline
@@ -94,10 +95,12 @@ async def _cockpit_argus_dispatch_session(
                 ner_sentence_limit=200,
             )
             runner = _PersistingIngestRunner(pipeline, report_writer)
+            verification_pool = VerificationPool(settings)
             yield make_argus_agent(
                 settings=settings,
                 adapter=adapter,
                 ingest_runner=runner,
+                verification_pool=verification_pool,
                 llm=llm,
                 wd_client=wd_client,
             )
@@ -139,6 +142,21 @@ def _load_curiosity_trigger_for_query_run(
     return best[1] if best else None
 
 
+def _load_curiosity_trigger_by_id(
+    writer: RunReportWriter,
+    trigger_id: str,
+) -> CuriosityTrigger | None:
+    curiosity_dir = writer.directory_for("curiosity")
+    for path in sorted(curiosity_dir.glob("*.json")):
+        try:
+            report = CuriosityRunReport.model_validate_json(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if report.trigger.trigger_id == trigger_id:
+            return report.trigger
+    return None
+
+
 def _load_ingest_report(writer: RunReportWriter, ingest_run_id: str) -> IngestRunReport | None:
     path = writer.directory_for("ingest") / f"{ingest_run_id}.json"
     if not path.is_file():
@@ -149,112 +167,133 @@ def _load_ingest_report(writer: RunReportWriter, ingest_run_id: str) -> IngestRu
         return None
 
 
-def _emit_argus_phases_from_result(
+def _emit_research_events_from_result(
     *,
     result: ArgusResult,
     ingest: IngestRunReport | None,
 ) -> list[tuple[str, dict[str, Any]]]:
-    """Build (event_name, data) tuples for ``argus_phase`` events after ``process`` returns."""
+    """Build W13 research event tuples after ``process`` returns."""
     out: list[tuple[str, dict[str, Any]]] = []
-    oc = result.outcome
-
-    if oc == ArgusOutcome.NO_CANDIDATES:
-        out.append(("argus_phase", {"phase": "search", "count": 0, "elapsed_ms": 0}))
-        out.append(("argus_phase", {"phase": "score", "count": 0, "elapsed_ms": 0}))
-        out.append(("argus_phase", {"phase": "hestia_review", "count": None, "elapsed_ms": 0}))
-        out.append(("argus_phase", {"phase": "done", "count": None, "elapsed_ms": 0}))
-        return out
-
-    if oc == ArgusOutcome.UNSUPPORTED_SOURCE_TYPE:
-        out.append(("argus_phase", {"phase": "search", "count": 0, "elapsed_ms": 0}))
-        out.append(("argus_phase", {"phase": "score", "count": 0, "elapsed_ms": 0}))
-        out.append(("argus_phase", {"phase": "done", "count": None, "elapsed_ms": 0}))
-        return out
-
-    out.append(("argus_phase", {"phase": "search", "count": 1, "elapsed_ms": 0}))
-    out.append(("argus_phase", {"phase": "score", "count": 1, "elapsed_ms": 0}))
-    out.append(("argus_phase", {"phase": "hestia_review", "count": None, "elapsed_ms": 0}))
-
-    if oc in (ArgusOutcome.REJECTED_BY_HESTIA, ArgusOutcome.NO_CANDIDATE_ABOVE_THRESHOLD):
-        out.append(("argus_phase", {"phase": "done", "count": None, "elapsed_ms": 0}))
-        return out
-
-    if oc == ArgusOutcome.DRY_RUN:
-        out.append(("argus_phase", {"phase": "done", "count": None, "elapsed_ms": 0}))
-        return out
-
-    if oc == ArgusOutcome.BUDGET_EXCEEDED:
+    plan = result.updated_trigger.research_plan if result.updated_trigger else None
+    if plan is not None:
         out.append(
-            ("argus_phase", {"phase": "fetch", "count": result.bytes_acquired, "elapsed_ms": 0})
+            (
+                "planning_complete",
+                {
+                    "step_count": len(plan.steps),
+                    "cost_eur": plan.planner_cost_eur,
+                    "steps": [
+                        {
+                            "kind": s.kind.value,
+                            "target": s.target,
+                            "rationale": s.rationale,
+                        }
+                        for s in plan.steps
+                    ],
+                },
+            )
         )
-        out.append(("argus_phase", {"phase": "done", "count": None, "elapsed_ms": 0}))
-        return out
+        candidates = []
+        if result.evaluator_decision is not None:
+            candidates = list(result.evaluator_decision.selected)
+            candidates.extend(r.candidate for r in result.evaluator_decision.rejected)
+        for idx, step in enumerate(plan.steps):
+            step_candidates = [c for c in candidates if c.source_step == step]
+            out.append(
+                (
+                    "executing_step",
+                    {
+                        "step_index": idx,
+                        "step_kind": step.kind.value,
+                        "step_target": step.target,
+                    },
+                )
+            )
+            out.append(
+                (
+                    "step_candidates",
+                    {
+                        "step_index": idx,
+                        "candidate_count": len(step_candidates),
+                        "candidate_labels": [c.candidate_label for c in step_candidates],
+                    },
+                )
+            )
 
-    if result.bytes_acquired > 0:
+    out.append(("evaluating", {}))
+    if result.evaluator_decision is not None:
+        ev = result.evaluator_decision
         out.append(
-            ("argus_phase", {"phase": "fetch", "count": result.bytes_acquired, "elapsed_ms": 0})
+            (
+                "evaluation_complete",
+                {
+                    "selected_count": len(ev.selected),
+                    "rejected_count": len(ev.rejected),
+                    "cost_eur": ev.evaluator_cost_eur,
+                    "rationale": ev.rationale,
+                },
+            )
         )
 
-    if ingest is not None and ingest.stages:
-        for st in ingest.stages:
-            if st.name == "mentions_extracted":
-                out.append(
-                    (
-                        "argus_phase",
-                        {
-                            "phase": "extract_entities",
-                            "count": ingest.ner.total_mentions,
-                            "elapsed_ms": int(st.duration_s * 1000),
-                        },
-                    )
-                )
-            elif st.name == "relations_extracted":
-                out.append(
-                    (
-                        "argus_phase",
-                        {
-                            "phase": "extract_relations",
-                            "count": ingest.relations.parsed_ok,
-                            "elapsed_ms": int(st.duration_s * 1000),
-                        },
-                    )
-                )
-            elif st.name == "embedded":
-                out.append(
-                    (
-                        "argus_phase",
-                        {
-                            "phase": "embed_nodes",
-                            "count": ingest.embedding.nodes_embedded,
-                            "elapsed_ms": int(st.duration_s * 1000),
-                        },
-                    )
-                )
-            elif st.name == "stored":
-                out.append(
-                    (
-                        "argus_phase",
-                        {
-                            "phase": "store",
-                            "count": ingest.store.nodes_upserted,
-                            "elapsed_ms": int(st.duration_s * 1000),
-                        },
-                    )
-                )
-    elif oc in (ArgusOutcome.APPROVED_AND_INGESTED, ArgusOutcome.APPROVED_INGEST_FAILED):
-        # Ingest report missing or empty stages — coarse aggregate (W8 STOP / instrumentation gap).
-        n_mentions = ingest.ner.total_mentions if ingest else None
-        n_rel = ingest.relations.parsed_ok if ingest else None
-        n_emb = ingest.embedding.nodes_embedded if ingest else None
-        n_store = ingest.store.nodes_upserted if ingest else None
+    for item in result.ingested_candidates:
         out.append(
-            ("argus_phase", {"phase": "extract_entities", "count": n_mentions, "elapsed_ms": 0})
+            (
+                "acquiring",
+                {
+                    "candidate_label": item.candidate_label,
+                    "bytes_target_estimate": item.bytes_acquired,
+                },
+            )
         )
-        out.append(("argus_phase", {"phase": "extract_relations", "count": n_rel, "elapsed_ms": 0}))
-        out.append(("argus_phase", {"phase": "embed_nodes", "count": n_emb, "elapsed_ms": 0}))
-        out.append(("argus_phase", {"phase": "store", "count": n_store, "elapsed_ms": 0}))
+        out.append(
+            (
+                "acquired",
+                {
+                    "candidate_label": item.candidate_label,
+                    "bytes_acquired": item.bytes_acquired,
+                },
+            )
+        )
+        out.append(
+            (
+                "acquired_into_pool",
+                {
+                    "candidate_label": item.candidate_label,
+                    "pool_entry_id": item.pool_entry_id,
+                    "bytes_acquired": item.bytes_acquired,
+                },
+            )
+        )
+        out.append(("ingesting", {"candidate_label": item.candidate_label}))
+        out.append(
+            (
+                "ingested",
+                {
+                    "candidate_label": item.candidate_label,
+                    "nodes_added": ingest.store.nodes_upserted if ingest else 0,
+                    "edges_added": ingest.store.edges_upserted if ingest else 0,
+                    "wikidata_qids_linked": ingest.resolution.total_resolved if ingest else 0,
+                },
+            )
+        )
 
-    out.append(("argus_phase", {"phase": "done", "count": None, "elapsed_ms": 0}))
+    planner_cost = plan.planner_cost_eur if plan is not None else 0.0
+    evaluator_cost = (
+        result.evaluator_decision.evaluator_cost_eur
+        if result.evaluator_decision is not None
+        else 0.0
+    )
+    out.append(
+        (
+            "research_complete",
+            {
+                "outcome": result.outcome.value,
+                "total_cost_eur": planner_cost + evaluator_cost,
+                "total_nodes_added": ingest.store.nodes_upserted if ingest else 0,
+                "total_edges_added": ingest.store.edges_upserted if ingest else 0,
+            },
+        )
+    )
     return out
 
 
@@ -349,8 +388,15 @@ async def stream_growth_run(
         data={
             "trigger_id": trig.trigger_id,
             "gap_class": trig.gap_class.value,
-            "stub_signal_strength": trig.stub_signal_strength,
-            "proposed_search_query": trig.proposed_acquisition_spec.search_query,
+            "trigger_reason": trig.trigger_reason.value,
+            "answer_verdict": trig.answer_verdict,
+        },
+    )
+    yield _sse_chunk(
+        event="planning_started",
+        data={
+            "planner_model_id": settings.llm.model_id,
+            "expected_max_steps": settings.curiosity.research_planner.max_steps_per_plan,
         },
     )
 
@@ -372,18 +418,63 @@ async def stream_growth_run(
     if result.decision.ingest_run_id:
         ingest = _load_ingest_report(report_writer, result.decision.ingest_run_id)
 
-    for ev, data in _emit_argus_phases_from_result(result=result, ingest=ingest):
+    for ev, data in _emit_research_events_from_result(result=result, ingest=ingest):
         yield _sse_chunk(event=ev, data=data)
 
+
+async def stream_research_request_run(
+    *,
+    settings: Settings,
+    store: KnowledgeStore,
+    report_writer: RunReportWriter,
+    trigger_id: str,
+) -> AsyncIterator[bytes]:
+    """Stream the research-only path for a previously emitted manual trigger."""
+    trigger = _load_curiosity_trigger_by_id(report_writer, trigger_id)
+    if trigger is None:
+        yield _sse_chunk(
+            event="error",
+            data={"where": "trigger", "message": f"trigger not found: {trigger_id}"},
+        )
+        return
+
     yield _sse_chunk(
-        event="argus_complete",
+        event="trigger_emitted",
         data={
-            "outcome": result.outcome.value,
-            "bytes_acquired": result.bytes_acquired,
-            "ingest_run_id": result.decision.ingest_run_id,
-            "decision": result.decision.model_dump(mode="json"),
+            "trigger_id": trigger.trigger_id,
+            "gap_class": trigger.gap_class.value,
+            "trigger_reason": trigger.trigger_reason.value,
+            "answer_verdict": trigger.answer_verdict,
+        },
+    )
+    yield _sse_chunk(
+        event="planning_started",
+        data={
+            "planner_model_id": settings.llm.model_id,
+            "expected_max_steps": settings.curiosity.research_planner.max_steps_per_plan,
         },
     )
 
+    argus_settings = _force_argus_enabled_settings(settings)
+    try:
+        async with (
+            _gutenberg_adapter() as adapter,
+            _cockpit_argus_dispatch_session(argus_settings, store, adapter, report_writer) as argus,
+        ):
+            result = await argus.process(trigger)
+    except Exception as exc:
+        yield _sse_chunk(
+            event="error",
+            data={"where": "argus", "message": str(exc)[:500]},
+        )
+        return
 
-__all__ = ["stream_growth_run"]
+    ingest: IngestRunReport | None = None
+    if result.decision.ingest_run_id:
+        ingest = _load_ingest_report(report_writer, result.decision.ingest_run_id)
+
+    for ev, data in _emit_research_events_from_result(result=result, ingest=ingest):
+        yield _sse_chunk(event=ev, data=data)
+
+
+__all__ = ["stream_growth_run", "stream_research_request_run"]

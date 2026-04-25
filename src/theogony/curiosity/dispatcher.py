@@ -1,8 +1,8 @@
 """
 CuriosityDispatcher — manual batch runner for Argus over on-disk reports (W7-B).
 
-Reads ``CuriosityRunReport`` JSON files whose ``decision.hestia_status`` is
-still ``not_evaluated``, runs :class:`~theogony.agents.argus.ArgusAgent`
+Reads ``CuriosityRunReport`` JSON files whose ``decision.status`` is still
+``pending``, runs :class:`~theogony.agents.argus.ArgusAgent`
 sequentially (no ``asyncio.gather``), and persists the merged outcome back
 through :class:`~theogony.reporting.writer.RunReportWriter`.
 
@@ -21,7 +21,7 @@ from theogony.reporting.writer import RunReportWriter
 
 
 def pending_curiosity_report_count(run_reports_dir: Path) -> int:
-    """Return how many on-disk curiosity reports still await Argus (``hestia_status``)."""
+    """Return how many on-disk curiosity reports still await Argus."""
     return len(_pending_curiosity_paths(Path(run_reports_dir) / "curiosity"))
 
 
@@ -38,7 +38,7 @@ def _pending_curiosity_paths(curiosity_dir: Path) -> list[Path]:
         if raw.get("report_type") != "curiosity":
             continue
         dec = raw.get("decision") or {}
-        if dec.get("hestia_status") == "not_evaluated":
+        if dec.get("status", "pending") == "pending":
             pending.append(path)
     return pending
 
@@ -94,6 +94,10 @@ def _merge_curiosity_report(report: CuriosityRunReport, result: ArgusResult) -> 
         if result.evaluator_decision is not None
         else report.evaluator_decision
     )
+    total_cost_eur = report.total_cost_eur
+    if ev is not None:
+        total_cost_eur = float(trig.research_plan.planner_cost_eur if trig.research_plan else 0.0)
+        total_cost_eur += float(ev.evaluator_cost_eur)
     return report.model_copy(
         update={
             "trigger": trig,
@@ -101,6 +105,7 @@ def _merge_curiosity_report(report: CuriosityRunReport, result: ArgusResult) -> 
             "bytes_acquired": result.bytes_acquired,
             "verdict_reasoning": new_vr[:5000],
             "evaluator_decision": ev,
+            "total_cost_eur": total_cost_eur,
         }
     )
 

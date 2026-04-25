@@ -1,7 +1,7 @@
 """
 Schema discipline for the W7-A CuriosityTrigger family (PHX-0037 slice 1).
 
-The trigger is the spine of every downstream agent (Argus, HestiaLite,
+The trigger is the spine of every downstream acquisition path (Argus,
 the cockpit growth panel). If a typo can silently land in a producer
 and disappear from the report, the audit trail is worse than useless —
 hence the ``extra="forbid"`` enforcement and the round-trip checks.

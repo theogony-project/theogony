@@ -159,7 +159,7 @@ This walks the current repo, extracts the docs structure, embeds with the config
 
 ### Living Demo
 
-The **Living Demo** is the closed-loop walkthrough (gap → Argus → HestiaLite → live growth in the Cockpit → better second answer) documented in [`docs/LIVING_DEMO.md`](docs/LIVING_DEMO.md). Follow the operator script in [`demo/living_growth.md`](demo/living_growth.md) after running [`demo/reset_living_growth.sh`](demo/reset_living_growth.sh).
+The **Living Demo** is the closed-loop walkthrough (gap → Argus → content flows into the chronicle without a pre-gate → verification pool → live growth in the Cockpit → better second answer) documented in [`docs/LIVING_DEMO.md`](docs/LIVING_DEMO.md). The immune system verifies post-hoc; follow the operator script in [`demo/living_growth.md`](demo/living_growth.md) after running [`demo/reset_living_growth.sh`](demo/reset_living_growth.sh).
 
 ### MCP server (Claude Desktop, Cursor, Codex, …)
 
