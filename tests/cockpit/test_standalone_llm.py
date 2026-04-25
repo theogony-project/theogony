@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from theogony.agents.llm import StubLLMProvider
@@ -58,10 +59,12 @@ def test_explorer_page_context_non_stub_llm() -> None:
     assert "claude-sonnet-4-6" in ctx["explorer_llm_label"]
 
 
-def test_cockpit_standalone_health_route() -> None:
+def test_cockpit_standalone_health_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("THEOGONY_COCKPIT__KNOWLEDGE_STORE", "memory")
     with TestClient(app) as client:
         r = client.get("/health")
     assert r.status_code == 200
     payload = r.json()
     assert payload["status"] == "ok"
     assert payload["app"] == "cockpit"
+    assert payload["store"] == "memory"

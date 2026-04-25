@@ -258,11 +258,11 @@ Add `demo/run_wave3_workers.sh`.
 It should run:
 
 ```bash
-THEOGONY_CURIOSITY__ATHENE__ENABLED=true venv/bin/theogony curiosity athene-run --once --store "${STORE:-memory}"
-THEOGONY_CURIOSITY__CHRONOS__ENABLED=true venv/bin/theogony curiosity chronos-run --once --store "${STORE:-memory}"
-THEOGONY_CURIOSITY__NEMESIS__ENABLED=true venv/bin/theogony curiosity nemesis-run --once --store "${STORE:-memory}"
-THEOGONY_CURIOSITY__ERIS__ENABLED=true venv/bin/theogony curiosity eris-run --once --store memory --fixture
-THEOGONY_MNEMOSYNE__CONDUCTOR_ENABLED=true venv/bin/theogony mnemosyne conduct --once --store "${STORE:-memory}" --metric-mode fixture
+THEOGONY_CURIOSITY__ATHENE__ENABLED=true venv/bin/theogony curiosity athene-run --once --store "${STORE:-neo4j}"
+THEOGONY_CURIOSITY__CHRONOS__ENABLED=true venv/bin/theogony curiosity chronos-run --once --store "${STORE:-neo4j}"
+THEOGONY_CURIOSITY__NEMESIS__ENABLED=true venv/bin/theogony curiosity nemesis-run --once --store "${STORE:-neo4j}"
+THEOGONY_CURIOSITY__ERIS__ENABLED=true venv/bin/theogony curiosity eris-run --once --store "${STORE:-neo4j}" --fixture
+THEOGONY_MNEMOSYNE__CONDUCTOR_ENABLED=true venv/bin/theogony mnemosyne conduct --once --store "${STORE:-neo4j}" --metric-mode fixture
 ```
 
 Then list:

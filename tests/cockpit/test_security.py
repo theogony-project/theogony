@@ -24,6 +24,7 @@ def test_public_true_allows_external_origin(
             "cockpit": CockpitSettings(
                 public=True,
                 bind_host="0.0.0.0",
+                operator_worker_from_ui=False,
             ),
         },
     )
@@ -36,6 +37,11 @@ def test_public_true_allows_external_origin(
 def test_only_setting_public_without_bind_host_raises_at_startup() -> None:
     with pytest.raises(ValueError):
         CockpitSettings(public=True, bind_host="127.0.0.1")
+
+
+def test_public_cockpit_forbids_operator_worker_tick() -> None:
+    with pytest.raises(ValueError):
+        CockpitSettings(public=True, bind_host="0.0.0.0", operator_worker_from_ui=True)
 
 
 def test_sample_only_mode_warning_in_status_panel(

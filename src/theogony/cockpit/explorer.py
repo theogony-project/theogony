@@ -92,7 +92,11 @@ def explorer_page_context(settings: Settings, llm: LLMProvider | None) -> dict[s
         is_stub = isinstance(llm, StubLLMProvider) or settings.llm.provider == "stub"
         mid = (getattr(llm, "model_id", None) or settings.llm.model_id or "").strip() or "—"
     label = f"{settings.llm.provider} · {mid}"
-    return {"explorer_llm_stub": is_stub, "explorer_llm_label": label}
+    return {
+        "explorer_llm_stub": is_stub,
+        "explorer_llm_label": label,
+        "explorer_operator_worker": settings.cockpit.operator_worker_from_ui,
+    }
 
 
 EMBEDDING_PREVIEW_DIM = 32

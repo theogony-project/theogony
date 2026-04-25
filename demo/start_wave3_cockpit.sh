@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Cockpit standalone uses Neo4j for the chronicle by default
+# (THEOGONY_COCKPIT__KNOWLEDGE_STORE=neo4j). For offline runs without Bolt:
+#   export THEOGONY_COCKPIT__KNOWLEDGE_STORE=memory
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 

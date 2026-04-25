@@ -214,6 +214,23 @@ class CockpitSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(default=True)
+    knowledge_store: Literal["memory", "neo4j"] = Field(
+        default="neo4j",
+        description=(
+            "Chronicle backend for ``cockpit serve`` standalone: ``neo4j`` persists "
+            "growth and immune-worker mutations; ``memory`` is process-local (CI / "
+            "offline). Set ``THEOGONY_COCKPIT__KNOWLEDGE_STORE=memory`` when Bolt "
+            "is unavailable."
+        ),
+    )
+    operator_worker_from_ui: bool = Field(
+        default=True,
+        description=(
+            "When true, POST ``/cockpit/operator/worker-tick`` runs the same "
+            "one-shot immune + Mnemosyne sequence as ``demo/run_wave3_workers.sh`` "
+            "against the live app store. Must be false when cockpit.public is true."
+        ),
+    )
     bind_host: str = Field(default="127.0.0.1")
     bind_port: int | None = Field(default=None)
     public: bool = Field(default=False)
@@ -238,6 +255,11 @@ class CockpitSettings(BaseModel):
             raise ValueError(
                 "cockpit.public=True requires cockpit.bind_host='0.0.0.0' — "
                 "public exposure without binding all interfaces is a configuration error."
+            )
+        if self.public and self.operator_worker_from_ui:
+            raise ValueError(
+                "cockpit.operator_worker_from_ui must be false when cockpit.public is "
+                "true — set THEOGONY_COCKPIT__OPERATOR_WORKER_FROM_UI=false."
             )
         return self
 
