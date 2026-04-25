@@ -1,4 +1,4 @@
-/* Growth live panel + POST /cockpit/api/growth-stream (W8). Loaded only when ?growth=on. */
+/* Growth live panel + POST /cockpit/api/growth-stream (W8). Loaded when #explorer-root has data-growth=on (default on /cockpit/explorer; use ?growth=off to hide). */
 
 (function () {
   const root = document.getElementById("explorer-root");

@@ -54,7 +54,7 @@ Apply this principle only to the Explorer/Growth/Reports surfaces touched below.
 
 ## Knob 1 - Demo mode banner and readiness checklist
 
-Add a compact "Wave 3 Demo Readiness" card to the Explorer page when `?growth=on`.
+Add a compact "Wave 3 Demo Readiness" card to the Explorer page when the growth / Research live panel is shown (default on `/cockpit/explorer`; `?growth=off` hides it).
 
 Location:
 
@@ -338,7 +338,7 @@ pytest -q
 Manual UI smoke:
 
 1. `bash demo/start_wave3_cockpit.sh`
-2. Open `http://127.0.0.1:8000/cockpit/explorer?growth=on`
+2. Open `http://127.0.0.1:8000/cockpit/explorer`
 3. Confirm readiness card is visible.
 4. Click the Sven Hedin gap example.
 5. Confirm lifecycle stepper advances through Ask/Detect gap.

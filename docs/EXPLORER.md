@@ -54,6 +54,8 @@ theogony serve
 Then browse to ``http://127.0.0.1:8000/cockpit/explorer`` (or your configured bind).
 The Explorer page shows an **Antwortmodus** ribbon (stub vs live LLM) at load time.
 
+The **Research live** growth panel (SSE to ``POST /cockpit/api/growth-stream``) is **on by default** at ``/cockpit/explorer`` — no ``?growth=on`` query is required. Append ``?growth=off`` (or ``false`` / ``0`` / ``no``) only when you want the slimmer layout without that column.
+
 ## LLM Chronicle entry planner
 
 **On by default** in :class:`~theogony.config.settings.ChronicleEntryPlannerSettings`

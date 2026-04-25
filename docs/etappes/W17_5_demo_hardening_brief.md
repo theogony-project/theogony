@@ -298,7 +298,7 @@ bash -n demo/run_wave3_workers.sh
 Manual smoke:
 
 1. `bash demo/start_wave3_cockpit.sh`
-2. Open `http://127.0.0.1:8000/cockpit/explorer?growth=on`
+2. Open `http://127.0.0.1:8000/cockpit/explorer` (growth panel default-on; optional `?growth=off` to hide)
 3. Ask `Wer war Sven Hedin und was hat er in Tibet erforscht?`
 4. Click `Research this further`
 5. Expected:

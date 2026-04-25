@@ -32,9 +32,9 @@ Expected: a log line similar to `Theogony Cockpit → http://127.0.0.1:8000/cock
 
 **3) Browser**
 
-Open `http://127.0.0.1:8000/cockpit/explorer?growth=on` in a normal browser window.
+Open `http://127.0.0.1:8000/cockpit/explorer` in a normal browser window.
 
-Expected: Explorer loads; the **Research live** panel is visible (not collapsed/hidden) because `growth=on` is set.
+Expected: Explorer loads; the **Research live** panel is visible by default on `/cockpit/explorer` (use `?growth=off` only if you intentionally want the layout without that panel).
 
 ## The 3-minute walk
 
