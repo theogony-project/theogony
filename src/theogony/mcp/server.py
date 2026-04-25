@@ -75,7 +75,7 @@ from theogony.extraction.wikidata_cache import WikidataCache
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.models import OneirosTickReport
-from theogony.reporting.writer import RunReportWriter
+from theogony.reporting.writer import RUN_REPORT_TYPE_SUBDIRS, RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
@@ -397,10 +397,7 @@ async def tool_status(res: McpResources) -> dict[str, Any]:
         "embedding_model": res.settings.embedding.model_id,
         "embedding_dim": res.settings.embedding.dim,
         "morpheus_proposals_recent": _morpheus_proposals_recent(res.settings),
-        "report_counts": {
-            rtype: _count_reports(res, rtype)
-            for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne")
-        },
+        "report_counts": {rtype: _count_reports(res, rtype) for rtype in RUN_REPORT_TYPE_SUBDIRS},
     }
 
 
@@ -408,11 +405,7 @@ def tool_reports_list(
     res: McpResources, *, report_type: str = "", last: int = 20
 ) -> list[dict[str, Any]]:
     """Run :func:`pantheon_reports_list` and return the row list."""
-    types_to_scan = (
-        [report_type]
-        if report_type
-        else ["ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne"]
-    )
+    types_to_scan = [report_type] if report_type else list(RUN_REPORT_TYPE_SUBDIRS)
     rows: list[dict[str, Any]] = []
     for rtype in types_to_scan:
         d = res.settings.run_reports_dir / rtype
@@ -442,7 +435,7 @@ def tool_reports_list(
 
 def tool_reports_show(res: McpResources, *, run_id: str) -> dict[str, Any]:
     """Run :func:`pantheon_reports_show` and return the report JSON or an error."""
-    for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne"):
+    for rtype in RUN_REPORT_TYPE_SUBDIRS:
         d = res.settings.run_reports_dir / rtype
         if not d.exists():
             continue
@@ -568,7 +561,7 @@ def _tool_descriptors() -> list[dict[str, Any]]:
             "name": "pantheon_reports_list",
             "description": (
                 "List recent run reports (ingest, query, oneiros, clustering, "
-                "blindspot, mnemosyne). "
+                "blindspot, mnemosyne, curiosity, chronos, nemesis, eris, mnemosyne_conductor). "
                 "The Chronik's honest retrospective surface — every answer it "
                 "produced, every ingest it ran, every Oneiros tick, clustering "
                 "and blind-spot / Mnemosyne aggregation passes."
@@ -579,18 +572,10 @@ def _tool_descriptors() -> list[dict[str, Any]]:
                     "report_type": {
                         "type": "string",
                         "description": (
-                            "Filter by type. One of 'ingest', 'query', 'oneiros', "
-                            "'clustering', 'blindspot', 'mnemosyne'. Empty string = all types."
+                            "Filter by type (run report subdirectory name). "
+                            "Empty string = all types."
                         ),
-                        "enum": [
-                            "",
-                            "ingest",
-                            "query",
-                            "oneiros",
-                            "clustering",
-                            "blindspot",
-                            "mnemosyne",
-                        ],
+                        "enum": ["", *RUN_REPORT_TYPE_SUBDIRS],
                         "default": "",
                     },
                     "last": {

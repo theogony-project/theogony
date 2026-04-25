@@ -18,6 +18,7 @@ from theogony.api.dependencies import get_settings, get_store
 from theogony.api.dto import HealthResponse
 from theogony.config.settings import Settings
 from theogony.core.store import KnowledgeStore
+from theogony.reporting.writer import RUN_REPORT_TYPE_SUBDIRS
 
 router = APIRouter(tags=["meta"])
 
@@ -42,10 +43,7 @@ async def health(
         store=backend_name,
         embedding_model=settings.embedding.model_id,
         embedding_dim=settings.embedding.dim,
-        report_counts={
-            rtype: _count_reports(settings, rtype)
-            for rtype in ("ingest", "query", "oneiros", "clustering")
-        },
+        report_counts={rtype: _count_reports(settings, rtype) for rtype in RUN_REPORT_TYPE_SUBDIRS},
     )
 
 

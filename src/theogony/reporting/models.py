@@ -67,6 +67,7 @@ class RunReportBase(BaseModel):
         "chronos",
         "nemesis",
         "eris",
+        "mnemosyne_conductor",
     ]
     started_at: datetime
     finished_at: datetime

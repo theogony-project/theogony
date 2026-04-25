@@ -143,6 +143,7 @@ def test_module_imports_and_exports_public_api() -> None:
 def test_tool_descriptors_match_registered_tool_names() -> None:
     """MCP tool descriptors stay in sync with the registered tool set."""
     from theogony.mcp.server import _tool_descriptors
+    from theogony.reporting.writer import RUN_REPORT_TYPE_SUBDIRS
 
     descriptors = _tool_descriptors()
     names = {d["name"] for d in descriptors}
@@ -158,6 +159,10 @@ def test_tool_descriptors_match_registered_tool_names() -> None:
     for d in descriptors:
         assert d["inputSchema"]["type"] == "object"
         assert d["inputSchema"]["additionalProperties"] is False
+
+    reports_list = next(d for d in descriptors if d["name"] == "pantheon_reports_list")
+    enum = reports_list["inputSchema"]["properties"]["report_type"]["enum"]
+    assert enum == ["", *RUN_REPORT_TYPE_SUBDIRS]
 
 
 def test_build_server_does_not_require_live_resources(tmp_path: Path) -> None:
@@ -183,6 +188,7 @@ def test_build_server_does_not_require_live_resources(tmp_path: Path) -> None:
 async def test_tool_status_returns_expected_shape(tmp_path: Path) -> None:
     from theogony import __version__
     from theogony.mcp.server import tool_status
+    from theogony.reporting.writer import RUN_REPORT_TYPE_SUBDIRS
 
     res = _make_resources(tmp_path)
     payload = await tool_status(res)
@@ -193,14 +199,7 @@ async def test_tool_status_returns_expected_shape(tmp_path: Path) -> None:
     assert payload["embedding_model"] == "bge-small-en"
     assert payload["embedding_dim"] == 384
     assert payload["morpheus_proposals_recent"] == 0
-    assert payload["report_counts"] == {
-        "ingest": 0,
-        "query": 0,
-        "oneiros": 0,
-        "clustering": 0,
-        "blindspot": 0,
-        "mnemosyne": 0,
-    }
+    assert payload["report_counts"] == {k: 0 for k in RUN_REPORT_TYPE_SUBDIRS}
 
 
 @pytest.mark.asyncio

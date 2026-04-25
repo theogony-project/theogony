@@ -15,7 +15,7 @@ from theogony.config.settings import Settings
 from theogony.core.model import KnowledgeEdge, KnowledgeNode, Layer, NodeType
 from theogony.core.store import KnowledgeStore
 from theogony.extraction.embedding import EmbeddingProvider
-from theogony.reporting.writer import RunReportWriter
+from theogony.reporting.writer import RUN_REPORT_TYPE_SUBDIRS, RunReportWriter
 
 
 def _metric_int(health: dict[str, object], *keys: str) -> int:
@@ -112,7 +112,7 @@ async def compute_status_snapshot(
     cost_today = cost_week = cost_month = 0.0
     week_ago = now - timedelta(days=7)
     month_ago = now - timedelta(days=30)
-    for rtype in ("ingest", "query", "oneiros", "clustering", "blindspot", "mnemosyne"):
+    for rtype in RUN_REPORT_TYPE_SUBDIRS:
         d = writer.directory_for(rtype)
         if not d.exists():
             continue

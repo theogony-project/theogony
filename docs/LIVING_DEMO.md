@@ -34,3 +34,5 @@ Two conceptual steps: **reset**, then **walk** the timeline.
 The canonical ~3 minute screen recording is produced and published by the project operator (not by automation in this repository). After you have a valid recording, link it from your release notes or project page as you prefer.
 
 For a hosted smoke walk after local verification, see [`demo/living_growth_hosted.md`](../demo/living_growth_hosted.md).
+
+For a single operator script that walks the full Wave 3 immune loop (Athene, Chronos, Nemesis, Eris fixture, Mnemosyne conductor) and lists the new report types, see [`demo/wave3_local_test.md`](../demo/wave3_local_test.md).
