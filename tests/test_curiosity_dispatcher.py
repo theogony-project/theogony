@@ -40,7 +40,7 @@ def _minimal_report(search_query: str = "test query") -> CuriosityRunReport:
         duration_s=1.0,
         status="completed",
         verdict="good",
-        verdict_reasoning="curiosity trigger emitted",
+        verdict_reasoning="research initiated for weak answer",
         trigger=trig,
     )
 
@@ -58,8 +58,8 @@ class _StubArgus:
             candidate_source_type="gutenberg",
             candidate_identifier="1",
             candidate_title="T",
-            hestia_status="approved",
-            hestia_reason="stub",
+            status="processed",
+            reason="stub",
             ingest_run_id="01INGESTRUNIDTEST01",
         )
         return ArgusResult(
@@ -70,15 +70,15 @@ class _StubArgus:
         )
 
 
-async def test_dispatcher_processes_only_not_evaluated(tmp_path: Path) -> None:
+async def test_dispatcher_processes_only_pending(tmp_path: Path) -> None:
     writer = RunReportWriter(tmp_path)
     done = _minimal_report()
     done = done.model_copy(
         update={
             "decision": AcquisitionDecision(
                 candidate_source_type="gutenberg",
-                hestia_status="approved",
-                hestia_reason="done",
+                status="processed",
+                reason="done",
             )
         }
     )

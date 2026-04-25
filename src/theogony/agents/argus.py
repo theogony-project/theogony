@@ -2,9 +2,10 @@
 Argus v0.1 — first autonomous acquisition agent for the Living Demo (W7-B, W11).
 
 Consumes a :class:`~theogony.curiosity.trigger.CuriosityTrigger`, optionally
-runs the W11 planner → executor → evaluator pipeline, then acquires and
-ingests approved sources. When ``use_research_planner`` is false, falls back
-to the W7-B single-source Gutenberg path.
+runs the W11 planner → executor → evaluator pipeline, then acquires sources,
+registers them in the W13 verification pool, and ingests them. When
+``use_research_planner`` is false, falls back to the W7-B single-source
+Gutenberg path.
 """
 
 from __future__ import annotations
@@ -18,20 +19,14 @@ from typing import Literal, Protocol, runtime_checkable
 from pydantic import BaseModel, ConfigDict, Field
 
 from theogony.acquisition.base import AcquisitionAdapter, SourceCandidate
-from theogony.acquisition.web_fetch import ContentExtractionFailedError, RobotsDisallowedError
 from theogony.agents.argus_ingest_runner import IngestRunner
-from theogony.agents.hestia_lite import (
-    HestiaApproval,
-    HestiaApprovalStatus,
-    HestiaLiteApproval,
-)
-from theogony.agents.hestia_sentinel import HestiaReview, HestiaSentinel
 from theogony.agents.research_evaluator import Evaluator, EvaluatorCandidate, EvaluatorDecision
 from theogony.agents.research_planner import PlannerContext, ResearchPlanner
 from theogony.config.settings import ArgusSettings
 from theogony.curiosity.research_executor import ResearchExecutor
 from theogony.curiosity.run_report import AcquisitionDecision
-from theogony.curiosity.trigger import CuriosityTrigger, ResearchStep, ResearchStepKind
+from theogony.curiosity.trigger import CuriosityTrigger
+from theogony.curiosity.verification_pool import PoolEntry, VerificationPool
 from theogony.reporting.models import QueryRunReport
 
 # --- Knob 2: fixed EN+DE stopword list (30 tokens; no NLTK / spaCy) ---
@@ -110,7 +105,6 @@ class ArgusOutcome(StrEnum):
 
     APPROVED_AND_INGESTED = "approved_and_ingested"
     APPROVED_INGEST_FAILED = "approved_ingest_failed"
-    REJECTED_BY_HESTIA = "rejected_by_hestia"
     NO_CANDIDATES = "no_candidates"
     NO_CANDIDATE_ABOVE_THRESHOLD = "no_candidate_above_threshold"
     UNSUPPORTED_SOURCE_TYPE = "unsupported_source_type"
@@ -118,8 +112,18 @@ class ArgusOutcome(StrEnum):
     DRY_RUN = "dry_run"
     NO_PLANNED_STEPS = "no_planned_steps"
     NO_CANDIDATE_SELECTED = "no_candidate_selected"
-    ALL_REJECTED_BY_HESTIA = "all_rejected_by_hestia"
     INGEST_FAILED = "ingest_failed"
+
+
+class ArgusIngestedCandidate(BaseModel):
+    """Candidate-level ingest outcome for cockpit and verification-pool reporting."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_label: str
+    bytes_acquired: int = Field(ge=0)
+    ingest_run_id: str
+    pool_entry_id: str
 
 
 class ArgusResult(BaseModel):
@@ -133,6 +137,7 @@ class ArgusResult(BaseModel):
     reason: str = ""
     updated_trigger: CuriosityTrigger | None = None
     evaluator_decision: EvaluatorDecision | None = None
+    ingested_candidates: list[ArgusIngestedCandidate] = Field(default_factory=list)
 
 
 @runtime_checkable
@@ -145,17 +150,19 @@ class ArgusProcessable(Protocol):
 def _decision_from_candidate(
     candidate: SourceCandidate,
     *,
-    hestia_status: Literal["approved", "rejected"],
-    hestia_reason: str,
+    status: Literal["pending", "processed", "failed"] = "processed",
+    reason: str = "",
     ingest_run_id: str | None = None,
+    pool_entry_id: str | None = None,
 ) -> AcquisitionDecision:
     return AcquisitionDecision(
         candidate_source_type=candidate.source_type,
         candidate_identifier=candidate.identifier,
         candidate_title=candidate.title,
-        hestia_status=hestia_status,
-        hestia_reason=hestia_reason,
+        status=status,
+        reason=reason,
         ingest_run_id=ingest_run_id,
+        pool_entry_id=pool_entry_id,
     )
 
 
@@ -184,16 +191,6 @@ def _source_from_evaluator_row(ec: EvaluatorCandidate) -> SourceCandidate:
     return SourceCandidate.model_validate(raw)
 
 
-def _hestia_review_to_approval(hr: HestiaReview) -> HestiaApproval:
-    return HestiaApproval(
-        status=HestiaApprovalStatus.APPROVED
-        if hr.decision == "approved"
-        else HestiaApprovalStatus.REJECTED,
-        reason=hr.reason,
-        rule_fired=hr.rule_fired,
-    )
-
-
 class ArgusAgent:
     """Acquisition loop: W11 planner path or W7-B legacy Gutenberg path."""
 
@@ -201,8 +198,8 @@ class ArgusAgent:
         self,
         *,
         adapter: AcquisitionAdapter | None,
-        hestia: HestiaLiteApproval | HestiaSentinel,
         ingest_runner: IngestRunner,
+        verification_pool: VerificationPool,
         settings: ArgusSettings,
         use_research_planner: bool = False,
         planner: ResearchPlanner | None = None,
@@ -218,8 +215,8 @@ class ArgusAgent:
         elif adapter is None:
             raise ValueError("legacy Argus path requires adapter")
         self._adapter = adapter
-        self._hestia = hestia
         self._ingest_runner = ingest_runner
+        self._verification_pool = verification_pool
         self._settings = settings
         self._use_research_planner = use_research_planner
         self._planner = planner
@@ -227,42 +224,16 @@ class ArgusAgent:
         self._evaluator = evaluator
         self._run_reports_dir = run_reports_dir
 
-    async def _hestia_planner_review(
-        self,
-        sel: EvaluatorCandidate,
-        *,
-        ctx: PlannerContext,
-        trigger: CuriosityTrigger,
-    ) -> HestiaApproval:
-        if isinstance(self._hestia, HestiaSentinel):
-            hr = await self._hestia.review(candidate=sel, context=ctx)
-            return _hestia_review_to_approval(hr)
-        source = _source_from_evaluator_row(sel)
-        return self._hestia.review(candidate=source, trigger=trigger)
-
-    async def _hestia_legacy_review(
+    def _register_pool_entry(
         self,
         *,
-        candidate: SourceCandidate,
-        trigger: CuriosityTrigger,
-    ) -> HestiaApproval:
-        if isinstance(self._hestia, HestiaSentinel):
-            ctx = _planner_context_from_trigger(trigger, None)
-            step = ResearchStep(
-                kind=ResearchStepKind.GUTENBERG_SEARCH,
-                target=candidate.identifier,
-                rationale="legacy_argus_path",
-            )
-            ec = EvaluatorCandidate(
-                source_step=step,
-                candidate_label=candidate.title,
-                summary="; ".join(candidate.authors) if candidate.authors else "",
-                estimated_bytes=int(candidate.metadata.get("estimated_bytes", 0) or 0),
-                metadata={"_source_candidate": candidate.model_dump()},
-            )
-            hr = await self._hestia.review(candidate=ec, context=ctx)
-            return _hestia_review_to_approval(hr)
-        return self._hestia.review(candidate=candidate, trigger=trigger)
+        candidate_label: str,
+        ingest_run_id: str,
+    ) -> PoolEntry:
+        return self._verification_pool.register(
+            candidate_label=candidate_label,
+            ingest_run_id=ingest_run_id,
+        )
 
     async def process(self, trigger: CuriosityTrigger, *, dry_run: bool = False) -> ArgusResult:
         """Run the step machine; never raises — failures become ``ArgusResult``."""
@@ -345,8 +316,8 @@ class ArgusAgent:
         bytes_total = 0
         last_decision = empty
         any_ingested = False
-        any_hestia_rejection = False
         ingest_error: str | None = None
+        ingested_candidates: list[ArgusIngestedCandidate] = []
 
         for sel in decision.selected:
             try:
@@ -355,47 +326,36 @@ class ArgusAgent:
                 ingest_error = str(exc)[:500]
                 break
 
-            approval = await self._hestia_planner_review(sel, ctx=ctx, trigger=trig_after_plan)
-            if approval.status != HestiaApprovalStatus.APPROVED:
-                any_hestia_rejection = True
-                last_decision = _decision_from_candidate(
-                    source,
-                    hestia_status="rejected",
-                    hestia_reason=approval.reason,
-                )
-                continue
-
             estimated = source.metadata.get("estimated_bytes")
             if isinstance(estimated, int) and estimated > trigger.budget.max_total_bytes:
                 return ArgusResult(
                     outcome=ArgusOutcome.BUDGET_EXCEEDED,
                     decision=_decision_from_candidate(
                         source,
-                        hestia_status="approved",
-                        hestia_reason=approval.reason,
+                        reason="estimated bytes exceed budget",
                     ),
                     reason=f"estimated_bytes={estimated} > budget {trigger.budget.max_total_bytes}",
                     updated_trigger=trig_after_plan,
                     evaluator_decision=decision,
+                    ingested_candidates=ingested_candidates,
                 )
 
             try:
                 raw = await self._executor.acquire_source(source)
-            except (RobotsDisallowedError, ContentExtractionFailedError) as exc:
-                any_hestia_rejection = True
+            except Exception as exc:
+                ingest_error = str(exc)[:500]
                 last_decision = _decision_from_candidate(
                     source,
-                    hestia_status="rejected",
-                    hestia_reason=str(exc)[:500],
+                    status="failed",
+                    reason=ingest_error,
                 )
-                continue
+                break
             if raw.bytes_acquired > trigger.budget.max_total_bytes:
                 return ArgusResult(
                     outcome=ArgusOutcome.BUDGET_EXCEEDED,
                     decision=_decision_from_candidate(
                         source,
-                        hestia_status="approved",
-                        hestia_reason=approval.reason,
+                        reason="acquired bytes exceed budget",
                     ),
                     bytes_acquired=bytes_total + raw.bytes_acquired,
                     reason=(
@@ -403,6 +363,7 @@ class ArgusAgent:
                     ),
                     updated_trigger=trig_after_plan,
                     evaluator_decision=decision,
+                    ingested_candidates=ingested_candidates,
                 )
 
             try:
@@ -411,18 +372,30 @@ class ArgusAgent:
                 ingest_error = str(exc)[:500]
                 last_decision = _decision_from_candidate(
                     source,
-                    hestia_status="approved",
-                    hestia_reason=approval.reason,
+                    status="failed",
+                    reason=ingest_error,
                 )
                 break
 
+            pool_entry = self._register_pool_entry(
+                candidate_label=sel.candidate_label,
+                ingest_run_id=ingest_run_id,
+            )
             bytes_total += raw.bytes_acquired
             any_ingested = True
+            ingested_candidates.append(
+                ArgusIngestedCandidate(
+                    candidate_label=sel.candidate_label,
+                    bytes_acquired=raw.bytes_acquired,
+                    ingest_run_id=ingest_run_id,
+                    pool_entry_id=pool_entry.entry_id,
+                )
+            )
             last_decision = _decision_from_candidate(
                 source,
-                hestia_status="approved",
-                hestia_reason=approval.reason,
+                status="processed",
                 ingest_run_id=ingest_run_id,
+                pool_entry_id=pool_entry.entry_id,
             )
 
         if ingest_error is not None:
@@ -433,6 +406,7 @@ class ArgusAgent:
                 reason=ingest_error,
                 updated_trigger=trig_after_plan,
                 evaluator_decision=decision,
+                ingested_candidates=ingested_candidates,
             )
 
         if any_ingested:
@@ -443,16 +417,7 @@ class ArgusAgent:
                 reason="ingest completed",
                 updated_trigger=trig_after_plan,
                 evaluator_decision=decision,
-            )
-
-        if any_hestia_rejection:
-            return ArgusResult(
-                outcome=ArgusOutcome.ALL_REJECTED_BY_HESTIA,
-                decision=last_decision,
-                bytes_acquired=0,
-                reason="all selected candidates rejected by Hestia",
-                updated_trigger=trig_after_plan,
-                evaluator_decision=decision,
+                ingested_candidates=ingested_candidates,
             )
 
         return ArgusResult(
@@ -461,6 +426,7 @@ class ArgusAgent:
             reason="no successful acquisition",
             updated_trigger=trig_after_plan,
             evaluator_decision=decision,
+            ingested_candidates=ingested_candidates,
         )
 
     async def _process_legacy(
@@ -503,26 +469,13 @@ class ArgusAgent:
                 reason=f"best score {best_score:.4f} < min_candidate_score {thr}",
             )
 
-        approval = await self._hestia_legacy_review(candidate=best, trigger=trigger)
-        if approval.status != HestiaApprovalStatus.APPROVED:
-            return ArgusResult(
-                outcome=ArgusOutcome.REJECTED_BY_HESTIA,
-                decision=_decision_from_candidate(
-                    best,
-                    hestia_status="rejected",
-                    hestia_reason=approval.reason,
-                ),
-                reason=approval.reason,
-            )
-
         estimated = best.metadata.get("estimated_bytes")
         if isinstance(estimated, int) and estimated > trigger.budget.max_total_bytes:
             return ArgusResult(
                 outcome=ArgusOutcome.BUDGET_EXCEEDED,
                 decision=_decision_from_candidate(
                     best,
-                    hestia_status="approved",
-                    hestia_reason=approval.reason,
+                    reason="estimated bytes exceed budget",
                 ),
                 reason=f"estimated_bytes={estimated} > budget {trigger.budget.max_total_bytes}",
             )
@@ -532,8 +485,7 @@ class ArgusAgent:
                 outcome=ArgusOutcome.DRY_RUN,
                 decision=_decision_from_candidate(
                     best,
-                    hestia_status="approved",
-                    hestia_reason=approval.reason,
+                    reason="dry-run: acquire and ingest not executed",
                 ),
                 reason="dry-run: acquire and ingest not executed",
             )
@@ -544,8 +496,7 @@ class ArgusAgent:
                 outcome=ArgusOutcome.BUDGET_EXCEEDED,
                 decision=_decision_from_candidate(
                     best,
-                    hestia_status="approved",
-                    hestia_reason=approval.reason,
+                    reason="acquired bytes exceed budget",
                 ),
                 bytes_acquired=raw.bytes_acquired,
                 reason=f"acquired {raw.bytes_acquired} B > budget {trigger.budget.max_total_bytes}",
@@ -558,28 +509,40 @@ class ArgusAgent:
                 outcome=ArgusOutcome.APPROVED_INGEST_FAILED,
                 decision=_decision_from_candidate(
                     best,
-                    hestia_status="approved",
-                    hestia_reason=approval.reason,
+                    status="failed",
+                    reason=str(exc)[:500],
                 ),
                 bytes_acquired=raw.bytes_acquired,
                 reason=str(exc)[:500],
             )
 
+        pool_entry = self._register_pool_entry(
+            candidate_label=best.title,
+            ingest_run_id=ingest_run_id,
+        )
         return ArgusResult(
             outcome=ArgusOutcome.APPROVED_AND_INGESTED,
             decision=_decision_from_candidate(
                 best,
-                hestia_status="approved",
-                hestia_reason=approval.reason,
                 ingest_run_id=ingest_run_id,
+                pool_entry_id=pool_entry.entry_id,
             ),
             bytes_acquired=raw.bytes_acquired,
             reason="ingest completed",
+            ingested_candidates=[
+                ArgusIngestedCandidate(
+                    candidate_label=best.title,
+                    bytes_acquired=raw.bytes_acquired,
+                    ingest_run_id=ingest_run_id,
+                    pool_entry_id=pool_entry.entry_id,
+                )
+            ],
         )
 
 
 __all__ = [
     "ArgusAgent",
+    "ArgusIngestedCandidate",
     "ArgusOutcome",
     "ArgusProcessable",
     "ArgusResult",

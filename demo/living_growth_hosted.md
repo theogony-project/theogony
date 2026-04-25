@@ -18,7 +18,7 @@ The contract-level MCP module tests live under [`tests/test_mcp_server.py`](../t
 
 ## Expected
 
-You should see the **same phase ordering** as locally: cited answer on first hop, stub or thin coverage where expected, then (when growth is enabled on that deployment) Argus phases through fetch and completion. If the hosted stack does not have GrowthBridge/Argus enabled, compare only the stable read path and file a follow-up; do not fake parity in the recording.
+You should see the **same phase ordering** as locally: cited answer on first hop, stub or thin coverage where expected, then (when growth is enabled on that deployment) research events through `acquired_into_pool`, `ingested`, and `research_complete`. If the hosted stack does not have GrowthBridge/Argus enabled, compare only the stable read path and file a follow-up; do not fake parity in the recording.
 
 ## Note
 

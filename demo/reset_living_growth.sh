@@ -56,8 +56,13 @@ else
 fi
 
 cat > "${REPO_ROOT}/.demo.env" <<'EOF'
+# Content flows into the chronicle without a pre-gate content judge.
+# The immune system (Athene / Chronos / ...) observes and acts asynchronously.
+# See docs/IMMUNE_SYSTEM.md for doctrine.
 THEOGONY_CURIOSITY__GROWTH_BRIDGE__ENABLED=true
 THEOGONY_CURIOSITY__ARGUS__ENABLED=true
+THEOGONY_CURIOSITY__RESEARCH_PLANNER__ENABLED=true
+THEOGONY_CURIOSITY__EVALUATOR__ENABLED=true
 EOF
 
 cat <<'EOF'

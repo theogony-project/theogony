@@ -29,16 +29,17 @@ from theogony.reporting.models import RunReportBase
 
 
 class AcquisitionDecision(BaseModel):
-    """Argus + HestiaLite outcome (W7-B will populate; W7-A leaves None)."""
+    """Argus acquisition outcome (W7-A leaves pending until Argus processes it)."""
 
     model_config = ConfigDict(extra="forbid")
 
     candidate_source_type: str | None = None
     candidate_identifier: str | None = None
     candidate_title: str | None = None
-    hestia_status: Literal["not_evaluated", "approved", "rejected"] = "not_evaluated"
-    hestia_reason: str = ""
+    status: Literal["pending", "processed", "failed"] = "pending"
+    reason: str = ""
     ingest_run_id: str | None = None
+    pool_entry_id: str | None = None
 
 
 class CuriosityRunReport(RunReportBase):
@@ -49,6 +50,7 @@ class CuriosityRunReport(RunReportBase):
     decision: AcquisitionDecision = Field(default_factory=AcquisitionDecision)
     bytes_acquired: int = Field(default=0, ge=0)
     evaluator_decision: EvaluatorDecision | None = None
+    total_cost_eur: float = Field(default=0.0, ge=0.0)
 
 
 __all__ = ["AcquisitionDecision", "CuriosityRunReport"]

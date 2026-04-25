@@ -5,8 +5,6 @@ from __future__ import annotations
 from theogony.acquisition.base import RawContent, SourceCandidate
 from theogony.agents.argus import ArgusAgent, ArgusOutcome, ArgusSettings
 from theogony.agents.argus_ingest_runner import IngestRunner
-from theogony.agents.hestia_lite import HestiaLiteApproval
-from theogony.config.settings import HestiaLiteSettings
 from theogony.curiosity.trigger import (
     AcquisitionSpec,
     CuriosityTrigger,
@@ -14,6 +12,7 @@ from theogony.curiosity.trigger import (
     TriggerBudget,
     TriggerReason,
 )
+from theogony.curiosity.verification_pool import PoolEntry
 from theogony.reporting.models import RegionDescriptor
 
 
@@ -77,6 +76,16 @@ class _StubIngestRunner:
         return "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 
 
+class _StubVerificationPool:
+    def __init__(self) -> None:
+        self.entries: list[PoolEntry] = []
+
+    def register(self, candidate_label: str, ingest_run_id: str | None = None) -> PoolEntry:
+        entry = PoolEntry(candidate_label=candidate_label, ingest_run_id=ingest_run_id)
+        self.entries.append(entry)
+        return entry
+
+
 def _good_candidate() -> SourceCandidate:
     return SourceCandidate(
         source_type="gutenberg",
@@ -111,8 +120,8 @@ def _agent(
 ) -> ArgusAgent:
     return ArgusAgent(
         adapter=adapter,
-        hestia=HestiaLiteApproval(HestiaLiteSettings()),
         ingest_runner=runner or _StubIngestRunner(),
+        verification_pool=_StubVerificationPool(),  # type: ignore[arg-type]
         settings=ArgusSettings(enabled=True, min_candidate_score=min_score, search_limit=5),
     )
 
@@ -158,15 +167,14 @@ class TestArgusOutcomes:
         assert r.outcome == ArgusOutcome.NO_CANDIDATE_ABOVE_THRESHOLD
         assert adapter.acquire_calls == 0
 
-    async def test_argus_hestia_rejection_short_circuits(self) -> None:
+    async def test_argus_no_longer_content_gates_before_acquire(self) -> None:
         bad = _good_candidate().model_copy(
             update={"title": "A minor study of geography"},
         )
         adapter = _StubAdapter(candidates=[bad], raw=_raw_small())
         r = await _agent(adapter).process(_trigger())
-        assert r.outcome == ArgusOutcome.REJECTED_BY_HESTIA
-        assert r.decision.hestia_status == "rejected"
-        assert adapter.acquire_calls == 0
+        assert r.outcome == ArgusOutcome.APPROVED_AND_INGESTED
+        assert adapter.acquire_calls == 1
 
     async def test_argus_budget_exceeded_does_not_acquire(self) -> None:
         huge_meta = SourceCandidate(
@@ -191,7 +199,8 @@ class TestArgusOutcomes:
         assert adapter.acquire_calls == 1
         assert len(runner.raws) == 1
         assert r.decision.ingest_run_id == "01ARZ3NDEKTSV4RRFFQ69G5FAV"
-        assert r.decision.hestia_status == "approved"
+        assert r.decision.status == "processed"
+        assert r.decision.pool_entry_id is not None
         assert r.bytes_acquired > 0
 
     async def test_argus_dry_run_skips_acquire(self) -> None:

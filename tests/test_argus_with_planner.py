@@ -10,13 +10,11 @@ import pytest
 from theogony.acquisition.base import RawContent, SourceCandidate
 from theogony.agents.argus import ArgusAgent, ArgusOutcome, ArgusSettings
 from theogony.agents.argus_ingest_runner import IngestRunner
-from theogony.agents.hestia_lite import HestiaLiteApproval
 from theogony.agents.llm import ResearchPlannerCost, StubLLMProvider
 from theogony.agents.research_evaluator import Evaluator
 from theogony.agents.research_planner import ResearchPlanner
 from theogony.config.settings import (
     EvaluatorSettings,
-    HestiaLiteSettings,
     ResearchPlannerSettings,
 )
 from theogony.curiosity.research_executor import ResearchExecutor
@@ -29,6 +27,7 @@ from theogony.curiosity.trigger import (
     TriggerBudget,
     TriggerReason,
 )
+from theogony.curiosity.verification_pool import PoolEntry
 from theogony.reporting.models import RegionDescriptor
 
 
@@ -162,6 +161,16 @@ class _StubIngestRunner(IngestRunner):
         return "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 
 
+class _StubVerificationPool:
+    def __init__(self) -> None:
+        self.entries: list[PoolEntry] = []
+
+    def register(self, candidate_label: str, ingest_run_id: str | None = None) -> PoolEntry:
+        entry = PoolEntry(candidate_label=candidate_label, ingest_run_id=ingest_run_id)
+        self.entries.append(entry)
+        return entry
+
+
 def _run_reports_root(tmp_path: Path) -> Path:
     root = tmp_path / "run_reports"
     (root / "query").mkdir(parents=True)
@@ -185,8 +194,8 @@ async def test_argus_with_planner_happy_path_writes_plan_then_decision_to_curios
     runner = _StubIngestRunner()
     agent = ArgusAgent(
         adapter=_GutenbergStub(),
-        hestia=HestiaLiteApproval(HestiaLiteSettings()),
         ingest_runner=runner,
+        verification_pool=_StubVerificationPool(),  # type: ignore[arg-type]
         settings=ArgusSettings(enabled=True, min_candidate_score=0.0, search_limit=5),
         use_research_planner=True,
         planner=planner,
@@ -215,8 +224,8 @@ async def test_argus_outcome_no_planned_steps_when_planner_returns_empty(tmp_pat
     )
     agent = ArgusAgent(
         adapter=_GutenbergStub(),
-        hestia=HestiaLiteApproval(HestiaLiteSettings()),
         ingest_runner=_StubIngestRunner(),
+        verification_pool=_StubVerificationPool(),  # type: ignore[arg-type]
         settings=ArgusSettings(enabled=True),
         use_research_planner=True,
         planner=planner,
@@ -246,8 +255,8 @@ async def test_argus_outcome_no_candidate_selected_when_evaluator_picks_none(
     )
     agent = ArgusAgent(
         adapter=_GutenbergStub(),
-        hestia=HestiaLiteApproval(HestiaLiteSettings()),
         ingest_runner=_StubIngestRunner(),
+        verification_pool=_StubVerificationPool(),  # type: ignore[arg-type]
         settings=ArgusSettings(enabled=True),
         use_research_planner=True,
         planner=planner,
@@ -267,8 +276,8 @@ async def test_argus_legacy_path_still_works_when_planner_disabled() -> None:
     adapter = _StubAdapter(candidates=[_good_candidate()], raw=_raw_small())
     agent = ArgusAgent(
         adapter=adapter,
-        hestia=HestiaLiteApproval(HestiaLiteSettings()),
         ingest_runner=_StubIngestRunner(),
+        verification_pool=_StubVerificationPool(),  # type: ignore[arg-type]
         settings=ArgusSettings(enabled=True, min_candidate_score=0.0, search_limit=5),
         use_research_planner=False,
     )

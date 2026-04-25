@@ -35,7 +35,7 @@ import json
 import math
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from pydantic import ValidationError
 
@@ -359,7 +359,7 @@ async def run_explorer_query(
             "chat_prep_total_ms": int(chat_meta.get("chat_prep_total_ms", 0)),
         },
     }
-    return scrub_json_floats(out)
+    return cast(dict[str, Any], scrub_json_floats(out))
 
 
 async def stream_explorer_ask_sse(

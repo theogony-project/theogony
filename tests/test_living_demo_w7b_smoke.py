@@ -3,8 +3,8 @@ W7-B living-demo gate: stub Gutenberg adapter + real IngestionPipeline + InMemor
 
 No Gutendex HTTP and no paid LLM — the ``FakeWikidataClient`` fixture data
 from ``test_extraction_pipeline`` matches the bundled Hedin-shaped raw
-content. Argus + HestiaLite + ``RealIngestRunner`` run for real; only the
-acquisition transport is replaced by an in-process stub.
+content. Argus + ``RealIngestRunner`` run for real; only the acquisition
+transport is replaced by an in-process stub.
 
 W11: the demo path runs Argus with planner + evaluator enabled (StubLLM),
 Wikidata acquisition via the fake client ``search`` surface, and the legacy
@@ -43,6 +43,7 @@ from theogony.curiosity.trigger import (
     TriggerBudget,
     TriggerReason,
 )
+from theogony.curiosity.verification_pool import VerificationPool
 from theogony.extraction.pipeline import IngestionPipeline
 from theogony.extraction.resolve import EntityResolver
 from theogony.extraction.wikidata_client import WikidataCandidate
@@ -221,9 +222,6 @@ async def test_argus_happy_path_smoke(tmp_path: Path) -> None:
                     "evaluator": Settings().curiosity.evaluator.model_copy(
                         update={"enabled": True}
                     ),
-                    "hestia_sentinel": Settings().curiosity.hestia_sentinel.model_copy(
-                        update={"enabled": True, "llm_fallback_enabled": False}
-                    ),
                 }
             ),
         }
@@ -258,7 +256,7 @@ async def test_argus_happy_path_smoke(tmp_path: Path) -> None:
         duration_s=2.0,
         status="completed",
         verdict="good",
-        verdict_reasoning="curiosity trigger emitted",
+        verdict_reasoning="research initiated for weak answer",
         trigger=trig,
     )
     writer = RunReportWriter(tmp_path)
@@ -269,6 +267,7 @@ async def test_argus_happy_path_smoke(tmp_path: Path) -> None:
         settings=demo_settings,
         adapter=_StubGutenbergAdapter(),
         ingest_runner=runner,
+        verification_pool=VerificationPool(demo_settings),
         llm=llm,
         wd_client=client,  # type: ignore[arg-type]
         wikipedia=_StubWikipediaAdapter(),
@@ -285,7 +284,8 @@ async def test_argus_happy_path_smoke(tmp_path: Path) -> None:
     on_disk = CuriosityRunReport.model_validate_json(path.read_text(encoding="utf-8"))
     assert on_disk.decision.ingest_run_id == results[0].decision.ingest_run_id
     assert on_disk.bytes_acquired == results[0].bytes_acquired
-    assert on_disk.decision.hestia_status == "approved"
+    assert on_disk.decision.status == "processed"
+    assert on_disk.decision.pool_entry_id is not None
     assert on_disk.trigger.research_plan is not None
     assert len(on_disk.trigger.research_plan.steps) >= 2
     kinds = {s.kind for s in on_disk.trigger.research_plan.steps}

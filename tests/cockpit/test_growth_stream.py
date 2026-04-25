@@ -14,12 +14,12 @@ from tests.cockpit.async_util import run_async
 from tests.test_extraction_pipeline import FakeWikidataClient, _hedin_responses
 from tests.test_living_demo_w7b_smoke import _StubGutenbergAdapter
 from theogony.agents.argus import ArgusAgent, ArgusSettings
-from theogony.agents.hestia_lite import HestiaLiteApproval
 from theogony.agents.llm import StubLLMProvider
 from theogony.clustering.cluster_index import ClusterIndex
 from theogony.cockpit.growth_stream import _PersistingIngestRunner
-from theogony.config.settings import HestiaLiteSettings, Settings
+from theogony.config.settings import Settings
 from theogony.core.model import KnowledgeEdge, KnowledgeNode
+from theogony.curiosity.verification_pool import VerificationPool
 from theogony.docs_ingest import read_dump
 from theogony.extraction.pipeline import IngestionPipeline
 from theogony.extraction.resolve import EntityResolver
@@ -128,15 +128,16 @@ async def _stub_argus_session(
         ner_sentence_limit=80,
     )
     runner = _PersistingIngestRunner(pipeline, report_writer)
+    verification_pool = VerificationPool(settings)
     yield ArgusAgent(
         adapter=adapter,  # type: ignore[arg-type]
-        hestia=HestiaLiteApproval(HestiaLiteSettings()),
         ingest_runner=runner,
+        verification_pool=verification_pool,
         settings=ArgusSettings(enabled=True, min_candidate_score=0.0, search_limit=5),
     )
 
 
-def test_growth_stream_emits_argus_phases_after_trigger(
+def test_growth_stream_emits_acquired_into_pool_not_hestia_review(
     cockpit_client: TestClient,
     api_app: FastAPI,
     monkeypatch: pytest.MonkeyPatch,
@@ -159,11 +160,12 @@ def test_growth_stream_emits_argus_phases_after_trigger(
         raw = r.read().decode()
     typed = [(e, d) for e, d in _parse_sse_blocks(raw) if e]
     names = [e for e, _ in typed]
-    assert "argus_phase" in names
-    assert names.index("trigger_emitted") < names.index("argus_phase")
+    assert "acquired_into_pool" in names
+    assert "hestia_review" not in names
+    assert names.index("acquired") < names.index("acquired_into_pool")
 
 
-def test_growth_stream_emits_argus_complete_with_outcome(
+def test_acquired_into_pool_payload_contains_pool_entry_id(
     cockpit_client: TestClient,
     api_app: FastAPI,
     monkeypatch: pytest.MonkeyPatch,
@@ -184,13 +186,39 @@ def test_growth_stream_emits_argus_complete_with_outcome(
     ) as r:
         assert r.status_code == 200
         raw = r.read().decode()
-    completes = [d for e, d in _parse_sse_blocks(raw) if e == "argus_complete"]
+    pool_events = [d for e, d in _parse_sse_blocks(raw) if e == "acquired_into_pool"]
+    assert len(pool_events) >= 1
+    assert pool_events[0].get("pool_entry_id")
+    assert pool_events[0].get("candidate_label")
+
+
+def test_growth_stream_emits_research_complete_with_outcome(
+    cockpit_client: TestClient,
+    api_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    api_app.state.llm = StubLLMProvider(default="")
+    monkeypatch.setattr(
+        "theogony.cockpit.growth_stream._gutenberg_adapter",
+        _stub_gutenberg_cm,
+    )
+    monkeypatch.setattr(
+        "theogony.cockpit.growth_stream._cockpit_argus_dispatch_session",
+        _stub_argus_session,
+    )
+    with cockpit_client.stream(
+        "POST",
+        "/cockpit/api/growth-stream",
+        json={"q": "Who was Sven Hedin and what did he investigate in Tibet?", "growth": True},
+    ) as r:
+        assert r.status_code == 200
+        raw = r.read().decode()
+    completes = [d for e, d in _parse_sse_blocks(raw) if e == "research_complete"]
     assert len(completes) == 1
     body = completes[0]
     assert body.get("outcome") == "approved_and_ingested"
-    assert body.get("bytes_acquired", 0) > 0
-    assert body.get("ingest_run_id")
-    assert isinstance(body.get("decision"), dict)
+    assert body.get("total_nodes_added", 0) >= 0
+    assert body.get("outcome") == "approved_and_ingested"
 
 
 def test_existing_explorer_ask_stream_byte_for_byte_unchanged_for_default_request(

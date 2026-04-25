@@ -636,13 +636,17 @@ class QueryPipeline:
     ) -> None:
         if self._report_writer is None:
             return
+        if trigger.trigger_reason.value == "user_request":
+            verdict_reasoning = "research initiated by user request"
+        else:
+            verdict_reasoning = "research initiated for weak answer"
         curiosity_report = CuriosityRunReport(
             started_at=started_at,
             finished_at=finished_at,
             duration_s=duration_s,
             status="completed",
             verdict="good",
-            verdict_reasoning="curiosity trigger emitted",
+            verdict_reasoning=verdict_reasoning,
             trigger=trigger,
         )
         self._report_writer.write(curiosity_report)

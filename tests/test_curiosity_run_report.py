@@ -55,7 +55,7 @@ def _report() -> CuriosityRunReport:
         duration_s=1.0,
         status="completed",
         verdict="good",
-        verdict_reasoning="curiosity trigger emitted",
+        verdict_reasoning="research initiated for weak answer",
         trigger=_trigger(),
     )
 
@@ -68,7 +68,7 @@ class TestSchema:
         assert restored == report
         assert restored.report_type == "curiosity"
         assert restored.bytes_acquired == 0
-        assert restored.decision.hestia_status == "not_evaluated"
+        assert restored.decision.status == "pending"
 
     def test_extra_field_rejected(self) -> None:
         payload = json.loads(_report().model_dump_json())
@@ -76,16 +76,17 @@ class TestSchema:
         with pytest.raises(ValidationError):
             CuriosityRunReport.model_validate(payload)
 
-    def test_acquisition_decision_w7b_shape(self) -> None:
-        # W7-B will populate this; W7-A leaves the defaults. The schema
+    def test_acquisition_decision_processed_shape(self) -> None:
+        # Argus populates this; W7-A leaves the defaults. The schema
         # must accept the populated form without an extra schema bump.
         decision = AcquisitionDecision(
             candidate_source_type="gutenberg",
             candidate_identifier="43497",
             candidate_title="Trans-Himalaya",
-            hestia_status="approved",
-            hestia_reason="allowlisted source, public-domain text",
+            status="processed",
+            reason="ingest completed",
             ingest_run_id="01ARZ3NDEKTSV4RRFFQ69G5FAW",
+            pool_entry_id="pool-1",
         )
         report = _report()
         report = report.model_copy(update={"decision": decision, "bytes_acquired": 12345})
@@ -115,4 +116,4 @@ class TestWriter:
         on_disk = json.loads(path.read_text(encoding="utf-8"))
         assert on_disk["report_type"] == "curiosity"
         assert on_disk["trigger"]["gap_class"] == "region_thin"
-        assert on_disk["decision"]["hestia_status"] == "not_evaluated"
+        assert on_disk["decision"]["status"] == "pending"

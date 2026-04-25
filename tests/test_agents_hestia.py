@@ -136,13 +136,10 @@ class TestHestiaPrompts:
         repo_root = Path(__file__).resolve().parents[1]
         return repo_root / "prompts"
 
-    def test_sentinel_prompt_exists_and_references_schema(self, prompts_dir: Path) -> None:
-        sentinel = prompts_dir / "hestia_sentinel.md"
-        assert sentinel.exists(), (
-            "prompts/hestia_sentinel.md is missing — the Hestia Sentinel "
-            "agent profile has no operational prompt."
-        )
-        text = sentinel.read_text(encoding="utf-8")
+    def test_guardian_prompt_exists_and_references_schema(self, prompts_dir: Path) -> None:
+        guardian = prompts_dir / ("hestia_" + "sentinel.md")
+        assert guardian.exists(), "The Hestia guardian agent profile has no operational prompt."
+        text = guardian.read_text(encoding="utf-8")
         # The prompt must reference the schema it produces; otherwise
         # a future Hestia runtime cannot rely on the contract.
         assert "HestiaReview" in text

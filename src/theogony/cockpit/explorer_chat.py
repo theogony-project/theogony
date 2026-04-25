@@ -86,7 +86,7 @@ def parse_explorer_rolling_summary(raw: Any) -> str:
         raise ValueError("conversation_summary must be a string or null")
     s = raw.strip()
     if len(s) > CHAT_MAX_SUMMARY_CHARS:
-        s = s[-CHAT_MAX_SUMMARY_CHARS :]
+        s = s[-CHAT_MAX_SUMMARY_CHARS:]
     return s
 
 
