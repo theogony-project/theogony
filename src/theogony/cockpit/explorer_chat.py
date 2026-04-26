@@ -28,6 +28,12 @@ _SUMMARY_SYSTEM = (
     "Be dense; aim under ~3000 words."
 )
 
+_HISTORY_SUMMARY_SYSTEM = (
+    "You maintain a compact chat-history summary for a retrieval planning step. "
+    "Reply with plain prose only. Preserve named entities, user intent, concrete "
+    "answers, and unresolved follow-up targets. Do not add facts."
+)
+
 
 class ExplorerChatTurn(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -171,3 +177,78 @@ async def prepare_explorer_chat_for_synthesis(
     meta["summarization_ms"] = summarize_ms
     meta["chat_prep_total_ms"] = int((time.perf_counter() - t0) * 1000)
     return block, summary, msgs, meta
+
+
+async def update_explorer_chat_history_summary(
+    *,
+    rolling_summary: str,
+    question: str,
+    context_questions: list[str],
+    answer: str,
+    llm: LLMProvider,
+) -> tuple[str, dict[str, Any]]:
+    """Gutenberg-style post-answer summary update.
+
+    Mirrors ``gutenbergApp.get_chat_history_summary``: after answering, fold the
+    current question, vector-search strings, answer, and previous summary into one
+    rolling summary that the next retrieval-planning request can always use.
+    """
+    t0 = time.perf_counter()
+    previous = rolling_summary.strip()
+    q = question.strip()
+    ans = answer.strip()
+    cq = " - ".join(s.strip() for s in context_questions if s.strip())
+    augmented_question = f"{q} ({cq})" if cq else q
+    meta: dict[str, Any] = {
+        "post_answer_summary_ms": 0,
+        "post_answer_summary_used_llm": False,
+        "post_answer_summary_model_id": "",
+    }
+
+    if isinstance(llm, StubLLMProvider):
+        parts = []
+        if previous:
+            parts.append(previous)
+        if augmented_question:
+            parts.append(f"Q: {augmented_question}")
+        if ans:
+            parts.append(f"A: {ans}")
+        out = "\n".join(parts).strip()
+        if len(out) > CHAT_MAX_SUMMARY_CHARS:
+            out = out[-CHAT_MAX_SUMMARY_CHARS:]
+        meta["post_answer_summary_ms"] = int((time.perf_counter() - t0) * 1000)
+        return out, meta
+
+    prompt = (
+        "Bitte fasse den bisherigen Chatverlauf mit Anfragen und Antworten "
+        "stichpunktartig als Protokoll zusammen, damit diese Zusammenfassung bei "
+        "Folgefragen als Kontext für die Vektorsuche verwendet werden kann. Die "
+        "neue Zusammenfassung soll sowohl die bisherige Zusammenfassung als auch "
+        "die neu hinzugekommene Anfrage und Antwort enthalten. Maximal 1500 "
+        "Zeichen.\n\n"
+        "Es wurde zuletzt folgende Anfrage gestellt:\n"
+        f"{augmented_question}\n\n"
+        "Du hast auf diese Anfrage folgende Antwort geliefert:\n"
+        f"{ans if ans else '(empty)'}\n\n"
+        "Die bisherige Zusammenfassung des Chatverlaufs lautet:\n"
+        f"{previous if previous else '(none)'}"
+    )
+    try:
+        res = await llm.complete(
+            prompt,
+            system=_HISTORY_SUMMARY_SYSTEM,
+            max_output_tokens=800,
+            temperature=0.0,
+        )
+        out = res.text.strip()
+        if not out:
+            out = previous
+        meta["post_answer_summary_used_llm"] = True
+        meta["post_answer_summary_model_id"] = (res.model_id or "").strip() or llm.model_id
+    except Exception:
+        parts = [p for p in (previous, f"Q: {augmented_question}", f"A: {ans}") if p]
+        out = "\n".join(parts).strip()
+    if len(out) > CHAT_MAX_SUMMARY_CHARS:
+        out = out[-CHAT_MAX_SUMMARY_CHARS:]
+    meta["post_answer_summary_ms"] = int((time.perf_counter() - t0) * 1000)
+    return out, meta

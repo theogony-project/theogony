@@ -103,6 +103,8 @@ def test_explorer_api_ask_returns_rich_payload(
     assert "planner_model_id" in payload["entry_plan"]
     assert isinstance(payload["query_embedding_preview"], list)
     assert "chat" in payload
+    assert payload["chat"]["rolling_summary"]
+    assert payload["chat"]["post_answer_summary_ms"] >= 0
     assert payload["chat"]["prior_messages_kept"] == []
     assert payload["chat"]["tokens_estimated_after"] >= 0
 

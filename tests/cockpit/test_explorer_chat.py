@@ -14,6 +14,7 @@ from theogony.cockpit.explorer_chat import (
     parse_explorer_rolling_summary,
     prepare_explorer_chat_for_synthesis,
     rough_token_estimate,
+    update_explorer_chat_history_summary,
 )
 
 
@@ -72,3 +73,18 @@ async def test_prepare_noop_when_small() -> None:
     assert kept == prior
     assert summary == ""
     assert "User:" in block or "User" in block
+
+
+@pytest.mark.asyncio
+async def test_update_history_summary_runs_after_each_answer_with_stub() -> None:
+    summary, meta = await update_explorer_chat_history_summary(
+        rolling_summary="Earlier: user asked about explorers.",
+        question="Welche genau?",
+        context_questions=["Sven Hedin Tibet Forschung", "geografische Entdeckungen"],
+        answer="Sven Hedin erforschte Transhimalaya-Routen und Kartenmaterial.",
+        llm=StubLLMProvider(),
+    )
+    assert "Earlier" in summary
+    assert "Welche genau? (Sven Hedin Tibet Forschung - geografische Entdeckungen)" in summary
+    assert "Transhimalaya" in summary
+    assert meta["post_answer_summary_used_llm"] is False

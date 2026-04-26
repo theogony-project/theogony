@@ -50,6 +50,7 @@ from theogony.cockpit.explorer_chat import (
     parse_explorer_chat_messages,
     parse_explorer_rolling_summary,
     prepare_explorer_chat_for_synthesis,
+    update_explorer_chat_history_summary,
 )
 from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
@@ -296,6 +297,19 @@ async def run_explorer_query(
     if len(answer_text) > ANSWER_MAX_CHARS:
         answer_text = answer_text[: ANSWER_MAX_CHARS - 3] + "..."
 
+    entry_plan = result.entry_plan or {}
+    cq_raw = entry_plan.get("context_question")
+    context_questions = [str(x) for x in cq_raw] if isinstance(cq_raw, list) else []
+    updated_summary, summary_meta = await update_explorer_chat_history_summary(
+        rolling_summary=summary_out or summary_in,
+        question=q,
+        context_questions=context_questions,
+        answer=answer_text,
+        llm=llm_eff,
+    )
+    summary_out = updated_summary
+    chat_meta.update(summary_meta)
+
     embed_preview: list[float] = []
     try:
         q_for_embed_preview = compose_query_for_retrieval(q, chat_block)
@@ -361,6 +375,13 @@ async def run_explorer_query(
             "prior_messages_kept": msgs_out,
             "compacted": bool(chat_meta.get("compacted")),
             "summarization_ms": int(chat_meta.get("summarization_ms", 0)),
+            "post_answer_summary_ms": int(chat_meta.get("post_answer_summary_ms", 0)),
+            "post_answer_summary_used_llm": bool(
+                chat_meta.get("post_answer_summary_used_llm", False)
+            ),
+            "post_answer_summary_model_id": str(
+                chat_meta.get("post_answer_summary_model_id", "")
+            ),
             "llm_summary_rounds": int(chat_meta.get("llm_summary_rounds", 0)),
             "stub_dropped_turns": int(chat_meta.get("stub_dropped_turns", 0)),
             "tokens_estimated_before": int(chat_meta.get("tokens_estimated_before", 0)),
