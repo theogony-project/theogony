@@ -1,6 +1,6 @@
 # Living Demo Plan
 
-**Status:** binding execution plan. Wave 1 (W7-W9) shipped; Wave 2 (W10-W12) shipped (W13 rewritten under new doctrine); Wave 3 (W13-W17) in planning.
+**Status:** binding execution plan. Wave 1 (W7-W9) shipped; Wave 2 (W10-W12) shipped (W13 rewritten under new doctrine); Wave 3 (W13-W18) in execution — **W18** is the post-W17.5 **knowledge-production quality** sprint (not UI polish).
 **Purpose:** replace broad roadmap language with a narrow build sequence that produces the first honest living Pantheon demo.
 **Supersedes:** former `docs/plans/AUTONOMOUS_CHRONICLE_GROWTH_ROADMAP.md`.
 
@@ -391,7 +391,7 @@ Wave 3 builds the immune system. It is the first wave that is genuinely "alive" 
 | **W17.5-B** | Cockpit usability | Make the organism legible in the Cockpit: readiness checklist, guided examples, growth lifecycle stepper, explanation cards, better empty states, report grouping, operator command drawer, and honest demo framing. | `docs/etappes/W17_5_cockpit_usability_brief.md` |
 | **W18** | Demo quality | Make the growth loop produce and explain better knowledge: bounded demo ingest, capped/prioritized mention resolution, relation extraction in the Cockpit growth path, relation/quality summaries in the UI, and a gated live characterization test. | `docs/etappes/W18_demo_quality_brief.md` |
 
-**After W17:** the first local Wave 3 test round from `demo/wave3_local_test.md` proved the W17 code paths but exposed demo fragility: the Research button needs explicit growth flags, selected candidates can still end in `ingest_failed`, and the Cockpit does not yet explain failure causes or next actions well enough. W17.5 is therefore a hardening/presentation wave before any public recording.
+**After W17:** the first local Wave 3 test round from `demo/wave3_local_test.md` proved the W17 code paths but exposed demo fragility: selected candidates can still end in `ingest_failed`, growth-loop ingests can be **slow**, **relation-poor** (`relations_extracted` skipped in the Cockpit path), and verdicts **`poor`** without enough operator-visible explanation. W17.5 was the hardening/presentation wave (A: robustness + scripts + `/health`; B: Cockpit legibility). **W18** is the follow-on **quality** sprint: bounded ingest, relation extraction in the growth path, and honest quality surfaces — **not** another UI-only polish pass.
 
 **After W17.5:** run the larger local Wave 3 test round again. This test should prove that the open ingest path, verification pool, Athene, Chronos, Nemesis, Eris, and Mnemosyne conductor can be observed together in one local loop. It is not meant to prove factual truth, live adversarial robustness, scheduler behaviour, or self-modifying code.
 
