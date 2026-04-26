@@ -57,6 +57,16 @@ This is the **Curiosity Loop**: attention is a first-class architectural input, 
 
 See [`CURIOSITY.md`](CURIOSITY.md) for the full mechanism.
 
+## The Strategy-Game View
+
+There is a useful operator analogy: Theogony should feel, at the Cockpit layer, like an Aufbau-strategy game. The Chronik is the map: the world, terrain, resource landscape, contested territory, and memory of what happened there. Pantheon agents are workers: autonomous units with roles, costs, capacities, and work preferences. The Cockpit is the strategy interface where the operator allocates limited resources, starts workers, sees which regions are thin or damaged, and watches the organism act.
+
+This is not a literal architecture and not a request for gamification. It is a product and control metaphor. "Miners" correspond to acquisition agents such as Argus; "factories" correspond to ingestion, extraction, and Oneiros transformation; "towers" correspond to post-hoc immune cells such as Athene, Nemesis, and Eris; "recyclers" correspond to Chronos; "planners" correspond to Mnemosyne.
+
+The crucial design principle is marker-driven autonomy. Agents should not need a human to hand them every task. They should find work by reading the map: verification-pool entries, `Finding` nodes, failed run reports, weak regions, contradictions, stale high-vitality nodes, blind spots, and Mnemosyne proposals. The operator starts or budgets worker classes; workers independently discover and process appropriate jobs.
+
+See [`STRATEGY_GAME_ANALOGY.md`](STRATEGY_GAME_ANALOGY.md) for the canonical product analogy.
+
 ## Two Equal Pillars
 
 The Chronik has two primary purposes of equal importance:
