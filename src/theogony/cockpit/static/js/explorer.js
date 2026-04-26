@@ -209,15 +209,35 @@
     return [String(s), String(t)];
   }
 
-  /** Labels for the fixed center node: show retrieval seeds, not only the chat line. */
+  /** True when Explorer sent rolling summary and/or prior turns (retrieval merge active). */
+  function explorerHasDialogueContext(payload) {
+    const c = payload.chat;
+    if (!c) return false;
+    if (String(c.rolling_summary || "").trim().length) return true;
+    const m = c.prior_messages_kept;
+    return Array.isArray(m) && m.length > 0;
+  }
+
+  /**
+   * Labels for the fixed center node + tooltip. Prefer ``context_question`` (Gutenberg
+   * get_context_question array) for counts; list ``sub_queries`` when it differs
+   * (post-anchor effective embedding seeds).
+   */
   function buildQuerySeedVisual(payload) {
     const q = String(payload.query || "").trim();
     const ep = payload.entry_plan;
+    const ctxQ = ep && String(ep.contextual_query || "").trim() ? String(ep.contextual_query).trim() : q;
     const subs =
       ep && Array.isArray(ep.sub_queries)
         ? ep.sub_queries.map((s) => String(s || "").trim()).filter((s) => s.length)
         : [];
-    const uniq = subs.length ? [...new Set(subs)] : q ? [q] : [];
+    const fromCtxQ =
+      ep && Array.isArray(ep.context_question) && ep.context_question.length
+        ? ep.context_question.map((s) => String(s || "").trim()).filter((s) => s.length)
+        : [];
+    const hasExplicitCQ = fromCtxQ.length > 0;
+    const vecForCenter = hasExplicitCQ ? fromCtxQ : subs;
+    const uniq = vecForCenter.length ? [...new Set(vecForCenter)] : q ? [q] : [];
     const lines = (() => {
       if (!uniq.length) return ["(no query)"];
       if (uniq.length === 1) {
@@ -228,17 +248,34 @@
         return uniq.map((s) => (s.length > 30 ? s.slice(0, 29) + "…" : s));
       }
       return [
-        `${uniq.length} retrieval seeds`,
+        `${uniq.length} search strings`,
         uniq
           .slice(0, 3)
           .map((s) => (s.length > 22 ? s.slice(0, 21) + "…" : s))
           .join(" · ") + (uniq.length > 3 ? " · …" : ""),
       ];
     })();
-    const tooltip =
+    const embedNote = explorerHasDialogueContext(payload)
+      ? "Each sub_query is embedded with the same prior summary and dialogue as your last turn (not the line alone)."
+      : "Each sub_query is merged into the embedder 'current question' (no extra chat merge this turn).";
+    const listTitle = hasExplicitCQ
+      ? `Vector search strings (context_question) (${uniq.length}):`
+      : `Vector seeds (sub_queries) (${uniq.length}):`;
+    const baseTool =
       `Your message:\n${q || "(empty)"}\n\n` +
-      `Vector seeds embedded for retrieval (${uniq.length}):\n` +
+      `Resolved retrieval intent (contextual_query):\n${ctxQ || "(empty)"}\n\n` +
+      `${listTitle}\n` +
       uniq.join("\n");
+    const subDiffers =
+      hasExplicitCQ && subs.length && subs.join("\u0000") !== fromCtxQ.join("\u0000");
+    const tooltip = subDiffers
+      ? `${baseTool}\n\n` +
+        `${embedNote}\n\n` +
+        `Embedded for retrieval (sub_queries) (${subs.length}):\n` +
+        subs.join("\n")
+      : subs.length
+        ? `${baseTool}\n\n${embedNote}`
+        : baseTool;
     return { lines, tooltip, uniq };
   }
 
@@ -530,13 +567,52 @@
       ep && Array.isArray(ep.sub_queries)
         ? ep.sub_queries.map((s) => String(s || "").trim()).filter((s) => s.length)
         : [];
+    const cqn =
+      ep && Array.isArray(ep.context_question)
+        ? ep.context_question.map((s) => String(s || "").trim()).filter((s) => s.length)
+        : [];
+    const ctxLine =
+      ep && String(ep.contextual_query || "").trim()
+        ? escapeHtml(String(ep.contextual_query).trim())
+        : escapeHtml(qRaw);
+    const ctxQBlock =
+      ep && cqn.length
+        ? `<div class="text-[10px] text-violet-300/85 mt-1">` +
+            `<span class="text-violet-200/90 font-medium">contextual_query</span> (resolved intent): ` +
+            `<span class="text-slate-200">${ctxLine}</span></div>` +
+            `<div class="mt-1.5 text-[10px] text-violet-300/85 font-medium">context_question (search strings, no anchor)</div>` +
+            `<ul class="mt-0.5 ml-1 list-disc list-inside text-slate-200 space-y-0.5 text-[11px]">` +
+            cqn.map((s) => `<li class="break-words">${escapeHtml(s)}</li>`).join("") +
+            `</ul>`
+        : ep && subs.length
+          ? `<div class="text-[10px] text-violet-300/85 mt-1">` +
+              `<span class="text-violet-200/90 font-medium">contextual_query</span>: ` +
+              `<span class="text-slate-200">${ctxLine}</span></div>`
+          : "";
+    const subDiffers =
+      subs.length &&
+      cqn.length &&
+      subs.join("\u0000") !== cqn.join("\u0000");
+    const subBlock =
+      subs.length
+        ? `<div class="mt-1.5 text-[10px] text-violet-300/85 font-medium">` +
+            `sub_queries (after anchor merge, embedded)${subDiffers ? "" : " — same as context_question in this run"}` +
+            `</div>` +
+            `<ul class="mt-0.5 ml-1 list-disc list-inside text-slate-200 space-y-0.5 text-[11px]">` +
+            subs.map((s) => `<li class="break-words">${escapeHtml(s)}</li>`).join("") +
+            `</ul>`
+        : "";
     const entryPlanHtml =
-      ep && subs.length
+      ep && (subs.length || cqn.length)
         ? `<div class="text-xs mb-2 rounded border border-violet-600/40 bg-violet-950/30 px-2 py-1.5 text-violet-100/95 leading-snug">
-             <div class="font-semibold text-violet-200/95">Retrieval seeds (Chronicle entry)</div>
-             <ul class="mt-1 ml-1 list-disc list-inside text-slate-200 space-y-0.5 text-[11px]">
-               ${subs.map((s) => `<li class="break-words">${escapeHtml(s)}</li>`).join("")}
-             </ul>
+             <div class="font-semibold text-violet-200/95">Chronicle entry (Gutenberg-style)</div>
+             ${ctxQBlock}
+             ${subBlock}
+             <div class="text-[10px] text-violet-300/80 mt-1.5">${
+               explorerHasDialogueContext(payload)
+                 ? "With multi-turn context, sub_queries are merged with the same summary / prior-messages block as a single vector input per string."
+                 : "Single-turn: each sub_query is merged into the embedder 'current question' (plus optional system-wide expansion, if any)."
+             }</div>
              ${
                ep.rationale
                  ? `<div class="text-slate-500 mt-1 text-[11px]">${escapeHtml(ep.rationale)}</div>`
@@ -544,7 +620,11 @@
              }
              <div class="text-[10px] text-violet-300/80 mt-1">${
                ep.used_llm_planner
-                 ? `Entry planner: LLM · ${ep.planner_duration_ms || 0} ms in retrieve.`
+                 ? `Entry planner: LLM${
+                     ep.planner_model_id
+                       ? ` · ${escapeHtml(String(ep.planner_model_id))}`
+                       : ""
+                   } · ${ep.planner_duration_ms || 0} ms in retrieve.`
                  : isOffline
                    ? "Entry planner needs a non-stub LLM; stub/offline mode only uses your message as the seed."
                    : subs.length > 1 || subs.some((s) => s.toLowerCase() !== qRaw.toLowerCase())

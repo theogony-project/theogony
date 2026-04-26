@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from theogony.agents.llm import StubLLMProvider
+from theogony.agents.llm import LLMResult, StubLLMProvider
 from theogony.config.settings import GrowthBridgeSettings, Settings
 from theogony.core.model import KnowledgeEdge, KnowledgeNode, NodeType, SourceRef
 from theogony.curiosity.growth_bridge import GrowthBridge
@@ -57,6 +57,43 @@ class _ConstantEmbedder:
 
     async def embed_many(self, texts: list[str]) -> list[list[float]]:
         return [await self.embed(t) for t in texts]
+
+
+class _CapturingEmbedder(_ConstantEmbedder):
+    """Records ``embed_many`` inputs for sub-query / expansion behaviour tests."""
+
+    def __init__(self) -> None:
+        self.embed_many_inputs: list[list[str]] = []
+
+    async def embed_many(self, texts: list[str]) -> list[list[float]]:  # type: ignore[override]
+        self.embed_many_inputs.append(list(texts))
+        return [await self.embed(t) for t in texts]
+
+
+class _FixedJsonEntryPlannerLLM:
+    """Non-stub LLM that returns a two-seed JSON plan (triggers the multi-embed path)."""
+
+    @property
+    def model_id(self) -> str:
+        return "fixed-entry-planner"
+
+    async def complete(  # noqa: D401, ANN202
+        self,
+        prompt: str,
+        *,
+        system: str | None = None,
+        json_schema: dict | None = None,
+        max_output_tokens: int | None = None,
+        temperature: float = 0.0,
+        timeout_s: float = 30.0,
+    ) -> LLMResult:
+        return LLMResult(
+            text='{"search_queries": ["alpha seed", "beta seed"], "rationale": "test"}',
+        )
+
+    async def complete_with_web_search_for_research_plan(self, *args, **kwargs) -> None:  # noqa: ANN002
+        msg = "not used in entry planner"
+        raise NotImplementedError(msg)
 
 
 def _src(loc: str) -> SourceRef:
@@ -328,3 +365,44 @@ class TestGrowthBridge:
         assert report.trigger.origin_query == "Wer war Sven Hedin?"
         # Empty store ⇒ low_node_count fires ⇒ REGION_THIN per priority 2.
         assert report.trigger.gap_class.value == "region_thin"
+
+
+class TestSubQueryEmbedsRetrievalExpansion:
+    """Follow-up + Explorer expansion must reach every per-seed vector (PHX-0051 / W18)."""
+
+    async def test_embed_many_merges_expansion_for_each_planner_seed(self) -> None:
+        store = InMemoryKnowledgeStore()
+        hedin, tibet = await _populate_two_node_chronik(store)
+        embedder = _CapturingEmbedder()
+        retriever = MultiHopRetriever(store)
+        assembler = ConstellationAssembler(store)
+        llm = StubLLMProvider(default=f"ok [{hedin.id}] [{tibet.id}].")
+        synthesizer = AnswerSynthesizer(llm)
+        relevance = RelevanceTracker(store)
+        pipeline = QueryPipeline(
+            embedder=embedder,
+            retriever=retriever,
+            assembler=assembler,
+            synthesizer=synthesizer,
+            relevance=relevance,
+            settings=Settings(),
+            entry_planner_llm=_FixedJsonEntryPlannerLLM(),
+        )
+        expansion = "User asked about Sven Hedin and Tibet expeditions."
+        result = await pipeline.ask("Was genau?", retrieval_query_expansion=expansion)
+        ep = result.entry_plan
+        assert ep is not None
+        assert ep.get("contextual_query")
+        assert isinstance(ep.get("context_question"), list) and ep["context_question"]
+        assert isinstance(ep.get("sub_queries"), list) and ep["sub_queries"]
+        assert ep.get("planner_model_id") == "fixed-entry-planner"
+        assert embedder.embed_many_inputs, "multi-seed path should call embed_many"
+        composed = embedder.embed_many_inputs[0]
+        # Planner returns two seeds; ``normalize_sub_queries`` may append the
+        # short current turn ("Was genau?") as a third seed when it fits the cap.
+        assert 2 <= len(composed) <= 3
+        for t in composed:
+            assert expansion in t
+            assert "Current question:" in t
+        joined = "\n".join(composed)
+        assert "alpha seed" in joined and "beta seed" in joined

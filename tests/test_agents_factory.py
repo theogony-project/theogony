@@ -6,7 +6,7 @@ import pytest
 from pydantic import SecretStr
 
 from theogony.agents.factory import build_llm_from_settings
-from theogony.agents.llm import StubLLMProvider
+from theogony.agents.llm import LLMResult, StubLLMProvider
 from theogony.agents.llm_anthropic import AnthropicLLMProvider
 from theogony.agents.llm_gemini import GeminiLLMProvider
 from theogony.agents.llm_openai import OpenAILLMProvider
@@ -95,7 +95,7 @@ class TestGeminiProvider:
         s = Settings(  # type: ignore[call-arg]
             GEMINI_API_KEY=None,
             GOOGLE_API_KEY=SecretStr("x-google-key"),
-            llm=LLMSettings(provider="gemini"),
+            llm=LLMSettings(provider="gemini", fallback_provider=None),
         )
         provider = build_llm_from_settings(s)
         assert isinstance(provider, GeminiLLMProvider)
@@ -110,4 +110,96 @@ class TestUnknownProvider:
         # Mutate after construction to dodge the typing.Literal check.
         object.__setattr__(s.llm, "provider", "made-up")
         with pytest.raises(ValueError, match="Unknown LLM provider"):
+            build_llm_from_settings(s)
+
+
+class _DummyProvider:
+    def __init__(self, model_id: str, *, fail: bool = False) -> None:
+        self._model_id = model_id
+        self._fail = fail
+        self.calls = 0
+
+    @property
+    def model_id(self) -> str:
+        return self._model_id
+
+    async def complete(self, prompt: str, **_: object) -> LLMResult:
+        self.calls += 1
+        if self._fail:
+            raise RuntimeError("boom")
+        return LLMResult(text=f"{self._model_id}:{prompt}", model_id=self._model_id)
+
+    async def complete_with_web_search_for_research_plan(self, **_: object):
+        if self._fail:
+            raise RuntimeError("boom")
+        return object(), object()
+
+
+class TestFallbackProvider:
+    @pytest.mark.asyncio
+    async def test_fallback_is_used_when_primary_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import theogony.agents.factory as factory_mod
+
+        providers: dict[str, _DummyProvider] = {
+            "openai": _DummyProvider("gpt-4o-mini", fail=True),
+            "anthropic": _DummyProvider("claude-haiku-4-5"),
+        }
+
+        def _fake_build_single_provider(settings, provider_name: str, model_id: str):  # type: ignore[no-untyped-def]
+            del settings, model_id
+            return providers[provider_name]
+
+        monkeypatch.setattr(factory_mod, "_build_single_provider", _fake_build_single_provider)
+        s = _settings(
+            provider="openai",
+            model_id="gpt-4o-mini",
+            openai_key="sk-x",
+            anthropic_key="sk-ant-x",
+        )
+        object.__setattr__(s.llm, "fallback_provider", "anthropic")
+        object.__setattr__(s.llm, "fallback_model_id", "claude-haiku-4-5")
+
+        provider = build_llm_from_settings(s)
+        out = await provider.complete("hello")
+        assert out.model_id == "claude-haiku-4-5"
+        assert providers["openai"].calls == 1
+        assert providers["anthropic"].calls == 1
+
+    @pytest.mark.asyncio
+    async def test_primary_success_emits_complete_ok_log(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import theogony.agents.factory as factory_mod
+
+        prov_openai = _DummyProvider("gpt-4o-mini", fail=False)
+        prov_anth = _DummyProvider("claude-fallback", fail=False)
+
+        def _fake_build_single_provider(settings, provider_name: str, model_id: str):  # type: ignore[no-untyped-def]
+            del settings, model_id
+            if provider_name == "openai":
+                return prov_openai
+            return prov_anth
+
+        monkeypatch.setattr(factory_mod, "_build_single_provider", _fake_build_single_provider)
+        s = _settings(
+            provider="openai",
+            model_id="gpt-4o-mini",
+            openai_key="sk-x",
+            anthropic_key="sk-ant-x",
+        )
+        object.__setattr__(s.llm, "fallback_provider", "anthropic")
+        object.__setattr__(s.llm, "fallback_model_id", "claude-fallback")
+
+        provider = build_llm_from_settings(s)
+        out = await provider.complete("ping")
+        assert "gpt-4o-mini" in out.text
+        assert prov_openai.calls == 1
+        assert prov_anth.calls == 0
+
+    def test_rejects_same_provider_as_fallback(self) -> None:
+        s = _settings(provider="openai", model_id="gpt-4o-mini", openai_key="sk-x")
+        object.__setattr__(s.llm, "fallback_provider", "openai")
+        with pytest.raises(ValueError, match="must differ"):
             build_llm_from_settings(s)

@@ -378,14 +378,32 @@
     return [String(s), String(t)];
   }
 
+  function explorerHasDialogueContext(payload) {
+    const c = payload.chat;
+    if (!c) return false;
+    if (String(c.rolling_summary || "").trim().length) return true;
+    const m = c.prior_messages_kept;
+    return Array.isArray(m) && m.length > 0;
+  }
+
+  /**
+   * Match explorer.js: context_question for spoke labels; sub_queries when anchor differs.
+   */
   function buildQuerySeedVisual(payload) {
     const q = String(payload.query || "").trim();
     const ep = payload.entry_plan;
+    const ctxQ = ep && String(ep.contextual_query || "").trim() ? String(ep.contextual_query).trim() : q;
     const subs =
       ep && Array.isArray(ep.sub_queries)
         ? ep.sub_queries.map((s) => String(s || "").trim()).filter((s) => s.length)
         : [];
-    const uniq = subs.length ? [...new Set(subs)] : q ? [q] : [];
+    const fromCtxQ =
+      ep && Array.isArray(ep.context_question) && ep.context_question.length
+        ? ep.context_question.map((s) => String(s || "").trim()).filter((s) => s.length)
+        : [];
+    const hasExplicitCQ = fromCtxQ.length > 0;
+    const vecForCenter = hasExplicitCQ ? fromCtxQ : subs;
+    const uniq = vecForCenter.length ? [...new Set(vecForCenter)] : q ? [q] : [];
     const lines = (() => {
       if (!uniq.length) return ["(no query)"];
       if (uniq.length === 1) {
@@ -396,17 +414,34 @@
         return uniq.map((s) => (s.length > 30 ? s.slice(0, 29) + "…" : s));
       }
       return [
-        `${uniq.length} retrieval seeds`,
+        `${uniq.length} search strings`,
         uniq
           .slice(0, 3)
           .map((s) => (s.length > 22 ? s.slice(0, 21) + "…" : s))
           .join(" · ") + (uniq.length > 3 ? " · …" : ""),
       ];
     })();
-    const tooltip =
+    const embedNote = explorerHasDialogueContext(payload)
+      ? "Each sub_query is embedded with the same prior summary and dialogue as your last turn (not the line alone)."
+      : "Each sub_query is merged into the embedder 'current question' (no extra chat merge this turn).";
+    const listTitle = hasExplicitCQ
+      ? `Vector search strings (context_question) (${uniq.length}):`
+      : `Vector seeds (sub_queries) (${uniq.length}):`;
+    const baseTool =
       `Your message:\n${q || "(empty)"}\n\n` +
-      `Vector seeds embedded for retrieval (${uniq.length}):\n` +
+      `Resolved retrieval intent (contextual_query):\n${ctxQ || "(empty)"}\n\n` +
+      `${listTitle}\n` +
       uniq.join("\n");
+    const subDiffers =
+      hasExplicitCQ && subs.length && subs.join("\u0000") !== fromCtxQ.join("\u0000");
+    const tooltip = subDiffers
+      ? `${baseTool}\n\n` +
+        `${embedNote}\n\n` +
+        `Embedded for retrieval (sub_queries) (${subs.length}):\n` +
+        subs.join("\n")
+      : subs.length
+        ? `${baseTool}\n\n${embedNote}`
+        : baseTool;
     return { lines, tooltip, uniq };
   }
 
