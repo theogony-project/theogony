@@ -166,6 +166,9 @@ def _format_provider_summary(settings: Settings) -> Table:
     table.add_column("Value")
     table.add_row("LLM provider", settings.llm.provider)
     table.add_row("LLM model", settings.llm.model_id)
+    if settings.llm.fallback_provider is not None:
+        table.add_row("LLM fallback", settings.llm.fallback_provider)
+        table.add_row("LLM fallback model", settings.llm.resolved_fallback_model_id())
     table.add_row("LLM timeout (s)", str(settings.llm.timeout_s))
     key = settings.active_llm_api_key()
     table.add_row(

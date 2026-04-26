@@ -59,7 +59,10 @@ def _standalone_llm(settings: Settings) -> LLMProvider:
         )
         return StubLLMProvider(
             model_id=settings.llm.model_id or "stub-llm",
-            default="(stub: set ANTHROPIC_API_KEY and THEOGONY_LLM__PROVIDER=anthropic)",
+            default=(
+                "(stub: set OPENAI_API_KEY, or ANTHROPIC for Claude-only, "
+                "or THEOGONY_LLM__PROVIDER=stub)"
+            ),
         )
     if isinstance(llm, StubLLMProvider):
         log.info("cockpit standalone: LLM provider is stub (THEOGONY_LLM__PROVIDER=stub)")

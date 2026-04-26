@@ -97,6 +97,10 @@ def test_explorer_api_ask_returns_rich_payload(
     assert payload["synthesis_meta"]["stub_llm"] is True
     assert "entry_plan" in payload
     assert payload["entry_plan"]["sub_queries"]
+    assert payload["entry_plan"].get("contextual_query")
+    assert isinstance(payload["entry_plan"].get("context_question"), list)
+    assert payload["entry_plan"]["context_question"]
+    assert "planner_model_id" in payload["entry_plan"]
     assert isinstance(payload["query_embedding_preview"], list)
     assert "chat" in payload
     assert payload["chat"]["prior_messages_kept"] == []

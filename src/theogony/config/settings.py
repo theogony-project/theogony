@@ -20,6 +20,7 @@ Examples::
     THEOGONY_LOG_LEVEL=DEBUG
     THEOGONY_LLM__PROVIDER=openai
     THEOGONY_LLM__MODEL_ID=gpt-4o-mini
+    THEOGONY_LLM__FALLBACK_PROVIDER=anthropic
     THEOGONY_NEO4J__PASSWORD=changeme
 
 API keys are special: they are read from canonical, **un-prefixed** names
@@ -46,35 +47,46 @@ LLMProviderName = Literal["gemini", "openai", "anthropic", "stub"]
 class LLMSettings(BaseModel):
     """Selection and tuning of the active LLMProvider.
 
-    The default is **Anthropic ``claude-sonnet-4-6``** (Claude Sonnet
-    4.6): prepaid API credits and predictable billing are a better fit
-    for day-to-day ingest / demo runs than Gemini's free-tier daily
-    caps. OpenAI ``gpt-4o-mini`` and Gemini ``gemini-2.5-flash-lite``
-    remain first-class options (Plan §3.3a pricing table) via
-    ``THEOGONY_LLM__PROVIDER=openai`` or ``THEOGONY_LLM__PROVIDER=gemini``.
+    **Defaults:** **OpenAI** ``gpt-4o-mini`` as primary; **Anthropic**
+    (``claude-sonnet-4-6``) as the **fallback** when the primary call
+    fails (quota, transient errors, etc.), so a single `OPENAI_API_KEY`
+    plus `ANTHROPIC_API_KEY` gives the intended production stack. Override
+    with ``THEOGONY_LLM__PROVIDER`` / ``THEOGONY_LLM__MODEL_ID``; set
+    ``THEOGONY_LLM__FALLBACK_PROVIDER`` (empty / omitted behaviour is
+    provider-default) to change or clear fallback.
+
+    Gemini ``gemini-2.5-flash-lite`` remains a first-class option (Plan
+    §3.3a) via ``THEOGONY_LLM__PROVIDER=gemini`` and ``GEMINI_API_KEY`` /
+    ``GOOGLE_API_KEY``.
 
     The PR #30 default ``claude-3-5-haiku-20241022`` was retired by
-    Anthropic; W5 moved the stack to Haiku 4.5, then the default was
-    raised to Sonnet 4.6 for extraction quality. Override with
-    ``THEOGONY_LLM__MODEL_ID`` (e.g. ``claude-haiku-4-5-20251001``) when
-    you want a cheaper tier.
-
-    Switch providers without touching code via
-    ``THEOGONY_LLM__PROVIDER=gemini|openai|anthropic|stub`` (and set the
-    matching API key: ``ANTHROPIC_API_KEY``, ``OPENAI_API_KEY``, or
-    ``GEMINI_API_KEY`` / ``GOOGLE_API_KEY``).
+    Anthropic; the Anthropic default model is Sonnet 4.6. Override with
+    ``THEOGONY_LLM__MODEL_ID`` (or ``THEOGONY_LLM__FALLBACK_MODEL_ID`` for
+    the fallback) when you want a cheaper tier.
 
     ``model_id`` defaults per ``provider`` when left empty (e.g. env
     sets only ``THEOGONY_LLM__PROVIDER=gemini``).
     """
 
-    provider: LLMProviderName = "anthropic"
+    provider: LLMProviderName = "openai"
     model_id: str = Field(
         default="",
         description="Model name for the active provider; empty → sensible default.",
     )
     timeout_s: float = Field(default=30.0, gt=0.0)
     max_concurrency: int = Field(default=8, ge=1)
+    fallback_provider: LLMProviderName | None = Field(
+        default="anthropic",
+        description=(
+            "Fallback provider when the primary LLM call fails. Default: "
+            "anthropic (Claude) when primary is openai. Set to the same as "
+            "``provider`` to disable (auto-cleared). Ignored if unset/None."
+        ),
+    )
+    fallback_model_id: str = Field(
+        default="",
+        description="Optional model id for fallback_provider; empty => provider default.",
+    )
     offline_top_n_citations: int = Field(
         default=6,
         ge=1,
@@ -94,6 +106,28 @@ class LLMSettings(BaseModel):
         }
         object.__setattr__(self, "model_id", defaults[self.provider])
         return self
+
+    @model_validator(mode="after")
+    def _disable_fallback_when_same_as_primary(self) -> Self:
+        fb = self.fallback_provider
+        if fb is not None and fb == self.provider:
+            object.__setattr__(self, "fallback_provider", None)
+        return self
+
+    def resolved_fallback_model_id(self) -> str:
+        """Model id for ``fallback_provider`` when ``fallback_model_id`` is empty."""
+        fb = self.fallback_provider
+        if fb is None:
+            return ""
+        explicit = (self.fallback_model_id or "").strip()
+        if explicit:
+            return explicit
+        return LLMSettings(
+            provider=fb,
+            model_id="",
+            fallback_provider=None,
+            fallback_model_id="",
+        ).model_id
 
 
 class EmbeddingSettings(BaseModel):
@@ -238,6 +272,15 @@ class CockpitSettings(BaseModel):
     sample_top_n_nodes: int = Field(default=20, ge=1, le=200)
     sample_recent_n_reports: int = Field(default=50, ge=1, le=500)
     manifest_path: Path = Field(default=Path("cockpit/manifest.md"))
+    demo_ingest_max_resolve_mentions: int = Field(
+        default=120,
+        ge=1,
+        le=1000,
+        description=(
+            "Upper bound for mention resolution in cockpit growth ingest runs "
+            "(W18 bounded ingest quality knob)."
+        ),
+    )
     manifest_git_commit: bool = Field(default=False)
     auth_provider: Literal["none", "oidc", "github", "basic", "password_file"] = "none"
     status_sse_interval_s: float = Field(default=5.0, ge=5.0, le=300.0)
@@ -757,7 +800,11 @@ class Settings(BaseSettings):
         provider-name → key mapping is encoded, so individual provider
         modules do not need to re-implement the fallback rules.
         """
-        match self.llm.provider:
+        return self.llm_api_key_for(self.llm.provider)
+
+    def llm_api_key_for(self, provider: LLMProviderName) -> SecretStr | None:
+        """Return API key for a specific provider."""
+        match provider:
             case "openai":
                 return self.openai_api_key
             case "anthropic":

@@ -8,15 +8,19 @@ without further round-trips:
 - ``constellation``: nodes, edges, score, type, cluster
 - ``cited_node_ids``: the answer's citations
 - ``query_embedding_preview``: first ``preview_dim`` (32) coordinates of the
-  query vector — enough for a small "vector signature" sparkline without
-  shipping the full embedding to the browser
+  **retrieval** query vector (same merge as the pipeline: last turn + optional
+  prior summary/messages) — a small "vector signature" without shipping the
+  full embedding to the browser
 - ``timing_ms``: stage breakdown (chat prep / embed / retrieve / synthesize / total)
 - ``chat``: rolling summary, ``prior_messages_kept`` (sync after compaction), token estimates
 - ``retrieval``: ``seed_count``, ``final_node_count``, ``hops``, ``k``,
   ``thinking_max`` (cap on extra post-synthesis rounds), ``strategy``,
   optional ``nodes_per_hop`` (``None`` for ``fixed_depth``)
-- ``entry_plan``: optional LLM-chosen sub-queries when
-  ``retrieval.chronicle_entry_planner.enabled`` is true
+- ``entry_plan``: Chronicle entry planning metadata — ``contextual_query`` and
+  ``context_question`` mirror the Gutenberg ``get_context_question`` shape
+  (resolved intent, then model search strings; no anchor merge);
+  ``sub_queries`` is the list after merge with the short current turn, used
+  for multi-seed embedding
 - ``synthesis_meta``: whether a :class:`~theogony.agents.llm.StubLLMProvider`
   produced the answer (UI can warn that prose is a placeholder)
 
@@ -59,7 +63,7 @@ from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.multi_hop import MultiHopRetriever
-from theogony.retrieval.pipeline import QueryPipeline
+from theogony.retrieval.pipeline import QueryPipeline, compose_query_for_retrieval
 from theogony.retrieval.strategy_factory import build_retrieval_strategy
 from theogony.retrieval.synthesizer_factory import build_synthesizer
 
@@ -294,7 +298,8 @@ async def run_explorer_query(
 
     embed_preview: list[float] = []
     try:
-        vec = await embedder.embed(q)
+        q_for_embed_preview = compose_query_for_retrieval(q, chat_block)
+        vec = await embedder.embed(q_for_embed_preview)
         for x in vec[:EMBEDDING_PREVIEW_DIM]:
             f = float(x)
             embed_preview.append(f if math.isfinite(f) else 0.0)

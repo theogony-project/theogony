@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from theogony.agents.llm import StubLLMProvider
+from theogony.agents.llm import LLMResult, StubLLMProvider
 from theogony.config.settings import ChronicleEntryPlannerSettings
 from theogony.core.model import KnowledgeNode, NodeType, SourceRef
 from theogony.core.store import ScoredNode
@@ -114,3 +114,41 @@ async def test_plan_chronicle_entry_queries_skips_stub_llm() -> None:
     plan = await plan_chronicle_entry_queries(llm=llm, user_query="hello", limits=limits)
     assert plan.used_llm is False
     assert plan.search_queries == ["hello"]
+
+
+class _ContextualPlannerLLM:
+    @property
+    def model_id(self) -> str:
+        return "contextual-planner"
+
+    async def complete(self, prompt: str, **_: object) -> LLMResult:
+        assert "contextual_query" in prompt
+        return LLMResult(
+            text=(
+                '{"contextual_query": "Sven Hedin Tibet exploration Loulan Lop Nur", '
+                '"search_queries": ["Sven Hedin Tibet exploration", "Loulan Lop Nur"], '
+                '"rationale": "Resolved vague follow-up through prior chat."}'
+            ),
+            model_id=self.model_id,
+        )
+
+
+@pytest.mark.asyncio
+async def test_plan_chronicle_entry_queries_uses_llm_contextual_query_for_followup() -> None:
+    blend = (
+        "User: Wer war Sven Hedin?\n\n"
+        "Assistant: Sven Hedin reiste nach Tibet und erforschte Loulan und das Lop Nur.\n\n"
+        "---\nCurrent question:\nwas konkret?"
+    )
+    limits = ChronicleEntryPlannerSettings(max_sub_queries=4, max_chars_per_sub_query=120)
+    plan = await plan_chronicle_entry_queries(
+        llm=_ContextualPlannerLLM(),
+        user_query=blend,
+        limits=limits,
+    )
+    assert plan.used_llm is True
+    assert plan.planner_model_id == "contextual-planner"
+    assert plan.contextual_query == "Sven Hedin Tibet exploration Loulan Lop Nur"
+    assert plan.search_queries[0] == "Sven Hedin Tibet exploration"
+    assert "Loulan Lop Nur" in plan.search_queries
+    assert "was konkret?" in plan.search_queries

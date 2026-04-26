@@ -69,6 +69,7 @@ from theogony.reporting.models import (
 from theogony.reporting.verdict import query_verdict
 from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.chronicle_entry_planner import (
+    ChronicleEntryPlan,
     merge_multi_hop_results,
     plan_chronicle_entry_queries,
 )
@@ -263,6 +264,7 @@ class QueryPipeline:
         plan_rationale = ""
         plan_used_llm = False
         sub_queries = [q_original]
+        entry_planner_out: ChronicleEntryPlan | None = None
 
         if (
             planner_cfg.enabled
@@ -276,6 +278,7 @@ class QueryPipeline:
                     user_query=q_for_retrieval,
                     limits=planner_cfg,
                 )
+                entry_planner_out = plan
                 sub_queries = plan.search_queries or [q_original]
                 plan_rationale = plan.rationale
                 plan_used_llm = plan.used_llm
@@ -288,11 +291,18 @@ class QueryPipeline:
         embed_perf = time.perf_counter()
         query_embedding = await self._embedder.embed(q_for_retrieval)
         uniq_subs = list(dict.fromkeys(sub_queries))
+        # When the entry planner returns several seeds, each sub-query used to be
+        # embedded in isolation. That dropped ``retrieval_query_expansion`` (rolling
+        # summary + prior turns) and broke vague follow-ups ("Was konkret?"). Merge
+        # each sub with the same expansion the planner already saw in ``q_for_retrieval``.
+        composed_for_subs = [
+            compose_query_for_retrieval(sq, retrieval_query_expansion) for sq in uniq_subs
+        ]
         sub_pairs: list[tuple[str, list[float]]] = []
         if len(uniq_subs) == 1 and uniq_subs[0].casefold() == q_original.casefold():
             sub_pairs = [(q_original, query_embedding)]
         else:
-            vecs = await self._embedder.embed_many(uniq_subs)
+            vecs = await self._embedder.embed_many(composed_for_subs)
             sub_pairs = list(zip(uniq_subs, vecs, strict=True))
         embedding_duration_ms = int((time.perf_counter() - embed_perf) * 1000)
 
@@ -319,11 +329,30 @@ class QueryPipeline:
         thinking_rounds: list[dict[str, Any]] = []
         synthesis_total_latency_ms = 0
 
+        plan_mid = ""
+        if entry_planner_out is not None:
+            ctx_q = (entry_planner_out.contextual_query or "").strip() or q_original
+            cqt = entry_planner_out.context_question
+            ctx_list = list(cqt) if cqt else [q_original]
+            plan_mid = (entry_planner_out.planner_model_id or "").strip()
+        else:
+            ctx_q = q_original
+            ctx_list = [q_original]
         entry_plan: dict[str, Any] = {
             "used_llm_planner": plan_used_llm,
+            "planner_model_id": plan_mid,
+            "contextual_query": ctx_q,
+            "context_question": ctx_list,
             "sub_queries": sub_queries,
             "rationale": plan_rationale,
             "planner_duration_ms": planner_ms,
+            "retrieval_shape_note": (
+                "contextual_query is resolved intent (display / synthesis context); "
+                "context_question is the model search string array (Gutenberg "
+                "get_context_question); sub_queries = those strings after anchor "
+                "merge, used for multi-seed embedding — contextual_query is not "
+                "prepended into seeds (matches Gutenberg _build_search_queries)."
+            ),
             "thinking": {
                 "max_rounds_requested": effective_thinking,
                 "rounds": thinking_rounds,

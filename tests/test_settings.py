@@ -48,10 +48,18 @@ def _isolate_environment(
 
 
 class TestSettingsDefaults:
-    def test_default_llm_provider_is_anthropic_claude_sonnet_4_6(self) -> None:
+    def test_default_llm_is_openai_gpt4o_mini_with_anthropic_fallback(self) -> None:
         s = Settings()
+        assert s.llm.provider == "openai"
+        assert s.llm.model_id == "gpt-4o-mini"
+        assert s.llm.fallback_provider == "anthropic"
+        assert s.llm.fallback_model_id == ""
+        assert s.llm.resolved_fallback_model_id() == "claude-sonnet-4-6"
+
+    def test_anthropic_primary_drops_default_fallback(self) -> None:
+        s = Settings(llm=LLMSettings(provider="anthropic"))  # type: ignore[arg-type]
         assert s.llm.provider == "anthropic"
-        assert s.llm.model_id == "claude-sonnet-4-6"
+        assert s.llm.fallback_provider is None
 
     def test_default_embedding_is_bge_small(self) -> None:
         s = Settings()
@@ -70,6 +78,10 @@ class TestSettingsDefaults:
     def test_default_chronicle_entry_planner_enabled(self) -> None:
         assert Settings().retrieval.chronicle_entry_planner.enabled is True
         assert ChronicleEntryPlannerSettings().enabled is True
+
+    def test_default_cockpit_demo_resolve_bound(self) -> None:
+        s = Settings()
+        assert s.cockpit.demo_ingest_max_resolve_mentions == 120
 
     def test_no_api_keys_set_by_default(self) -> None:
         s = Settings()

@@ -66,7 +66,7 @@ See [`docs/etappes/demo_log.md`](docs/etappes/demo_log.md) for a captured run wi
 
 - **Python 3.12+**.
 - **Docker** (or any other way to run Neo4j 5.18-community on `localhost:7687`).
-- **An Anthropic API key** in `ANTHROPIC_API_KEY` (default provider). Prepaid credits work well for bounded demos. To use **OpenAI** instead: `THEOGONY_LLM__PROVIDER=openai` and `OPENAI_API_KEY` (`gpt-4o-mini`). For **Gemini**: `pip install -e ".[dev,gemini]"` and set `THEOGONY_LLM__PROVIDER=gemini` plus `GEMINI_API_KEY` or `GOOGLE_API_KEY`.
+- **An OpenAI API key** in `OPENAI_API_KEY` (default primary: `gpt-4o-mini`) and, for the **default Claude fallback** on primary failure, an **Anthropic** key in `ANTHROPIC_API_KEY` (`claude-sonnet-4-6` unless overridden with `THEOGONY_LLM__FALLBACK_MODEL_ID`). To use **Claude** as primary instead: `THEOGONY_LLM__PROVIDER=anthropic`. For **Gemini**: `pip install -e ".[dev,gemini]"` and set `THEOGONY_LLM__PROVIDER=gemini` plus `GEMINI_API_KEY` or `GOOGLE_API_KEY`. Disable fallback: set `THEOGONY_LLM__FALLBACK_PROVIDER` to the same value as `THEOGONY_LLM__PROVIDER` (e.g. both `openai`) or use `stub` / explicit overrides as needed.
 
 ### The demo
 
