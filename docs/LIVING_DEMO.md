@@ -26,7 +26,7 @@ These points map to the exit criteria in [`docs/plans/LIVING_DEMO_PLAN.md`](plan
 
 1. Run the reset script (gated — see script output if you forget the confirmation env var): [`demo/reset_living_growth.sh`](../demo/reset_living_growth.sh).
 2. Follow the operator recording script: [`demo/living_growth.md`](../demo/living_growth.md).
-3. For Wave 3 local operators, prefer the helper scripts (chronicle defaults to **Neo4j** for both Cockpit standalone and worker script; use `THEOGONY_COCKPIT__KNOWLEDGE_STORE=memory` or `STORE=memory` when Bolt is not running):
+3. For Wave 3 local operators, prefer the helper scripts. [`demo/start_wave3_cockpit.sh`](../demo/start_wave3_cockpit.sh) **pins Neo4j** (and tries `docker compose up -d neo4j` for the default Bolt URL) so restarts keep data. Ephemeral RAM graph only when you truly have no Bolt: `THEOGONY_COCKPIT__USE_MEMORY=1 bash demo/start_wave3_cockpit.sh`. Worker script: use `STORE=memory` only when Bolt is not running.
    - [`demo/start_wave3_cockpit.sh`](../demo/start_wave3_cockpit.sh)
    - [`demo/run_wave3_workers.sh`](../demo/run_wave3_workers.sh)
 
