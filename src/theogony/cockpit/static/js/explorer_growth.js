@@ -13,6 +13,7 @@
   const kEl = document.getElementById("explorer-k");
   const hopsEl = document.getElementById("explorer-hops");
   const thinkingMaxEl = document.getElementById("explorer-thinking-max");
+  const newChatBtn = document.getElementById("explorer-new-chat");
   const statusEl = document.getElementById("explorer-status");
   const vectorEl = document.getElementById("explorer-vector");
   const timingEl = document.getElementById("explorer-timing");
@@ -23,6 +24,16 @@
     retrieve: document.getElementById("phase-retrieve"),
     synth: document.getElementById("phase-synth"),
   };
+  /** @type {{ role: string, content: string }[]} */
+  let chatTurns = [];
+  let rollingSummary = "";
+
+  if (newChatBtn) {
+    newChatBtn.addEventListener("click", () => {
+      chatTurns = [];
+      rollingSummary = "";
+    });
+  }
 
   const TYPE_COLOR = {
     person: "#f472b6",
@@ -760,6 +771,10 @@
     setStatus("connecting (growth)…");
     clearGraph();
     resetResearchPanel();
+    const priorForApi = chatTurns.map((t) => ({
+      role: t.role,
+      content: String(t.content || ""),
+    }));
     let resp;
     try {
       resp = await fetch("/cockpit/api/growth-stream", {
@@ -773,8 +788,8 @@
           thinking_max: thinkingMaxEl
             ? Math.max(0, Math.min(8, parseInt(thinkingMaxEl.value, 10) || 0))
             : 2,
-          conversation_summary: "",
-          conversation_messages: [],
+          conversation_summary: rollingSummary || "",
+          conversation_messages: priorForApi,
         }),
       });
     } catch (err) {
@@ -806,6 +821,24 @@
     if (qEl) qEl.value = "";
     applyPayload(payload);
     appendGrowthAnswerTurn(payload);
+    const ch = payload.chat || {};
+    if (Array.isArray(ch.prior_messages_kept)) {
+      chatTurns = ch.prior_messages_kept.map((x) => ({
+        role: x.role,
+        content: String(x.content || ""),
+      }));
+    } else {
+      chatTurns = priorForApi.map((x) => ({
+        role: x.role,
+        content: String(x.content || ""),
+      }));
+    }
+    chatTurns.push({ role: "user", content: trimmed });
+    chatTurns.push({
+      role: "assistant",
+      content: String((payload.answer && payload.answer.text) || ""),
+    });
+    rollingSummary = typeof ch.rolling_summary === "string" ? ch.rolling_summary : rollingSummary;
     setGrowthStep("ask", "done");
   }
 
