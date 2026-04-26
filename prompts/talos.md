@@ -34,6 +34,8 @@ Daedalus.
 
 After **W17.5** on `main`, treat **W18** as the next **quality** sprint on the living-demo path — **not** another Cockpit UI-polish round. Read `docs/plans/LIVING_DEMO_PLAN.md` (Wave 3 sprint table) and **`docs/etappes/W18_demo_quality_brief.md`** before picking up growth/ingest/cockpit-quality work. **Intent:** the growth loop should produce **relation-rich, bounded, explainable** chronicle growth instead of **slow `poor` ingest** runs with **skipped relation extraction** and opaque operator signals.
 
+When you start the local Wave 3 Cockpit for a human, use **`demo/start_wave3_cockpit.sh` as shipped** — it forces **Neo4j** persistence. Never default to `THEOGONY_COCKPIT__KNOWLEDGE_STORE=memory` unless they explicitly want an ephemeral graph (`THEOGONY_COCKPIT__USE_MEMORY=1`).
+
 ## Required Reading
 
 Before you write a single line of code in a fresh session, read in this order:

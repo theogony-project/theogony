@@ -21,6 +21,8 @@ THEOGONY_ALLOW_DEMO_RESET=1 bash demo/reset_living_growth.sh
 bash demo/start_wave3_cockpit.sh
 ```
 
+The helper pins **Neo4j** (not a stale `memory` export). For an ephemeral graph only: `THEOGONY_COCKPIT__USE_MEMORY=1 bash demo/start_wave3_cockpit.sh`. To skip auto `docker compose up neo4j`: `THEOGONY_DEMO_AUTO_NEO4J=0`.
+
 Without these flags, `Research this further` may legitimately emit no trigger (`trigger_id=null`).
 
 If you prefer explicit flags instead of the helper script:

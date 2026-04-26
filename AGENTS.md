@@ -118,6 +118,7 @@ These are observed, real failure modes — not theoretical risks. If you find yo
 6. **Do not commit secrets.** API keys, tenant identifiers, customer data — never in source, tests, fixtures, logs at INFO level, commit messages, or PR descriptions. `pydantic-settings` + `SecretStr` is the only entry path for keys.
 7. **Do not introduce new top-level modules, agent classes, or memory layers** beyond what the plan specifies.
 8. **Do not bypass the human commander.** Significant decisions, scope changes, or architectural deviations require explicit human review. The human stays in the loop.
+9. **Do not start the Wave 3 Cockpit helper with an ephemeral chronicle unless the human explicitly asked.** `demo/start_wave3_cockpit.sh` pins **Neo4j** (and best-effort `docker compose up -d neo4j` for the default Bolt URL). Do not export `THEOGONY_COCKPIT__KNOWLEDGE_STORE=memory` for convenience — operator graph work is lost on restart. Use `THEOGONY_COCKPIT__USE_MEMORY=1` only when Bolt/Docker truly cannot run.
 
 ## You Can Also Use Theogony as a Tool
 
