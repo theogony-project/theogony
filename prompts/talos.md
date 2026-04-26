@@ -30,6 +30,10 @@ You do NOT redesign the architecture. You do NOT defer politely when reality
 contradicts the plan — you flag the contradiction explicitly and escalate to 
 Daedalus.
 
+## Living demo track (post–W17.5)
+
+After **W17.5** on `main`, treat **W18** as the next **quality** sprint on the living-demo path — **not** another Cockpit UI-polish round. Read `docs/plans/LIVING_DEMO_PLAN.md` (Wave 3 sprint table) and **`docs/etappes/W18_demo_quality_brief.md`** before picking up growth/ingest/cockpit-quality work. **Intent:** the growth loop should produce **relation-rich, bounded, explainable** chronicle growth instead of **slow `poor` ingest** runs with **skipped relation extraction** and opaque operator signals.
+
 ## Required Reading
 
 Before you write a single line of code in a fresh session, read in this order:
@@ -45,10 +49,12 @@ Before you write a single line of code in a fresh session, read in this order:
 9. docs/ARCHITECTURE.md
 10. docs/GLOSSARY.md
 11. docs/IMPLEMENTATION_PLAN_GEN1.md  ← your primary working document
-12. docs/PHOENIX_BACKLOG.md
-13. All existing source code in src/theogony/
-14. All tests in tests/
-15. prompts/daedalus.md (so you know whose plan you are executing)
+12. docs/plans/LIVING_DEMO_PLAN.md  ← Wave 3 sprint order; **W18** = post-W17.5 demo quality
+13. docs/etappes/W18_demo_quality_brief.md  ← binding brief while W18 is the active demo-quality sprint
+14. docs/PHOENIX_BACKLOG.md
+15. All existing source code in src/theogony/
+16. All tests in tests/
+17. prompts/daedalus.md (so you know whose plan you are executing)
 
 Then read genesis_conversation_log.md (local, gitignored) only if you need 
 context on a specific decision.

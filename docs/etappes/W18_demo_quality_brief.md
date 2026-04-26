@@ -8,7 +8,7 @@
 **Predecessor:** W17.5 is on `main` (PR #109 / #110 / #111). Strategy-game analogy is on `main` (PR #112).
 **Sprint slot:** Living Demo W18
 
-This is not a new architecture sprint. It fixes why the current live demo still feels bad after W17.5: the Cockpit can now run the growth path, but the produced knowledge is slow, relation-poor, and not honestly explained to the operator.
+This is **not** a new architecture sprint and **not** another Cockpit UI-polish pass (W17.5-B already targeted legibility). It fixes why the live demo still **fails knowledge-quality expectations** after W17.5: the growth loop can run, but ingests are often **slow**, **`verdict=poor`**, **relation-poor** (e.g. relation extraction **not wired** / skipped in the Cockpit growth path), and **insufficiently explainable** to the operator. **W18** makes growth output **relation-rich, bounded, and explainable** within immune-system doctrine.
 
 ---
 
