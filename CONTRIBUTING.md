@@ -10,14 +10,16 @@ Before contributing, please read [docs/VISION.md](docs/VISION.md) and [PHILOSOPH
 
 ## What We Are Looking For
 
-### High Priority (Generation 1)
+### High Priority
 
+- **Nous (Reading Agent)** — the cognitive synthesis agent that reads text temporally rather than parsing it in chunks; see [`notes/architecture/reading_agent_vision.md`](notes/architecture/reading_agent_vision.md) for the design
+- **Tensor-Manifold** — LanceDB persistence layer + PyTorch CSR runtime for GPU-resident Spreading Activation; see [`notes/architecture/vector_native_spreading_activation.md`](notes/architecture/vector_native_spreading_activation.md)
 - **Data models** — refinements to the Pydantic models in `src/theogony/core/model.py`
-- **KnowledgeStore implementations** — starting with Neo4j; later ArangoDB, FalkorDB, custom
 - **Extraction pipeline** — NER, relation extraction, Wikidata alignment, embedding generation
-- **Acquisition adapters** — Gutenberg is the first; ArXiv, PubMed, web crawl, user upload are next
-- **Multi-hop retrieval** — the core graph + vector search algorithm
+- **Acquisition adapters** — Gutenberg and Wikipedia are running; ArXiv, PubMed, web crawl are next
 - **Tests** — unit and integration tests for any of the above
+
+**On the knowledge store:** Neo4j is the working Gen 1 bridge store and is fully supported. The target architecture is LanceDB + PyTorch CSR tensors (Spreading Activation). New store work should target the `KnowledgeStore` protocol interface, not Neo4j-specific Cypher.
 
 ### Welcome Contributions
 

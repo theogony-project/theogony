@@ -35,17 +35,17 @@ Old, contradicted, redundant or unused knowledge is gracefully degraded. The sys
 
 ## How Agents Use the Chronik
 
-**Pantheon agents** (and other callers) do not do flat vector search across the entire internet. They **navigate** the network like a mind recalls:
+Pantheon agents do not retrieve documents. They activate the network.
 
-1. It begins with trained **intuition** (vector similarity to the query)
-2. It follows **weighted paths** through the graph (typed relations with minimum weight thresholds)
-3. It deepens through **recursive multi-hop searches**, discovering related knowledge the initial entry point missed
-4. It assembles a **Constellation** — a relevant, context-aware subgraph of nodes, edges, scores, and source references
-5. It interprets this constellation into human language
+A thought arrives as a vector — the agent's internal state, not a text query. **Spreading Activation** propagates that vector outward through the Chronik: concepts light up, energy flows along weighted edges, decaying with distance, amplified by Hebbian reactivation along frequently-used paths. The result is a **Constellation** — an activated subgraph of nodes and edges whose relevance has been determined by the network itself, not by keyword matching.
 
-Every entity mentioned in the generated answer links back to its node in the Chronik. This creates the **Hover-Lupe** — the ability to dynamically explore any concept: What exactly is meant by a cited place or person here? How confident are we? What other connected knowledge is still "hot" for the original question? Which paths lead deeper?
+The Constellation is returned to the agent in vector form, directly injectable into its latent space — no text translation required. The agent does not *read* context. It *receives* structure.
 
-There are no static Wikipedia-style articles anymore. Only dynamic, query-dependent knowledge landscapes.
+This is **Latent Space Communication**: the long-horizon direction in which text exists only at the human-facing edges of the system. Inside the Chronik, agents speak mathematics.
+
+For Generation 1, the path is: natural language query → embedding → multi-hop graph + vector search → Constellation assembled as structured subgraph → cited answer synthesised by an LLM. Every entity in the answer links back to its source node. The network is navigable in arbitrary depth — no static article boundaries, only dynamic, query-dependent knowledge landscapes.
+
+The next step — **Nous**, the cognitive synthesis agent — changes how knowledge enters the Chronik. Where the current pipeline parses text chunk by chunk, Nous reads it the way a mind does: sentence by sentence, carrying working memory forward, firing spreading activation against the existing Chronik in parallel, condensing paragraph-syntheses from sentence-syntheses, repairing when contradiction surfaces. This produces a far denser, more cross-connected Chronik than any chunk-based pipeline can.
 
 ## The Chronik Grows Where It Is Looked At
 

@@ -515,21 +515,25 @@ A structured system for tracking improvements, bugs, visions, and feature reques
 
 This is specifically about the **Chronik's knowledge organization** — not about GUI, API design, or peripherals. It is the evolutionary memory of the system itself.
 
-## Technology Stack (Gen 1)
+## Technology Stack
 
-| Component | Technology | Rationale |
-|-----------|-----------|-----------|
-| Language | Python 3.12+ | Ecosystem, ML libraries, community |
-| Knowledge Store | Neo4j 5.x | Native vector indexes + graph in one system |
-| API | FastAPI | Async, fast, OpenAPI docs |
-| Embeddings | sentence-transformers (default) | Free, local, no API dependency |
-| NER | spaCy + GLiNER | Fast, accurate, local |
-| Relation Extraction | LLM-based (configurable) | Flexibility for complex relations |
-| Entity Resolution | Wikidata SPARQL | Largest open knowledge base |
-| Data Models | Pydantic v2 | Validation, serialization, documentation |
-| Agent Orchestration | asyncio + taskgroups | Lightweight, no heavy framework |
+| Component | Today (Gen 1 bridge) | Target architecture | Rationale |
+|-----------|----------------------|---------------------|-----------|
+| Language | Python 3.12+ | Python 3.12+ | Ecosystem, ML libraries, community |
+| Knowledge Store | Neo4j 5.x (graph + vector indexes) | LanceDB / Parquet | Neo4j runs today; LanceDB is the append-only columnar vector target |
+| Tensor Engine | — | PyTorch CSR tensors | SpMV for GPU-resident Spreading Activation |
+| API | FastAPI | FastAPI | Async, fast, OpenAPI docs |
+| Embeddings | sentence-transformers (local) | Nomic Embed v2 or similar | Fast, local, high-dimensional vector generation |
+| NER / Pre-processing | spaCy + GLiNER | spaCy + GLiNER | Fast, local, deterministic Text-to-Topology Blueprinting |
+| Relation Extraction | LLM-based (configurable) | LLM-based (configurable) | Translates blueprint into typed edges |
+| Synthesis Agent | Chunked LLM pipeline | **Nous** (cognitive reading agent) | Temporal synthesis replaces stateless chunk parsing |
+| Entity Resolution | Post-Hoc Agents (Athene) | Post-Hoc Agents (Athene) | Asynchronous, never blocks ingestion |
+| Data Models | Pydantic v2 | Pydantic v2 | Validation, serialization, documentation |
+| Agent Orchestration | asyncio + taskgroups | asyncio + taskgroups | Lightweight, no heavy framework |
 
-All technology choices are behind abstract interfaces. Every component can be replaced without affecting the rest of the system.
+**On Neo4j:** it is the working store for Generation 1 and is fully supported. It is explicitly a bridge — the target retrieval primitive is Spreading Activation over PyTorch CSR tensors, which Neo4j's pointer-chasing architecture cannot support at the required edge density (1000× edges per node). The `KnowledgeStore` interface exists so the transition does not require rewriting anything above the store layer.
+
+All other technology choices are behind abstract interfaces. Every component can be replaced without affecting the rest of the system.
 
 ## Scaling Path
 
@@ -558,7 +562,7 @@ The five cell classes:
 
 All cells consume from a structured **verification pool**: a sampling reservoir (not a queue) of recently produced or modified content. Each cell has its own sampling strategy. Findings are written back as typed nodes/edges; the chronicle thus contains its own self-observation.
 
-What does **not** live in this architecture: a pre-gate that filters content based on judgement of truth, sensitivity, or appropriateness. The HestiaLite (W7-B) and HestiaSentinel (W12) shapes are deprecated by the immune-system doctrine and are being removed in W13.
+What does **not** live in this architecture: a pre-gate that filters content based on judgement of truth, sensitivity, or appropriateness. Pre-validation gates are forbidden by doctrine — see [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md) and [`BUILD_DOCTRINE.md`](BUILD_DOCTRINE.md).
 
 What does live at the gate: only operative self-defense — HTTPS-only enforcement on web fetch, robots.txt compliance, rate limits per host, response size cap, redirect-chain cap, content-type validation, IP-literal-host rejection, request timeouts. These are physical-barrier reflexes (skin, mucous membranes), not epistemic judgement.
 
