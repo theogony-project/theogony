@@ -5,21 +5,19 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Status: Early Research](https://img.shields.io/badge/status-early%20research-orange.svg)](ROADMAP.md)
 
-**A knowledge substrate for AI systems — built so they stop needing to memorise the world.**
+**Turning the world's knowledge into a vast living network of vectors and edges — the shared substrate that AI systems navigate instead of memorise.**
 
 ---
 
 ## What this is
 
-AI models carry their knowledge inside their weights. That means every fact they know was baked in during training, goes stale after the cutoff date, and cannot be inspected, corrected, or cited. When you ask a model something, it draws on memory it cannot show you.
+Theogony builds the **Chronik** — a knowledge network that grows by reading, dreams by associating, and heals itself through a system of background agents. It is not a database of text. It is a structured fabric of meaning: every concept a node, every relationship a weighted typed edge, every claim anchored to its source.
 
-Theogony builds an alternative: a living, open knowledge network — the **Chronik** — that AI systems can navigate instead of memorise.
+The bet behind it: AI models are vehicles. The knowledge they carry in their weights is frozen at training time — opaque, unverifiable, impossible to correct. What we need alongside them is a **rail layer**: a shared, open, inspectable substrate of world knowledge that any model can navigate. The Pantheon is that layer. The Chronik is its first operational form.
 
-The idea is simple: instead of storing knowledge *inside* a model, you store it *beside* it, in a dense graph of concepts, relations, and sources. The model doesn't need to know facts. It needs to know how to find them. Every claim it makes can be traced back to a node in the network, which traces back to a source.
+In the long run, text is only for humans. An AI system that has access to the Chronik does not retrieve documents — it injects a thought as a vector, and the network responds through spreading activation: concepts lighting up, edges propagating energy, a constellation of relevant structure assembling itself. No translation. No chunking. The network speaks in the same language the model thinks in.
 
-At the technical core: the Chronik is a **vector-graph** — concepts as embeddings, relations as weighted typed edges. Queries don't retrieve documents; they propagate activation through the network and return a constellation of relevant nodes and connections. The model reads the constellation, not a pile of text chunks.
-
-This is different from RAG. RAG retrieves documents and hands them to a model. The Chronik returns *structured relationships* — and the long-term direction is to inject those directly into a model's attention mechanism, bypassing text entirely.
+That is where this is going. Today we are building the foundations: the knowledge structure, the reading agent that synthesises text into it, and the retrieval mechanics that make it navigable.
 
 ---
 
@@ -42,18 +40,22 @@ The full development sequence is in [ROADMAP.md](ROADMAP.md).
 
 ---
 
-## The core bet
+## The thesis
 
-Current AI systems are built so that knowledge and reasoning live in the same place — the model weights. That conflates two very different things. Reasoning is a process. Knowledge is a substrate. Separating them makes both better: you can update knowledge without retraining, inspect it, correct it, cite it, and share it across models.
+Models are vehicles. They will improve, split, age out, and be replaced. What matters more is what they run on.
 
-The Chronik is that substrate. It grows by reading. It heals itself through an immune system of background agents. It never pre-validates — it ingests fast and corrects post-hoc. And it is designed so that, eventually, AI agents can communicate by exchanging activation fields rather than text — the knowledge network becomes the shared language.
+The Pantheon thesis: the most consequential AI infrastructure of the next decades will not be the models themselves. It will be the **knowledge layer** — the substrate that tells a model what exists, what happened, what is contested, what matters, and what should be reconsidered. Whoever shapes that layer shapes how intelligence relates to reality.
 
-This is early. The bets haven't been proven yet. The two open questions:
+That layer should be open, provenance-first, inspectable, and structured for machines — not for human readers. It should carry contradictions, not flatten them. It should grow autonomously, verify asynchronously, and never require a human in the loop to decide what counts as knowledge before it enters.
 
-1. Does cognitive synthesis (Nous) produce a denser, more useful Chronik than chunked extraction? (We believe yes — but it needs to be shown.)
-2. Does Spreading Activation over a dense vector-graph retrieve better than ANN search + graph traversal? (We believe yes at high edge density — but it needs to be shown.)
+The Chronik is the first concrete step toward that. It is a **living vector-graph**: concepts as high-dimensional embeddings, relationships as weighted typed edges, clusters as navigational regions, queries as activation fields that propagate and return constellations. It grows by reading the world. It consolidates by dreaming. It defends itself through a background immune system of agents.
 
-These are the experiments we build toward.
+This is early. The two open empirical questions we build toward:
+
+1. Does **Nous** — the cognitive synthesis reading agent — produce a denser, better-connected Chronik than chunked extraction? (We believe yes, because synthesis weaves cross-sentence and cross-chapter connections that chunking cannot. Needs to be shown.)
+2. Does **Spreading Activation** over a dense vector-graph retrieve better than ANN search + graph traversal at high edge density? (We believe yes. Needs to be shown.)
+
+These experiments are the next milestones. See [ROADMAP.md](ROADMAP.md).
 
 ---
 
