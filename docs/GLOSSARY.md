@@ -1,5 +1,4 @@
 # Glossary
-
 This glossary defines the canonical meaning of recurring terms used across the Theogony documents.
 
 When a term appears in multiple documents, this file should be treated as the default reference unless a document explicitly narrows the meaning for a specific context.
@@ -43,6 +42,27 @@ A rebirth or distillation process in which an existing Chronik is exported, rein
 
 **Phoenix Backlog**  
 The structured ticket system that captures problems, visions, improvements, and architectural desires for future generations of the Chronik.
+
+**Spreading Activation**  
+The core retrieval mechanism of the Neural Vector Mesh. Instead of executing text-based queries (SQL/Cypher), an agent injects a stimulus vector into the mesh. Activation energy flows outward across the weighted vector edges, modulated by semantic similarity and Hebbian strength. The process is mathematically executed as a Sparse Matrix-Vector Multiplication (SpMV) on GPUs.
+
+**Tensor-Manifold**  
+The mathematical and physical representation of the Chronik. It abandons pointer-chasing graph databases in favor of contiguous tensor arrays (e.g., Compressed Sparse Row / CSR) loaded into VRAM. This allows the system to handle extreme edge densities (1000x more edges than nodes) and execute Spreading Activation in milliseconds.
+
+**Latent Space Communication**  
+The protocol by which AI agents interact with the Chronik. Agents do not send or receive natural language text. They inject their internal vector states (hidden states) into the mesh and receive a Constellation matrix back, communicating natively in mathematics.
+
+**Constellation**  
+The structured, query-relevant working set returned to agents after Spreading Activation. It is not a list of text chunks, but an activated subgraph of vectors (a tensor matrix) that is directly injected into the reading agent's latent space (e.g., via soft prompts).
+
+**Codebook (Edge Compression)**  
+A technique used to store billions of vector edges in VRAM. Instead of storing full high-dimensional vectors for every edge, the system learns a vocabulary of edge types (the codebook) and stores only a 2-byte index per edge.
+
+**Function-First Phase**  
+The currently active build-phase doctrine: growth and mass take priority over per-item truth, privacy, or polish. Schemas, provenance fields, and RunReports stay non‑negotiable as **machine-scalable bookkeeping** behind the ingest lane — not weakened, never human-gated — and pre-validation on content stays forbidden. Truth emerges post-hoc through consolidation and the immune system. Privacy and security return to priority once private sources or external users enter scope. **No SLA numerics bind this phase prematurely** — optimize for shortest path to autonomous compounding, then iterate. Canonical statement: [`BUILD_DOCTRINE.md`](BUILD_DOCTRINE.md). The phase ends only when an operator supersedes the doctrine in a documented decision.
+
+**Build Doctrine**  
+The canonical doctrine for the current build phase, captured in [`BUILD_DOCTRINE.md`](BUILD_DOCTRINE.md). One-line summary: *Run it. Let it grow. Let it be wrong. Heal it later.* Engineering order: **data structure → synthesis → efficient retrieval.** Non-negotiable structures ride **rear** — implemented as scalable automation only. Companion to [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md) (which specifies *how* the chronicle heals) and to [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) (which specifies *what stays non-negotiable* underneath the build phase).
 
 ## Representation and Semantics
 

@@ -31,6 +31,7 @@ from theogony.curiosity.verification_pool import VerificationPool
 from theogony.extraction.audit import ExtractionAuditLog
 from theogony.extraction.embedding import EmbeddingProvider, LocalSentenceTransformerEmbedder
 from theogony.extraction.pipeline import IngestionPipeline
+from theogony.extraction.relations import RelationExtractor
 from theogony.extraction.resolve import EntityResolver
 from theogony.extraction.wikidata_cache import WikidataCache
 from theogony.extraction.wikidata_client import WikidataClient
@@ -87,12 +88,14 @@ async def _cockpit_argus_dispatch_session(
             await cluster_index.rebuild_from_store(store)
             pipeline = IngestionPipeline(
                 entity_resolver=resolver,
+                relation_extractor=RelationExtractor(llm=llm, audit_log=audit),
                 audit_log=audit,
                 store=store,
                 settings=settings,
                 cluster_index=cluster_index,
                 embedder=embedder,
                 ner_sentence_limit=200,
+                max_resolve_mentions=settings.cockpit.demo_ingest_max_resolve_mentions,
             )
             runner = _PersistingIngestRunner(pipeline, report_writer)
             verification_pool = VerificationPool(settings)

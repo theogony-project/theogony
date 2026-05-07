@@ -2,12 +2,21 @@
 
 Architect: Daedalus  
 Mandate: [`prompts/daedalus.md`](../prompts/daedalus.md)  
-Status: **Draft v5 — Hesiod patch round (anchor commit pre-E7)**  
-Date: 2026-04-19
+Status: **Draft v6 — Neural Vector Mesh Pivot (post-Run8)**  
+Date: 2026-05-01
 
-This document translates the existing vision (`README.md`, `PANTHEON_VISION.md`, `CHRONICLE_PRINCIPLES.md`, `VISION.md`, `PHILOSOPHY.md`, `ARCHITECTURE.md`, `DEEP_TECH_VISION.md`, `CHRONESE.md`, `METIS.md`, `HESTIA.md`, `HIVE.md`, `COGNITIVE_ARCHITECTURE.md`, `OPERATIVE_KNOWLEDGE.md`, `PHOENIX_BACKLOG.md`) into a concrete, buildable plan for the first four weeks of work.
+This document translates the existing vision (`README.md`, `PANTHEON_VISION.md`, `CHRONICLE_PRINCIPLES.md`, `BUILD_DOCTRINE.md`, `ARCHITECTURE.md`) into a concrete, buildable plan for the first four weeks of work.
 
 It deliberately under-builds. Generation 1 must reach one demonstrable moment, not the full vision. Anything not necessary for that moment is deferred to a Phoenix Backlog ticket.
+
+**Changes since post-W4-demonstration reconciliation (2026-05-01, Neural Vector Mesh Pivot).**
+
+Following the Deep Research Run 8 analysis, the core architecture has pivoted from a traditional graph database (Neo4j) to a pure **Vector-Vector-Mesh** (Tensor-Manifold). The goal is to support Spreading Activation and Latent Space Communication natively, allowing 1000x more edges than nodes.
+
+- **Neo4j is deprecated for the core mesh.** The primary storage layer is now an append-only columnar vector store (e.g., LanceDB or Parquet on S3).
+- **Retrieval is now Spreading Activation.** Queries are no longer Cypher-based. They are executed as Sparse Matrix-Vector Multiplications (SpMV) on GPUs (via PyTorch) over Compressed Sparse Row (CSR) tensors.
+- **Edges are First-Class Vectors.** Relationships are stored as embeddings (or compressed via a Codebook), not as static string labels.
+- **Text-to-Topology On-Ramp:** Raw text is pre-processed with synthetic IDs before LLM synthesis to eliminate hallucination and speed up edge generation.
 
 **Changes since post-W4-demonstration reconciliation (2026-04-20, post-PR-#30 + W5 Anthropic Haiku 4.5 full-ingest validation).**
 

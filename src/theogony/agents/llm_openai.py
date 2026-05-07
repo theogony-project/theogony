@@ -20,7 +20,7 @@ from typing import Any
 
 from pydantic import BaseModel, SecretStr
 
-from theogony.agents.llm import LLMResult, ResearchPlannerCost
+from theogony.agents.llm import STRUCTURED_LLM_MIN_TIMEOUT_S, LLMResult, ResearchPlannerCost
 from theogony.config.logging import get_logger
 
 log = get_logger("agents.llm_openai")
@@ -112,12 +112,18 @@ class OpenAILLMProvider:
                 },
             }
 
+        effective_timeout_s = timeout_s
+        if json_schema is not None:
+            effective_timeout_s = max(timeout_s, STRUCTURED_LLM_MIN_TIMEOUT_S)
+
         started = time.perf_counter()
         try:
-            async with asyncio.timeout(timeout_s):
+            async with asyncio.timeout(effective_timeout_s):
                 resp = await client.chat.completions.create(**kwargs)
         except TimeoutError:
-            log.warning("openai timeout model_id=%s timeout_s=%s", self._model_id, timeout_s)
+            log.warning(
+                "openai timeout model_id=%s timeout_s=%s", self._model_id, effective_timeout_s
+            )
             raise
         latency_ms = int((time.perf_counter() - started) * 1000)
 

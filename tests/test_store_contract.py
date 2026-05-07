@@ -269,6 +269,7 @@ class TestVectorSearch:
         assert [r.node.label for r in results[:2]] == ["A", "B"]
         assert all(isinstance(r, ScoredNode) for r in results)
         assert results[0].score >= results[1].score >= results[2].score
+        assert all(-1.0 <= r.score <= 1.0 for r in results)
 
     async def test_k_caps_result_count(self, store: KnowledgeStore) -> None:
         for i in range(5):

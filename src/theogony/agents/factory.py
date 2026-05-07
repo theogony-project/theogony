@@ -27,6 +27,7 @@ from pydantic import BaseModel
 
 from theogony.agents.llm import LLMProvider, LLMResult, ResearchPlannerCost, StubLLMProvider
 from theogony.agents.llm_anthropic import AnthropicLLMProvider
+from theogony.agents.llm_deepseek import DeepSeekLLMProvider
 from theogony.agents.llm_gemini import GeminiLLMProvider
 from theogony.agents.llm_openai import OpenAILLMProvider
 from theogony.config.logging import get_logger
@@ -171,9 +172,18 @@ def _build_single_provider(settings: Settings, provider_name: str, model_id: str
             )
         return GeminiLLMProvider(api_key=api_key, model_id=model_id)
 
+    if provider_name == "deepseek":
+        api_key = settings.llm_api_key_for("deepseek")
+        if api_key is None:
+            raise ValueError(
+                "DeepSeek provider selected but no API key found. Set "
+                "DEEPSEEK_API_KEY in the environment (or .env file)."
+            )
+        return DeepSeekLLMProvider(api_key=api_key.get_secret_value(), model_id=model_id)
+
     raise ValueError(
         f"Unknown LLM provider {provider_name!r}; expected one of "
-        "{'gemini', 'openai', 'anthropic', 'stub'}"
+        "{'gemini', 'openai', 'anthropic', 'deepseek', 'stub'}"
     )
 
 

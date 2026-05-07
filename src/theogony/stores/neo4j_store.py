@@ -439,10 +439,15 @@ class Neo4jKnowledgeStore:
                 min_confidence=min_confidence,
             )
             records = await result.data()
-        return [
-            ScoredNode(node=_node_from_record(rec["node"]), score=float(rec["score"]))
-            for rec in records
-        ]
+        out: list[ScoredNode] = []
+        for rec in records:
+            # Neo4j vector index scores are cosine-like, but floating point
+            # drift can produce tiny overshoots (e.g. 1.0000001) that violate
+            # the ScoredNode schema bound [−1, 1].
+            raw_score = float(rec["score"])
+            clamped_score = max(-1.0, min(1.0, raw_score))
+            out.append(ScoredNode(node=_node_from_record(rec["node"]), score=clamped_score))
+        return out
 
     # ----- traverse ----------------------------------------------------------
 

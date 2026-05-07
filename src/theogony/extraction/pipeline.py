@@ -134,6 +134,7 @@ class IngestionPipeline:
         cluster_index: ClusterIndex | None = None,
         ner_sentence_limit: int | None = None,
         max_relation_sentences: int | None = None,
+        max_resolve_mentions: int | None = None,
     ) -> None:
         self._entity_resolver = entity_resolver
         self._text_cleaner = text_cleaner or TextCleaner()
@@ -152,6 +153,7 @@ class IngestionPipeline:
         # extraction loop. Both default to None (process everything).
         self._ner_sentence_limit = ner_sentence_limit
         self._max_relation_sentences = max_relation_sentences
+        self._max_resolve_mentions = max_resolve_mentions
 
     # =================================================================== ingest
 
@@ -260,6 +262,9 @@ class IngestionPipeline:
             )
         all_mentions: list[Mention] = [m for sl in mentions_per_sentence for m in sl]
         ner_summary = _ner_summary_from(mentions_per_sentence)
+        mentions_for_resolution = all_mentions
+        if self._max_resolve_mentions is not None:
+            mentions_for_resolution = all_mentions[: self._max_resolve_mentions]
 
         # ---- mentions_resolved ----
         # Snapshot the WikidataClient counters around the resolve stage
@@ -273,7 +278,7 @@ class IngestionPipeline:
             stages,
             "mentions_resolved",
             self._stage_resolve,
-            all_mentions,
+            mentions_for_resolution,
             book_source_ref,
             active_sentences,
             run_id,
