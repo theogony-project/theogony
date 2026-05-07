@@ -17,7 +17,7 @@ AI agents don't read the Chronik. They activate it. A thought arrives as a vecto
 
 A large ecosystem of agents — with distinct roles, expertise, and memory — lives inside and around this network. They read the world into it. They dream connections across it. They heal it, verify it, prune it. They are permanently wired to it: their working memory, their biographical history, their task queues are all subgraphs in the Chronik itself.
 
-The long-horizon vision is the **Pantheon**: the dominant knowledge substrate of the age of AI. Not a better search engine. Not a bigger database. The rail layer beneath the models — the shared, open, inspectable record of what the world knows, has known, and disputes. Models are vehicles. They will improve and be replaced. The Pantheon is the track they all run on.
+The long-horizon vision: the Chronik grows into the dominant knowledge substrate of the age of AI — not a better search engine, not a bigger database, but the rail layer beneath the models. A shared, open, inspectable record of what the world knows, has known, and disputes. Models are vehicles. They will improve and be replaced. The Chronik is the track they all run on. The **Pantheon** — the full agent ecosystem that weaves, heals, and navigates it — is what makes it live.
 
 Today we are building the foundations toward that.
 
