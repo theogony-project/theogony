@@ -93,9 +93,9 @@ For someone working on future generations:
 
 1. [`PHOENIX_BACKLOG.md`](PHOENIX_BACKLOG.md)
 2. [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md)
-3. [`genesis_conversation_log.md`](../genesis_conversation_log.md)
+3. [`SELF_MODIFICATION.md`](SELF_MODIFICATION.md)
 
-This path is about open problems, future directions, and the original conceptual formation of the project.
+This path is about open problems, future directions, and the long-horizon principle that the Pantheon eventually writes its own next version.
 
 ## Document Roles
 
@@ -123,7 +123,7 @@ This path is about open problems, future directions, and the original conceptual
 - [`HIVE.md`](HIVE.md): the production model — from raw material to distilled intelligence
 - [`HESTIA.md`](HESTIA.md): the human flourishing guardian — drift monitoring, escalation, and the regulatory dial
 - [`CURIOSITY.md`](CURIOSITY.md): the Curiosity Loop — how attention from humans or agents triggers research in exactly the focused region (Gen 2-3, with a Gen 1 stub-detection foothold)
-- [`BLIND_SPOTS.md`](BLIND_SPOTS.md): per-query stub verdicts, region descriptors, and aggregated blind-spot reports (PHX-0058 Phase 1 / W3)
+- [`BLIND_SPOTS.md`](BLIND_SPOTS.md): per-query stub verdicts, region descriptors, and aggregated blind-spot reports
 - [`OPERATIVE_KNOWLEDGE.md`](OPERATIVE_KNOWLEDGE.md): the fifth knowledge form — knowledge that runs the world (long-horizon, not Gen 1 or 2)
 
 ### System Design Documents
@@ -143,9 +143,8 @@ These live in `notes/architecture/` and represent the most detailed technical th
 ### Evolution Documents
 
 - [`PHOENIX_BACKLOG.md`](PHOENIX_BACKLOG.md): future generations, open problems, and improvement tickets
-- [`genesis_conversation_log.md`](../genesis_conversation_log.md): local, non-repo genesis record of the project's conceptual development
-- [`HISTORICAL_MD_INTENTIONALLY_UNTOUCHED.md`](HISTORICAL_MD_INTENTIONALLY_UNTOUCHED.md): which etappe / demo markdown stayed historical in the Pantheon doc pass
-- [`RELEASING.md`](RELEASING.md): how to cut a Theogony release to PyPI (single-source version, double-gated publish workflow)
+- [`SELF_MODIFICATION.md`](SELF_MODIFICATION.md): the long-horizon principle — the Pantheon eventually writes its own next version
+- [`RELEASING.md`](RELEASING.md): how to cut a Theogony release to PyPI
 
 ### Operations
 
