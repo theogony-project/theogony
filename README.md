@@ -23,7 +23,7 @@ Today we are building the foundations toward that.
 
 **→ [ROADMAP.md](ROADMAP.md)** — the development sequence, five phases, current priorities.  
 **→ [docs/INDEX.md](docs/INDEX.md)** — the full document map with reading paths by audience.  
-**→ [AGENTS.md](AGENTS.md)** — if you are an AI agent picking up work in this repo.
+**→ [AGENTS.md](AGENTS.md)** — if you are an AI coding agent (Cursor, Codex, Claude Code, …) contributing to this repo: read this first, it is the binding working contract.
 
 ---
 
