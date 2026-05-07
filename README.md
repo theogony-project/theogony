@@ -5,19 +5,21 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Status: Early Research](https://img.shields.io/badge/status-early%20research-orange.svg)](ROADMAP.md)
 
-**Turning the world's knowledge into a vast living network of vectors and edges — the shared substrate that AI systems navigate instead of memorise.**
+**Transforming the world's knowledge into a vast, living network of vectors and edges — navigated by AI agents without ever translating into text.**
 
 ---
 
 ## What this is
 
-Theogony builds the **Chronik** — a knowledge network that grows by reading, dreams by associating, and heals itself through a system of background agents. It is not a database of text. It is a structured fabric of meaning: every concept a node, every relationship a weighted typed edge, every claim anchored to its source.
+When you read a sentence, you don't store the words. You store concepts — massively interconnected, firing across prior knowledge, condensing into synthesis. Theogony builds the machine equivalent of that: the **Chronik**, a planetary knowledge substrate where every piece of knowledge exists as a node in a dense vector-graph, connected to thousands of other nodes by typed, weighted edges.
 
-The bet behind it: AI models are vehicles. The knowledge they carry in their weights is frozen at training time — opaque, unverifiable, impossible to correct. What we need alongside them is a **rail layer**: a shared, open, inspectable substrate of world knowledge that any model can navigate. The Pantheon is that layer. The Chronik is its first operational form.
+AI agents don't read the Chronik. They activate it. A thought arrives as a vector. Spreading activation propagates through the network — concepts lighting up, energy decaying along weak edges, a constellation of relevant structure assembling itself. The agent receives that constellation directly, in the same vector space it thinks in. No text. No chunking. No translation.
 
-In the long run, text is only for humans. An AI system that has access to the Chronik does not retrieve documents — it injects a thought as a vector, and the network responds through spreading activation: concepts lighting up, edges propagating energy, a constellation of relevant structure assembling itself. No translation. No chunking. The network speaks in the same language the model thinks in.
+A large ecosystem of agents — with distinct roles, expertise, and memory — lives inside and around this network. They read the world into it. They dream connections across it. They heal it, verify it, prune it. They are permanently wired to it: their working memory, their biographical history, their task queues are all subgraphs in the Chronik itself.
 
-That is where this is going. Today we are building the foundations: the knowledge structure, the reading agent that synthesises text into it, and the retrieval mechanics that make it navigable.
+The long-horizon vision is the **Pantheon**: the dominant knowledge substrate of the age of AI. Not a better search engine. Not a bigger database. The rail layer beneath the models — the shared, open, inspectable record of what the world knows, has known, and disputes. Models are vehicles. They will improve and be replaced. The Pantheon is the track they all run on.
+
+Today we are building the foundations toward that.
 
 ---
 
