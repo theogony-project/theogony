@@ -11,7 +11,7 @@
 
 ## What this is
 
-When you read a sentence, you don't store the words. You store concepts — massively interconnected, firing across prior knowledge, condensing into synthesis. Theogony builds the machine equivalent of that: the **Chronik**, a planetary knowledge substrate where every piece of knowledge exists as a node in a dense vector-graph, connected to thousands of other nodes by typed, weighted edges.
+Reading a sentence, the brain doesn't store words. It stores concepts — massively interconnected, firing across prior knowledge, condensing into synthesis. Theogony builds the machine equivalent: the **Chronik**, a planetary knowledge substrate where every piece of knowledge exists as a node in a dense vector-graph, connected to thousands of other nodes by typed, weighted edges.
 
 AI agents don't read the Chronik. They activate it. A thought arrives as a vector. Spreading activation propagates through the network — concepts lighting up, energy decaying along weak edges, a constellation of relevant structure assembling itself. The agent receives that constellation directly, in the same vector space it thinks in. No text. No chunking. No translation.
 
