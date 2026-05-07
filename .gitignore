@@ -1,3 +1,17 @@
+# Cursor conversation synthesis aids (local only, not maintained by repo scripts)
+notes/cursor_synth_source/
+notes/cursor_eigene_stimme_fundus.md
+notes/cursor_eigene_stimme_synthese.md
+notes/cursor_eigene_texte_sammlung.md
+notes/cursor_eigene_texte_sammlung_gemini.md
+notes/cursor_nutzertexte_sammlung.md
+
+# Deep research run outputs (raw LLM responses, not canonical docs)
+notes/deep_research/
+
+# Scratch / experiment scripts (not part of the package or test suite)
+scratch/
+
 # Private / local files
 genesis_conversation_log.md
 cursor_theogony_project_introduction.md

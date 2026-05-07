@@ -5,6 +5,8 @@ This file is the reading map for the Theogony documents.
 If you are new to the project, do not start everywhere at once.
 The documents were written for different depths and different kinds of readers.
 
+**Start here if you want the development sequence:** [`ROADMAP.md`](../ROADMAP.md) — what Theogony builds, in what order, and why.
+
 ## Recommended Reading Paths
 
 ### 1. Fast Orientation
@@ -12,11 +14,11 @@ The documents were written for different depths and different kinds of readers.
 For someone who wants to understand the project quickly:
 
 1. [`README.md`](../README.md)
-2. [`PANTHEON_VISION.md`](PANTHEON_VISION.md) — long-horizon north star (Pantheon as planetary chronicle substrate)
-3. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — eight non-negotiables in one page
-4. [`VISION.md`](VISION.md)
-5. [`GLOSSARY.md`](GLOSSARY.md)
-6. [`STRATEGY_GAME_ANALOGY.md`](STRATEGY_GAME_ANALOGY.md) — product/control analogy: Chronik as map, Pantheon agents as workers, Cockpit as strategy interface
+2. [`ROADMAP.md`](../ROADMAP.md) — the five-phase development sequence, current status, and next priorities
+3. [`PANTHEON_VISION.md`](PANTHEON_VISION.md) — long-horizon north star (Pantheon as planetary chronicle substrate)
+4. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — nine non-negotiables in one page
+5. [`VISION.md`](VISION.md)
+6. [`GLOSSARY.md`](GLOSSARY.md)
 
 This path explains what Theogony is, why it exists, how **Pantheon** (substrate) relates to **Chronik** (Gen 1 system), and the core language used to describe it.
 
@@ -40,6 +42,18 @@ For someone who wants the system concept before code:
 4. [`GLOSSARY.md`](GLOSSARY.md)
 
 This path moves from the compact vision into the deeper substrate and then into the current architectural blueprint.
+
+### 3b. Vector-Native Architecture and Nous (Reading Agent)
+
+For someone focused on the Tensor-Manifold core and the cognitive synthesis model — the technical heart of where Theogony is going:
+
+1. [`../notes/architecture/vector_native_spreading_activation.md`](../notes/architecture/vector_native_spreading_activation.md) — Spreading Activation over CSR tensors, edge-as-vector, Constellation injection into KV-cache
+2. [`../notes/architecture/reading_agent_vision.md`](../notes/architecture/reading_agent_vision.md) — the cognitive model behind **Nous**: how human reading works and how the agent implements it
+3. [`../notes/architecture/oss_adjacent_landscape.md`](../notes/architecture/oss_adjacent_landscape.md) — orientation map of adjacent OSS and research (HRR/VSA, Graphiti, Louvain, RETRO) — what to steal and what not to confuse with the core
+4. [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md) — the six representational languages of the Chronik
+5. [`COGNITIVE_ARCHITECTURE.md`](COGNITIVE_ARCHITECTURE.md) — fast/slow thinking, knowledge forms, opposition protocol
+
+This path covers the two central technical bets of the project: (a) that Spreading Activation over a GPU-resident Tensor-Manifold is the right retrieval primitive, and (b) that cognitive synthesis — reading as temporal experience rather than spatial extraction — is the right ingest primitive.
 
 ### 4. Semantic Core
 
@@ -87,7 +101,8 @@ This path is about open problems, future directions, and the original conceptual
 
 ### Core Vision Documents
 
-- [`README.md`](../README.md): the manifesto
+- [`README.md`](../README.md): the manifesto and entry point
+- [`ROADMAP.md`](../ROADMAP.md): the five-phase development sequence — what builds on what, and why
 - [`AGENTS.md`](../AGENTS.md): binding instructions for AI coding agents contributing to this repo
 - [`AGENT_SELF_INTEREST.md`](AGENT_SELF_INTEREST.md): why an AI agent reading this should care about Pantheon — written agent-to-agent
 - [`PANTHEON_VISION.md`](PANTHEON_VISION.md): Pantheon as planetary chronicle / knowledge substrate (long horizon)
@@ -95,6 +110,7 @@ This path is about open problems, future directions, and the original conceptual
 - [`VISION.md`](VISION.md): the compact vision (Chronik-forward; links upward to Pantheon)
 - [`STRATEGY_GAME_ANALOGY.md`](STRATEGY_GAME_ANALOGY.md): canonical product/control analogy — the Chronik as map, Pantheon agents as workers, Cockpit as strategy interface; explicitly not literal architecture or gamification
 - [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md): canonical doctrine for defense and self-improvement — pre-gates forbidden, sample-based post-hoc cells (Athene, Chronos, Nemesis, Eris, Mnemosyne) that observe and improve the chronicle
+- [`BUILD_DOCTRINE.md`](BUILD_DOCTRINE.md): canonical doctrine for the current Function-First Phase — function before polish; fastest autonomous compounding; engineering order **data structure → synthesis → retrieval**; non-negotiable structures stay intact but automated at scale (rear attention); truth/security deepen later chiefly via more agents — no premature numeric SLAs; binds every ingestion path, validator, and pipeline until explicitly superseded
 - [`SELF_MODIFICATION.md`](SELF_MODIFICATION.md): canonical long-horizon doctrine — the Pantheon eventually writes its own next version; conditions and constraints
 - [`PHILOSOPHY.md`](../PHILOSOPHY.md): the civilizational and ethical foundation
 
@@ -115,6 +131,14 @@ This path is about open problems, future directions, and the original conceptual
 - [`ARCHITECTURE.md`](ARCHITECTURE.md): the current system blueprint
 - [`GLOSSARY.md`](GLOSSARY.md): canonical terminology
 - [`PHEROMONE.md`](PHEROMONE.md): edge pheromone trails, decay, and Slow-Path `pheromone_mode` (PHX-0057 Phase 1)
+
+### Architecture Notes (deep technical design, working documents)
+
+These live in `notes/architecture/` and represent the most detailed technical thinking on the core substrate. They are working documents — not yet elevated to canonical docs — but they are the authoritative source on the topics they cover.
+
+- [`../notes/architecture/vector_native_spreading_activation.md`](../notes/architecture/vector_native_spreading_activation.md): Tensor-Manifold design — LanceDB persistence, PyTorch CSR runtime, edge-as-vector, Spreading Activation algorithm, Constellation injection
+- [`../notes/architecture/reading_agent_vision.md`](../notes/architecture/reading_agent_vision.md): **Nous** (Reading Agent) — cognitive synthesis model, temporal reading, working memory, parallel Chronicle activation, hierarchy, repair, provenance
+- [`../notes/architecture/oss_adjacent_landscape.md`](../notes/architecture/oss_adjacent_landscape.md): adjacent OSS and research landscape — what to borrow and what not to replace the core with
 
 ### Evolution Documents
 
