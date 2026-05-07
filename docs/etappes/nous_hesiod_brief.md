@@ -279,6 +279,20 @@ The first evaluation: run Nous on the Trans-Himalaya Wikipedia article, then com
 
 If Nous produces a measurably denser, better-connected subgraph than the parser on the same article — Monkey 1 is answered.
 
+**Prerequisite — Chronicle state for the Monkey-1 comparison.**  
+The "new connections to existing Hedin nodes" metric only fires if the Gutenberg Hedin nodes are already in the Chronicle. This requires:
+
+1. A running store (Neo4j via `docker compose up -d neo4j`)
+2. The W5-bounded ingest: `theogony ingest 43497 --sentences 500` (approximately 20 min, ~0.70 EUR Anthropic, produces ~756 nodes / ~139 edges — see `docs/etappes/demo_log.md` for the exact numbers)
+
+Without this precondition, Nous can still run and produce an AnnotatedReading, but the Chronicle-hit metrics will be zero and the cross-document connection comparison is impossible.
+
+**Talos must document this as an explicit test prerequisite**, not an implicit assumption. The `nous_hesiod_brief.md` (this document) and the resulting implementation brief must both state:
+
+> *Monkey-1 comparison requires a Chronicle seeded with the W5-bounded Gutenberg #43497 ingest. Reproducing the comparison on a cold store will show zero Chronicle hits — this is expected and must not be mistaken for a Nous failure.*
+
+The `NousRunReport` should carry a `chronicle_seeded: bool` field (or equivalent) so the report itself documents whether the comparison was run against a cold or seeded store.
+
 ---
 
 ## 10. Open Questions for Hesiod to Resolve
