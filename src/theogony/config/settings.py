@@ -41,7 +41,7 @@ from typing import Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-LLMProviderName = Literal["gemini", "openai", "anthropic", "stub"]
+LLMProviderName = Literal["gemini", "openai", "anthropic", "deepseek", "stub"]
 
 
 class LLMSettings(BaseModel):
@@ -102,6 +102,7 @@ class LLMSettings(BaseModel):
             "openai": "gpt-4o-mini",
             "anthropic": "claude-sonnet-4-6",
             "gemini": "gemini-2.5-flash-lite",
+            "deepseek": "deepseek-chat",
             "stub": "stub-llm",
         }
         object.__setattr__(self, "model_id", defaults[self.provider])
@@ -734,6 +735,12 @@ class Settings(BaseSettings):
         description="Alternative Google AI Studio key, read alongside GEMINI_API_KEY.",
     )
 
+    deepseek_api_key: SecretStr | None = Field(
+        default=None,
+        alias="DEEPSEEK_API_KEY",
+        description="Used by DeepSeekLLMProvider when provider=deepseek.",
+    )
+
     llm: LLMSettings = Field(default_factory=LLMSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     neo4j: Neo4jSettings = Field(default_factory=Neo4jSettings)
@@ -811,5 +818,7 @@ class Settings(BaseSettings):
                 return self.anthropic_api_key
             case "gemini":
                 return self.gemini_api_key or self.google_api_key
+            case "deepseek":
+                return self.deepseek_api_key
             case "stub":
                 return None

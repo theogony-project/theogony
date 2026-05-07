@@ -401,9 +401,9 @@ class KnowledgeEdge(BaseModel):
     """
     A typed, weighted, provenance-anchored relation between two knowledge nodes.
 
-    Relation types follow Wikidata P-ID conventions where applicable
-    (e.g. P131 = located in, P31 = instance of) and use custom types
-    for relations not in Wikidata.
+    In the Neural Vector Mesh, edges are First-Class Vectors. The relation_type
+    is often compressed via a Codebook index for VRAM efficiency, and the
+    hebbian_strength tracks reactivation frequency.
     """
 
     id: str = Field(
@@ -420,11 +420,20 @@ class KnowledgeEdge(BaseModel):
     source_id: str
     target_id: str
 
+    edge_vector: list[float] | None = Field(
+        default=None,
+        description="The semantic nuance of the relation. Often compressed via Codebook.",
+    )
     relation_type: str = Field(
         description="P-ID style (e.g. 'P131', 'P31') or custom (e.g. 'REACHED', 'DESCRIBED_BY')"
     )
     weight: float = Field(
-        default=0.5, ge=0.0, le=1.0, description="Edge weight, strengthened or weakened over time."
+        default=0.5, ge=0.0, le=1.0, description="Base edge weight, initial confidence."
+    )
+    hebbian_strength: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Reactivation frequency (learned over time via Spreading Activation).",
     )
     pheromone_delta: float = Field(
         default=0.0,

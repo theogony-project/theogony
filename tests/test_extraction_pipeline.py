@@ -377,6 +377,17 @@ class TestStoreWiring:
         assert result.report.store.nodes_upserted == len(store.nodes)
         assert result.report.store.edges_upserted == len(store.edges)
 
+    async def test_max_resolve_mentions_bounds_resolution_work(self) -> None:
+        client = FakeWikidataClient(_hedin_responses())
+        resolver = EntityResolver(client=client)  # type: ignore[arg-type]
+        pipeline = IngestionPipeline(
+            entity_resolver=resolver,
+            max_resolve_mentions=1,
+        )
+        result = await pipeline.ingest(_hedin_raw())
+        assert sum(result.report.resolution.tier_counts.values()) == 1
+        assert len(result.resolved_mentions) == 1
+
 
 # ---------------------------------------------------------------- audit wiring
 

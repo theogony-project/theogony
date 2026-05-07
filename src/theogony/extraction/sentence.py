@@ -57,10 +57,11 @@ class Sentencizer:
     importing this module costs nothing.
     """
 
-    def __init__(self, *, min_chars: int = 1) -> None:
+    def __init__(self, *, min_chars: int = 1, max_length: int = 5_000_000) -> None:
         # Sentences shorter than this are dropped (rare — single-character
         # "sentences" are usually punctuation artefacts after clean).
         self._min_chars = max(0, min_chars)
+        self._max_length = max(100_000, max_length)
         self._nlp: Any | None = None  # lazy spaCy pipeline
 
     def _load_pipeline(self) -> Any:
@@ -75,6 +76,10 @@ class Sentencizer:
 
             log.info("loading spacy english pipeline + rule-based sentencizer")
             nlp = English()
+            # We only run the rule-based sentencizer (no parser/NER pipeline
+            # components), so we can safely lift spaCy's conservative default
+            # max_length and avoid E088 for long Gutenberg texts.
+            nlp.max_length = self._max_length
             nlp.add_pipe("sentencizer")
             self._nlp = nlp
         return self._nlp

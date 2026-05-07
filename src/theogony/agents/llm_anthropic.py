@@ -23,7 +23,7 @@ from typing import Any
 
 from pydantic import BaseModel, SecretStr
 
-from theogony.agents.llm import LLMResult, ResearchPlannerCost
+from theogony.agents.llm import STRUCTURED_LLM_MIN_TIMEOUT_S, LLMResult, ResearchPlannerCost
 from theogony.config.logging import get_logger
 
 log = get_logger("agents.llm_anthropic")
@@ -98,9 +98,13 @@ class AnthropicLLMProvider:
         client = self._ensure_client()
         max_tokens = max_output_tokens if max_output_tokens is not None else 4096
 
+        effective_timeout_s = timeout_s
+        if json_schema is not None:
+            effective_timeout_s = max(timeout_s, STRUCTURED_LLM_MIN_TIMEOUT_S)
+
         started = time.perf_counter()
         try:
-            async with asyncio.timeout(timeout_s):
+            async with asyncio.timeout(effective_timeout_s):
                 if json_schema is not None:
                     message = await client.messages.create(
                         model=self._model_id,
@@ -126,7 +130,11 @@ class AnthropicLLMProvider:
                         messages=[{"role": "user", "content": prompt}],
                     )
         except TimeoutError:
-            log.warning("anthropic timeout model_id=%s timeout_s=%s", self._model_id, timeout_s)
+            log.warning(
+                "anthropic timeout model_id=%s timeout_s=%s",
+                self._model_id,
+                effective_timeout_s,
+            )
             raise
         latency_ms = int((time.perf_counter() - started) * 1000)
 

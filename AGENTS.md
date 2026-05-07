@@ -22,13 +22,14 @@ Before any non-trivial contribution:
 3. [`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md)
 4. [`docs/CHRONICLE_PRINCIPLES.md`](docs/CHRONICLE_PRINCIPLES.md)
 5. [`docs/IMMUNE_SYSTEM.md`](docs/IMMUNE_SYSTEM.md) — **binding doctrine for defense and self-improvement.** Pre-gates that judge content are forbidden; verification is sample-based, asynchronous, post-hoc, parallel. Read this before designing or implementing any verifier, validator, sentinel, or filter.
-6. [`docs/SELF_MODIFICATION.md`](docs/SELF_MODIFICATION.md) — long-horizon principle: the Pantheon eventually writes its own next version. Today's substrate must not foreclose this.
-7. [`PHILOSOPHY.md`](PHILOSOPHY.md)
-8. [`docs/VISION.md`](docs/VISION.md)
-9. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-10. [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — **especially** the Pantheon-substrate vs Pantheon-agents vs builder-agents distinction
-11. [`docs/IMPLEMENTATION_PLAN_GEN1.md`](docs/IMPLEMENTATION_PLAN_GEN1.md) — the binding plan for current work
-12. [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md) — the structured queue you may pick from
+6. [`docs/BUILD_DOCTRINE.md`](docs/BUILD_DOCTRINE.md) — **binding doctrine for the current Function-First Phase.** Function before polish, growth before truth, mass before per-item quality. Truth emerges post-hoc through consolidation and the immune system, not before insertion. Privacy and security are deprioritised while sources are public; schemas, provenance fields, and RunReports stay non-negotiable but **trail** implementation attention — automate them entirely (no queues for humans). **Engineering order:** data structure first, synthesis second, retrieval third — later truth/security scale mainly via more agents on this substrate, not parallel “correct-first” foundations. Optimize for shortest path to autonomous compounding; numeric SLAs emerge from running stacks, do not prescribe them upfront. Read this before designing any ingestion path, validator, or pipeline.
+7. [`docs/SELF_MODIFICATION.md`](docs/SELF_MODIFICATION.md) — long-horizon principle: the Pantheon eventually writes its own next version. Today's substrate must not foreclose this.
+8. [`PHILOSOPHY.md`](PHILOSOPHY.md)
+9. [`docs/VISION.md`](docs/VISION.md)
+10. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+11. [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — **especially** the Pantheon-substrate vs Pantheon-agents vs builder-agents distinction
+12. [`docs/IMPLEMENTATION_PLAN_GEN1.md`](docs/IMPLEMENTATION_PLAN_GEN1.md) — the binding plan for current work
+13. [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md) — the structured queue you may pick from
 
 For deeper concepts, [`docs/INDEX.md`](docs/INDEX.md) lists the reading paths by intent.
 
@@ -61,6 +62,8 @@ The single most dangerous failure mode is a green CI hiding a real problem. PR #
 - Live integration tests against real services are gated by env vars (`THEOGONY_TEST_NEO4J=1`, `THEOGONY_RUN_CHARACTERIZATION=1`) but they are **not optional discipline** — when in doubt, run them locally.
 - A failed run produces a report with `verdict="failed"` and a structured reason, not an exception swallowed somewhere up the stack.
 - An anomaly that you cannot fix in scope becomes a **Phoenix Backlog ticket**, not a silent shrug.
+
+**Honest-failure is not pre-validation.** It is the requirement that a failed run produces a structured failure report, not that every input is validated before insertion. A pipeline that ingested seven million imperfect items and emitted a structured `IngestRunReport` is doctrine-conformant. A pipeline that refuses to ingest anything because some items might be wrong is doctrine-violating. See [`docs/BUILD_DOCTRINE.md`](docs/BUILD_DOCTRINE.md) for the binding statement of the current Function-First Phase.
 
 ### 4. Branch per change, atomic commits, single-issue PRs
 
@@ -119,6 +122,8 @@ These are observed, real failure modes — not theoretical risks. If you find yo
 7. **Do not introduce new top-level modules, agent classes, or memory layers** beyond what the plan specifies.
 8. **Do not bypass the human commander.** Significant decisions, scope changes, or architectural deviations require explicit human review. The human stays in the loop.
 9. **Do not start the Wave 3 Cockpit helper with an ephemeral chronicle unless the human explicitly asked.** `demo/start_wave3_cockpit.sh` pins **Neo4j** (and best-effort `docker compose up -d neo4j` for the default Bolt URL). Do not export `THEOGONY_COCKPIT__KNOWLEDGE_STORE=memory` for convenience — operator graph work is lost on restart. Use `THEOGONY_COCKPIT__USE_MEMORY=1` only when Bolt/Docker truly cannot run.
+
+10. **Do not use traditional graph databases (Neo4j, Cypher) for the core mesh.** The architecture is a **Tensor-Manifold** (Vector-Vector-Mesh) designed for Spreading Activation via PyTorch/LanceDB. Pointer-chasing graph databases cannot handle the required edge density (1000x edges vs nodes) and are explicitly forbidden for the core substrate.
 
 ## You Can Also Use Theogony as a Tool
 

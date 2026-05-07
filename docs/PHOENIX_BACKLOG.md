@@ -396,6 +396,36 @@ Greek goddess of the rainbow; in Pantheon she is the **mortal-facing presentatio
 
 **Phase 1 (W6):** implemented in **https://github.com/theogony-project/theogony/pull/70** (merge to `main` closes the Phase-1 slice; Phase 2+ remains in the YAML).
 
+### PHX-0075: AEVS — Anchor-Extraction-Verification-Supplement for the ingestion pipeline
+
+- **Category**: improvement
+- **Priority**: high
+- **Generation Target**: 1-2
+- **Filed by**: chaos
+- **Created**: 2026-04-30
+
+The current extraction pipeline (`src/theogony/extraction/pipeline.py`, `BookContextExtractor`) bounds hallucination empirically (PR #32 / W5) but has no named, paper-backed framework. **AEVS** (Anchor-Extraction-Verification-Supplement) decomposes LLM-driven assertion extraction into three deterministic phases: (1) **Anchor Discovery** — a non-LLM pass identifies all candidate entities/relations and records exact byte-spans; (2) **Grounded Extraction** — the LLM is constrained to construct assertion frames *only* from the pre-identified anchor vocabulary; (3) **Restoration-based Verification** — generated assertions are validated against the original passage and confabulations are filtered. This eliminates a structural class of hallucination that no amount of prompt-tuning can fix, and aligns naturally with the `SourceAnchor` field already present in [`CHRONESE.md`](CHRONESE.md). Cross-references the Athene immune-cell role from [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md) — AEVS is *prevention*, Athene is *post-hoc surveillance*; both layers compose, neither replaces the other. External evidence: see [`notes/deep_research/run1_variante_a.md`](../notes/deep_research/run1_variante_a.md) and [`notes/deep_research/run2_variante_b.md`](../notes/deep_research/run2_variante_b.md), which both name AEVS as the 2026 state of the art for anchor-bound extraction.
+
+### PHX-0076: Embedding Drift-Adapter Pattern (PHX-0005 implementation strategy)
+
+- **Category**: improvement
+- **Priority**: high
+- **Generation Target**: 1-2
+- **Filed by**: chaos
+- **Created**: 2026-04-30
+
+Concrete implementation strategy for the long-standing PHX-0005 ("Embedding Model Independence") requirement. The **Drift-Adapter Pattern** (arXiv 2509.23471) trains a compact orthogonal transformation (Procrustes / small residual MLP) between an old and a new embedding space using a 2 % corpus sample. At query time, the new model encodes the query, the adapter projects it into the old model's coordinate system, and retrieval runs against the unchanged HNSW / DiskANN index. Reported recovery: 95–99 % of the new model's recall, query-time overhead < 10 µs, immediate re-compute cost reduced by ≈ 100×. Background re-embedding then runs as a throttled batch job over weeks rather than a wall-clock-blocking full reindex. This makes embedding-model upgrades a **soft event**, which preserves the rebuildability principle without paying its full cost on every model change. Should be implemented behind the existing embedder abstraction so that current local-embedder swaps already exercise the path. External evidence: all three Deep Research runs name Procrustes-anchor-based alignment as the 2026 standard mitigation for embedding drift — see [`notes/deep_research/run1_variante_a.md`](../notes/deep_research/run1_variante_a.md) §4, [`notes/deep_research/run2_variante_b.md`](../notes/deep_research/run2_variante_b.md) §3.2, [`notes/deep_research/run3.md`](../notes/deep_research/run3.md) §3.3.
+
+### PHX-0077: Investigate RDF-star (RDF 1.2) as wire-format projection of Chronese
+
+- **Category**: knowledge_gap
+- **Priority**: medium
+- **Generation Target**: 2
+- **Filed by**: chaos
+- **Created**: 2026-04-30
+
+[`CHRONESE.md`](CHRONESE.md) deliberately stays format-neutral ("not RDF, not flat triples, not ad-hoc JSON"). In 2026, **RDF-star / RDF 1.2** has standardised statement-level reification with native syntax for `<<S P O>> source X confidence C`, which is the exact shape Chronese already requires for `EpistemicState` and `SourceAnchor`. Investigate whether Chronese should keep its current Pydantic/JSON-YAML form as the *canonical authoring* shape and adopt RDF-star as a *projection / wire-format* for interop with external graph stores (TerminusDB, GraphDB, RDF-star-aware reasoners) and SPARQL* tooling. **Not** a proposal to replace Chronese — Chronese stays primary; RDF-star becomes an additional projection target alongside the existing graph and embedding projections. The risk to evaluate: whether the W3C RDF-star reification semantics are expressive enough for n-ary `AssertionFrames` with role-tagged participants, or whether projection is lossy enough that we keep Chronese as the only source of truth and skip RDF-star. External evidence: [`notes/deep_research/run2_variante_b.md`](../notes/deep_research/run2_variante_b.md) and [`notes/deep_research/run3.md`](../notes/deep_research/run3.md) both name RDF-star as the 2026 industry-converged answer to provenance-bearing typed assertions; convergent with — not a replacement for — our Chronese direction.
+
 ---
 
 ## Open Architectural Questions

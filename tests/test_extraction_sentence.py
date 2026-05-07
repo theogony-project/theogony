@@ -120,6 +120,12 @@ class TestSentencize:
         await s.sentencize("Second.")
         assert s._nlp is first_pipeline
 
+    async def test_large_input_respects_custom_max_length(self) -> None:
+        s = Sentencizer(max_length=1_200_000)
+        huge = ("A short sentence. " * 60_000).strip()
+        result = await s.sentencize(huge)
+        assert len(result) > 1
+
 
 class TestRealHedinExcerpt:
     """Smoke-test the sentencizer on a real Hedin paragraph (no model required).

@@ -24,6 +24,9 @@ from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# Large JSON (topology, relation extractors) needs more wall-clock than chat defaults.
+STRUCTURED_LLM_MIN_TIMEOUT_S = 180.0
+
 
 class ResearchPlannerCost(BaseModel):
     """Cost + search telemetry for one ResearchPlanner LLM call (W11)."""
