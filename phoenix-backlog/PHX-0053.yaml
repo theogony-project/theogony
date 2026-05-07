@@ -1,7 +1,7 @@
 id: PHX-0053
 category: performance
 priority: low
-status: open
+status: deferred
 generation_target: 1
 title: "traverse Cypher: strip embeddings from path-materialised KnowledgeNode payloads"
 filed_by: hesiod
@@ -98,4 +98,8 @@ related:
   - PHX-0042  # parent — Cypher audit that surfaced this
   - PHX-0050  # related — also a "what does the consumer
               #            actually need?" payload concern
-resolution: null
+resolution: |
+  Deferred 2026-05-07. Neo4j is the Gen-1 bridge store only; the target
+  architecture is LanceDB + PyTorch CSR (Tensor-Manifold). Cypher-level
+  payload optimisations for the Neo4j traverse path are not worth pursuing
+  given the planned store replacement.

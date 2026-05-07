@@ -1,7 +1,7 @@
 id: PHX-0054
 category: performance
 priority: low
-status: open
+status: deferred
 generation_target: 1
 title: "Re-measure PHX-0046 batch_upsert speedup on bare-metal Linux Neo4j"
 filed_by: hesiod
@@ -88,4 +88,8 @@ related:
   - PHX-0046  # parent — the speedup target this re-measures
   - PHX-0042  # sibling audit — re-measurement could roll into
               #                 the next cypher_audit/*.md round
-resolution: null
+resolution: |
+  Deferred 2026-05-07. Neo4j is the Gen-1 bridge store only; the target
+  architecture is LanceDB + PyTorch CSR (Tensor-Manifold). Re-measuring
+  Neo4j batch_upsert speedup on bare-metal Linux is irrelevant once the
+  store is replaced.

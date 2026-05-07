@@ -1,7 +1,7 @@
 id: PHX-0052
 category: performance
 priority: low
-status: open
+status: deferred
 generation_target: 2
 title: "HNSW + filter pushdown for vector_search WHERE-on-layer/node_type"
 filed_by: hesiod
@@ -89,4 +89,8 @@ related:
   - PHX-0042  # parent — Cypher audit that surfaced this
   - PHX-0035  # Reviewer agent — natural consumer of the
               #                  "fewer results" pattern
-resolution: null
+resolution: |
+  Deferred 2026-05-07. Neo4j is the Gen-1 bridge store only; the target
+  retrieval primitive is Spreading Activation over PyTorch CSR tensors, which
+  replaces HNSW vector search entirely. HNSW filter-pushdown optimisation for
+  Neo4j is irrelevant once the Tensor-Manifold transition completes.

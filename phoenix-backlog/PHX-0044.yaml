@@ -1,7 +1,7 @@
 id: PHX-0044
 category: architecture
 priority: low
-status: open
+status: deferred
 generation_target: 2
 title: "Read-replica readiness audit of Neo4jKnowledgeStore"
 filed_by: daedalus
@@ -41,4 +41,8 @@ reopen_trigger: |
 
 related:
   - PHX-0001  # custom engine — replica-aware engine is a Gen 2 motivator
-resolution: null
+resolution: |
+  Deferred 2026-05-07. Neo4j is the Gen-1 bridge store only; the target
+  architecture is LanceDB + PyTorch CSR (Tensor-Manifold). Read-replica
+  auditing for Neo4j is moot when the store is replaced. Reopen only if
+  Neo4j is retained as a long-term component, which is not the current plan.

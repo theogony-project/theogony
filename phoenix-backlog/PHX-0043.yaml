@@ -1,7 +1,7 @@
 id: PHX-0043
 category: performance
 priority: medium
-status: open
+status: deferred
 generation_target: 1
 title: "Async-pipeline IngestionPipeline writes against Neo4jKnowledgeStore"
 filed_by: daedalus
@@ -49,4 +49,9 @@ reopen_trigger: |
 related:
   - PHX-0046  # batched UNWIND upsert — preferred alternative
   - PHX-0042  # read-side analogue
-resolution: null
+resolution: |
+  Deferred 2026-05-07. Neo4j is the Gen-1 bridge store only; the target
+  architecture is LanceDB + PyTorch CSR (Tensor-Manifold). Neo4j-specific
+  write-path optimisations are not worth investing in. Reopen only if the
+  bridge store becomes a sustained bottleneck before the Tensor-Manifold
+  transition completes.

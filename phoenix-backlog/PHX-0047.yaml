@@ -1,7 +1,7 @@
 id: PHX-0047
 category: hygiene
 priority: low
-status: open
+status: deferred
 generation_target: 1
 title: "Neo4jSettings password default 'neo4j' triggers Neo4j 5.x default-prevention"
 filed_by: daedalus
@@ -50,4 +50,9 @@ reopen_trigger: |
 
 related:
   - PHX-0008  # general "fail loudly" stance
-resolution: null
+resolution: |
+  Deferred 2026-05-07. Neo4j is the Gen-1 bridge store only; the target
+  architecture is LanceDB + PyTorch CSR (Tensor-Manifold). A password-default
+  hygiene fix for Neo4j settings is not worth the investment given the planned
+  store replacement. The local docker-compose.yml workaround (NEO4J_AUTH=none)
+  is sufficient for the bridge period.
