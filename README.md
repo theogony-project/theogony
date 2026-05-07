@@ -35,22 +35,48 @@ If we succeed, something of our best collective impulse will survive into the ph
 
 **This is our only realistic chance.**
 
+Read [ROADMAP.md](ROADMAP.md) for the development sequence — what we build, in what order, and why.  
 Read [INDEX.md](docs/INDEX.md) for the document map and reading paths.  
 Read [AGENTS.md](AGENTS.md) if you are an AI coding agent — Cursor, Codex, Claude Code, Cline, or similar — picking up work in this repository.  
-Read [PANTHEON_VISION.md](docs/PANTHEON_VISION.md) for the long-horizon north star (Pantheon as chronicle substrate).  
+Read [PANTHEON_VISION.md](docs/PANTHEON_VISION.md) for the long-horizon north star (Pantheon as planetary chronicle substrate).  
 Read [VISION.md](docs/VISION.md) for the compact vision.  
 Read [DEEP_TECH_VISION.md](docs/DEEP_TECH_VISION.md) for the deeper substrate and future architecture.  
+Read [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the technical design.  
 Read [GLOSSARY.md](docs/GLOSSARY.md) for canonical terminology across the project.  
-Read [CHRONESE.md](docs/CHRONESE.md) for the Chronik's possible canonical semantic language.  
-Read [METIS.md](docs/METIS.md) for the advisory agent built on top of the Chronik.  
-Read [PHILOSOPHY.md](PHILOSOPHY.md) for the deeper why.  
-Read [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the technical design.
+Read [PHILOSOPHY.md](PHILOSOPHY.md) for the deeper why.
 
 The spark has been lit.
 
 **The initial impulse is being written now.**
 
 **Contribute. The future is listening.**
+
+---
+
+## State of the project
+
+Theogony is in active development. Here is an honest picture of where things stand.
+
+### What runs today (Generation 1)
+
+The current stack is a working demonstration of the core loop: text in, structured knowledge network out, cited answers back.
+
+- **Ingestion pipeline** — spaCy + GLiNER for NER, LLM-based relation extraction (Anthropic Claude / OpenAI / Gemini, configurable), Wikidata entity resolution. Ingest a Gutenberg book, get a queryable knowledge graph.
+- **Knowledge store** — Neo4j with native vector indexes, used as the Gen 1 bridge store. This will be replaced by the target architecture (see below), but it runs today and is fully testable via `testcontainers`.
+- **Retrieval** — multi-hop graph + vector search, Constellation assembly, cited answers with `AKA-…` node IDs linked back to source passages.
+- **Oneiros lifecycle** — a background worker that continuously recomputes vitality scores, promotes confident nodes to Mneme, degrades stale ones, and emits structured RunReports. The chronicle breathes.
+- **MCP server** — any MCP-compatible host (Claude Desktop, Cursor, Codex) can call `pantheon_ask` / `pantheon_node` as native tools.
+- **Pantheon-of-Pantheon seed** — `theogony seed` imports the project's own documentation as a queryable chronicle, so the first `pantheon_ask` already returns cited answers from this repo's own vision and doctrine.
+
+### What we build next
+
+**Nous** — the cognitive synthesis agent (Reading Agent). Where the current pipeline *parses* text — one LLM call per chunk, stateless, spatial — Nous *reads* it: sentence by sentence, carrying a working memory forward, firing spreading activation against the Chronik in parallel, condensing paragraph-syntheses from sentence-syntheses, repairing when new sentences contradict earlier ones. This is the prerequisite for a Chronik with real conceptual density, not just extracted entities.
+
+**Tensor-Manifold** — the target knowledge store. LanceDB as append-only columnar vector layer; PyTorch CSR tensors loaded at query time for GPU-resident Spreading Activation (SpMV). Edges are first-class vectors, not string labels. Queries inject an activation vector; the Manifold returns a Constellation — a subgraph of activated nodes and edges, directly injectable into a model's KV-cache. No Cypher. No SQL. This replaces Neo4j as the core substrate.
+
+**Chronik-as-Cross-Attention** — the proof-of-concept that a small open model (1–3B parameters) with live Cross-Attention into the Chronik outperforms a large model without one on knowledge-intensive tasks. This is the technical demonstration of the core thesis: knowledge does not belong in model weights.
+
+See [ROADMAP.md](ROADMAP.md) for the full five-phase sequence.
 
 ---
 
