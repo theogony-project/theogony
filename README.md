@@ -132,16 +132,19 @@ Tools: `pantheon_ask`, `pantheon_node`, `pantheon_status`, `pantheon_reports_lis
 
 ## Read more
 
+The full document map with recommended reading paths by audience is in [docs/INDEX.md](docs/INDEX.md). Quick reference:
+
 | Document | What it covers |
 |---|---|
 | [ROADMAP.md](ROADMAP.md) | The five-phase development sequence |
+| [docs/VISION.md](docs/VISION.md) | The compact vision — how agents use the Chronik |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design — layers, data model, retrieval |
 | [docs/DEEP_TECH_VISION.md](docs/DEEP_TECH_VISION.md) | The deeper substrate direction |
 | [notes/architecture/vector_native_spreading_activation.md](notes/architecture/vector_native_spreading_activation.md) | Tensor-Manifold and Spreading Activation design |
 | [notes/architecture/reading_agent_vision.md](notes/architecture/reading_agent_vision.md) | Nous — the cognitive reading model |
 | [docs/CHRONICLE_PRINCIPLES.md](docs/CHRONICLE_PRINCIPLES.md) | Nine non-negotiable design principles |
 | [docs/BUILD_DOCTRINE.md](docs/BUILD_DOCTRINE.md) | Why we ingest fast and heal post-hoc |
-| [docs/INDEX.md](docs/INDEX.md) | Full document map and reading paths |
+| [docs/GLOSSARY.md](docs/GLOSSARY.md) | Canonical terminology — Chronik, Pantheon, Nous, Oneiros, … |
 | [AGENTS.md](AGENTS.md) | If you are an AI agent contributing to this repo |
 
 ---
