@@ -33,13 +33,13 @@ class TensorMeshEngine:
 
         # --- Edge Features ---
         # We use a Codebook for edge vectors to save VRAM (1 billion edges * 768 dims = TBs of VRAM)
-        # Instead, we store a 2-byte index per edge pointing to a learned codebook of relation types.
+        # Instead: a 2-byte index per edge pointing to a learned codebook of relation types.
         self.edge_type_idx: torch.Tensor | None = None  # Shape: (E,), dtype: int16
-        self.edge_codebook: torch.Tensor | None = None  # Shape: (Num_Types, D), dtype: float32/16
+        self.edge_codebook: torch.Tensor | None = None  # Shape: (Num_Types, D)
 
-        # Base weight (e.g. from extraction confidence) and Hebbian strength (reactivation frequency)
-        self.base_weight: torch.Tensor | None = None  # Shape: (E,), dtype: float32/16
-        self.hebbian_strength: torch.Tensor | None = None  # Shape: (E,), dtype: float32/16
+        # Base weight (extraction confidence) and Hebbian strength (reactivation frequency)
+        self.base_weight: torch.Tensor | None = None  # Shape: (E,)
+        self.hebbian_strength: torch.Tensor | None = None  # Shape: (E,)
 
     def load_from_arrays(
         self,
@@ -95,7 +95,7 @@ class TensorMeshEngine:
             raise ValueError("TensorMeshEngine is not initialized. Call load_from_arrays first.")
 
         N = self.node_embeddings.size(0)
-        E = self.col_idx.size(0)
+        _E = self.col_idx.size(0)  # noqa: F841
 
         # Ensure stimulus is normalized and on the right device
         stimulus = stimulus.to(self.device)
@@ -104,7 +104,7 @@ class TensorMeshEngine:
         # ---------------------------------------------------------------------
         # 1. INJECTION (Seed Activation)
         # ---------------------------------------------------------------------
-        # Calculate cosine similarity between stimulus and all nodes (Dot product since both are normalized)
+        # Cosine similarity: dot product since both vectors are normalized
         sim_scores = torch.matmul(self.node_embeddings, stimulus)
 
         # Find Top-K seeds
@@ -141,7 +141,7 @@ class TensorMeshEngine:
         # Shape: (N, N)
         adj_matrix = torch.sparse_csr_tensor(self.row_ptr, self.col_idx, W_dynamic, size=(N, N))
 
-        for hop in range(max_hops):
+        for _hop in range(max_hops):
             # Sparse Matrix-Vector Multiplication (SpMV)
             # Energy flows from active nodes to their neighbors
             # A_next = (Adj^T * A)
