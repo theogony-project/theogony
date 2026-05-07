@@ -72,6 +72,7 @@ def _explorer_growth_enabled_from_query(value: str) -> bool:
     v = value.strip().lower()
     return v not in ("off", "false", "0", "no")
 
+
 _MAX_MANIFEST_BYTES = 64 * 1024
 
 REPORT_TABS = (
