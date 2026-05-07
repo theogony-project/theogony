@@ -21,6 +21,10 @@ The long-horizon vision: the Chronik grows into the dominant knowledge substrate
 
 Today we are building the foundations toward that.
 
+**→ [ROADMAP.md](ROADMAP.md)** — the development sequence, five phases, current priorities.  
+**→ [docs/INDEX.md](docs/INDEX.md)** — the full document map with reading paths by audience.  
+**→ [AGENTS.md](AGENTS.md)** — if you are an AI agent picking up work in this repo.
+
 ---
 
 ## Where we are
