@@ -480,10 +480,11 @@ class KadmosRunReport(RunReportBase):
     reading_units_total: int = Field(ge=0)
     total_concepts: int = Field(ge=0)
     total_edges: int = Field(ge=0)
+    total_edges_implicit: int = Field(default=0, ge=0)
     total_syntheses: int = Field(ge=0)
     total_revisions: int = Field(ge=0)
-    llm_calls: int = Field(ge=0)
-    llm_cost_eur: float = Field(ge=0.0)
+    total_llm_calls: int = Field(default=0, ge=0)
+    total_llm_cost_eur: float = Field(default=0.0, ge=0.0)
     wall_clock_s: float = Field(ge=0.0)
     annotated_reading_path: str | None = None
     lancedb_path: str | None = None

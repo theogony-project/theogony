@@ -355,6 +355,18 @@ class KadmosReader:
             reading_units_total=total_steps,
         )
 
+        # Count implicit edges from the kNN pass
+        try:
+            implicit_count = int(
+                store._edges_tbl.search()
+                .where("is_implicit = true", prefilter=True)
+                .limit(1_000_000)
+                .to_arrow()
+                .num_rows
+            )
+        except Exception:
+            implicit_count = 0
+
         report = KadmosRunReport(
             session_id=session_id,
             source_url=url,
@@ -366,10 +378,11 @@ class KadmosReader:
             reading_units_total=total_steps,
             total_concepts=annotated.total_concepts,
             total_edges=annotated.total_edges,
+            total_edges_implicit=implicit_count,
             total_syntheses=total_syntheses,
             total_revisions=total_revisions,
-            llm_calls=total_llm_calls,
-            llm_cost_eur=total_llm_cost,
+            total_llm_calls=total_llm_calls,
+            total_llm_cost_eur=total_llm_cost,
             wall_clock_s=wall_clock_s,
             lancedb_path=str(store.db_path),
         )
@@ -763,10 +776,11 @@ class KadmosReader:
             reading_units_total=0,
             total_concepts=0,
             total_edges=0,
+            total_edges_implicit=0,
             total_syntheses=0,
             total_revisions=0,
-            llm_calls=0,
-            llm_cost_eur=0.0,
+            total_llm_calls=0,
+            total_llm_cost_eur=0.0,
             wall_clock_s=0.0,
         )
         return annotated, report
