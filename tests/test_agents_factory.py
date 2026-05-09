@@ -12,6 +12,7 @@ from theogony.agents.llm_gemini import GeminiLLMProvider
 from theogony.agents.llm_openai import (
     OpenAILLMProvider,
     _openai_reasoning_model_default_temperature_only,
+    _openai_uses_max_completion_tokens,
 )
 from theogony.config.settings import LLMSettings, Settings
 
@@ -221,3 +222,17 @@ class TestFallbackProvider:
 )
 def test_openai_reasoning_model_default_temperature_only(model_id: str, expected: bool) -> None:
     assert _openai_reasoning_model_default_temperature_only(model_id) is expected
+
+
+@pytest.mark.parametrize(
+    ("model_id", "expected"),
+    [
+        ("gpt-5.4-mini", True),
+        ("gpt-5-nano", True),
+        ("gpt-4o-mini", False),
+        ("gpt-4o", False),
+        ("o4-mini", False),
+    ],
+)
+def test_openai_uses_max_completion_tokens(model_id: str, expected: bool) -> None:
+    assert _openai_uses_max_completion_tokens(model_id) is expected
