@@ -17,9 +17,9 @@ Two tables:
                  in-place updates (append-only discipline).
   ``edges``    — one row per edge. Same supersedes pattern.
 
-After the reading session completes, a post-read kNN pass adds implicit
-edges (top-k similarity neighbours per concept) — this is what drives the
-100–500:1 edge/node ratio target (kadmos_v2_brief.md §4.1).
+After the reading session completes, similarity search still feeds
+hypothesis candidates during reading; implicit kNN edges are not
+written into the session net in this layer (Chronik integration only).
 
 The store does NOT manage embeddings — the KadmosReader calls the
 EmbeddingProvider and passes vectors in directly.
@@ -57,8 +57,9 @@ _DEFAULT_EMBEDDING_DIM = 384
 SIMILARITY_CANDIDATES_K = 5
 TRAVERSAL_CANDIDATES_K = 3
 
-# Q2: working memory capacity ceiling before compression is triggered
-WM_CAPACITY = 50
+# Q2: working memory soft ceiling — compress when active concepts exceed this
+# count (see KadmosReader: section boundary uses WM_CAPACITY // 2).
+WM_CAPACITY = 200
 
 # Activation decay factor per reading step: τ = 4 steps, e^(-1/4) ≈ 0.78
 WM_DECAY_FACTOR = 0.779  # exp(-1/4)
