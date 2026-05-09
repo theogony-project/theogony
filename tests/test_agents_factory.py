@@ -52,13 +52,13 @@ class TestStubProvider:
 
 class TestOpenAIProvider:
     def test_openai_returns_openai_provider_with_key(self) -> None:
-        s = _settings(provider="openai", openai_key="sk-x", model_id="gpt-4o-mini")
+        s = _settings(provider="openai", openai_key="sk-x", model_id="gpt-5.4-mini")
         provider = build_llm_from_settings(s)
         assert isinstance(provider, OpenAILLMProvider)
-        assert provider.model_id == "gpt-4o-mini"
+        assert provider.model_id == "gpt-5.4-mini"
 
     def test_openai_without_key_raises_value_error(self) -> None:
-        s = _settings(provider="openai", openai_key=None, model_id="gpt-4o-mini")
+        s = _settings(provider="openai", openai_key=None, model_id="gpt-5.4-mini")
         with pytest.raises(ValueError, match="OPENAI_API_KEY"):
             build_llm_from_settings(s)
 
@@ -146,7 +146,7 @@ class TestFallbackProvider:
         import theogony.agents.factory as factory_mod
 
         providers: dict[str, _DummyProvider] = {
-            "openai": _DummyProvider("gpt-4o-mini", fail=True),
+            "openai": _DummyProvider("gpt-5.4-mini", fail=True),
             "anthropic": _DummyProvider("claude-haiku-4-5"),
         }
 
@@ -157,7 +157,7 @@ class TestFallbackProvider:
         monkeypatch.setattr(factory_mod, "_build_single_provider", _fake_build_single_provider)
         s = _settings(
             provider="openai",
-            model_id="gpt-4o-mini",
+            model_id="gpt-5.4-mini",
             openai_key="sk-x",
             anthropic_key="sk-ant-x",
         )
@@ -176,7 +176,7 @@ class TestFallbackProvider:
     ) -> None:
         import theogony.agents.factory as factory_mod
 
-        prov_openai = _DummyProvider("gpt-4o-mini", fail=False)
+        prov_openai = _DummyProvider("gpt-5.4-mini", fail=False)
         prov_anth = _DummyProvider("claude-fallback", fail=False)
 
         def _fake_build_single_provider(settings, provider_name: str, model_id: str):  # type: ignore[no-untyped-def]
@@ -188,7 +188,7 @@ class TestFallbackProvider:
         monkeypatch.setattr(factory_mod, "_build_single_provider", _fake_build_single_provider)
         s = _settings(
             provider="openai",
-            model_id="gpt-4o-mini",
+            model_id="gpt-5.4-mini",
             openai_key="sk-x",
             anthropic_key="sk-ant-x",
         )
@@ -197,12 +197,12 @@ class TestFallbackProvider:
 
         provider = build_llm_from_settings(s)
         out = await provider.complete("ping")
-        assert "gpt-4o-mini" in out.text
+        assert "gpt-5.4-mini" in out.text
         assert prov_openai.calls == 1
         assert prov_anth.calls == 0
 
     def test_rejects_same_provider_as_fallback(self) -> None:
-        s = _settings(provider="openai", model_id="gpt-4o-mini", openai_key="sk-x")
+        s = _settings(provider="openai", model_id="gpt-5.4-mini", openai_key="sk-x")
         object.__setattr__(s.llm, "fallback_provider", "openai")
         with pytest.raises(ValueError, match="must differ"):
             build_llm_from_settings(s)

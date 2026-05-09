@@ -26,8 +26,8 @@ The loop per reading unit (paragraph by default):
 
 Post-loop:
   - Build AnnotatedReading + KadmosRunReport
-  (kNN-based implicit edges are NOT produced here; they belong to the
-  Chronik-integration step, not to the reading/translation layer.)
+  (Implicit kNN edges are not produced here; similarity wiring belongs to
+  Chronik mesh integration, not the Kadmos translation layer.)
 
 Failure discipline (AGENTS.md §3 / BUILD_DOCTRINE.md):
   - LLM parse failure on one step → log, mark parse_failed=True, continue
@@ -83,6 +83,11 @@ log = get_logger("kadmos.reader")
 # Failure thresholds
 _PARTIAL_THRESHOLD = 0.20
 _HARD_FAIL_THRESHOLD = 0.50
+
+# Large structured reading updates (many concepts/edges) need a generous
+# completion budget so providers (especially Gemini) do not truncate JSON.
+_READING_MAX_OUTPUT_TOKENS = 16384
+_SYNTHESIS_MAX_OUTPUT_TOKENS = 8192
 
 
 class KadmosReader:
@@ -191,6 +196,7 @@ class KadmosReader:
                         prompt,
                         system=READING_STEP_SYSTEM,
                         json_schema=READING_STEP_OUTPUT_SCHEMA,
+                        max_output_tokens=_READING_MAX_OUTPUT_TOKENS,
                         timeout_s=180.0,
                     )
                 )
@@ -652,6 +658,7 @@ class KadmosReader:
             prompt,
             system=SYNTHESIS_STEP_SYSTEM,
             json_schema=SYNTHESIS_STEP_OUTPUT_SCHEMA,
+            max_output_tokens=_SYNTHESIS_MAX_OUTPUT_TOKENS,
             timeout_s=60.0,
         )
 

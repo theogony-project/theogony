@@ -166,7 +166,10 @@ READING_STEP_OUTPUT_SCHEMA: dict[str, Any] = {
                         "type": ["array", "null"],
                         "items": {
                             "type": "object",
-                            "additionalProperties": True,
+                            "properties": {
+                                "label": {"type": "string"},
+                                "description": {"type": "string"},
+                            },
                         },
                     },
                     "merge_with_id": {"type": ["string", "null"]},

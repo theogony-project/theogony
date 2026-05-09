@@ -29,8 +29,8 @@ log = get_logger("agents.llm_openai")
 def _openai_reasoning_model_default_temperature_only(model_id: str) -> bool:
     """Whether ``model_id`` only allows the API default temperature (typically 1).
 
-    OpenAI o-series reasoning models reject ``temperature=0`` from callers;
-    see ``invalid_request_error`` / ``unsupported_value`` on chat.completions.
+    OpenAI o-series reasoning models reject caller-supplied ``temperature=0``;
+    the API returns ``invalid_request_error`` / ``unsupported_value`` on chat.completions.
     """
 
     m = (model_id or "").lower().strip()
@@ -47,7 +47,7 @@ class OpenAILLMProvider:
     def __init__(
         self,
         api_key: SecretStr | str | None,
-        model_id: str = "gpt-4o-mini",
+        model_id: str = "gpt-5.4-mini",
         *,
         client: Any | None = None,
         usd_per_m_input: float | None = None,

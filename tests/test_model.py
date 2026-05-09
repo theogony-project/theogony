@@ -330,7 +330,7 @@ class TestDeterministicEdgeIds:
             target_id="AKA-b",
             relation_type="MET",
             evidence_span="They met.",
-            properties={"extracted_by": [{"model_id": "gpt-4o-mini"}]},
+            properties={"extracted_by": [{"model_id": "gpt-5.4-mini"}]},
         )
         assert a.id == b.id
 
