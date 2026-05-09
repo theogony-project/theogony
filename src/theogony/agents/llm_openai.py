@@ -30,7 +30,7 @@ def _openai_reasoning_model_default_temperature_only(model_id: str) -> bool:
     """Whether ``model_id`` only allows the API default temperature (typically 1).
 
     OpenAI o-series reasoning models reject caller-supplied ``temperature=0``;
-    the API returns ``unsupported_value`` on chat.completions.
+    the API returns ``invalid_request_error`` / ``unsupported_value`` on chat.completions.
     """
 
     m = (model_id or "").lower().strip()

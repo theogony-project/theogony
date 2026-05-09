@@ -26,7 +26,7 @@ The loop per reading unit (paragraph by default):
 
 Post-loop:
   - Build AnnotatedReading + KadmosRunReport
-  (Implicit kNN edges are not produced here; reserve similarity wiring for
+  (Implicit kNN edges are not produced here; similarity wiring belongs to
   Chronik mesh integration, not the Kadmos translation layer.)
 
 Failure discipline (AGENTS.md §3 / BUILD_DOCTRINE.md):
