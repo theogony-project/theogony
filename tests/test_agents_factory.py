@@ -9,7 +9,10 @@ from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.llm import LLMResult, StubLLMProvider
 from theogony.agents.llm_anthropic import AnthropicLLMProvider
 from theogony.agents.llm_gemini import GeminiLLMProvider
-from theogony.agents.llm_openai import OpenAILLMProvider
+from theogony.agents.llm_openai import (
+    OpenAILLMProvider,
+    _openai_reasoning_model_default_temperature_only,
+)
 from theogony.config.settings import LLMSettings, Settings
 
 
@@ -203,3 +206,18 @@ class TestFallbackProvider:
         object.__setattr__(s.llm, "fallback_provider", "openai")
         with pytest.raises(ValueError, match="must differ"):
             build_llm_from_settings(s)
+
+
+@pytest.mark.parametrize(
+    ("model_id", "expected"),
+    [
+        ("o4-mini", True),
+        ("o3-mini-2025-01-31", True),
+        ("o1", True),
+        ("gpt-4o", False),
+        ("gpt-5.4-mini", False),
+        ("deepseek-chat", False),
+    ],
+)
+def test_openai_reasoning_model_default_temperature_only(model_id: str, expected: bool) -> None:
+    assert _openai_reasoning_model_default_temperature_only(model_id) is expected
