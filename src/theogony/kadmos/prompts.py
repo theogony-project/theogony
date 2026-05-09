@@ -33,7 +33,8 @@ from theogony.kadmos.model import (
 )
 
 READING_STEP_SYSTEM = """\
-You are a reader with working memory. You read text incrementally.
+You are a reader with working memory. You read text incrementally
+and build a rich knowledge network.
 
 At each step you receive:
 - current_reading: the passage to read now
@@ -45,15 +46,20 @@ At each step you receive:
 Your task is to update your understanding based on the new passage.
 You answer with a "understanding update":
 
-1. new_concepts: what genuinely new concepts this passage introduces.
+1. new_concepts: Extract ALL distinct concepts this passage introduces — people, places,
+   events, works, organizations, time periods, ideas, quantities, findings.
+   AIM FOR 10-20 concepts per passage. Be thorough, not selective.
    Each concept MUST be a JSON object: {"label": "...", "description": "...", "confidence": 0.9}
    NEVER emit concepts as plain strings.
 
 2. new_connections: new connections you see between concepts.
+   Create connections for every meaningful relationship you identify.
+   AIM FOR 5-15 connections per passage.
    Each connection MUST be a JSON object with exactly these fields:
    {"source_label": "Sven Hedin", "target_label": "Tibet",
     "relation_description": "explored and mapped", "weight": 0.9}
    NEVER emit connections as plain strings or sentences.
+
 3. confirmed_hypotheses: which hypothesis candidates you confirm (by concept_id)
 4. rejected_hypotheses: which you reject (by concept_id), briefly why
 5. revisions: if this passage changes your understanding of something you
@@ -62,8 +68,10 @@ You answer with a "understanding update":
    - split: one concept turns out to be two distinct things
    - merge: two concepts turn out to be the same thing
    - invalidate: a concept was wrong and should be ignored
-6. synthesis: if the concepts are dense enough to condense, emit a synthesis.
-   Synthesis levels: paragraph, section, article.
+6. synthesis: ALWAYS emit a synthesis at paragraph boundaries.
+   Identify the 3-8 most important concepts this passage introduces and
+   name the theme they collectively express.
+   Synthesis levels: paragraph (default), section, article.
 7. open_tensions: what remains unclear or contradictory
 8. next_granularity: how to read next — sentence (more detail needed),
    paragraph (normal), section (this area is familiar, skim it), skim
@@ -74,10 +82,31 @@ Rules:
   known concepts (they are already in your working memory).
 - Only write a revision if the passage genuinely changes your understanding.
   Revisions are valuable and expected — do not avoid them.
-- A synthesis should only occur when multiple concepts have accumulated
-  into a coherent theme that can be named.
-- Be concise. One sentence per connection description. One sentence for revision reasons.
+- ALWAYS emit a synthesis — even for short passages. If in doubt, use synthesis_level=paragraph.
+- Be specific with labels. "Hedin's 1893 expedition to Persia" is better than "expedition".
 - Answer ONLY with JSON matching the supplied schema.
+"""
+
+SYNTHESIS_STEP_SYSTEM = """\
+You are synthesising your understanding of a text section you have just read.
+
+You receive:
+- section_title: the title of the section or article
+- concepts: the key concepts active in your working memory from this section
+- synthesis_level: paragraph, section, or article
+
+Your task: produce ONE synthesis node that captures the essential theme.
+
+Requirements:
+- label: a SPECIFIC, DESCRIPTIVE name — NOT generic words like "Synthesis".
+  Name the actual topic. Examples: "Hedin's 1893 Persian Expedition",
+  "Tibet Exploration and Mapping", "Hedin's Political Controversies in WWI"
+- description: 2-3 sentences about what this section is fundamentally about
+- basis_concept_ids: the 3-8 most important concept IDs from the concepts list
+- synthesis_level: as given
+- confidence: 0.7-1.0
+
+Answer ONLY with a JSON object. The label MUST be specific and descriptive.
 """
 
 # ---------------------------------------------------------------------------
@@ -175,6 +204,22 @@ READING_STEP_OUTPUT_SCHEMA: dict[str, Any] = {
         "open_tensions",
         "next_granularity",
     ],
+}
+
+# ---------------------------------------------------------------------------
+# Synthesis-step schema (used for forced paragraph/section/article syntheses)
+# ---------------------------------------------------------------------------
+
+SYNTHESIS_STEP_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "label": {"type": "string"},
+        "description": {"type": "string"},
+        "basis_concept_ids": {"type": "array", "items": {"type": "string"}},
+        "synthesis_level": {"type": "string"},
+        "confidence": {"type": "number"},
+    },
+    "required": ["label", "description", "basis_concept_ids", "synthesis_level", "confidence"],
 }
 
 # ---------------------------------------------------------------------------
@@ -299,3 +344,40 @@ def _hypotheses_block(h: ReadingHypotheses) -> dict[str, Any]:
             for c in h.traversal_candidates
         ],
     }
+
+
+def build_forced_synthesis_prompt(
+    state: ReadingState,
+    synthesis_level: str,
+    section_title: str | None = None,
+) -> str:
+    """Build the prompt for a forced synthesis step (paragraph/section/article).
+
+    Called after every paragraph, section, and at article end.
+    The LLM must produce exactly one synthesis node.
+    """
+    top_concepts = sorted(
+        [c for c in state.active_concepts.values() if not c.invalidated],
+        key=lambda c: c.activation,
+        reverse=True,
+    )[:30]
+
+    payload: dict[str, Any] = {
+        "synthesis_level": synthesis_level,
+        "section_title": section_title or "Unknown section",
+        "concepts": [
+            {
+                "id": c.id,
+                "label": c.label,
+                "description": (c.description or "")[:80],
+                "activation": round(c.activation, 2),
+            }
+            for c in top_concepts
+        ],
+        "instruction": (
+            f"Produce a {synthesis_level}-level synthesis with a SPECIFIC label "
+            f"(not 'Synthesis'). Choose 3-8 basis_concept_ids from the IDs above. "
+            f"Focus on: {section_title or 'the main theme of this passage'}."
+        ),
+    }
+    return json.dumps(payload, ensure_ascii=False)

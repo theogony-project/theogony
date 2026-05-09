@@ -205,7 +205,11 @@ async def test_reader_max_sections(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 @pytest.mark.asyncio
 async def test_reader_llm_calls_count(reader: KadmosReader) -> None:
     _, report = await reader.read("https://en.wikipedia.org/wiki/Sven_Hedin")
-    assert report.llm_calls == _EXPECTED_STEPS
+    # Reading calls: 1 per paragraph
+    # Forced synthesis calls: paragraph (if >=3 concepts), section (if >=5), article (if >=10)
+    # With stub LLM returning few concepts, synthesis calls may be 0.
+    # The minimum is _EXPECTED_STEPS (reading only).
+    assert report.llm_calls >= _EXPECTED_STEPS
 
 
 @pytest.mark.asyncio

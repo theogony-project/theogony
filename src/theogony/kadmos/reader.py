@@ -162,8 +162,8 @@ class KadmosReader:
         total_llm_calls = 0
 
         for section in sections:
-            # Q2: compress at section boundary if WM is more than half full
-            if len(state.active_concepts) > 25:
+            # compress at section boundary only if WM is very full
+            if len(state.active_concepts) > 100:
                 await self._compress_working_memory(state, store, step=state.current_step)
 
             for paragraph in section.paragraphs:
@@ -249,7 +249,7 @@ class KadmosReader:
                 _decay_working_memory(state, added_concept_ids=set(added_concepts))
 
                 # Q2: compress if over capacity
-                if len(state.active_concepts) > 50:
+                if len(state.active_concepts) > 200:
                     await self._compress_working_memory(state, store, step=state.current_step)
 
                 # Update granularity for next step
@@ -257,6 +257,20 @@ class KadmosReader:
 
                 # Update open tensions
                 state.open_tensions = list(llm_output.open_tensions)
+
+                # ---- Forced paragraph synthesis ----
+                if len(state.active_concepts) >= 3:
+                    try:
+                        syn_cost = await self._force_synthesis(
+                            state,
+                            store,
+                            synthesis_level="paragraph",
+                            section_title=section.title or None,
+                        )
+                        total_llm_cost += syn_cost
+                        total_llm_calls += 1
+                    except Exception as exc:
+                        log.warning("kadmos: forced paragraph synthesis failed: %s", exc)
 
                 wm_size_after = len(state.active_concepts)
 
@@ -279,6 +293,34 @@ class KadmosReader:
                     )
                 )
                 state.current_step += 1
+
+            # ---- Forced section synthesis ----
+            if len(state.active_concepts) >= 5:
+                try:
+                    syn_cost = await self._force_synthesis(
+                        state,
+                        store,
+                        synthesis_level="section",
+                        section_title=section.title or None,
+                    )
+                    total_llm_cost += syn_cost
+                    total_llm_calls += 1
+                except Exception as exc:
+                    log.warning("kadmos: forced section synthesis failed: %s", exc)
+
+        # ---- Article synthesis ----
+        if len(state.active_concepts) >= 10:
+            try:
+                syn_cost = await self._force_synthesis(
+                    state,
+                    store,
+                    synthesis_level="article",
+                    section_title=None,
+                )
+                total_llm_cost += syn_cost
+                total_llm_calls += 1
+            except Exception as exc:
+                log.warning("kadmos: forced article synthesis failed: %s", exc)
 
         # ---- Post-loop: implicit kNN edges ----
         try:
@@ -589,6 +631,62 @@ class KadmosReader:
         except Exception as exc:
             log.warning("kadmos: synthesis embed/write failed %s", exc)
         return sid
+
+    async def _force_synthesis(
+        self,
+        state: ReadingState,
+        store: ReadingStateStore,
+        synthesis_level: str,
+        section_title: str | None,
+    ) -> float:
+        """Force a synthesis LLM call and write the result.
+
+        Returns the LLM cost in EUR.
+        Called after every paragraph (level=paragraph),
+        after every section (level=section), and at article end (level=article).
+        """
+        from theogony.kadmos.prompts import (
+            SYNTHESIS_STEP_OUTPUT_SCHEMA,
+            SYNTHESIS_STEP_SYSTEM,
+            build_forced_synthesis_prompt,
+        )
+
+        prompt = build_forced_synthesis_prompt(state, synthesis_level, section_title)
+        result = await self._llm.complete(
+            prompt,
+            system=SYNTHESIS_STEP_SYSTEM,
+            json_schema=SYNTHESIS_STEP_OUTPUT_SCHEMA,
+            timeout_s=60.0,
+        )
+
+        try:
+            data = json.loads(result.text)
+            # Normalise field aliases
+            if "level" in data and "synthesis_level" not in data:
+                data["synthesis_level"] = data.pop("level")
+            if "synthesis_level" not in data:
+                data["synthesis_level"] = synthesis_level
+            if "label" not in data:
+                data["label"] = section_title or f"{synthesis_level} synthesis"
+            if "description" not in data:
+                data["description"] = data.get("summary", "")
+            if "basis_concept_ids" not in data:
+                data["basis_concept_ids"] = data.get("concepts", [])
+            if "confidence" not in data:
+                data["confidence"] = 0.75
+
+            synth = LLMSynthesisOutput(**data)
+            # Use empty label_map — basis_concept_ids are already concept IDs
+            await self._apply_synthesis(synth, state, store, label_map={}, step=state.current_step)
+            log.debug("kadmos: forced %s synthesis: %s", synthesis_level, synth.label)
+        except Exception as exc:
+            log.warning(
+                "kadmos: forced synthesis parse failed level=%s error=%s",
+                synthesis_level,
+                exc,
+            )
+
+        return result.cost_eur
 
     async def _compress_working_memory(
         self, state: ReadingState, store: ReadingStateStore, step: int
