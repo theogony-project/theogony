@@ -42,7 +42,7 @@ import json
 import time
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from theogony.config.logging import get_logger
 from theogony.kadmos.model import (

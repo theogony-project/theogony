@@ -51,7 +51,8 @@ You answer with a "understanding update":
 
 2. new_connections: new connections you see between concepts.
    Each connection MUST be a JSON object with exactly these fields:
-   {"source_label": "Sven Hedin", "target_label": "Tibet", "relation_description": "explored and mapped", "weight": 0.9}
+   {"source_label": "Sven Hedin", "target_label": "Tibet",
+    "relation_description": "explored and mapped", "weight": 0.9}
    NEVER emit connections as plain strings or sentences.
 3. confirmed_hypotheses: which hypothesis candidates you confirm (by concept_id)
 4. rejected_hypotheses: which you reject (by concept_id), briefly why
