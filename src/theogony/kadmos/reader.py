@@ -694,9 +694,15 @@ def _parse_llm_output(text: str) -> LLMReadingOutput:
 def _normalise_llm_output(data: dict[str, Any]) -> dict[str, Any]:
     """Normalise LLM output variants before Pydantic validation."""
     # Ensure required top-level lists exist
-    for key in ("new_concepts", "new_connections", "confirmed_hypotheses",
-                "rejected_hypotheses", "revisions", "open_tensions",
-                "next_granularity"):
+    for key in (
+        "new_concepts",
+        "new_connections",
+        "confirmed_hypotheses",
+        "rejected_hypotheses",
+        "revisions",
+        "open_tensions",
+        "next_granularity",
+    ):
         if key not in data:
             if key == "next_granularity":
                 data[key] = "paragraph"
