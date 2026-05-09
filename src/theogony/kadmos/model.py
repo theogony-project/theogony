@@ -133,12 +133,12 @@ class ReadingHypotheses(BaseModel):
 class RevisionRequest(BaseModel):
     """A revision emitted by the LLM in its reading output."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     target_concept_id: str
-    revision_type: Literal["update", "split", "merge", "invalidate"]
-    reason: str
-    triggering_passage: str
+    revision_type: Literal["update", "split", "merge", "invalidate"] = "update"
+    reason: str = ""
+    triggering_passage: str = ""
     old_understanding: str | None = None
     new_understanding: str | None = None
     split_into: list[dict[str, Any]] | None = Field(
@@ -154,7 +154,7 @@ class RevisionRequest(BaseModel):
 class LLMNewConcept(BaseModel):
     """One new concept emitted by the LLM in its reading output."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     label: str
     description: str | None = None
@@ -166,30 +166,30 @@ class LLMNewConcept(BaseModel):
 class LLMNewEdge(BaseModel):
     """One new edge emitted by the LLM."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     source_label: str
     target_label: str
-    relation_description: str
+    relation_description: str = ""
     weight: float = Field(ge=0.0, le=1.0, default=0.8)
 
 
 class LLMSynthesisOutput(BaseModel):
     """A synthesis event emitted by the LLM."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     label: str
-    description: str
-    basis_concept_ids: list[str]
-    synthesis_level: Literal["paragraph", "section", "article"]
-    confidence: float = Field(ge=0.0, le=1.0)
+    description: str = ""
+    basis_concept_ids: list[str] = Field(default_factory=list)
+    synthesis_level: Literal["paragraph", "section", "article"] = "paragraph"
+    confidence: float = Field(ge=0.0, le=1.0, default=0.7)
 
 
 class LLMReadingOutput(BaseModel):
     """Structured output from one LLM reading step (Schritt B)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     new_concepts: list[LLMNewConcept] = Field(default_factory=list)
     new_connections: list[LLMNewEdge] = Field(default_factory=list)

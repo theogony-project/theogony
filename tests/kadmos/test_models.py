@@ -246,9 +246,10 @@ def test_llm_reading_output_round_trip() -> None:
     assert loaded.next_granularity == "sentence"
 
 
-def test_llm_reading_output_extra_rejected() -> None:
-    with pytest.raises(ValidationError):
-        LLMReadingOutput(unknown_field=True)  # type: ignore[call-arg]
+def test_llm_reading_output_extra_ignored() -> None:
+    """Extra fields are silently ignored (DeepSeek compatibility)."""
+    out = LLMReadingOutput(unknown_field=True)  # type: ignore[call-arg]
+    assert out.new_concepts == []
 
 
 def test_llm_reading_output_invalid_granularity() -> None:

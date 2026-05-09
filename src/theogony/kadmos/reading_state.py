@@ -133,8 +133,12 @@ class ReadingStateStore:
             self._owned_dir = False
 
         self._db = lancedb.connect(str(self._db_dir))
-        self._concepts_tbl = self._db.create_table("concepts", schema=_concept_schema(self._dim))
-        self._edges_tbl = self._db.create_table("edges", schema=_edge_schema(self._dim))
+        self._concepts_tbl = self._db.create_table(
+            "concepts", schema=_concept_schema(self._dim), mode="overwrite"
+        )
+        self._edges_tbl = self._db.create_table(
+            "edges", schema=_edge_schema(self._dim), mode="overwrite"
+        )
         log.debug(
             "kadmos session store opened session_id=%s db=%s",
             session_id,
