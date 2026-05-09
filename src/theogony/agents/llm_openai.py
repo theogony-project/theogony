@@ -37,6 +37,16 @@ def _openai_reasoning_model_default_temperature_only(model_id: str) -> bool:
     return m.startswith(("o1", "o3", "o4"))
 
 
+def _openai_uses_max_completion_tokens(model_id: str) -> bool:
+    """Whether the Chat Completions API expects ``max_completion_tokens`` (not ``max_tokens``).
+
+    GPT-5.x models return ``unsupported_parameter`` for ``max_tokens``; see
+    https://platform.openai.com/docs/api-reference/chat/create
+    """
+
+    return (model_id or "").lower().strip().startswith("gpt-5")
+
+
 class OpenAILLMProvider:
     """Async OpenAI Chat Completions behind the LLMProvider protocol."""
 
@@ -113,7 +123,10 @@ class OpenAILLMProvider:
         if not _openai_reasoning_model_default_temperature_only(self._model_id):
             kwargs["temperature"] = temperature
         if max_output_tokens is not None:
-            kwargs["max_tokens"] = max_output_tokens
+            if _openai_uses_max_completion_tokens(self._model_id):
+                kwargs["max_completion_tokens"] = max_output_tokens
+            else:
+                kwargs["max_tokens"] = max_output_tokens
         if json_schema is not None:
             kwargs["response_format"] = {
                 "type": "json_schema",
