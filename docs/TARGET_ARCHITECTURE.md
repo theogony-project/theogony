@@ -143,7 +143,10 @@ Three questions must be answered by running the system, not by design:
 
 These are failure modes observed in previous implementation rounds. Do not repeat them.
 
-**Do not build LLM-per-paragraph extraction into Kadmos.** Kadmos is a structural translator. It uses an embedding model, a structural parser, and possibly a lightweight LLM for segmentation decisions. It does not call a large LLM to extract and name concepts. That is the old topology_parser pattern. It produces JSON, not a vector mesh.
+**Do not build stateless LLM-per-paragraph extraction into Kadmos.**  
+Kadmos v1's failure was context-free extraction: one LLM call per paragraph, no memory of what came before, no revision. That pattern is forbidden. What is allowed — and what Kadmos v2 implements — is an LLM that reads with working memory, carries forward a running synthesis, and revises earlier concepts when later context demands it. This is not "extraction per paragraph". It is reading. The distinction matters: extraction treats each paragraph as an isolated data source; reading treats the text as a temporal experience that builds cumulative understanding.
+
+Labels on concepts are a **transitional representation** inside Kadmos. They are produced by the LLM during the reading pass, used to build the rich intermediate structure (ReadingState, synthesis nodes, typed edges), and then translated into embedding vectors by Kadmos's internal embedding pass. After the embedding pass, labels are retained only as debugging metadata — not as primary node representation, not for retrieval.
 
 **Do not store text labels as primary node representations.** Labels are permitted as debugging metadata. They are not knowledge. They are not used for retrieval. A node is its embedding vector and its edges.
 
