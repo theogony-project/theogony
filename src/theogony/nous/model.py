@@ -41,43 +41,58 @@ class WorkingMemoryState(BaseModel):
 
 
 class ResolutionUpdate(BaseModel):
-    """A within-session revision of a concept's Wikidata Q-ID assignment."""
+    """A within-session revision of a concept's Wikidata Q-ID assignment.
 
-    model_config = ConfigDict(extra="forbid")
+    ``extra="ignore"`` because DeepSeek may emit additional fields
+    (``concept_label``, ``wikidata_id``, ``confidence``, ``evidence_span``).
+    The normalisation pass in ``reader._normalise_llm_output`` handles
+    ``concept_label`` → ``node_id`` remapping.
+    """
+
+    model_config = ConfigDict(extra="ignore")
 
     node_id: str
     previous_tier: int | None = Field(default=None, ge=0, le=4)
-    new_tier: int = Field(ge=0, le=4)
+    new_tier: int = Field(default=1, ge=0, le=4)
     new_wikidata_id: str | None = None
-    reason: str
+    reason: str = ""
 
 
 class SynthesisOutput(BaseModel):
-    """A synthesis event emitted by the LLM at a paragraph/section boundary."""
+    """A synthesis event emitted by the LLM at a paragraph/section boundary.
 
-    model_config = ConfigDict(extra="forbid")
+    ``extra="ignore"`` because non-schema-enforcing LLMs (e.g. DeepSeek) may
+    emit extra fields (``synthesis_node_type``, ``synthesis_label``, etc.).
+    The normalisation pass in ``reader._normalise_llm_output`` handles the
+    common field-name variants; this setting catches the rest.
+    """
+
+    model_config = ConfigDict(extra="ignore")
 
     label: str
     description: str | None = None
-    basis_node_ids: list[str]
+    basis_node_ids: list[str] = Field(default_factory=list)
     diagonal_edges: list[tuple[str, str, str]] = Field(
         default_factory=list,
         description="[(source_id, relation_type, target_id)] — cross-level edges",
     )
-    synthesis_level: Literal["paragraph", "chapter", "article"]
-    confidence: float = Field(ge=0.0, le=1.0)
+    synthesis_level: Literal["paragraph", "chapter", "article"] = "paragraph"
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
 
 
 class RepairEvent(BaseModel):
-    """A within-session revision triggered by detected tension."""
+    """A within-session revision triggered by detected tension.
 
-    model_config = ConfigDict(extra="forbid")
+    ``extra="ignore"`` for the same reason as ``SynthesisOutput``.
+    """
+
+    model_config = ConfigDict(extra="ignore")
 
     revised_node_id: str
     reason: str
     old_description: str | None = None
     new_description: str | None = None
-    tension_source: Literal["llm_detected", "chronicle_contradicts"]
+    tension_source: Literal["llm_detected", "chronicle_contradicts"] = "llm_detected"
 
 
 class LLMReadingOutput(BaseModel):

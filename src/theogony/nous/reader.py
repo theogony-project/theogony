@@ -567,11 +567,71 @@ def _build_chronicle_hints(
 def _parse_llm_output(text: str) -> LLMReadingOutput:
     """Parse LLM JSON response into a validated LLMReadingOutput.
 
-    Raises ``ValueError`` or ``pydantic.ValidationError`` on failure —
-    the caller converts to a failed ReadingStep.
+    Applies a normalisation pass before Pydantic validation to handle
+    field-name variants that non-schema-enforcing LLMs (e.g. DeepSeek) may
+    produce:
+      - ``synthesis_label`` → ``label`` (inside synthesis_event)
+      - ``synthesis_description`` → ``description`` (inside synthesis_event)
+      - ``edges`` → ``new_edges`` (top-level)
+      - diagonal_edges items as dicts → 3-tuples
+
+    Raises ``ValueError`` or ``pydantic.ValidationError`` on unrecoverable
+    parse failure — the caller converts to a failed ReadingStep.
     """
     data = json.loads(text)
+    data = _normalise_llm_output(data)
     return LLMReadingOutput.model_validate(data)
+
+
+def _normalise_llm_output(data: dict[str, Any]) -> dict[str, Any]:
+    """Normalise field-name variants from non-strict LLMs into the schema shape."""
+    # Top-level: ``edges`` → ``new_edges``
+    if "edges" in data and "new_edges" not in data:
+        data["new_edges"] = data.pop("edges")
+    # Ensure required top-level lists exist
+    for key in ("new_concepts", "new_edges", "chronicle_hits_used",
+                "repair_events", "resolution_updates"):
+        if key not in data:
+            data[key] = []
+    if "synthesis_event" not in data:
+        data["synthesis_event"] = None
+
+    # synthesis_event field-name variants
+    se = data.get("synthesis_event")
+    if isinstance(se, dict):
+        if "synthesis_label" in se and "label" not in se:
+            se["label"] = se.pop("synthesis_label")
+        if "synthesis_description" in se and "description" not in se:
+            se["description"] = se.pop("synthesis_description")
+        # diagonal_edges: list of dicts → list of 3-tuples
+        diag = se.get("diagonal_edges")
+        if isinstance(diag, list):
+            normalised: list[Any] = []
+            for item in diag:
+                if isinstance(item, dict):
+                    # Extract source/rel/target from common dict shapes
+                    src = item.get("source_id") or item.get("source_label") or item.get("source", "")
+                    rel = item.get("relation_type") or item.get("relation", "BINDS_TO")
+                    tgt = item.get("target_id") or item.get("target_label") or item.get("target", "")
+                    normalised.append([str(src), str(rel), str(tgt)])
+                else:
+                    normalised.append(item)
+            se["diagonal_edges"] = normalised
+
+    # resolution_updates: ``concept_label`` → ``node_id``, ``wikidata_id`` → ``new_wikidata_id``
+    rus = data.get("resolution_updates")
+    if isinstance(rus, list):
+        for ru in rus:
+            if not isinstance(ru, dict):
+                continue
+            if "concept_label" in ru and "node_id" not in ru:
+                ru["node_id"] = ru.pop("concept_label")
+            if "wikidata_id" in ru and "new_wikidata_id" not in ru:
+                ru["new_wikidata_id"] = ru.pop("wikidata_id")
+            if "node_id" not in ru:
+                ru["node_id"] = ru.get("label", ru.get("concept", "unknown"))
+
+    return data
 
 
 def _map_concepts_to_nodes(
