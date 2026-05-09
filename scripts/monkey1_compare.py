@@ -95,27 +95,18 @@ def main() -> None:
     if report_type == "kadmos":
         kadmos_concepts = kadmos_data.get("total_concepts", 0)
         kadmos_edges_explicit = kadmos_data.get("total_edges", 0)
-        kadmos_edges_implicit = kadmos_data.get("total_edges_implicit", 0)
-        kadmos_edges_total = kadmos_edges_explicit + kadmos_edges_implicit
         kadmos_syntheses = kadmos_data.get("total_syntheses", 0)
         kadmos_revisions = kadmos_data.get("total_revisions", 0)
         kadmos_llm_calls = kadmos_data.get("total_llm_calls", 0)
         kadmos_cost = kadmos_data.get("total_llm_cost_eur", 0.0)
-        edge_node_ratio = (
-            _edge_to_node_ratio(kadmos_concepts, kadmos_edges_total)
-            if kadmos_edges_total
-            else _edge_to_node_ratio(kadmos_concepts, kadmos_edges_explicit)
-        )
     else:
         # Legacy NousRunReport
         kadmos_concepts = kadmos_data.get("nodes_written", 0)
         kadmos_edges_explicit = kadmos_data.get("edges_written", 0)
-        kadmos_edges_total = kadmos_edges_explicit
         kadmos_syntheses = kadmos_data.get("synthesis_events", 0)
         kadmos_revisions = kadmos_data.get("repair_events", 0)
         kadmos_llm_calls = kadmos_data.get("llm_calls", 0)
         kadmos_cost = kadmos_data.get("llm_cost_eur", 0.0)
-        edge_node_ratio = _edge_to_node_ratio(kadmos_concepts, kadmos_edges_explicit)
 
     # topology_parser metrics (from IngestRunReport)
     store_data = ingest_data.get("store", {})
@@ -129,26 +120,12 @@ def main() -> None:
 
     rows: list[tuple[str, str, str]] = [
         ("Concepts/Nodes produced", _fmt(parser_nodes), _fmt(kadmos_concepts)),
-        ("Explicit edges produced", _fmt(parser_edges), _fmt(kadmos_edges_explicit)),
+        ("Explicit edges (LLM-recognised)", _fmt(parser_edges), _fmt(kadmos_edges_explicit)),
         (
-            "Explicit edge-to-node ratio",
+            "Edge-to-node ratio (explicit only)",
             _edge_to_node_ratio(parser_nodes, parser_edges),
             _edge_to_node_ratio(kadmos_concepts, kadmos_edges_explicit),
         ),
-    ]
-
-    if report_type == "kadmos" and kadmos_edges_implicit:
-        rows += [
-            ("Implicit kNN edges", "0 (no kNN pass)", _fmt(kadmos_edges_implicit)),
-            ("Total edges (explicit + kNN)", _fmt(parser_edges), _fmt(kadmos_edges_total)),
-            (
-                "Total edge-to-node ratio",
-                _edge_to_node_ratio(parser_nodes, parser_edges),
-                edge_node_ratio,
-            ),
-        ]
-
-    rows += [
         ("Synthesis nodes", "0 (flat)", _fmt(kadmos_syntheses)),
         ("Revision events", "0 (stateless)", _fmt(kadmos_revisions)),
         (
@@ -169,7 +146,6 @@ def main() -> None:
     print()
     parser_ratio = parser_edges / max(parser_nodes, 1)
     kadmos_explicit_ratio = kadmos_edges_explicit / max(kadmos_concepts, 1)
-    kadmos_total_ratio = kadmos_edges_total / max(kadmos_concepts, 1)
 
     if kadmos_explicit_ratio > parser_ratio:
         print(
@@ -180,17 +156,6 @@ def main() -> None:
         print(
             f"✗ Explicit edge-to-node ratio NOT > parser: "
             f"{kadmos_explicit_ratio:.2f} <= {parser_ratio:.2f}"
-        )
-
-    if report_type == "kadmos" and kadmos_total_ratio >= 20:
-        print(
-            f"✓ Total edge-to-node ratio >= 20:1 target: "
-            f"{kadmos_total_ratio:.1f}:1"
-        )
-    elif report_type == "kadmos":
-        print(
-            f"✗ Total edge-to-node ratio below 20:1 target: "
-            f"{kadmos_total_ratio:.1f}:1"
         )
 
     if kadmos_syntheses > 0:
