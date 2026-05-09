@@ -42,7 +42,7 @@ import json
 import time
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from theogony.config.logging import get_logger
 from theogony.kadmos.model import (
@@ -678,9 +678,105 @@ class KadmosReader:
 
 
 def _parse_llm_output(text: str) -> LLMReadingOutput:
-    """Parse and validate LLM JSON response."""
+    """Parse and validate LLM JSON response.
+
+    Applies a normalisation pass before Pydantic validation to handle
+    field variants from non-schema-enforcing LLMs (e.g. DeepSeek):
+    - new_concepts as list of strings → list of {"label": str}
+    - new_connections as list of strings → dropped (no structure to recover)
+    - new_connections as list of dicts → kept if parseable
+    """
     data = json.loads(text)
+    data = _normalise_llm_output(data)
     return LLMReadingOutput.model_validate(data)
+
+
+def _normalise_llm_output(data: dict[str, Any]) -> dict[str, Any]:
+    """Normalise LLM output variants before Pydantic validation."""
+    # Ensure required top-level lists exist
+    for key in (
+        "new_concepts",
+        "new_connections",
+        "confirmed_hypotheses",
+        "rejected_hypotheses",
+        "revisions",
+        "open_tensions",
+        "next_granularity",
+    ):
+        if key not in data:
+            if key == "next_granularity":
+                data[key] = "paragraph"
+            else:
+                data[key] = []
+    if "synthesis" not in data:
+        data["synthesis"] = None
+
+    # new_concepts: list of strings → list of dicts
+    concepts = data.get("new_concepts", [])
+    if isinstance(concepts, list):
+        normalised = []
+        for c in concepts:
+            if isinstance(c, str):
+                normalised.append({"label": c})
+            elif isinstance(c, dict):
+                normalised.append(c)
+        data["new_concepts"] = normalised
+
+    # new_connections: list of strings → drop; list of dicts → normalise field names
+    connections = data.get("new_connections", [])
+    if isinstance(connections, list):
+        normalised_edges = []
+        for e in connections:
+            if isinstance(e, dict):
+                # DeepSeek field aliases for source/target
+                if "source" in e and "source_label" not in e:
+                    e["source_label"] = e.pop("source")
+                if "target" in e and "target_label" not in e:
+                    e["target_label"] = e.pop("target")
+                if "source_id" in e and "source_label" not in e:
+                    e["source_label"] = e.pop("source_id")
+                if "target_id" in e and "target_label" not in e:
+                    e["target_label"] = e.pop("target_id")
+                if "description" in e and "relation_description" not in e:
+                    e["relation_description"] = e.pop("description")
+                if "relation" in e and "relation_description" not in e:
+                    e["relation_description"] = e.pop("relation")
+                if "source_label" in e and "target_label" in e:
+                    normalised_edges.append(e)
+            # strings without source/target are dropped
+        data["new_connections"] = normalised_edges
+
+    # confirmed_hypotheses / rejected_hypotheses: dicts → extract concept_id
+    for key in ("confirmed_hypotheses", "rejected_hypotheses"):
+        items = data.get(key, [])
+        if isinstance(items, list):
+            normalised_items = []
+            for item in items:
+                if isinstance(item, str):
+                    normalised_items.append(item)
+                elif isinstance(item, dict):
+                    cid = item.get("concept_id") or item.get("id") or item.get("label", "")
+                    if cid:
+                        normalised_items.append(str(cid))
+            data[key] = normalised_items
+
+    # revisions: normalise if present
+    revisions = data.get("revisions", [])
+    if isinstance(revisions, list):
+        normalised_revisions = []
+        for r in revisions:
+            if isinstance(r, dict):
+                # DeepSeek field aliases
+                if "type" in r and "revision_type" not in r:
+                    r["revision_type"] = r.pop("type")
+                if "concept_id" in r and "target_concept_id" not in r:
+                    r["target_concept_id"] = r.pop("concept_id")
+                if "target_concept_id" not in r:
+                    r["target_concept_id"] = r.get("id", r.get("concept", "unknown"))
+                normalised_revisions.append(r)
+        data["revisions"] = normalised_revisions
+
+    return data
 
 
 def _pool_active_embeddings(state: ReadingState) -> list[float] | None:
