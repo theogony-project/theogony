@@ -192,3 +192,29 @@ async def test_minority_failures_verdict_partial(
     reader = _reader_with_llm(_SomeBadLLM(), tmp_path)
     _, report = await reader.read("https://en.wikipedia.org/wiki/Tibet")
     assert report.verdict == "partial"
+
+
+@pytest.mark.asyncio
+async def test_merge_revision_with_self_id_does_not_raise(tmp_path: Path) -> None:
+    """LLM sometimes emits merge_with_id == target; double-del caused KeyError."""
+    from theogony.kadmos.model import ActiveConcept, ReadingState, RevisionRequest
+    from theogony.kadmos.reading_state import ReadingStateStore
+
+    db = str(tmp_path / "lancedb_merge_self")
+    store = ReadingStateStore(session_id="sess-merge", embedding_dim=4, db_path=db)
+    state = ReadingState(session_id="sess-merge")
+    cid = "C-selfmergebug"
+    concept = ActiveConcept(id=cid, label="Alpha", step_created=0)
+    state.active_concepts[cid] = concept
+    store.add_concept(concept, [0.1, 0.2, 0.3, 0.4], step=0)
+
+    reader = _reader_with_llm(_BadJsonLLM(), tmp_path)
+    rev = RevisionRequest(
+        target_concept_id=cid,
+        revision_type="merge",
+        merge_with_id=cid,
+        reason="duplicate",
+        triggering_passage="p",
+    )
+    await reader._apply_revision(rev, state, store, step=1)
+    assert cid in state.active_concepts
