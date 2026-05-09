@@ -589,8 +589,13 @@ def _normalise_llm_output(data: dict[str, Any]) -> dict[str, Any]:
     if "edges" in data and "new_edges" not in data:
         data["new_edges"] = data.pop("edges")
     # Ensure required top-level lists exist
-    for key in ("new_concepts", "new_edges", "chronicle_hits_used",
-                "repair_events", "resolution_updates"):
+    for key in (
+        "new_concepts",
+        "new_edges",
+        "chronicle_hits_used",
+        "repair_events",
+        "resolution_updates",
+    ):
         if key not in data:
             data[key] = []
     if "synthesis_event" not in data:
@@ -610,9 +615,13 @@ def _normalise_llm_output(data: dict[str, Any]) -> dict[str, Any]:
             for item in diag:
                 if isinstance(item, dict):
                     # Extract source/rel/target from common dict shapes
-                    src = item.get("source_id") or item.get("source_label") or item.get("source", "")
+                    src = (
+                        item.get("source_id") or item.get("source_label") or item.get("source", "")
+                    )
                     rel = item.get("relation_type") or item.get("relation", "BINDS_TO")
-                    tgt = item.get("target_id") or item.get("target_label") or item.get("target", "")
+                    tgt = (
+                        item.get("target_id") or item.get("target_label") or item.get("target", "")
+                    )
                     normalised.append([str(src), str(rel), str(tgt)])
                 else:
                     normalised.append(item)
