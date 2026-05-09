@@ -162,7 +162,13 @@ READING_STEP_OUTPUT_SCHEMA: dict[str, Any] = {
                     "triggering_passage": {"type": "string"},
                     "old_understanding": {"type": "string"},
                     "new_understanding": {"type": "string"},
-                    "split_into": {"type": ["array", "null"]},
+                    "split_into": {
+                        "type": ["array", "null"],
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": True,
+                        },
+                    },
                     "merge_with_id": {"type": ["string", "null"]},
                 },
                 "required": ["target_concept_id", "revision_type", "reason", "triggering_passage"],
