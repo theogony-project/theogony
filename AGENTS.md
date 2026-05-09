@@ -18,8 +18,9 @@ Deep north star: [`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md). Compact d
 Before any non-trivial contribution:
 
 1. [`README.md`](README.md)
-2. [`docs/INDEX.md`](docs/INDEX.md)
-3. [`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md)
+2. [`docs/TARGET_ARCHITECTURE.md`](docs/TARGET_ARCHITECTURE.md) — **read this before writing any code.** What the system is, what it is not, the three non-negotiable technical decisions (no text storage, LanceDB+PyTorch, Spreading Activation), and the failure modes of previous implementations. If you build something that contradicts this document, you are building the wrong thing.
+3. [`docs/INDEX.md`](docs/INDEX.md)
+4. [`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md)
 4. [`docs/CHRONICLE_PRINCIPLES.md`](docs/CHRONICLE_PRINCIPLES.md)
 5. [`docs/IMMUNE_SYSTEM.md`](docs/IMMUNE_SYSTEM.md) — **binding doctrine for defense and self-improvement.** Pre-gates that judge content are forbidden; verification is sample-based, asynchronous, post-hoc, parallel. Read this before designing or implementing any verifier, validator, sentinel, or filter.
 6. [`docs/BUILD_DOCTRINE.md`](docs/BUILD_DOCTRINE.md) — **binding doctrine for the current Function-First Phase.** Function before polish, growth before truth, mass before per-item quality. Truth emerges post-hoc through consolidation and the immune system, not before insertion. Privacy and security are deprioritised while sources are public; schemas, provenance fields, and RunReports stay non-negotiable but **trail** implementation attention — automate them entirely (no queues for humans). **Engineering order:** data structure first, synthesis second, retrieval third — later truth/security scale mainly via more agents on this substrate, not parallel “correct-first” foundations. Optimize for shortest path to autonomous compounding; numeric SLAs emerge from running stacks, do not prescribe them upfront. Read this before designing any ingestion path, validator, or pipeline.

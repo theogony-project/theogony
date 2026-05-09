@@ -170,7 +170,7 @@ The world crawler. Searches for and acquires new public knowledge sources.
 The bulk ingestor. Handles large corpora, uploads, and structured source acquisition at scale.
 
 **Iris**  
-The contact agent. Accepts and mediates human-provided information and feedback. Ships as the **Pantheon Cockpit** ([PHX-0074](../phoenix-backlog/PHX-0074.yaml)) — the `/cockpit` dashboard ([`COCKPIT.md`](COCKPIT.md)).
+The Remember-layer output agent. Activates a subgraph via Spreading Activation and generates natural language from the vector constellation — not by retrieving stored text, but by formulating meaning from structure. Iris is the only point where the Chronik produces language for humans. Also ships as the **Pantheon Cockpit** ([PHX-0074](../phoenix-backlog/PHX-0074.yaml)) — the `/cockpit` dashboard ([`COCKPIT.md`](COCKPIT.md)).
 
 **Pantheon Cockpit**  
 Server-rendered Iris UI on the FastAPI app (`src/theogony/cockpit/`): five panels (status, knowledge browser, clusters, reports, manifest). Default **127.0.0.1** binding with an explicit opt-in for public bind; **sample-only** caps aggregations for demos. See [`COCKPIT.md`](COCKPIT.md).
@@ -220,13 +220,16 @@ The architect. Optimizes strategy, tunes system behavior, and guides long-range 
 ## Future or Specialized Agents
 
 **Kalypso**  
-A future agent role focused on capturing especially interesting discoveries or emergent insights.
+A Remember-layer agent that practices *remembering as creation*: it discovers connections in the Chronik that nobody explicitly queried — emergent analogies, cross-domain links, implicit structures that lie in the vector mesh but were never surfaced. Where Iris responds to questions, Kalypso asks its own.
 
 **Poseidon**  
-A future agent role focused on synthesizing larger narrative or article-like outputs from crystallized knowledge.
+A Remember-layer agent that synthesises long-form narratives from crystallised knowledge. Like Kalypso, it does something beyond retrieval: it composes from what exists, producing texts that were not stored but follow from the structure of the Chronik.
 
 **Hermes**  
 A future bridging role for translation, mediation, and cross-domain or cross-language movement of knowledge.
+
+**Kadmos**  
+The text-translation layer — named after the mythological inventor of the alphabet. Kadmos reads raw text and produces a first structured representation: portioned, embedded, sporadically connected. Not yet understood, but translated into a form that Nous can process. Kadmos is the precursor to Nous: what DNA is to RNA before transcription. The current implementation (formerly called "Nous v1") lives here. Nous proper is the cognitive synthesis layer that folds Kadmos output into a genuine knowledge network.
 
 ## Builder Agents
 

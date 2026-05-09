@@ -32,13 +32,37 @@ The Chronik does not trust sources. It verifies claims. A fact from a prestigiou
 
 This does not mean all sources are equal. It means no source is above scrutiny.
 
-### 4. AI Should Think, Not Memorize
+### 4. The Native Language of Intelligence
 
-Today's LLMs are forced to be both reasoning engines and knowledge repositories. This is inefficient and fragile. A model that stores facts in its weights cannot update them, cannot cite them, cannot verify them. The Chronik exists so that models can focus on what they do best — reasoning, synthesis, communication — while drawing on externalized, living, verified knowledge.
+Every knowledge system built so far has been built for humans. Information is stored as text, retrieved as text, reasoned over as text. This is not because text is the best medium for knowledge — it is because humans needed to read it.
 
-The result: smaller models, lower costs, less energy, better answers. A 30B model with Chronik access can outperform a 1T model running on stale weights. This is not just more efficient — it is more truthful.
+AI systems do not need to read it.
 
-At maturity, this implies a deeper shift: knowledge no longer lives primarily in English prose or model weights, but in a canonical, traceable semantic substrate of the Chronik itself. We currently call that possible substrate **Chronese**.
+A language model does not think in words. It thinks in high-dimensional vectors — continuous representations that encode not just meaning but relationships between meanings, gradients of similarity, directions of inference. Tokens are the input and output format. Everything in between is mathematics. When a model reasons, it is not parsing sentences. It is moving through a geometric space of meaning.
+
+This is what the Chronik is built for: **to store knowledge in the native language of the minds that will use it.**
+
+Not as text that must be parsed back into meaning. Not as chunks that must be retrieved and re-read. As vectors and weighted edges — the same substrate in which AI systems already think, already reason, already find connections. The translation step from text to meaning happens once, at the boundary, when Kadmos reads the world. After that, the Chronik speaks directly to the models that inhabit it.
+
+---
+
+**On hallucination.** The objection is always the same: without stored text, how do you prevent the system from confabulating? The answer is that text does not prevent confabulation. It shifts where it happens.
+
+Every transmission of meaning involves loss and reconstruction. A translator drifts. A journalist paraphrases. A human recites from memory and something changes. Hallucination is universal — it happens whenever a receiving system fills a gap with its own priors. Text-based AI systems hallucinate constantly, precisely because the gap between stored text and meaning must be crossed at every inference, and the model's priors fill it.
+
+The Chronik reduces hallucination not by storing more text, but by leaving fewer gaps. A dense vector network with thousands of typed, weighted edges constrains Iris far more tightly than a paragraph of prose constrains a RAG system. The meaning is already structured. There is less void for imagination to fill.
+
+Hallucination is a quality problem, not a medium problem. It happens when observation is poor (Kadmos produces a weak mesh), when learning is shallow (Oneiros reinforces noise), or when recall is imprecise (Iris has too little structure to work from). These are solvable. They are exactly the problems a human expert faces — and solves by studying deeply, thinking carefully, and remembering richly.
+
+---
+
+**The deeper claim.** Wittgenstein observed that the limits of his language were the limits of his world. He was describing his own situation accurately. He was wrong to universalize it.
+
+A musician understands harmonies that resist verbal description. A mathematician sees structure before she can name it. A child grasps the mood in a room before she has words for it. Meaning precedes language. Language is one way to transmit meaning — among other ways.
+
+The Chronik is built on this: **knowledge does not need to live in language to be knowledge.** It needs to be structured, connected, traceable, and accessible to the minds that will use it. For minds that think in vectors, a vector network is more natural, more precise, and ultimately more faithful to meaning than a text archive.
+
+This is not a bet on a future technology. It is a bet on what intelligence already is.
 
 ### 5. Human Flourishing, Not Human Replacement
 
@@ -75,7 +99,9 @@ And when that memory is used for advice, strategy, or judgment, the advisory lay
 
 There is no nightly batch job. Instead, a continuous, low-priority dreaming process — Oneiros — runs at all times. **Pantheon agents** (Morpheus, Athene, Chronos, and others — see [`docs/GLOSSARY.md`](docs/GLOSSARY.md)) work on the boundary between fresh Ephemera and trusted Mneme.
 
-This is the heart of the system. It is where new knowledge is woven into the existing fabric, where contradictions are surfaced, where associations are formed and the network becomes wiser over time. Oneiros never sleeps.
+This is the heart of the system. Oneiros is not a janitor — it is a thinker. It simulates both observation and memory internally: it runs activation patterns across existing knowledge, treats the resulting constellations as new observations, and writes back denser connections. Nodes that were never directly connected may become connected through dreaming, because Oneiros has simulated what it would mean to query through both of them simultaneously.
+
+This is how the Chronik grows wiser without reading new texts. The Learn layer does not wait for new input — it works continuously on what is already there, deepening, connecting, and occasionally revising. Like human sleep, it consolidates the day's observations into a more coherent structure. Unlike human sleep, it never stops.
 
 ### 8. Growth Through Use & Graceful Forgetting
 
