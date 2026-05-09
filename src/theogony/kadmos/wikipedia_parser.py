@@ -1,5 +1,5 @@
 """
-Structured Wikipedia fetch and segmentation for Nous (nous_implementation_brief §2, Q1).
+Structured Wikipedia fetch and segmentation for Kadmos v2.
 
 The brief requires paragraph-level reading units.  The MediaWiki
 ``action=parse`` REST API returns HTML that is already naturally segmented
