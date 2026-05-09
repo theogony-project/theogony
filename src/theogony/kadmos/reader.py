@@ -740,6 +740,20 @@ def _normalise_llm_output(data: dict[str, Any]) -> dict[str, Any]:
             # strings without source/target are dropped
         data["new_connections"] = normalised_edges
 
+    # confirmed_hypotheses / rejected_hypotheses: dicts → extract concept_id
+    for key in ("confirmed_hypotheses", "rejected_hypotheses"):
+        items = data.get(key, [])
+        if isinstance(items, list):
+            normalised_items = []
+            for item in items:
+                if isinstance(item, str):
+                    normalised_items.append(item)
+                elif isinstance(item, dict):
+                    cid = item.get("concept_id") or item.get("id") or item.get("label", "")
+                    if cid:
+                        normalised_items.append(str(cid))
+            data[key] = normalised_items
+
     # revisions: normalise if present
     revisions = data.get("revisions", [])
     if isinstance(revisions, list):
