@@ -62,7 +62,8 @@ def _parse_html_to_sections(html: str) -> list[WikiSection]:
     Strategy:
     1. Walk the top-level children of the ``<div class="mw-parser-output">``
        (or ``<body>`` as fallback).
-    2. When a heading tag (H2/H3) is encountered, start a new section.
+    2. When a ``<div class="mw-heading">`` or a heading tag (H2/H3) is encountered,
+       start a new section. Modern Wikipedia wraps headings in div.mw-heading.
     3. When a ``<p>`` tag is encountered, append its text to the current section.
     4. Ignore tables, infoboxes, navboxes, and empty paragraphs.
     """
@@ -73,21 +74,36 @@ def _parse_html_to_sections(html: str) -> list[WikiSection]:
     sections: list[WikiSection] = []
     current = WikiSection(title="", level=0)
 
+    def _is_heading_div(tag: Tag) -> tuple[int, str] | None:
+        """Return (level, text) if tag is a mw-heading div, else None."""
+        if tag.name == "div":
+            classes = tag.get("class", [])
+            for cls in classes:
+                if cls.startswith("mw-heading"):
+                    h = tag.find(["h2", "h3", "h4"])
+                    if h:
+                        level = int(h.name[1])
+                        text = _clean(h.get_text(" ", strip=True))
+                        return level, text
+        if tag.name in ("h2", "h3", "h4"):
+            level = int(tag.name[1])
+            text = _clean(tag.get_text(" ", strip=True))
+            return level, text
+        return None
+
     for child in container.children:
         if not isinstance(child, Tag):
             continue
 
-        tag = child.name
-        if tag in ("h2", "h3", "h4"):
-            level = int(tag[1])
-            heading_text = child.get_text(" ", strip=True)
-            heading_text = _clean(heading_text)
+        heading = _is_heading_div(child)
+        if heading is not None:
+            level, heading_text = heading
             if current.paragraphs:
                 sections.append(current)
             current = WikiSection(title=heading_text, level=level)
             continue
 
-        if tag == "p":
+        if child.name == "p":
             text = _clean(child.get_text(" ", strip=True))
             if len(text) > 20:
                 current.paragraphs.append(text)

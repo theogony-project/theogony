@@ -1,41 +1,20 @@
 #!/usr/bin/env python3
 """
-Monkey-1 comparison script (nous_implementation_brief §4 E5, §6).
+Monkey-1 comparison script.
 
-Reads a NousRunReport and an IngestRunReport for the same article and
+Reads a KadmosRunReport and an IngestRunReport for the same article and
 prints a comparison Markdown table to stdout.
 
 Usage:
     python scripts/monkey1_compare.py \\
-        --nous  data/run_reports/nous/<ulid>.json \\
+        --kadmos data/run_reports/kadmos/<ulid>.json \\
         --ingest data/run_reports/ingest/<ulid>.json
 
-Or with --cold to skip Chronicle-hit columns when comparing against a
-cold-store run (i.e. chronicle_seeded=False in the NousRunReport).
-
-The script does NOT run either pipeline.  It reads already-written reports.
-To generate the reports first:
-
-    # Seed the Chronicle (requires Neo4j running):
-    theogony ingest 43497 --sentences 500
-
-    # Run the topology_parser baseline on the same article:
-    theogony ingest --url https://en.wikipedia.org/wiki/Trans-Himalaya
-
-    # Run Nous:
-    theogony nous read "Trans-Himalaya"
-
-    # Compare:
-    python scripts/monkey1_compare.py \\
-        --nous  data/run_reports/nous/<ulid>.json \\
-        --ingest data/run_reports/ingest/<ulid>.json
+Or with --nous for legacy NousRunReport files.
 
 Chronicle precondition note:
-    Running Monkey 1 on a cold store will show chronicle_hits_used=0 and
-    new connections to Hedin nodes=0.  This is expected.  The
-    NousRunReport.chronicle_seeded field documents this condition.
-
-    See: docs/etappes/nous_hesiod_brief.md §9
+    The Chronik should be seeded with prior ingests for the cross-document
+    connection comparison to be meaningful. See docs/etappes/nous_hesiod_brief.md §9.
 """
 
 from __future__ import annotations
@@ -68,39 +47,40 @@ def _fmt(value: object) -> str:
     return str(value)
 
 
-def _print_table(rows: list[tuple[str, str, str]]) -> None:
+def _print_table(rows: list[tuple[str, str, str]], header3: str = "Kadmos v2") -> None:
     col1 = max(len(r[0]) for r in rows)
     col2 = max(len(r[1]) for r in rows)
     col3 = max(len(r[2]) for r in rows)
 
     sep = f"| {'-' * col1} | {'-' * col2} | {'-' * col3} |"
-    header = f"| {'Metric':<{col1}} | {'topology_parser':<{col2}} | {'Nous':<{col3}} |"
+    header = f"| {'Metric':<{col1}} | {'topology_parser':<{col2}} | {header3:<{col3}} |"
     print(header)
     print(sep)
-    for label, parser_val, nous_val in rows:
-        print(f"| {label:<{col1}} | {parser_val:<{col2}} | {nous_val:<{col3}} |")
+    for label, parser_val, kadmos_val in rows:
+        print(f"| {label:<{col1}} | {parser_val:<{col2}} | {kadmos_val:<{col3}} |")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Monkey-1: compare topology_parser vs Nous metrics."
+        description="Monkey-1: compare topology_parser vs Kadmos v2 metrics."
     )
-    parser.add_argument("--nous", required=True, help="Path to NousRunReport JSON file.")
-    parser.add_argument("--ingest", required=True, help="Path to IngestRunReport JSON file.")
     parser.add_argument(
-        "--cold",
-        action="store_true",
-        help="Skip Chronicle-hit columns (expected when chronicle_seeded=False).",
+        "--kadmos",
+        "--nous",
+        dest="kadmos",
+        required=True,
+        help="Path to KadmosRunReport (or legacy NousRunReport) JSON file.",
     )
+    parser.add_argument("--ingest", required=True, help="Path to IngestRunReport JSON file.")
     args = parser.parse_args()
 
-    nous_data = _load_json(args.nous)
+    kadmos_data = _load_json(args.kadmos)
     ingest_data = _load_json(args.ingest)
 
-    if nous_data.get("report_type") != "nous":
+    report_type = kadmos_data.get("report_type", "unknown")
+    if report_type not in ("kadmos", "nous"):
         print(
-            f"WARNING: --nous file has report_type={nous_data.get('report_type')!r},"
-            " expected 'nous'.",
+            f"WARNING: --kadmos file has report_type={report_type!r}, expected 'kadmos' or 'nous'.",
             file=sys.stderr,
         )
 
@@ -111,76 +91,112 @@ def main() -> None:
             file=sys.stderr,
         )
 
-    # Nous metrics
-    nous_nodes = nous_data.get("nodes_written", 0)
-    nous_edges = nous_data.get("edges_written", 0)
-    nous_hints_offered = nous_data.get("chronicle_hits_offered", 0)
-    nous_hints_used = nous_data.get("chronicle_hits_used", 0)
-    nous_seeded = nous_data.get("chronicle_seeded", False)
+    # Kadmos metrics — support both KadmosRunReport and legacy NousRunReport field names
+    if report_type == "kadmos":
+        kadmos_concepts = kadmos_data.get("total_concepts", 0)
+        kadmos_edges_explicit = kadmos_data.get("total_edges", 0)
+        kadmos_edges_implicit = kadmos_data.get("total_edges_implicit", 0)
+        kadmos_edges_total = kadmos_edges_explicit + kadmos_edges_implicit
+        kadmos_syntheses = kadmos_data.get("total_syntheses", 0)
+        kadmos_revisions = kadmos_data.get("total_revisions", 0)
+        kadmos_llm_calls = kadmos_data.get("total_llm_calls", 0)
+        kadmos_cost = kadmos_data.get("total_llm_cost_eur", 0.0)
+        edge_node_ratio = (
+            _edge_to_node_ratio(kadmos_concepts, kadmos_edges_total)
+            if kadmos_edges_total
+            else _edge_to_node_ratio(kadmos_concepts, kadmos_edges_explicit)
+        )
+    else:
+        # Legacy NousRunReport
+        kadmos_concepts = kadmos_data.get("nodes_written", 0)
+        kadmos_edges_explicit = kadmos_data.get("edges_written", 0)
+        kadmos_edges_total = kadmos_edges_explicit
+        kadmos_syntheses = kadmos_data.get("synthesis_events", 0)
+        kadmos_revisions = kadmos_data.get("repair_events", 0)
+        kadmos_llm_calls = kadmos_data.get("llm_calls", 0)
+        kadmos_cost = kadmos_data.get("llm_cost_eur", 0.0)
+        edge_node_ratio = _edge_to_node_ratio(kadmos_concepts, kadmos_edges_explicit)
 
     # topology_parser metrics (from IngestRunReport)
     store_data = ingest_data.get("store", {})
     parser_nodes = store_data.get("nodes_upserted", 0)
     parser_edges = store_data.get("edges_upserted", 0)
+    parser_cost = ingest_data.get("relations", {}).get("llm_cost_eur", 0.0)
 
     print()
-    print("## Monkey-1 Comparison: topology_parser vs Nous")
-    print()
-
-    chronicle_note = (
-        "(chronicle_seeded=False — Chronicle-hit metrics expected zero)"
-        if not nous_seeded
-        else "(chronicle_seeded=True)"
-    )
-    print(f"Chronicle state: {chronicle_note}")
+    print("## Monkey-1 Comparison: topology_parser vs Kadmos v2")
     print()
 
     rows: list[tuple[str, str, str]] = [
-        ("Nodes produced", _fmt(parser_nodes), _fmt(nous_nodes)),
-        ("Edges produced", _fmt(parser_edges), _fmt(nous_edges)),
+        ("Concepts/Nodes produced", _fmt(parser_nodes), _fmt(kadmos_concepts)),
+        ("Explicit edges produced", _fmt(parser_edges), _fmt(kadmos_edges_explicit)),
         (
-            "Edge-to-node ratio",
+            "Explicit edge-to-node ratio",
             _edge_to_node_ratio(parser_nodes, parser_edges),
-            _edge_to_node_ratio(nous_nodes, nous_edges),
+            _edge_to_node_ratio(kadmos_concepts, kadmos_edges_explicit),
         ),
-        ("Cross-level diagonal edges", "0 (tree)", "see AnnotatedReading"),
+    ]
+
+    if report_type == "kadmos" and kadmos_edges_implicit:
+        rows += [
+            ("Implicit kNN edges", "0 (no kNN pass)", _fmt(kadmos_edges_implicit)),
+            ("Total edges (explicit + kNN)", _fmt(parser_edges), _fmt(kadmos_edges_total)),
+            (
+                "Total edge-to-node ratio",
+                _edge_to_node_ratio(parser_nodes, parser_edges),
+                edge_node_ratio,
+            ),
+        ]
+
+    rows += [
+        ("Synthesis nodes", "0 (flat)", _fmt(kadmos_syntheses)),
+        ("Revision events", "0 (stateless)", _fmt(kadmos_revisions)),
         (
-            "Chronicle hits offered",
-            "0 (no retrieval)",
-            _fmt(nous_hints_offered) if not args.cold else "—",
+            "LLM calls",
+            _fmt(ingest_data.get("relations", {}).get("attempted", "?")),
+            _fmt(kadmos_llm_calls),
         ),
-        (
-            "Chronicle hits used",
-            "0 (no retrieval)",
-            _fmt(nous_hints_used) if not args.cold else "—",
-        ),
+        ("LLM cost (EUR)", f"€{parser_cost:.4f}", f"€{kadmos_cost:.4f}"),
     ]
 
     _print_table(rows)
 
     print()
-    print("Nous verdict:", nous_data.get("verdict", "—"))
+    print("Kadmos verdict:", kadmos_data.get("verdict", "—"))
     print("Parser verdict:", ingest_data.get("verdict", "—"))
 
-    # Monkey-1 threshold check (brief §6)
-    nous_ratio = nous_edges / max(nous_nodes, 1)
-    parser_ratio = parser_edges / max(parser_nodes, 1)
-
+    # Monkey-1 threshold checks
     print()
-    if nous_ratio > parser_ratio:
-        print(f"✓ Nous edge-to-node ratio > topology_parser: {nous_ratio:.2f} > {parser_ratio:.2f}")
+    parser_ratio = parser_edges / max(parser_nodes, 1)
+    kadmos_explicit_ratio = kadmos_edges_explicit / max(kadmos_concepts, 1)
+    kadmos_total_ratio = kadmos_edges_total / max(kadmos_concepts, 1)
+
+    if kadmos_explicit_ratio > parser_ratio:
+        print(
+            f"✓ Explicit edge-to-node ratio > parser: "
+            f"{kadmos_explicit_ratio:.2f} > {parser_ratio:.2f}"
+        )
     else:
         print(
-            f"✗ Nous edge-to-node ratio NOT > topology_parser:"
-            f" {nous_ratio:.2f} <= {parser_ratio:.2f}"
+            f"✗ Explicit edge-to-node ratio NOT > parser: "
+            f"{kadmos_explicit_ratio:.2f} <= {parser_ratio:.2f}"
         )
 
-    if nous_seeded and nous_hints_used > 0:
-        print(f"✓ Chronicle hits used: {nous_hints_used} / {nous_hints_offered} offered")
-    elif not nous_seeded:
-        print("— Chronicle seeded=False; Chronicle-hit comparison not applicable.")
+    if report_type == "kadmos" and kadmos_total_ratio >= 20:
+        print(
+            f"✓ Total edge-to-node ratio >= 20:1 target: "
+            f"{kadmos_total_ratio:.1f}:1"
+        )
+    elif report_type == "kadmos":
+        print(
+            f"✗ Total edge-to-node ratio below 20:1 target: "
+            f"{kadmos_total_ratio:.1f}:1"
+        )
+
+    if kadmos_syntheses > 0:
+        print(f"✓ Synthesis nodes created: {kadmos_syntheses}")
     else:
-        print("✗ No Chronicle hits used (check: is the Chronicle seeded?)")
+        print("✗ No synthesis nodes created")
 
 
 if __name__ == "__main__":
