@@ -30,6 +30,7 @@ from theogony.reporting.models import (
     BlindSpotReport,
     ClusteringRunReport,
     IngestRunReport,
+    KadmosRunReport,
     MnemosyneObservationCluster,
     NousRunReport,
     OneirosTickReport,
@@ -52,6 +53,7 @@ RUN_REPORT_TYPE_SUBDIRS: tuple[str, ...] = (
     "eris",
     "mnemosyne_conductor",
     "nous",
+    "kadmos",
 )
 
 ReportType = (
@@ -67,6 +69,7 @@ ReportType = (
     | type[ErisCampaignReport]
     | type[MnemosyneConductorReport]
     | type[NousRunReport]
+    | type[KadmosRunReport]
 )
 
 
