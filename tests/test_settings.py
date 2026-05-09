@@ -48,10 +48,10 @@ def _isolate_environment(
 
 
 class TestSettingsDefaults:
-    def test_default_llm_is_openai_gpt4o_mini_with_anthropic_fallback(self) -> None:
+    def test_default_llm_is_openai_gpt_5_4_mini_with_anthropic_fallback(self) -> None:
         s = Settings()
         assert s.llm.provider == "openai"
-        assert s.llm.model_id == "gpt-4o-mini"
+        assert s.llm.model_id == "gpt-5.4-mini"
         assert s.llm.fallback_provider == "anthropic"
         assert s.llm.fallback_model_id == ""
         assert s.llm.resolved_fallback_model_id() == "claude-sonnet-4-6"
@@ -94,11 +94,11 @@ class TestSettingsDefaults:
 class TestSettingsFromKwargs:
     def test_kwargs_override_defaults(self) -> None:
         s = Settings(
-            llm=LLMSettings(provider="openai", model_id="gpt-4o-mini"),
+            llm=LLMSettings(provider="openai", model_id="gpt-5.4-mini"),
             embedding=EmbeddingSettings(model_id="text-embedding-3-small", dim=1536),
         )
         assert s.llm.provider == "openai"
-        assert s.llm.model_id == "gpt-4o-mini"
+        assert s.llm.model_id == "gpt-5.4-mini"
         assert s.embedding.dim == 1536
 
     def test_secret_kwargs_are_wrapped(self) -> None:

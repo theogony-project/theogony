@@ -19,7 +19,7 @@ Examples::
 
     THEOGONY_LOG_LEVEL=DEBUG
     THEOGONY_LLM__PROVIDER=openai
-    THEOGONY_LLM__MODEL_ID=gpt-4o-mini
+    THEOGONY_LLM__MODEL_ID=gpt-5.4-mini
     THEOGONY_LLM__FALLBACK_PROVIDER=anthropic
     THEOGONY_NEO4J__PASSWORD=changeme
 
@@ -47,7 +47,7 @@ LLMProviderName = Literal["gemini", "openai", "anthropic", "deepseek", "stub"]
 class LLMSettings(BaseModel):
     """Selection and tuning of the active LLMProvider.
 
-    **Defaults:** **OpenAI** ``gpt-4o-mini`` as primary; **Anthropic**
+    **Defaults:** **OpenAI** ``gpt-5.4-mini`` as primary; **Anthropic**
     (``claude-sonnet-4-6``) as the **fallback** when the primary call
     fails (quota, transient errors, etc.), so a single `OPENAI_API_KEY`
     plus `ANTHROPIC_API_KEY` gives the intended production stack. Override
@@ -99,7 +99,7 @@ class LLMSettings(BaseModel):
         if self.model_id.strip():
             return self
         defaults: dict[LLMProviderName, str] = {
-            "openai": "gpt-4o-mini",
+            "openai": "gpt-5.4-mini",
             "anthropic": "claude-sonnet-4-6",
             "gemini": "gemini-2.5-flash-lite",
             "deepseek": "deepseek-chat",

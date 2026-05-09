@@ -25,8 +25,9 @@ The loop per reading unit (paragraph by default):
   Schritt D — Write to LanceDB session net
 
 Post-loop:
-  - Post-read kNN pass (implicit edges) — §4.1
   - Build AnnotatedReading + KadmosRunReport
+  (Implicit kNN edges are not produced here; reserve similarity wiring for
+  Chronik mesh integration, not the Kadmos translation layer.)
 
 Failure discipline (AGENTS.md §3 / BUILD_DOCTRINE.md):
   - LLM parse failure on one step → log, mark parse_failed=True, continue
@@ -82,6 +83,11 @@ log = get_logger("kadmos.reader")
 # Failure thresholds
 _PARTIAL_THRESHOLD = 0.20
 _HARD_FAIL_THRESHOLD = 0.50
+
+# Large structured reading updates (many concepts/edges) need a generous
+# completion budget so providers (especially Gemini) do not truncate JSON.
+_READING_MAX_OUTPUT_TOKENS = 16384
+_SYNTHESIS_MAX_OUTPUT_TOKENS = 8192
 
 
 class KadmosReader:
@@ -190,6 +196,7 @@ class KadmosReader:
                         prompt,
                         system=READING_STEP_SYSTEM,
                         json_schema=READING_STEP_OUTPUT_SCHEMA,
+                        max_output_tokens=_READING_MAX_OUTPUT_TOKENS,
                         timeout_s=180.0,
                     )
                 )
@@ -322,12 +329,6 @@ class KadmosReader:
             except Exception as exc:
                 log.warning("kadmos: forced article synthesis failed: %s", exc)
 
-        # ---- Post-loop: implicit kNN edges ----
-        try:
-            store.add_implicit_edges(k=20)
-        except Exception as exc:
-            log.warning("kadmos: implicit edges pass failed: %s", exc)
-
         # ---- Build output ----
         total_steps = len(steps)
         verdict, status = _compute_verdict(failed_steps, total_steps)
@@ -355,18 +356,6 @@ class KadmosReader:
             reading_units_total=total_steps,
         )
 
-        # Count implicit edges from the kNN pass
-        try:
-            implicit_count = int(
-                store._edges_tbl.search()
-                .where("is_implicit = true", prefilter=True)
-                .limit(1_000_000)
-                .to_arrow()
-                .num_rows
-            )
-        except Exception:
-            implicit_count = 0
-
         report = KadmosRunReport(
             session_id=session_id,
             source_url=url,
@@ -378,7 +367,7 @@ class KadmosReader:
             reading_units_total=total_steps,
             total_concepts=annotated.total_concepts,
             total_edges=annotated.total_edges,
-            total_edges_implicit=implicit_count,
+            total_edges_implicit=0,
             total_syntheses=total_syntheses,
             total_revisions=total_revisions,
             total_llm_calls=total_llm_calls,
@@ -669,6 +658,7 @@ class KadmosReader:
             prompt,
             system=SYNTHESIS_STEP_SYSTEM,
             json_schema=SYNTHESIS_STEP_OUTPUT_SCHEMA,
+            max_output_tokens=_SYNTHESIS_MAX_OUTPUT_TOKENS,
             timeout_s=60.0,
         )
 

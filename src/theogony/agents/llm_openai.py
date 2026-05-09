@@ -26,6 +26,17 @@ from theogony.config.logging import get_logger
 log = get_logger("agents.llm_openai")
 
 
+def _openai_reasoning_model_default_temperature_only(model_id: str) -> bool:
+    """Whether ``model_id`` only allows the API default temperature (typically 1).
+
+    OpenAI o-series reasoning models reject caller-supplied ``temperature=0``;
+    the API returns ``unsupported_value`` on chat.completions.
+    """
+
+    m = (model_id or "").lower().strip()
+    return m.startswith(("o1", "o3", "o4"))
+
+
 class OpenAILLMProvider:
     """Async OpenAI Chat Completions behind the LLMProvider protocol."""
 
@@ -36,7 +47,7 @@ class OpenAILLMProvider:
     def __init__(
         self,
         api_key: SecretStr | str | None,
-        model_id: str = "gpt-4o-mini",
+        model_id: str = "gpt-5.4-mini",
         *,
         client: Any | None = None,
         usd_per_m_input: float | None = None,
@@ -98,8 +109,9 @@ class OpenAILLMProvider:
         kwargs: dict[str, Any] = {
             "model": self._model_id,
             "messages": messages,
-            "temperature": temperature,
         }
+        if not _openai_reasoning_model_default_temperature_only(self._model_id):
+            kwargs["temperature"] = temperature
         if max_output_tokens is not None:
             kwargs["max_tokens"] = max_output_tokens
         if json_schema is not None:
