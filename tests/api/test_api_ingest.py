@@ -7,15 +7,33 @@ Asserts:
 - an unsupported source_type yields 422 (only "gutenberg" is allowed
   in Gen 1).
 
-The actual background task (Gutenberg HTTP + ingest pipeline) is
-NOT exercised here — that requires Gutenberg + LLM + a full pipeline
-and is covered by the existing ingest unit tests + the smoke. The
-HTTP contract test stays at the accept boundary.
+Starlette's ``TestClient`` runs ``BackgroundTasks`` to completion before
+returning from ``.post()`` (unlike a real HTTP client that would detach
+after the 202 body). Without intervention, this contract test would pull
+Gutenberg + Wikidata + the full ingest pipeline and take many minutes.
+
+We therefore monkeypatch ``_run_background_ingest`` to a no-op so this
+module only asserts the **202 accept boundary** + validation. Full
+pipeline coverage lives in ingest unit tests and smoke tests.
 """
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
+
+
+@pytest.fixture(autouse=True)
+def _noop_background_ingest(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Do not run real Gutenberg/Wikidata ingest during TestClient requests."""
+
+    async def _noop(**_: object) -> None:
+        return None
+
+    monkeypatch.setattr(
+        "theogony.api.routes.ingest._run_background_ingest",
+        _noop,
+    )
 
 
 def test_ingest_returns_202_with_run_id(api_client: TestClient) -> None:
