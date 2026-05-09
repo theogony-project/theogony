@@ -65,6 +65,7 @@ from theogony.kadmos.prompts import (
     build_reading_step_prompt,
 )
 from theogony.kadmos.reading_state import (
+    WM_CAPACITY,
     WM_DECAY_FACTOR,
     ReadingStateStore,
     new_concept_id,
@@ -169,7 +170,7 @@ class KadmosReader:
 
         for section in sections:
             # compress at section boundary only if WM is very full
-            if len(state.active_concepts) > 100:
+            if len(state.active_concepts) > WM_CAPACITY // 2:
                 await self._compress_working_memory(state, store, step=state.current_step)
 
             for paragraph in section.paragraphs:
@@ -256,7 +257,7 @@ class KadmosReader:
                 _decay_working_memory(state, added_concept_ids=set(added_concepts))
 
                 # Q2: compress if over capacity
-                if len(state.active_concepts) > 200:
+                if len(state.active_concepts) > WM_CAPACITY:
                     await self._compress_working_memory(state, store, step=state.current_step)
 
                 # Update granularity for next step
