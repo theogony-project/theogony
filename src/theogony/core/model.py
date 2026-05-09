@@ -15,7 +15,7 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -337,6 +337,16 @@ class KnowledgeNode(BaseModel):
         ),
     )
 
+    nous_session_id: str | None = Field(
+        default=None,
+        description="Reading session that produced this node (Nous only).",
+    )
+    synthesis_level: Literal["sentence", "paragraph", "chapter", "article"] | None = Field(
+        default=None,
+        description="Hierarchy level at which this node was synthesised (Nous only). "
+        "None for parser-extracted nodes.",
+    )
+
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_accessed: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_verified: datetime | None = None
@@ -462,6 +472,11 @@ class KnowledgeEdge(BaseModel):
             "(source, relation, target) from different sentences are two "
             "edges, not one."
         ),
+    )
+    relation_codebook: str | None = Field(
+        default=None,
+        description="Internal codebook entry (BINDS_TO, REINFORCES, etc.) when no Wikidata "
+        "P-ID applies. Populated by Nous; left None by the topology_parser.",
     )
 
     properties: dict[str, Any] = Field(default_factory=dict)

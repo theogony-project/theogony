@@ -11,15 +11,15 @@
 
 ## What this is
 
-Reading a sentence, the brain doesn't store words. It stores concepts — massively interconnected, firing across prior knowledge, condensing into synthesis. Theogony builds the machine equivalent: the **Chronik**, a planetary knowledge substrate where every piece of knowledge exists as a node in a dense vector-graph, connected to thousands of other nodes by typed, weighted edges.
+Theogony builds the **Chronik** — a knowledge substrate that operates in the native language of AI systems: vectors and weighted edges, without text as an internal medium.
 
-AI agents don't read the Chronik. They activate it. A thought arrives as a vector. Spreading activation propagates through the network — concepts lighting up, energy decaying along weak edges, a constellation of relevant structure assembling itself. The agent receives that constellation directly, in the same vector space it thinks in. No text. No chunking. No translation.
+Text enters once, at ingestion. It is translated into a dense mesh of embedding vectors and typed edges. After that, it is gone. Everything that follows — synthesis, consolidation, retrieval, reasoning — happens in vector space.
 
-A large ecosystem of agents — with distinct roles, expertise, and memory — lives inside and around this network. They read the world into it. They dream connections across it. They heal it, verify it, prune it. They are permanently wired to it: their working memory, their biographical history, their task queues are all subgraphs in the Chronik itself.
+The central empirical question driving the architecture: **can a dense vector-graph support inference that exceeds what any individual source text contains?** Not retrieve what was written — but surface what was never written, because it follows from the structure of connected meaning.
 
-The long-horizon vision: the Chronik grows into the dominant knowledge substrate of the age of AI — not a better search engine, not a bigger database, but the rail layer beneath the models. A shared, open, inspectable record of what the world knows, has known, and disputes. Models are vehicles. They will improve and be replaced. The Chronik is the track they all run on. The **Pantheon** — the full agent ecosystem that weaves, heals, and navigates it — is what makes it live.
+AI agents don't read the Chronik. They activate it. A query arrives as a vector. Spreading Activation propagates through the typed, weighted edge network — not geometric proximity alone, but causal, temporal, and conceptual structure assembled across thousands of connections. The agent receives a subgraph constellation directly, in the same representational space it computes in.
 
-Today we are building the foundations toward that.
+The long-horizon vision: the Chronik grows into the dominant knowledge substrate of the age of AI — not a better search engine, not a bigger database, but the rail layer beneath the models. A shared, open, inspectable record of what the world knows, has known, and disputes. Models are vehicles. They will improve and be replaced. The Chronik is the track they all run on.
 
 **→ [ROADMAP.md](ROADMAP.md)** — the development sequence, five phases, current priorities.  
 **→ [docs/INDEX.md](docs/INDEX.md)** — the full document map with reading paths by audience.  
@@ -38,9 +38,10 @@ This is an early-stage research project. The architecture is well-thought-out an
 - A small MCP server so AI assistants like Claude Desktop or Cursor can query the Chronik directly as a tool
 
 **What we build next:**
-- **Nous** — a cognitive synthesis agent that reads text the way a person does: sentence by sentence, with working memory, spreading activation against the existing Chronik in parallel, and synthesis that builds up from sentences to paragraphs to chapters. This produces a far denser, better-connected Chronik than the current chunk-by-chunk pipeline.
-- **Tensor-Manifold** — replacing the current graph database (Neo4j) with a GPU-resident sparse tensor structure (LanceDB + PyTorch CSR). Spreading activation runs as matrix multiplication. Edges are vectors, not string labels. The Chronik becomes queryable in milliseconds regardless of size.
-- **Chronik-as-Cross-Attention** — a proof of concept: a small open language model (1–3B parameters) that attends directly to the Chronik during inference, without a separate retrieval step. This is the technical demonstration that knowledge doesn't belong in model weights.
+- **Kadmos** — the text translation layer. Reads raw text and produces a primitive vector mesh: nodes with embeddings, typed local edges (NEXT, SAME_PARAGRAPH, SAME_SECTION, WIKI_LINK), no text stored. Fast, no deep LLM calls, structurally faithful to the source. The Observe layer's first step.
+- **Nous** — the cognitive synthesis layer. Takes the Kadmos mesh as input (no text) and weaves it into a denser knowledge network: diagonal connections, cross-paragraph syntheses, revision of earlier nodes when later context demands it. Operates via a GNN encoder + LLM synthesis loop, without text as an intermediate medium. The Observe layer's second step.
+- **Tensor-Manifold** — replacing the current graph database (Neo4j) with a GPU-resident sparse tensor structure (LanceDB + PyTorch CSR). Spreading Activation runs as matrix multiplication. Edges are vectors, not string labels. The Chronik becomes queryable in milliseconds regardless of size.
+- **Iris** — the first Remember-layer agent: receives an activated vector subgraph and generates natural language from its structure — not by retrieving stored text, but by formulating from the constellation of vectors and edges.
 
 The full development sequence is in [ROADMAP.md](ROADMAP.md).
 

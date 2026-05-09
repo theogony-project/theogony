@@ -4,6 +4,22 @@
 
 Theogony is a four-layer system with a cross-cutting **Pantheon agents** framework (Zeus, Argus, Athene, … — see [`GLOSSARY.md`](GLOSSARY.md)). The central component is **the Chronik** — Generation 1's living vector-graph knowledge network that stores knowledge as interconnected embeddings, relations, and provenance rather than as static text. Long-horizon direction for the *substrate* itself is the **Pantheon** (planetary chronicle); the Chronik is the first operational instantiation. At maturity, the graph and vector layers are operational projections of a deeper canonical semantic layer: **Chronese**.
 
+### The Three Cognitive Layers
+
+The Chronik's agent ecosystem maps onto three cognitive functions. Language enters and exits at the edges — everything in between operates in vector space. See [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) for the binding doctrine.
+
+| Layer | Function | Agents | Medium |
+|---|---|---|---|
+| **Observe** | Read the world into vectors | Argus, Kadmos, Nous | Text in → vectors out |
+| **Learn** | Consolidate, connect, dream | Chronik, Oneiros | Vectors + edges only |
+| **Remember** | Retrieve and express | Iris, Kalypso, Poseidon | Vectors in → text out |
+
+**Observe** brings knowledge into the system. Argus finds sources. Kadmos translates raw text into a primitive vector mesh — nodes with embeddings, local typed edges, no text stored. Nous weaves the primitive mesh into a denser synthesis graph: diagonal edges, cross-paragraph connections, synthesis nodes at higher abstraction levels. After Kadmos, no source text remains in the system.
+
+**Learn** is the internal life of the Chronik. Oneiros is not a batch job — it is a continuous thinker that simulates both Observe and Remember internally: it runs activation patterns across existing knowledge, treats the results as new observations, and writes back denser connections. This is how the Chronik grows wiser without reading new texts.
+
+**Remember** translates vector constellations back into meaning for humans and agents. Iris activates a subgraph via Spreading Activation and generates language from the vector structure — not by retrieving stored text, but by formulating from structure. Kalypso discovers connections nobody queried. Poseidon synthesises long-form narratives. Both do something beyond retrieval: *remembering as creation* — producing from the existing structure something that was not yet explicitly there.
+
 ## Terminology Alignment
 
 Canonical terminology for this document is defined in [`GLOSSARY.md`](GLOSSARY.md).
@@ -475,6 +491,8 @@ The Argonauts are a dynamic, extensible team of specialized agents — domain ex
 - **Kalypso** — captures interesting discoveries from novel connections
 - **Poseidon** — synthesizes long-form articles from crystallized knowledge
 - **Hermes** — translates and bridges knowledge across languages and domains
+- **Kadmos** — text-translation layer: reads raw text, produces first structured vector representation (portioned, embedded, sporadically connected); precursor to Nous. The current "Nous v1" implementation is Kadmos.
+- **Nous** — cognitive synthesis layer: receives Kadmos output, folds it into a genuine knowledge network through LLM-driven understanding, revision, and emergent hierarchy
 
 ## Multi-Tenancy: Lethe Vaults and Personal Twins
 

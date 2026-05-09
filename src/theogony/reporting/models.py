@@ -68,6 +68,7 @@ class RunReportBase(BaseModel):
         "nemesis",
         "eris",
         "mnemosyne_conductor",
+        "nous",
     ]
     started_at: datetime
     finished_at: datetime
@@ -437,3 +438,28 @@ class MnemosyneObservationCluster(RunReportBase):
         validation_alias=AliasChoices("followup_review_status", _LEGACY_FOLLOWUP_STATUS_KEY),
         serialization_alias=_LEGACY_FOLLOWUP_STATUS_KEY,
     )
+
+
+# ---------------------------------------------------------------------------
+# Nous cognitive-synthesis report (nous_hesiod_brief §8 / nous_implementation_brief §3.3)
+# ---------------------------------------------------------------------------
+
+
+class NousRunReport(RunReportBase):
+    """Run report emitted by NousReader at the end of each reading session."""
+
+    report_type: Literal["nous"] = "nous"
+    session_id: str
+    source_url: str
+    reading_units_total: int = Field(ge=0)
+    nodes_written: int = Field(ge=0)
+    edges_written: int = Field(ge=0)
+    synthesis_events: int = Field(ge=0)
+    repair_events: int = Field(ge=0)
+    chronicle_hits_offered: int = Field(ge=0)
+    chronicle_hits_used: int = Field(ge=0)
+    llm_calls: int = Field(ge=0)
+    llm_cost_eur: float = Field(ge=0.0)
+    wall_clock_s: float = Field(ge=0.0)
+    chronicle_seeded: bool
+    annotated_reading_path: str | None = None

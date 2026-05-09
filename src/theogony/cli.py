@@ -145,6 +145,13 @@ cockpit_app = typer.Typer(
 )
 app.add_typer(cockpit_app, name="cockpit")
 
+nous_app = typer.Typer(
+    name="nous",
+    no_args_is_help=True,
+    help="Nous cognitive synthesis agent — reads Wikipedia articles incrementally.",
+)
+app.add_typer(nous_app, name="nous")
+
 _console = Console()
 
 
@@ -2045,6 +2052,141 @@ def _mcp_fail_panel(exc: BaseException) -> None:
         )
     )
     raise typer.Exit(code=1) from exc
+
+
+# ---------------------------------------------------------------------------
+# `theogony nous read` — Nous cognitive synthesis reading session
+# ---------------------------------------------------------------------------
+
+
+async def _run_nous_read(
+    *,
+    title_or_url: str,
+    max_sections: int | None,
+    output_path: Path | None,
+    store_kind: str,
+) -> None:
+    """Async core of the ``theogony nous read`` command."""
+    from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
+    from theogony.nous.reader import NousReader
+
+    settings = _load_settings()
+    report_writer = RunReportWriter(settings.run_reports_dir)
+    llm = build_llm_from_settings(settings)
+    embedder = LocalSentenceTransformerEmbedder()
+
+    nous_output_dir = settings.data_dir / "nous"
+    nous_output_dir.mkdir(parents=True, exist_ok=True)
+
+    async with contextlib.AsyncExitStack() as stack:
+        store: KnowledgeStore
+        if store_kind == "neo4j":
+            store = await stack.enter_async_context(
+                Neo4jKnowledgeStore(settings.neo4j, embedding_dim=embedder.dim)
+            )
+        else:
+            store = InMemoryKnowledgeStore()
+
+        reader = NousReader(
+            store=store,
+            llm=llm,
+            embedder=embedder,
+            max_sections=max_sections,
+        )
+
+        try:
+            annotated, report = await reader.read(title_or_url)
+        except Exception as exc:
+            _console.print(
+                Panel.fit(
+                    f"[red]Nous session failed[/red]\n\n[dim]{exc}[/dim]",
+                    title="theogony nous read",
+                    border_style="red",
+                )
+            )
+            raise typer.Exit(code=1) from exc
+
+    # Write AnnotatedReading JSON
+    ar_path = output_path or nous_output_dir / f"{annotated.session_id}.json"
+    ar_path.parent.mkdir(parents=True, exist_ok=True)
+    ar_path.write_text(annotated.model_dump_json(indent=2), encoding="utf-8")
+
+    # Update report with AnnotatedReading path
+    report = report.model_copy(update={"annotated_reading_path": str(ar_path)})
+    report_path = report_writer.write(report)
+
+    # Print summary
+    verdict_style = VERDICT_STYLES.get(report.verdict, "white")
+    mins, secs = divmod(int(report.wall_clock_s), 60)
+    wall_fmt = f"{mins}m {secs}s" if mins else f"{secs}s"
+
+    _console.print(
+        Panel.fit(
+            f"[bold]Nous session complete.[/bold]\n"
+            f"  Paragraphs processed: [cyan]{report.reading_units_total}[/cyan]\n"
+            f"  Nodes written:        [cyan]{report.nodes_written}[/cyan]\n"
+            f"  Edges written:        [cyan]{report.edges_written}[/cyan]\n"
+            f"  Synthesis events:     [cyan]{report.synthesis_events}[/cyan]\n"
+            f"  Repair events:        [cyan]{report.repair_events}[/cyan]\n"
+            f"  Chronicle hits used:  [cyan]{report.chronicle_hits_used}[/cyan]"
+            f" / {report.chronicle_hits_offered} offered\n"
+            f"  LLM calls:           [cyan]{report.llm_calls}[/cyan]\n"
+            f"  LLM cost:            [cyan]€{report.llm_cost_eur:.4f}[/cyan]\n"
+            f"  Wall clock:          [cyan]{wall_fmt}[/cyan]\n"
+            f"  Verdict:             [{verdict_style}]{report.verdict}[/{verdict_style}]\n"
+            f"  AnnotatedReading:    [dim]{ar_path}[/dim]\n"
+            f"  RunReport:           [dim]{report_path}[/dim]",
+            title="theogony nous read",
+            border_style=verdict_style,
+        )
+    )
+    if report.verdict == "failed":
+        raise typer.Exit(code=1)
+
+
+@nous_app.command("read")
+def nous_read(
+    title_or_url: str = typer.Argument(
+        ...,
+        help="Wikipedia article title (e.g. 'Sven Hedin') or full Wikipedia URL.",
+    ),
+    sections: int = typer.Option(
+        0,
+        "--sections",
+        help=(
+            "Process only the first N sections (0 = all). "
+            "Useful for fast iteration; analogous to --sentences on ingest."
+        ),
+    ),
+    output: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--output",
+        help="Override the AnnotatedReading output path (default: data/nous/<session_id>.json).",
+    ),
+    no_chronicle: bool = typer.Option(
+        False,
+        "--no-chronicle",
+        help=(
+            "Use InMemoryKnowledgeStore even if Neo4j is configured. "
+            "For cold-store runs that still exercise Nous without persisting to the Chronicle."
+        ),
+    ),
+) -> None:
+    """Run a Nous cognitive synthesis session on a Wikipedia article.
+
+    Reads the article paragraph by paragraph, extracts and synthesises
+    concepts into the Chronicle, and writes an AnnotatedReading JSON.
+    """
+    max_sections: int | None = sections if sections > 0 else None
+    store_kind = "memory" if no_chronicle else "neo4j"
+    asyncio.run(
+        _run_nous_read(
+            title_or_url=title_or_url,
+            max_sections=max_sections,
+            output_path=output,
+            store_kind=store_kind,
+        )
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover

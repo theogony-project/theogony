@@ -43,17 +43,19 @@ For someone who wants the system concept before code:
 
 This path moves from the compact vision into the deeper substrate and then into the current architectural blueprint.
 
-### 3b. Vector-Native Architecture and Nous (Reading Agent)
+### 3b. Vector-Native Architecture, Kadmos, and Nous
 
-For someone focused on the Tensor-Manifold core and the cognitive synthesis model — the technical heart of where Theogony is going:
+For someone focused on the Tensor-Manifold core, the Kadmos/Nous pipeline, and the cognitive synthesis model — the technical heart of where Theogony is going:
 
-1. [`../notes/architecture/vector_native_spreading_activation.md`](../notes/architecture/vector_native_spreading_activation.md) — Spreading Activation over CSR tensors, edge-as-vector, Constellation injection into KV-cache
-2. [`../notes/architecture/reading_agent_vision.md`](../notes/architecture/reading_agent_vision.md) — the cognitive model behind **Nous**: how human reading works and how the agent implements it
-3. [`../notes/architecture/oss_adjacent_landscape.md`](../notes/architecture/oss_adjacent_landscape.md) — orientation map of adjacent OSS and research (HRR/VSA, Graphiti, Louvain, RETRO) — what to steal and what not to confuse with the core
-4. [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md) — the six representational languages of the Chronik
-5. [`COGNITIVE_ARCHITECTURE.md`](COGNITIVE_ARCHITECTURE.md) — fast/slow thinking, knowledge forms, opposition protocol
+1. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — the founding principle: language is the edge, not the substrate. Read this first.
+2. [`../notes/architecture/vector_native_spreading_activation.md`](../notes/architecture/vector_native_spreading_activation.md) — Spreading Activation over CSR tensors, edge-as-vector, Constellation injection into KV-cache
+3. [`../notes/architecture/reading_agent_vision.md`](../notes/architecture/reading_agent_vision.md) — the cognitive model behind **Nous**: how human reading works and how the agent implements it
+4. [`etappes/nous_v2_brief.md`](etappes/nous_v2_brief.md) — Hesiod's architecture brief for Nous v2: the cognitive synthesis layer that operates without text
+5. [`research/sub_linguistic_knowledge_substrates.md`](research/sub_linguistic_knowledge_substrates.md) — the open research questions: can an AI system reason over pure vector meshes? Responses from frontier models in `../notes/deep_research/run11_*.md`.
+6. [`../notes/architecture/oss_adjacent_landscape.md`](../notes/architecture/oss_adjacent_landscape.md) — orientation map of adjacent OSS and research
+7. [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md) — the six representational languages of the Chronik
 
-This path covers the two central technical bets of the project: (a) that Spreading Activation over a GPU-resident Tensor-Manifold is the right retrieval primitive, and (b) that cognitive synthesis — reading as temporal experience rather than spatial extraction — is the right ingest primitive.
+The three-layer model (Observe / Learn / Remember) is the organizing principle. Kadmos and Nous are the Observe layer. Oneiros is the Learn layer. Iris, Kalypso, and Poseidon are the Remember layer. Language enters at Kadmos and exits at Iris — everything in between is vector space.
 
 ### 4. Semantic Core
 
