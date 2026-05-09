@@ -84,6 +84,8 @@ class ActiveEdge(BaseModel):
     id: str
     source_id: str
     target_id: str
+    source_label: str = ""
+    target_label: str = ""
     relation_description: str
     weight: float = Field(ge=0.0, le=1.0, default=0.8)
     step_created: int = Field(ge=0)

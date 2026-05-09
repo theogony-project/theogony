@@ -442,6 +442,8 @@ class KadmosReader:
                 id=eid,
                 source_id=src_id,
                 target_id=tgt_id,
+                source_label=ne.source_label,
+                target_label=ne.target_label,
                 relation_description=ne.relation_description,
                 weight=ne.weight,
                 step_created=step,
@@ -710,6 +712,22 @@ def _normalise_llm_output(data: dict[str, Any]) -> dict[str, Any]:
                 data[key] = []
     if "synthesis" not in data:
         data["synthesis"] = None
+
+    # synthesis: normalise field aliases
+    syn = data.get("synthesis")
+    if isinstance(syn, dict):
+        if "level" in syn and "synthesis_level" not in syn:
+            syn["synthesis_level"] = syn.pop("level")
+        if "synthesis_level" not in syn:
+            syn["synthesis_level"] = "paragraph"
+        if "label" not in syn:
+            syn["label"] = syn.get("title") or syn.get("name") or syn.get("summary", "Synthesis")
+        if "description" not in syn:
+            syn["description"] = syn.get("content") or syn.get("text", "")
+        if "basis_concept_ids" not in syn:
+            syn["basis_concept_ids"] = syn.get("concepts") or syn.get("basis") or []
+        if "confidence" not in syn:
+            syn["confidence"] = 0.7
 
     # new_concepts: list of strings → list of dicts
     concepts = data.get("new_concepts", [])

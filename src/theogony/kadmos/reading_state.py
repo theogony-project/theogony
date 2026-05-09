@@ -87,6 +87,8 @@ def _edge_schema(dim: int) -> pa.Schema:
             pa.field("id", pa.utf8()),
             pa.field("source_id", pa.utf8()),
             pa.field("target_id", pa.utf8()),
+            pa.field("source_label", pa.utf8()),
+            pa.field("target_label", pa.utf8()),
             pa.field("relation_description", pa.utf8()),
             pa.field("edge_embedding", pa.list_(pa.float32(), dim)),
             pa.field("weight", pa.float32()),
@@ -234,6 +236,8 @@ class ReadingStateStore:
                 "id": [edge.id],
                 "source_id": [edge.source_id],
                 "target_id": [edge.target_id],
+                "source_label": [edge.source_label],
+                "target_label": [edge.target_label],
                 "relation_description": [edge.relation_description],
                 "edge_embedding": [edge_embedding],
                 "weight": [float(edge.weight)],
@@ -394,6 +398,8 @@ class ReadingStateStore:
         )
         ids = all_rows.column("id").to_pylist()
         embeddings = all_rows.column("embedding").to_pylist()
+        labels = all_rows.column("label").to_pylist()
+        id_to_label = dict(zip(ids, labels, strict=True))
         total_added = 0
 
         for src_id, src_emb in zip(ids, embeddings, strict=True):
@@ -417,7 +423,6 @@ class ReadingStateStore:
                     continue
                 edge_id = f"impl_{src_id}_{tid}"
                 similarity = max(0.0, 1.0 - float(dist))
-                # Edge embedding = average of source and target embeddings (cheap)
                 tgt_emb = embeddings[ids.index(tid)] if tid in ids else src_emb
                 avg_emb = [(a + b) / 2.0 for a, b in zip(src_emb, tgt_emb, strict=True)]
                 edges_rows.append(
@@ -425,6 +430,8 @@ class ReadingStateStore:
                         "id": edge_id,
                         "source_id": str(src_id),
                         "target_id": str(tid),
+                        "source_label": id_to_label.get(src_id, ""),
+                        "target_label": id_to_label.get(tid, ""),
                         "relation_description": "implicit_knn",
                         "edge_embedding": avg_emb,
                         "weight": similarity,
