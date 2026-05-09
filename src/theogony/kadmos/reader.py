@@ -578,7 +578,8 @@ class KadmosReader:
                     log.warning("kadmos: split new concept embed failed %s", exc)
         elif rev.revision_type == "merge":
             other_id = rev.merge_with_id
-            if other_id and other_id in state.active_concepts:
+            # Self-merge would delete the same WM key twice → KeyError.
+            if other_id and other_id in state.active_concepts and other_id != concept.id:
                 other = state.active_concepts[other_id]
                 merged_label = f"{concept.label} / {other.label}"
                 merged_cid = new_concept_id()
