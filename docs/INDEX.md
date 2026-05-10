@@ -43,19 +43,23 @@ For someone who wants the system concept before code:
 
 This path moves from the compact vision into the deeper substrate and then into the current architectural blueprint.
 
-### 3b. Vector-Native Architecture, Kadmos, and Nous
+### 3b. Vector-Native Architecture, Kadmos, and the MNLM (Nous)
 
-For someone focused on the Tensor-Manifold core, the Kadmos/Nous pipeline, and the cognitive synthesis model — the technical heart of where Theogony is going:
+For someone focused on the Tensor-Manifold core, the Kadmos→MNLM pipeline, and the cognitive synthesis model — the technical heart of where Theogony is going:
 
 1. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — the founding principle: language is the edge, not the substrate. Read this first.
 2. [`../notes/architecture/vector_native_spreading_activation.md`](../notes/architecture/vector_native_spreading_activation.md) — Spreading Activation over CSR tensors, edge-as-vector, Constellation injection into KV-cache
-3. [`../notes/architecture/reading_agent_vision.md`](../notes/architecture/reading_agent_vision.md) — the cognitive model behind **Nous**: how human reading works and how the agent implements it
-4. [`etappes/nous_v2_brief.md`](etappes/nous_v2_brief.md) — Hesiod's architecture brief for Nous v2: the cognitive synthesis layer that operates without text
-5. [`research/sub_linguistic_knowledge_substrates.md`](research/sub_linguistic_knowledge_substrates.md) — the open research questions: can an AI system reason over pure vector meshes? Responses from frontier models in `../notes/deep_research/run11_*.md`.
-6. [`../notes/architecture/oss_adjacent_landscape.md`](../notes/architecture/oss_adjacent_landscape.md) — orientation map of adjacent OSS and research
-7. [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md) — the six representational languages of the Chronik
+3. [`../notes/architecture/reading_agent_vision.md`](../notes/architecture/reading_agent_vision.md) — the cognitive model behind reading-as-synthesis: how human reading works and how Kadmos implements it
+4. [`etappes/kadmos_v2_brief.md`](etappes/kadmos_v2_brief.md) — Kadmos v2: the translation layer, text → labeled intermediate → vector mesh
+5. [`etappes/mesh_native_lm_brief.md`](etappes/mesh_native_lm_brief.md) — **THE binding MNLM architecture brief, filed by Hesiod, 2026-05-10.** Locks the architecture (Llama-3-8B + Graph-KV + Latent Flow Matching + Substrate-Resonant Recurrence + Graph-GRPO with SA-alignment), the binding `MeshInput` / `MeshDelta` Pydantic schemas, the three-stage falsifier (DBB-200 → MuSiQue → Monkey-3), and the 12-week Talos roadmap. Read this for the *answer* to the MNLM question.
+6. [`etappes/mesh_native_lm_research_brief.md`](etappes/mesh_native_lm_research_brief.md) — the prior research brief that triggered the work in (5). Read this for the *question*. Round-1 artifacts that fed (5) live in `../research/mnlm/`.
+7. [`../notes/deep_research/run12_brief.md`](../notes/deep_research/run12_brief.md) — the same MNLM question, self-contained for external research agents (Gemini Deep Research, DeepSeek, …). Their answers live in `../research/mnlm/{deepresearch,DeepSeek}.md`.
+8. [`etappes/nous_v2_brief.md`](etappes/nous_v2_brief.md) — pointer to (5); no standalone Nous brief exists yet by design (Nous is the first MNLM instance, written *after* the MNLM v1 ships and Stage-2 falsifier passes).
+9. [`research/sub_linguistic_knowledge_substrates.md`](research/sub_linguistic_knowledge_substrates.md) and [`../notes/deep_research/run11_brief.md`](../notes/deep_research/run11_brief.md) — Run 11's prior question on the substrate itself (does the *Chronik* support inference?). Frontier-model responses in `../notes/deep_research/run11_*.md`. Run 12 is the next question on top.
+10. [`../notes/architecture/oss_adjacent_landscape.md`](../notes/architecture/oss_adjacent_landscape.md) — orientation map of adjacent OSS and research
+11. [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md) — the six representational languages of the Chronik
 
-The three-layer model (Observe / Learn / Remember) is the organizing principle. Kadmos and Nous are the Observe layer. Oneiros is the Learn layer. Iris, Kalypso, and Poseidon are the Remember layer. Language enters at Kadmos and exits at Iris — everything in between is vector space.
+The three-layer model (Observe / Learn / Remember) is the organizing principle. Kadmos is the translation layer at ingress. Nous, Oneiros, Kalypso (and as-yet-unnamed roles) are MNLM-class agents that read and write the substrate without text. Language enters at Kadmos; whether and how it leaves again at the far egress is a downstream question we are not yet thinking about.
 
 ### 4. Semantic Core
 
