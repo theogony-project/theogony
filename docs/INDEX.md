@@ -16,7 +16,7 @@ For someone who wants to understand the project quickly:
 1. [`README.md`](../README.md)
 2. [`ROADMAP.md`](../ROADMAP.md) — the five-phase development sequence, current status, and next priorities
 3. [`PANTHEON_VISION.md`](PANTHEON_VISION.md) — long-horizon north star (Pantheon as planetary chronicle substrate)
-4. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — nine non-negotiables in one page
+4. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — ten non-negotiables in one page
 5. [`VISION.md`](VISION.md)
 6. [`GLOSSARY.md`](GLOSSARY.md)
 

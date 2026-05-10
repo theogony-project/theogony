@@ -282,7 +282,7 @@ purely preparatory. The Chronik grows at every step.
 | Document | Purpose |
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System architecture and layer definitions |
-| [`docs/CHRONICLE_PRINCIPLES.md`](docs/CHRONICLE_PRINCIPLES.md) | Nine non-negotiable doctrines |
+| [`docs/CHRONICLE_PRINCIPLES.md`](docs/CHRONICLE_PRINCIPLES.md) | Ten non-negotiable doctrines |
 | [`docs/BUILD_DOCTRINE.md`](docs/BUILD_DOCTRINE.md) | Function-First Phase binding doctrine |
 | [`docs/DEEP_TECH_VISION.md`](docs/DEEP_TECH_VISION.md) | Deeper substrate vision (six languages of the Chronik) |
 | [`docs/COGNITIVE_ARCHITECTURE.md`](docs/COGNITIVE_ARCHITECTURE.md) | Cognitive model underlying the system |
