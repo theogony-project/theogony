@@ -13,8 +13,8 @@ from theogony.core.pheromone import effective_weight
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.retrieval.constellation import ConstellationAssembler
-from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
+from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesize import AnswerSynthesizer
 from theogony.stores.memory import InMemoryKnowledgeStore
 
@@ -114,16 +114,15 @@ async def test_invert_returns_different_constellation_after_100_bumps() -> None:
     for _ in range(100):
         await tracker.bump_all([e_bc.id])
 
-    retriever = MultiHopRetriever(store)
-    follow_res = await retriever.retrieve(
+    follow_res = await store.multi_hop_search(
         emb, k=10, hops=2, min_weight=0.3, pheromone_mode="follow"
     )
-    invert_res = await retriever.retrieve(
+    invert_res = await store.multi_hop_search(
         emb, k=10, hops=2, min_weight=0.3, pheromone_mode="invert"
     )
 
-    def _scores(res: object) -> dict[str, float]:
-        return {sn.node.id: sn.score for sn in res.scored_nodes}
+    def _scores(nodes: list) -> dict[str, float]:
+        return {sn.node.id: sn.score for sn in nodes}
 
     fd = _scores(follow_res)
     inv = _scores(invert_res)
@@ -159,9 +158,10 @@ async def test_query_pipeline_skips_bumps_when_mode_is_not_follow() -> None:
     embedder.model_id = "m"
     embedder.dim = 4
     embedder.embed = AsyncMock(return_value=[1.0, 0.0, 0.0, 0.0])
+    embedder.embed_many = AsyncMock(side_effect=lambda texts: [[1.0, 0.0, 0.0, 0.0] for _ in texts])
     pipeline = QueryPipeline(
         embedder=embedder,
-        retriever=MultiHopRetriever(store),
+        retriever=SpreadingActivationRetriever(store, embedder),
         assembler=ConstellationAssembler(store),
         synthesizer=AnswerSynthesizer(StubLLMProvider(default=f"Hi [{na.id}] [{nb.id}].")),
         relevance=rel,

@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tests.cockpit.async_util import run_async
+from tests.cockpit.conftest import load_truncated_pantheon_seed
 from tests.test_extraction_pipeline import FakeWikidataClient, _hedin_responses
 from tests.test_living_demo_w7b_smoke import _StubGutenbergAdapter
 from theogony.agents.argus import (
@@ -24,14 +25,11 @@ from theogony.agents.llm import StubLLMProvider
 from theogony.clustering.cluster_index import ClusterIndex
 from theogony.cockpit.growth_stream import _PersistingIngestRunner
 from theogony.config.settings import Settings
-from theogony.core.model import KnowledgeEdge, KnowledgeNode
 from theogony.curiosity.run_report import AcquisitionDecision
 from theogony.curiosity.verification_pool import VerificationPool
-from theogony.docs_ingest import read_dump
 from theogony.extraction.pipeline import IngestionPipeline
 from theogony.extraction.resolve import EntityResolver
 from theogony.reporting.writer import RunReportWriter
-from theogony.seeds import pantheon_self_dump_path
 from theogony.stores.memory import InMemoryKnowledgeStore
 
 
@@ -50,9 +48,7 @@ def _parse_sse_blocks(raw: str) -> list[tuple[str | None, dict]]:
 
 
 async def _load_pantheon(store: InMemoryKnowledgeStore) -> None:
-    _, nodes, edges = read_dump(pantheon_self_dump_path())
-    await store.batch_upsert_nodes([n for n in nodes if isinstance(n, KnowledgeNode)])
-    await store.batch_upsert_edges([e for e in edges if isinstance(e, KnowledgeEdge)])
+    await load_truncated_pantheon_seed(store)
 
 
 @pytest.fixture

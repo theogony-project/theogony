@@ -7,10 +7,8 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from tests.cockpit.async_util import run_async
+from tests.cockpit.conftest import load_truncated_pantheon_seed
 from theogony.cockpit.router import _explorer_growth_enabled_from_query
-from theogony.core.model import KnowledgeEdge, KnowledgeNode
-from theogony.docs_ingest import read_dump
-from theogony.seeds import pantheon_self_dump_path
 from theogony.stores.memory import InMemoryKnowledgeStore
 
 
@@ -22,9 +20,7 @@ def test_explorer_growth_query_defaults_on_and_off_tokens() -> None:
 
 
 async def _load_pantheon(store: InMemoryKnowledgeStore) -> None:
-    _, nodes, edges = read_dump(pantheon_self_dump_path())
-    await store.batch_upsert_nodes([n for n in nodes if isinstance(n, KnowledgeNode)])
-    await store.batch_upsert_edges([e for e in edges if isinstance(e, KnowledgeEdge)])
+    await load_truncated_pantheon_seed(store)
 
 
 def test_explorer_page_growth_off_hides_panel(

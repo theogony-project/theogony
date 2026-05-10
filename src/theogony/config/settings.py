@@ -21,7 +21,6 @@ Examples::
     THEOGONY_LLM__PROVIDER=openai
     THEOGONY_LLM__MODEL_ID=gpt-5.4-mini
     THEOGONY_LLM__FALLBACK_PROVIDER=anthropic
-    THEOGONY_NEO4J__PASSWORD=changeme
 
 API keys are special: they are read from canonical, **un-prefixed** names
 because that is what the surrounding ecosystem (Google AI Studio,
@@ -142,20 +141,6 @@ class EmbeddingSettings(BaseModel):
     dim: int = Field(default=384, ge=1)
 
 
-class Neo4jSettings(BaseModel):
-    """Connection parameters for the Gen 1 KnowledgeStore backend.
-
-    Defaults target a local docker-compose Neo4j with the well-known
-    development password. Production deployments override the password
-    via environment variables.
-    """
-
-    uri: str = "bolt://localhost:7687"
-    user: str = "neo4j"
-    password: SecretStr = SecretStr("neo4j")
-    database: str = "neo4j"
-
-
 class EdgePheromoneSettings(BaseModel):
     """Tunables for :class:`~theogony.memory.pheromone_decay_phase.PheromoneDecayPhase`."""
 
@@ -249,13 +234,11 @@ class CockpitSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(default=True)
-    knowledge_store: Literal["memory", "neo4j"] = Field(
-        default="neo4j",
+    knowledge_store: Literal["memory"] = Field(
+        default="memory",
         description=(
-            "Chronicle backend for ``cockpit serve`` standalone: ``neo4j`` persists "
-            "growth and immune-worker mutations; ``memory`` is process-local (CI / "
-            "offline). Set ``THEOGONY_COCKPIT__KNOWLEDGE_STORE=memory`` when Bolt "
-            "is unavailable."
+            "Legacy field: the Iris cockpit standalone app always uses an "
+            "in-memory chronicle (Neo4j retired). Value must remain ``memory``."
         ),
     )
     operator_worker_from_ui: bool = Field(
@@ -365,15 +348,11 @@ class StoreSettings(BaseModel):
     """Storage-layer tuning that is *backend-agnostic*.
 
     Knobs here apply to every :class:`~theogony.core.store.KnowledgeStore`
-    implementation; backend-specific tuning (Neo4j connection, future
-    DuckDB pragmas, …) lives in dedicated subgroups (``Neo4jSettings``).
+    implementation.
 
     PHX-0046: ``batch_size`` chooses how many nodes / edges the
     IngestionPipeline hands to ``KnowledgeStore.batch_upsert_*`` per
-    UNWIND round-trip. 200 is the sweet spot per the Neo4j driver
-    documentation: small enough that one batch fits comfortably in
-    Bolt's default frame and large enough that the per-round-trip
-    overhead amortises to near zero.
+    round-trip chunk.
     """
 
     batch_size: int = Field(default=200, ge=1)
@@ -522,15 +501,14 @@ class ChronicleThinkingSettings(BaseModel):
 
 
 class RetrievalSettings(BaseModel):
-    """Tunables for the retrieval stack (PHX-0056 Phase 1)."""
+    """Tunables for the retrieval stack (entry planner, thinking rounds).
+
+    Graph traversal strategies were retired; retrieval uses spreading
+    activation on the tensor mesh (see ``docs/TARGET_ARCHITECTURE.md``).
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    strategy: Literal["fixed_depth", "edge_product", "cluster_narrow"] = "fixed_depth"
-    edge_product_min_path_product: float | None = Field(default=None, ge=0.0, le=1.0)
-    edge_product_top_n_paths: int | None = Field(default=None, ge=1, le=200)
-    cluster_narrow_inner_strategy: Literal["fixed_depth", "edge_product"] = "fixed_depth"
-    cluster_narrow_top_n_clusters: int = Field(default=3, ge=1, le=20)
     chronicle_entry_planner: ChronicleEntryPlannerSettings = Field(
         default_factory=ChronicleEntryPlannerSettings,
     )
@@ -743,7 +721,6 @@ class Settings(BaseSettings):
 
     llm: LLMSettings = Field(default_factory=LLMSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
-    neo4j: Neo4jSettings = Field(default_factory=Neo4jSettings)
     store: StoreSettings = Field(default_factory=StoreSettings)
     oneiros: OneirosSettings = Field(default_factory=OneirosSettings)
     report: ReportSettings = Field(default_factory=ReportSettings)

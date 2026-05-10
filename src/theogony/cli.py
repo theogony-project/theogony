@@ -13,7 +13,7 @@ Commands available in this module:
 - ``node <id>``      — Hover-Lupe node + neighbourhood (E9)
 - ``resolve [...]``  — manual-resolution surface (Plan §3.4); E9
 - ``serve [...]``    — uvicorn wrapper for the FastAPI app (E9)
-- ``cockpit serve``  — Iris dashboard; Neo4j chronicle by default (PHX-0074)
+- ``cockpit serve``  — Iris dashboard; In-memory chronicle + pantheon_self seed (PHX-0074)
 - ``mnemosyne classify`` — heuristic meta-query diagnostic (PHX-0071)
 
 The single-file CLI is a deliberate E9-brief decision (1000-line
@@ -78,12 +78,10 @@ from theogony.memory.oneiros import OneirosWorker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.writer import RUN_REPORT_TYPE_SUBDIRS, RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
-from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
-from theogony.retrieval.strategy_factory import build_retrieval_strategy
+from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesizer_factory import build_synthesizer
 from theogony.stores.memory import InMemoryKnowledgeStore
-from theogony.stores.neo4j_store import Neo4jKnowledgeStore
 
 if TYPE_CHECKING:
     from theogony.acquisition.base import RawContent
@@ -184,7 +182,7 @@ def _format_provider_summary(settings: Settings) -> Table:
     )
     table.add_row("Embedding model", settings.embedding.model_id)
     table.add_row("Embedding dim", str(settings.embedding.dim))
-    table.add_row("Neo4j URI", settings.neo4j.uri)
+    table.add_row("Chronik store", "memory-only")
     table.add_row("Data dir", str(settings.data_dir))
     table.add_row("Run reports dir", str(settings.run_reports_dir))
     return table
@@ -275,9 +273,9 @@ def mnemosyne_conduct(
         help="Run a single Mnemosyne conductor pass (required in W17).",
     ),
     store_kind: str = typer.Option(
-        "neo4j",
+        "memory",
         "--store",
-        help="Storage backend: neo4j (default) or memory (offline / CI).",
+        help="Storage backend: memory (process-local chronicle).",
     ),
     metric_mode: str | None = typer.Option(
         None,
@@ -292,7 +290,7 @@ def mnemosyne_conduct(
             "(W17 ships only single-pass mode; no daemon loop)."
         )
         raise typer.Exit(code=2)
-    if store_kind not in ("neo4j", "memory"):
+    if store_kind != "memory":
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     if metric_mode is not None and metric_mode not in ("llm", "fixture"):
@@ -523,12 +521,9 @@ def ingest(
         help="Skip the embedder. Saves the BGE-small download / load on first run.",
     ),
     store_kind: str = typer.Option(
-        "neo4j",
+        "memory",
         "--store",
-        help=(
-            "Storage backend: 'neo4j' (default — persists across runs) or "
-            "'memory' (process-local, for offline/CI tests)."
-        ),
+        help=("Storage backend: 'memory' (process-local chronicle; default)."),
     ),
 ) -> None:
     """Ingest a Project Gutenberg book end-to-end into the chosen store.
@@ -538,15 +533,13 @@ def ingest(
     IngestRunReport is persisted under ``settings.run_reports_dir/ingest/``;
     every LLM call is logged under ``settings.data_dir/audit.sqlite``.
 
-    Default store is ``neo4j`` (Plan §3.1a — persistent across runs).
+    Default store is ``memory`` (process-local).
     Pass ``--store memory`` to use the process-local
     ``InMemoryKnowledgeStore`` for offline tests / CI matrices that
-    don't have a Neo4j to talk to.
+    run fully offline.
     """
-    if store_kind not in ("neo4j", "memory"):
-        _console.print(
-            f"[red]Unknown --store value: {store_kind!r}. Use 'neo4j' or 'memory'.[/red]"
-        )
+    if store_kind != "memory":
+        _console.print(f"[red]Unknown --store value: {store_kind!r}. Use --store memory.[/red]")
         raise typer.Exit(code=2)
     asyncio.run(
         _run_ingest(
@@ -565,13 +558,13 @@ def ingest(
 def recluster(
     force: bool = typer.Option(False, "--force", help="Skip cadence check."),
     store_kind: str = typer.Option(
-        "neo4j",
+        "memory",
         "--store",
-        help="Storage backend: neo4j (default) or memory.",
+        help="Storage backend: memory.",
     ),
 ) -> None:
     """Run one full-store re-cluster pass and write a ClusteringRunReport."""
-    if store_kind not in ("neo4j", "memory"):
+    if store_kind != "memory":
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     asyncio.run(_run_recluster(force=force, store_kind=store_kind))
@@ -581,13 +574,13 @@ def recluster(
 def curiosity_blindspots(
     force: bool = typer.Option(False, "--force", help="Skip cadence check."),
     store_kind: str = typer.Option(
-        "neo4j",
+        "memory",
         "--store",
-        help="Storage backend: neo4j (default) or memory.",
+        help="Storage backend: memory.",
     ),
 ) -> None:
     """Aggregate recurring stub regions and write BlindSpotReport JSON files."""
-    if store_kind not in ("neo4j", "memory"):
+    if store_kind != "memory":
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     asyncio.run(_run_blind_spot_aggregation(force=force, store_kind=store_kind))
@@ -628,13 +621,13 @@ def curiosity_run_pending(
         False, "--dry-run", help="Search/score/Hestia only; no acquire/ingest."
     ),
     store_kind: str = typer.Option(
-        "neo4j",
+        "memory",
         "--store",
-        help="Storage backend: neo4j (default, persists) or memory (offline / CI).",
+        help="Storage backend: memory (process-local).",
     ),
 ) -> None:
     """Process pending CuriosityRunReport files through Argus (Living Demo W7-B)."""
-    if store_kind not in ("neo4j", "memory"):
+    if store_kind != "memory":
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     asyncio.run(_run_curiosity_run_pending(max_n=max_n, dry_run=dry_run, store_kind=store_kind))
@@ -692,9 +685,9 @@ def curiosity_athene_run(
         help="Run a single Athene verification pass (required in W14).",
     ),
     store_kind: str = typer.Option(
-        "neo4j",
+        "memory",
         "--store",
-        help="Storage backend: neo4j (default) or memory (offline / CI).",
+        help="Storage backend: memory (process-local chronicle).",
     ),
     seed: int | None = typer.Option(
         None,
@@ -709,7 +702,7 @@ def curiosity_athene_run(
             "(W14 ships only single-pass mode; no daemon loop)."
         )
         raise typer.Exit(code=2)
-    if store_kind not in ("neo4j", "memory"):
+    if store_kind != "memory":
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     asyncio.run(_run_curiosity_athene_once(store_kind=store_kind, seed=seed))
@@ -749,9 +742,9 @@ def curiosity_chronos_run(
         help="Run a single Chronos recycler pass (required in W15).",
     ),
     store_kind: str = typer.Option(
-        "neo4j",
+        "memory",
         "--store",
-        help="Storage backend: neo4j (default) or memory (offline / CI).",
+        help="Storage backend: memory (process-local chronicle).",
     ),
 ) -> None:
     """Consume Athene findings from the pool; write Chronos actions and run report (W15)."""
@@ -761,7 +754,7 @@ def curiosity_chronos_run(
             "(W15 ships only single-pass mode; no daemon loop)."
         )
         raise typer.Exit(code=2)
-    if store_kind not in ("neo4j", "memory"):
+    if store_kind != "memory":
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     asyncio.run(_run_curiosity_chronos_once(store_kind=store_kind))
@@ -814,9 +807,9 @@ def curiosity_nemesis_run(
         help="Run a single Nemesis structural audit pass (required in W16).",
     ),
     store_kind: str = typer.Option(
-        "neo4j",
+        "memory",
         "--store",
-        help="Storage backend: neo4j (default) or memory (offline / CI).",
+        help="Storage backend: memory (process-local chronicle).",
     ),
 ) -> None:
     """Scan the chronicle for structural pathologies; write Finding nodes (W16)."""
@@ -826,7 +819,7 @@ def curiosity_nemesis_run(
             "(W16 ships only single-pass mode; no daemon loop)."
         )
         raise typer.Exit(code=2)
-    if store_kind not in ("neo4j", "memory"):
+    if store_kind != "memory":
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     asyncio.run(_run_curiosity_nemesis_once(store_kind=store_kind))
@@ -872,9 +865,9 @@ def curiosity_eris_run(
         help="Run a single Eris red-team campaign (required in W16).",
     ),
     store_kind: str = typer.Option(
-        "neo4j",
+        "memory",
         "--store",
-        help="Storage backend: neo4j (default) or memory (offline / CI).",
+        help="Storage backend: memory (process-local chronicle).",
     ),
     fixture: bool = typer.Option(
         False,
@@ -889,7 +882,7 @@ def curiosity_eris_run(
             "(W16 ships only single-pass mode; no daemon loop)."
         )
         raise typer.Exit(code=2)
-    if store_kind not in ("neo4j", "memory"):
+    if store_kind != "memory":
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     if not fixture:
@@ -975,13 +968,13 @@ _ONEIROS_TICK_PHASE_OPT = typer.Option(
 def oneiros_tick_cmd(
     phase: list[str] | None = _ONEIROS_TICK_PHASE_OPT,
     store_kind: str = typer.Option(
-        "neo4j",
+        "memory",
         "--store",
-        help="Storage backend: neo4j (default) or memory.",
+        help="Storage backend: memory.",
     ),
 ) -> None:
     """Run a single Oneiros tick pipeline (no long-lived worker loop)."""
-    if store_kind not in ("neo4j", "memory"):
+    if store_kind != "memory":
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     phases = list(phase) if phase else []
@@ -994,17 +987,13 @@ async def _open_store(
 ) -> AsyncIterator[KnowledgeStore]:
     """Construct + open the requested ``KnowledgeStore`` as an async ctxmgr.
 
-    ``neo4j`` opens a Bolt connection + bootstraps the schema; ``memory``
-    is a no-op constructor. Both yield a fully initialised store the
-    caller can use as ``KnowledgeStore``.
+    ``memory`` yields an in-process ``InMemoryKnowledgeStore`` (Neo4j retired;
+    see ``docs/etappes/RETIREMENT_NEO4J_MULTIHOP.md``).
     """
-    if store_kind == "neo4j":
-        async with Neo4jKnowledgeStore(settings.neo4j, embedding_dim=embedding_dim) as store:
-            yield store
-    elif store_kind == "memory":
+    if store_kind == "memory":
         yield InMemoryKnowledgeStore()
     else:  # pragma: no cover - validated upstream
-        raise ValueError(f"unknown store_kind: {store_kind}")
+        raise ValueError(f"unknown store_kind: {store_kind!r} (use 'memory')")
 
 
 async def _run_ingest(
@@ -1015,7 +1004,7 @@ async def _run_ingest(
     include_book_context: bool,
     include_relations: bool,
     include_embedder: bool,
-    store_kind: str = "neo4j",
+    store_kind: str = "memory",
 ) -> None:
     """Async core of the ``theogony ingest`` command.
 
@@ -1126,7 +1115,7 @@ def _print_ingest_summary(
     report_path: Path,
     audit_rows: int,
     audit_cost: float,
-    store_kind: str = "neo4j",
+    store_kind: str = "memory",
 ) -> None:
     """Render a Rich panel + summary table for the completed ingest."""
     report = result.report
@@ -1193,14 +1182,9 @@ def ask(
         help="Restrict to a memory layer: ephemera | mneme. Default: all.",
     ),
     store_kind: str = typer.Option(
-        "neo4j",
+        "memory",
         "--store",
-        help="Storage backend: 'neo4j' (default) or 'memory' (offline / CI tests).",
-    ),
-    strategy: str | None = typer.Option(
-        None,
-        "--strategy",
-        help="Override retrieval strategy: fixed_depth | edge_product | cluster_narrow.",
+        help="Storage backend: 'memory'.",
     ),
     pheromone_mode: str = typer.Option(
         "follow",
@@ -1221,16 +1205,15 @@ def ask(
     """Ask the Chronik a question and render the cited answer.
 
     Wires the same components as the FastAPI ``POST /query`` route:
-    embedder + Neo4j store + LLM + audit log + retrieval pipeline.
+    embedder + in-memory store + LLM + audit log + retrieval pipeline.
     Renders a Rich panel with the answer text, cited node ids,
     constellation summary, synthesis cost / latency, and the run_id
     for follow-up via ``theogony reports show``.
     """
-    if store_kind not in ("neo4j", "memory"):
+    if store_kind != "memory":
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     layer_enum = _parse_layer(layer)
-    strategy_override = _parse_strategy(strategy)
     pm = _parse_pheromone_mode(pheromone_mode)
     asyncio.run(
         _run_ask(
@@ -1239,7 +1222,6 @@ def ask(
             hops=hops,
             layer=layer_enum,
             store_kind=store_kind,
-            strategy=strategy_override,
             pheromone_mode=pm,
             thinking_max=thinking_max,
         )
@@ -1251,21 +1233,6 @@ def _parse_pheromone_mode(value: str) -> Literal["follow", "ignore", "invert"]:
         return cast(Literal["follow", "ignore", "invert"], value)
     _console.print(
         f"[red]Unknown --pheromone-mode value: {value!r}. Valid: follow, ignore, invert[/red]"
-    )
-    raise typer.Exit(code=2)
-
-
-def _parse_strategy(
-    value: str | None,
-) -> Literal["fixed_depth", "edge_product", "cluster_narrow"] | None:
-    """Validate ``--strategy``; ``None`` means use settings default."""
-    if value is None:
-        return None
-    if value in ("fixed_depth", "edge_product", "cluster_narrow"):
-        return cast(Literal["fixed_depth", "edge_product", "cluster_narrow"], value)
-    _console.print(
-        f"[red]Unknown --strategy value: {value!r}. "
-        "Valid: fixed_depth, edge_product, cluster_narrow[/red]"
     )
     raise typer.Exit(code=2)
 
@@ -1291,7 +1258,6 @@ async def _run_ask(
     hops: int,
     layer: Layer | None,
     store_kind: str,
-    strategy: Literal["fixed_depth", "edge_product", "cluster_narrow"] | None,
     pheromone_mode: Literal["follow", "ignore", "invert"],
     thinking_max: int | None,
 ) -> None:
@@ -1318,10 +1284,7 @@ async def _run_ask(
         async with _open_store(settings, store_kind, settings.embedding.dim) as store:
             pipeline = QueryPipeline(
                 embedder=embedder,
-                retriever=MultiHopRetriever(
-                    store,
-                    strategy=build_retrieval_strategy(store, settings),
-                ),
+                retriever=SpreadingActivationRetriever(store, embedder),
                 assembler=ConstellationAssembler(store),
                 synthesizer=build_synthesizer(settings, llm, audit_log=audit),
                 relevance=RelevanceTracker(
@@ -1343,7 +1306,6 @@ async def _run_ask(
                 layer=layer,
                 k=k,
                 hops=hops,
-                strategy=strategy,
                 pheromone_mode=pheromone_mode,
                 thinking_max=thinking_max,
             )
@@ -1403,9 +1365,9 @@ def _print_ask_result(*, query: str, result: object) -> None:
 def node(
     node_id: str = typer.Argument(..., help="AKA-… node id (full or prefix)."),
     store_kind: str = typer.Option(
-        "neo4j",
+        "memory",
         "--store",
-        help="Storage backend: 'neo4j' (default) or 'memory'.",
+        help="Storage backend: 'memory'.",
     ),
 ) -> None:
     """Print a node's record + its depth-1 neighbourhood (Hover-Lupe).
@@ -1413,7 +1375,7 @@ def node(
     On a missing id, prints up to three closest-prefix matches as a
     "did you mean…" hint. Honest-failure: never a stack trace.
     """
-    if store_kind not in ("neo4j", "memory"):
+    if store_kind != "memory":
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     asyncio.run(_run_node(node_id=node_id, store_kind=store_kind))
@@ -1538,9 +1500,9 @@ def resolve(
         help="Apply --pick directly without prompts. Required for scripting / CI.",
     ),
     store_kind: str = typer.Option(
-        "neo4j",
+        "memory",
         "--store",
-        help="Storage backend: 'neo4j' (default) or 'memory'.",
+        help="Storage backend: 'memory'.",
     ),
 ) -> None:
     """Plan §3.4 manual-resolution surface.
@@ -1557,7 +1519,7 @@ def resolve(
     Detective Mode (the ``--detective`` flag) is **not** part of E9
     per the brief; it lands in a separate etappe gated on PHX-0041.
     """
-    if store_kind not in ("neo4j", "memory"):
+    if store_kind != "memory":
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
     if list_:
@@ -1719,10 +1681,9 @@ def cockpit_serve(
         help="Uvicorn autoreload (dev only; bypasses lifespan quirks).",
     ),
 ) -> None:
-    """Run Iris cockpit alone (Neo4j chronicle by default + pantheon_self on empty DB).
+    """Run Iris cockpit alone (in-memory chronicle; pantheon_self loaded on startup).
 
-    Default store is Neo4j (``THEOGONY_COCKPIT__KNOWLEDGE_STORE``); use ``memory``
-    for offline. Does not start MCP or ``/query``. For the full API plus cockpit,
+    In-memory chronicle only. Does not start MCP or ``/query``. For the full API plus cockpit,
     use ``theogony serve`` instead.
     """
     if sample_only:
@@ -1730,7 +1691,7 @@ def cockpit_serve(
     _console.print(
         f"[bold]Theogony Cockpit[/bold] → http://{host}:{port}/cockpit/  "
         f"(chronicle: env [cyan]THEOGONY_COCKPIT__KNOWLEDGE_STORE[/cyan], "
-        "default neo4j; seeds [cyan]pantheon_self[/cyan] when the graph is empty)"
+        "memory; loads [cyan]pantheon_self[/cyan] when the graph is empty)"
     )
     uvicorn.run(
         "theogony.cockpit.standalone_app:app",
@@ -1766,10 +1727,10 @@ def serve(
     """Run the FastAPI app under uvicorn.
 
     Default binds to 127.0.0.1 (local-first; never 0.0.0.0). The
-    embedder + Neo4j driver + audit log open eagerly during the
+    embedder + in-memory store + audit log open eagerly during the
     lifespan startup — first request arrives with a fully warm
     pipeline. Cold-start budget: ~5–15 s on a fresh BGE / spaCy /
-    Neo4j cache.
+    model cache.
     """
     _console.print(
         f"[bold]Theogony API[/bold] → http://{host}:{port}  "
@@ -1798,9 +1759,9 @@ _SOURCE_OPT = typer.Option(
     ),
 )
 _STORE_KIND_OPT = typer.Option(
-    "neo4j",
+    "memory",
     "--store",
-    help="Storage backend: 'neo4j' (default) or 'memory' (for tests / CI).",
+    help="Storage backend: memory (process-local).",
 )
 _INFO_ONLY_OPT = typer.Option(
     False,
@@ -1827,7 +1788,7 @@ def seed(
     Use ``--from PATH`` to import a different dump (useful for federated
     chronicles or for testing a regenerated seed before publishing).
     """
-    if store_kind not in ("neo4j", "memory"):
+    if store_kind != "memory":
         _console.print(f"[red]Unknown --store value: {store_kind!r}[/red]")
         raise typer.Exit(code=2)
 

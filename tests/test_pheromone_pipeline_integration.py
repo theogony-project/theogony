@@ -12,8 +12,8 @@ from theogony.core.model import KnowledgeEdge, KnowledgeNode, NodeType, SourceRe
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.retrieval.constellation import ConstellationAssembler
-from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
+from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesize import AnswerSynthesizer
 from theogony.stores.memory import InMemoryKnowledgeStore
 
@@ -56,9 +56,10 @@ async def test_ask_with_follow_mode_bumps_cited_edges() -> None:
     embedder.model_id = "m"
     embedder.dim = 4
     embedder.embed = AsyncMock(return_value=[1.0, 0.0, 0.0, 0.0])
+    embedder.embed_many = AsyncMock(side_effect=lambda texts: [[1.0, 0.0, 0.0, 0.0] for _ in texts])
     pipeline = QueryPipeline(
         embedder=embedder,
-        retriever=MultiHopRetriever(store),
+        retriever=SpreadingActivationRetriever(store, embedder),
         assembler=ConstellationAssembler(store),
         synthesizer=AnswerSynthesizer(
             StubLLMProvider(default=f"Answer [{a.id}] and [{b.id}] here.")
@@ -105,9 +106,10 @@ async def test_ask_with_ignore_mode_does_not_bump_anything() -> None:
     embedder.model_id = "m"
     embedder.dim = 4
     embedder.embed = AsyncMock(return_value=[1.0, 0.0, 0.0, 0.0])
+    embedder.embed_many = AsyncMock(side_effect=lambda texts: [[1.0, 0.0, 0.0, 0.0] for _ in texts])
     pipeline = QueryPipeline(
         embedder=embedder,
-        retriever=MultiHopRetriever(store),
+        retriever=SpreadingActivationRetriever(store, embedder),
         assembler=ConstellationAssembler(store),
         synthesizer=AnswerSynthesizer(StubLLMProvider(default=f"Text [{a.id}] [{b.id}].")),
         relevance=RelevanceTracker(store, relevance_delta=settings.relevance.relevance_delta),

@@ -3,8 +3,8 @@ FastAPI lifespan startup/shutdown (Plan §4.4; E9/E8.5 contracts).
 
 The lifespan is the **single owner** of long-lived resources. This
 test exercises the production lifespan with mocked-out heavy
-dependencies (no real BGE download, no real Gemini, no real Neo4j
-container) to verify:
+dependencies (no real BGE download, no real Gemini, no heavy store
+I/O) to verify:
 
 - every ``app.state.*`` resource is wired during startup;
 - shutdown closes everything in reverse order;
@@ -154,7 +154,7 @@ async def _patched_lifespan(app: FastAPI) -> AsyncIterator[None]:
         "ExtractionAuditLog": app_mod.ExtractionAuditLog,
         "LocalSentenceTransformerEmbedder": app_mod.LocalSentenceTransformerEmbedder,
         "build_llm_from_settings": app_mod.build_llm_from_settings,
-        "Neo4jKnowledgeStore": app_mod.Neo4jKnowledgeStore,
+        "InMemoryKnowledgeStore": app_mod.InMemoryKnowledgeStore,
         "RunReportWriter": app_mod.RunReportWriter,
     }
     audit_mock = MagicMock()
@@ -173,7 +173,6 @@ async def _patched_lifespan(app: FastAPI) -> AsyncIterator[None]:
         embedding=MagicMock(model_id="stub@v1", dim=4),
         data_dir=real_settings.data_dir,
         run_reports_dir=real_settings.run_reports_dir,
-        neo4j=MagicMock(),
         oneiros=MagicMock(tick_interval_s=3600.0),  # never actually wakes
         report=real_settings.report,
         store=real_settings.store,
@@ -184,7 +183,7 @@ async def _patched_lifespan(app: FastAPI) -> AsyncIterator[None]:
     app_mod.ExtractionAuditLog = lambda *a, **kw: audit_mock  # type: ignore[assignment]
     app_mod.LocalSentenceTransformerEmbedder = lambda **kw: _StubEmbedder()  # type: ignore[assignment]
     app_mod.build_llm_from_settings = lambda *_a, **_kw: llm_mock  # type: ignore[assignment]
-    app_mod.Neo4jKnowledgeStore = lambda *a, **kw: _StubStore()  # type: ignore[assignment]
+    app_mod.InMemoryKnowledgeStore = lambda *a, **kw: _StubStore()  # type: ignore[assignment]
     app_mod.RunReportWriter = lambda *_a, **_kw: writer_mock  # type: ignore[assignment]
 
     try:

@@ -25,9 +25,8 @@ from theogony.curiosity.stub_detector import StubDetector
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.retrieval.constellation import ConstellationAssembler
-from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
-from theogony.retrieval.strategy_factory import build_retrieval_strategy
+from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesizer_factory import build_synthesizer
 
 
@@ -61,10 +60,7 @@ def get_query_pipeline(request: Request) -> QueryPipeline:
         mnemosyne = build_mnemosyne_classifier(state.settings, state.llm)
     return QueryPipeline(
         embedder=state.embedder,
-        retriever=MultiHopRetriever(
-            state.store,
-            strategy=build_retrieval_strategy(state.store, state.settings),
-        ),
+        retriever=SpreadingActivationRetriever(state.store, state.embedder),
         assembler=ConstellationAssembler(state.store),
         synthesizer=build_synthesizer(state.settings, state.llm, audit_log=state.audit),
         relevance=RelevanceTracker(

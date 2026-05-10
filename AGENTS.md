@@ -60,7 +60,7 @@ Every non-trivial pipeline emits an `IngestRunReport`, `QueryRunReport`, or `One
 
 The single most dangerous failure mode is a green CI hiding a real problem. PR #32 / W5 is the canonical lesson — a default LLM model was retired by the vendor, every mock-based test stayed green, the live default produced 0 edges. Therefore:
 
-- Live integration tests against real services are gated by env vars (`THEOGONY_TEST_NEO4J=1`, `THEOGONY_RUN_CHARACTERIZATION=1`) but they are **not optional discipline** — when in doubt, run them locally.
+- Live integration tests against real services are gated by env vars (`THEOGONY_RUN_CHARACTERIZATION=1`, `THEOGONY_TEST_SERVE=1`, etc.) but they are **not optional discipline** — when in doubt, run them locally.
 - A failed run produces a report with `verdict="failed"` and a structured reason, not an exception swallowed somewhere up the stack.
 - An anomaly that you cannot fix in scope becomes a **Phoenix Backlog ticket**, not a silent shrug.
 
@@ -105,7 +105,6 @@ Do not build what the plan does not require. Do not add abstraction layers "for 
 ## Test Discipline
 
 - `pytest -q` runs unit + integration tests without external services.
-- `THEOGONY_TEST_NEO4J=1 pytest -q` adds the Neo4j contract suite via `testcontainers`.
 - `THEOGONY_RUN_CHARACTERIZATION=1 pytest -q -m characterization` runs Plan §3.8 layer-6 characterization (real LLM, ~0.15–0.25 EUR per run).
 - New code ships with tests in the same PR. New pipelines ship with at least one contract or end-to-end test.
 - Mock-only tests are never sufficient for a default LLM, default store, or default external service. Cover the live edge with at least a smoke test.
@@ -122,7 +121,7 @@ These are observed, real failure modes — not theoretical risks. If you find yo
 6. **Do not commit secrets.** API keys, tenant identifiers, customer data — never in source, tests, fixtures, logs at INFO level, commit messages, or PR descriptions. `pydantic-settings` + `SecretStr` is the only entry path for keys.
 7. **Do not introduce new top-level modules, agent classes, or memory layers** beyond what the plan specifies.
 8. **Do not bypass the human commander.** Significant decisions, scope changes, or architectural deviations require explicit human review. The human stays in the loop.
-9. **Do not start the Wave 3 Cockpit helper with an ephemeral chronicle unless the human explicitly asked.** `demo/start_wave3_cockpit.sh` pins **Neo4j** (and best-effort `docker compose up -d neo4j` for the default Bolt URL). Do not export `THEOGONY_COCKPIT__KNOWLEDGE_STORE=memory` for convenience — operator graph work is lost on restart. Use `THEOGONY_COCKPIT__USE_MEMORY=1` only when Bolt/Docker truly cannot run.
+9. **Wave 3 Cockpit (`demo/start_wave3_cockpit.sh`) uses the same in-memory chronicle path as `theogony cockpit serve`:** the bundled `pantheon_self` seed loads on startup. There is no Bolt graph to pin — persistence for operator experiments is a separate concern (LanceDB / export), not Neo4j.
 
 10. **Do not use traditional graph databases (Neo4j, Cypher) for the core mesh.** The architecture is a **Tensor-Manifold** (Vector-Vector-Mesh) designed for Spreading Activation via PyTorch/LanceDB. Pointer-chasing graph databases cannot handle the required edge density (1000x edges vs nodes) and are explicitly forbidden for the core substrate.
 

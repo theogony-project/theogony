@@ -1,484 +1,328 @@
-# Kadmos v2 — Architekturbeschreibung: Kognitives Lesen als Translationsschicht
+# Kadmos v2 — architecture: cognitive reading as a translation layer
 
 **Filed by:** Hesiod (architect)  
-**Date:** 2026-05-08 (umbenannt 2026-05-09)  
-**Status:** Architekturbeschluss — bereit für Implementierungsplanung  
-**Supersedes:** `docs/etappes/nous_hesiod_brief.md` (Kadmos v1 — stateless JSON-Extraktor)  
-**Vorgänger-Name:** Dieses Dokument hieß ursprünglich `nous_v2_brief.md`. Es wurde umbenannt, weil der beschriebene Agent zur **Kadmos-Schicht** gehört, nicht zu Nous.
+**Date:** 2026-05-08 (renamed 2026-05-09)  
+**Status:** Architecture decision — ready for implementation planning  
+**Supersedes:** `docs/etappes/nous_hesiod_brief.md` (Kadmos v1 — stateless JSON extractor)  
+**Previous filename:** This document was originally `nous_v2_brief.md`. It was renamed because the described agent belongs to the **Kadmos layer**, not Nous.
 
-**Einordnung in die Pipeline:**
+**Place in the pipeline:**
 
 ```
 Text (Wikipedia)
     ↓
-Kadmos v2  ←── dieses Dokument
-    Input:  Rohtext
-    Output: semantisch reiches Zwischenprodukt mit Arbeitsgedächtnis,
-            Synthesen, Revisionen — noch text-orientiert, mit Labels
+Kadmos v2  ←── this document
+    Input:  raw text
+    Output: semantically rich intermediate with working memory,
+            syntheses, revisions — still text-oriented, with labels
     ↓
-Embedding-Pass (Kadmos-interner Schritt)
-    Labels → Vektoren. Kanten → Vektoren. Text weg. Provenienz-ID bleibt.
+Embedding pass (internal to Kadmos)
+    Labels → vectors. Edges → vectors. Text discarded. Provenance id retained.
     ↓
-Nous (GNN-Encoder + Syntheselayer)
-    Input:  Vektorgeflecht (kein Text)
-    Output: dichteres Vektorgeflecht (diagonal, cross-level, emergent)
+Nous (GNN encoder + synthesis layer)
+    Input:  vector mesh (no text)
+    Output: denser vector mesh (diagonal, cross-level, emergent)
 ```
 
-Kadmos v2 liefert ein viel reicheres Zwischenprodukt als v1 — aber es ist immer noch die **Translationsschicht**. Das LLM liest mit Arbeitsgedächtnis und betreibt Revision, aber es erzeugt semantisch beschriftete Konzepte und Kanten, die danach in Vektoren übersetzt werden. Der Text ist Kadmos v2s Eingang und verlässt das System nach dem Embedding-Pass vollständig.
+Kadmos v2 yields a much richer intermediate than v1 — but it remains the **translation layer**. The LLM reads with working memory and performs revision, yet it produces semantically labeled concepts and edges that are then translated into vectors. Text is Kadmos v2’s input and leaves the system completely after the embedding pass.
 
-**Abgrenzung zu Nous:** Nous bekommt niemals Text. Nous bekommt das fertige Vektorgeflecht aus Kadmos und faltet es durch GNN-Encoder und Spreading Activation. Wenn in einem Implementierungsschritt Text als Input an Nous geht, ist es Kadmos, nicht Nous.
-
----
-
-## 0. Das Leitbild
-
-Wenn ein Mensch einen Text liest, passiert kein Batch-Processing. Es passiert
-etwas Kontinuierliches: Konzepte entstehen, aktivieren Vorwissen, kondensieren
-zu Synthesen, werden revidiert, wenn späterer Text den Kontext verändert.
-Das Ergebnis ist kein Extrakt — es ist ein **Verständnis**, das sich während
-des Lesens aufbaut und umbaut.
-
-Nous v2 modelliert genau das. Das LLM ist nicht Extraktor, sondern **Interpret
-mit Arbeitsgedächtnis**. Das Netz, das entsteht, ist kein Nebenprodukt —
-es ist das Lesen selbst, materialisiert.
+**Boundary with Nous:** Nous never receives text. Nous receives the finished vector mesh from Kadmos and folds it through GNN encoders and spreading activation. If text is passed to “Nous” in an implementation step, that step is Kadmos, not Nous.
 
 ---
 
-## 1. Was Kadmos v1 als Nous falsch gemacht hat
+## 0. Guiding image
 
-Drei strukturelle Fehler, die erklären warum die frühere Implementierung
-als *kognitiver Syntheselayer* gescheitert ist — und warum Kadmos als
-*Translationsschicht* dennoch seinen Platz hat:
+When a human reads text, there is no batch processing. Something continuous happens: concepts arise, activate prior knowledge, condense into syntheses, and are revised when later text changes the context. The result is not an extract — it is **understanding** that builds and rebuilds while reading.
 
-**Fehler 1 — LLM als Extraktor.** v1 hat das LLM gefragt: "Extrahiere mir
-Entities und Relations aus diesem Paragraph." Das ist NLP-Pipeline-Denken.
-Das LLM versteht keinen Text, wenn es ihn als Datenquelle behandelt — es
-versteht ihn, wenn es ihn *liest*, im Kontext dessen was davor kam.
-
-**Fehler 2 — Kein aktives Arbeitsgedächtnis.** v1 hat den LLM-Calls das
-bisherige Verständnis nicht als Kontext gegeben. Jeder Paragraph wurde
-isoliert verarbeitet. Das ist das Äquivalent von jedem Satz einzeln zu lesen
-und danach das Buch zuzuklappen.
-
-**Fehler 3 — Falsches Substrat.** Neo4j ist eine Pointer-Chasing-Datenbank.
-Sie kann keine Tensor-Operationen ausführen, keine Spreading Activation,
-keine massenhafte implizite Vernetzung. Die Zielarchitektur ist
-LanceDB + PyTorch.
+Kadmos v2 models that. The LLM is not an extractor but an **interpreter with working memory**. The network that emerges is not a by-product — it **is** reading, materialized.
 
 ---
 
-## 2. Das kognitive Modell (Grundlage)
+## 1. What Kadmos v1 got wrong by calling itself Nous
 
-Quelle: `notes/architecture/reading_agent_vision.md` — direkt vom Nutzer
-beschrieben.
+Three structural failures that explain why the earlier implementation failed as a *cognitive synthesis layer* — and why Kadmos as a *translation layer* still has a place:
 
-**Satzebene:** Ein Satz bringt 5–10 neue Konzepte. Gleichzeitig aktiviert
-er massiv parallel ~50 Vorwissens-Konzepte im Langzeitgedächtnis —
-nicht sequentiell, sondern wie ein Gewitter mit Potentialgefälle. Aus
-diesem Aktivierungssturm **kondensiert eine Synthese**. Diese Synthese
-ist das, was primär in den nächsten Satz mitgenommen wird.
+**Failure 1 — LLM as extractor.** v1 asked the LLM: “Extract entities and relations from this paragraph.” That is NLP-pipeline thinking. The model does not “understand” text when treated as a data source — it understands when it *reads*, in the context of what came before.
 
-**Absatzebene:** Satzsynthesen kondensieren zu Absatzsynthesen. Die
-Absatzsynthese ist nicht die Summe der Sätze — sie ist das Destillat,
-das entsteht, wenn der Leser das Gelesene zu einem kohärenten
-Zwischenverständnis verdichtet.
+**Failure 2 — No active working memory.** v1 did not give each LLM call the prior understanding. Every paragraph was processed in isolation. That is the equivalent of reading each sentence alone and closing the book after each one.
 
-**Kapitel- und Artikelebene:** Absatzsynthesen kondensieren weiter. Die
-Hierarchie ist **emergent, nicht vorgegeben**: sie entsteht aus dem Lesen
-selbst, nicht aus einer strukturellen Vorgabe.
-
-**Revision:** Wenn ein späterer Abschnitt etwas erscheinen lässt, das
-ein früheres Konzept in ein neues Licht rückt, geht der Leser zurück —
-nicht im Text, sondern im Verständnis. Er revidiert die Synthese, die
-das frühere Konzept enthält. Das ist kein Fehler, das ist Normalzustand.
-
-**Parallelsuche:** Während der Leser liest, laufen im Hintergrund zwei
-Suchprozesse parallel und billig:
-- Ähnlichkeitssuche: welche Konzepte im Langzeitgedächtnis liegen nah
-  an dem, was gerade gelesen wird?
-- Kantentraversal: von aktiven Konzepten aus vertikal hochgehen zu
-  Synthesen, dann diagonal oder horizontal in andere Äste —
-  was liegt da?
-
-Diese Suchprozesse liefern **Kandidaten**. Das LLM urteilt, ob eine
-vermutete Nähe tatsächlich eine Verbindung ist.
+**Failure 3 — Wrong substrate.** A pointer-chasing graph database cannot run tensor operations, spreading activation, or mass implicit wiring. The target architecture is LanceDB + PyTorch.
 
 ---
 
-## 3. Die drei Komponenten von Nous v2
+## 2. Cognitive model (foundation)
 
-### 3.1 Das Arbeitsgedächtnis (ReadingState)
+Source: `notes/architecture/reading_agent_vision.md` — described directly by the product owner.
 
-Das Arbeitsgedächtnis ist der Kern. Es ist kein Protokoll und kein
-Datenbankschema — es ist der lebendige Zustand des Lesers während der Lektüre.
+**Sentence level:** A sentence introduces ~5–10 new concepts. In parallel it massively activates ~50 prior-knowledge concepts in long-term memory — not sequentially, but like a storm with a potential gradient. From that activation storm **a synthesis condenses**. That synthesis is what primarily carries into the next sentence.
 
-Es enthält:
+**Paragraph level:** Sentence syntheses condense into paragraph syntheses. The paragraph synthesis is not the sum of sentences — it is the distillate when the reader compresses what was read into a coherent intermediate understanding.
 
-**Aktive Konzepte** — eine Menge von Konzepten, die gerade "warm" sind.
-Jedes Konzept hat:
-- Ein **Label** (menschenlesbar, LLM-vergeben)
-- Ein **Embedding** (384-dim, lokal berechnet)
-- Ein **Aktivierungsgewicht** (float 0–1, zerfällt über Zeit/Schritte)
-- Eine **Revisions-Geschichte** (Liste von Änderungen mit Schritt-Referenz)
-- Eine **Quellanker-Referenz** (welcher Abschnitt hat dieses Konzept
-  erstmals eingeführt)
+**Chapter and article level:** Paragraph syntheses condense further. The hierarchy is **emergent, not prescribed**: it arises from reading itself, not from a fixed structural template.
 
-**Aktive Verbindungen** — Kanten zwischen aktiven Konzepten. Jede
-Verbindung hat:
-- Quell- und Ziel-Konzept-ID
-- Einen **Verbindungstyp** (LLM-vergeben, frei formulierbar —
-  nicht aus einem Codebook)
-- Ein **Verständnis-Gewicht** (wie stark sieht das LLM diese Verbindung?)
-- Eine **Begründung** (ein Satz des LLM, warum diese Verbindung besteht)
-- Eine Revisions-Geschichte
+**Revision:** When a later passage casts an earlier concept in a new light, the reader goes back — not in the text, but in understanding. They revise the synthesis that contained the earlier concept. That is not a bug; it is the normal case.
 
-**Synthesen** — kondensierte Verständnis-Knoten auf einer höheren
-Abstraktionsebene. Eine Synthese fasst mehrere Konzepte zusammen.
-Sie hat ein Embedding, das der LLM durch seinen Output implizit
-definiert (indem er sie beschreibt), und das dann lokal berechnet wird.
+**Parallel search:** While reading, two cheap background searches run in parallel:
+- Similarity: which concepts in long-term memory lie close to what is being read?
+- Edge traversal: from active concepts, move vertically to syntheses, then diagonally or horizontally into other branches — what is there?
 
-**Offene Fragen / Spannungen** — Konzepte oder Verbindungen, bei denen
-das LLM Unsicherheit signalisiert hat. Diese werden dem nächsten
-Schritt explizit mitgegeben.
+These searches yield **candidates**. The LLM judges whether suspected proximity is a real connection.
 
-Das Arbeitsgedächtnis hat eine **Kapazitätsgrenze** (ca. 30–50 aktive
-Konzepte). Wenn es voll ist, werden die am schwächsten aktivierten
-Konzepte **komprimiert** — sie werden zu einer Synthese zusammengefasst
-und aus dem aktiven Satz entfernt. Das entspricht dem menschlichen
-"Vergessen" von Details bei gleichzeitigem Behalten des Verstehens.
+---
 
-### 3.2 Der Leseakt (ReadingStep)
+## 3. The three components of Kadmos v2
 
-Bei jedem Schritt — einem Satz, einem Absatz, einem Kapitelende;
-die Granularität entscheidet das System dynamisch — passiert folgendes:
+### 3.1 Working memory (ReadingState)
 
-**Schritt A: Hypothesen-Generierung (parallel, billig, kein LLM)**
+Working memory is the core. It is neither a log nor a rigid database schema — it is the live state of the reader during the passage.
 
-Zwei Prozesse laufen gleichzeitig:
+It contains:
 
-1. **Ähnlichkeitssuche** über das bestehende lokale Netz (und später
-   über die Chronik): die Embeddings der aktuell aktiven Konzepte werden
-   als Query-Vektoren verwendet, kNN-Suche liefert Kandidaten-Konzepte,
-   die semantisch nah liegen. Diese werden dem LLM als "vermutete Nähe"
-   präsentiert.
+**Active concepts** — a set of concepts that are currently “warm.” Each concept has:
+- A **label** (human-readable, LLM-assigned)
+- An **embedding** (384-dim, computed locally)
+- An **activation weight** (float 0–1, decays over time/steps)
+- A **revision history** (list of changes with step references)
+- A **source anchor reference** (which passage first introduced the concept)
 
-2. **Kantentraversal** im lokalen Netz: von aktiven Konzepten aus wird
-   das Netz traversiert — vertikal zu höheren Synthesen, dann diagonal
-   oder horizontal in andere Äste. Da die Hierarchie fuzzy ist, gibt es
-   keine scharfen Level: ein Konzept kann direkt mit einer Artikel-Synthese
-   verbunden sein, ohne den Weg über Absatz- und Kapitel-Synthesen zu gehen.
-   Die Traversal-Ergebnisse werden ebenfalls dem LLM als Kandidaten gegeben.
+**Active connections** — edges between active concepts. Each connection has:
+- Source and target concept ids
+- A **connection type** (LLM-assigned, free-form — not from a codebook)
+- An **understanding weight** (how strongly the LLM sees the link)
+- A **rationale** (one LLM sentence on why the link holds)
+- A revision history
 
-Beide Prozesse liefern **keine Fakten**, sondern **Hypothesen**:
-"Vielleicht hängt das zusammen." Das LLM urteilt.
+**Syntheses** — condensed understanding nodes at a higher abstraction. A synthesis bundles several concepts. It has an embedding implied by the LLM’s description and then computed locally.
 
-**Schritt B: LLM-Leseakt (der eigentliche Leseschritt)**
+**Open questions / tensions** — concepts or links where the LLM signaled uncertainty. These are passed explicitly into the next step.
 
-Der LLM bekommt:
+Working memory has a **capacity limit** (~30–50 active concepts). When full, the weakest activated concepts are **compressed** — folded into a synthesis and removed from the active set. That matches human “forgetting” detail while retaining understanding.
+
+### 3.2 The reading act (ReadingStep)
+
+Each step — a sentence, a paragraph, a chapter end; granularity is chosen dynamically — does the following:
+
+**Step A: hypothesis generation (parallel, cheap, no LLM)**
+
+Two processes run together:
+
+1. **Similarity search** over the existing local mesh (and later over the Chronicle): embeddings of currently active concepts serve as query vectors; kNN returns candidate concepts that lie close semantically. These are presented to the LLM as “suspected proximity.”
+
+2. **Edge traversal** in the local mesh: from active concepts, traverse the mesh — vertically to higher syntheses, then diagonally or horizontally into other branches. Because hierarchy is fuzzy, there are no sharp levels: a concept may link directly to an article-level synthesis without going through paragraph- and chapter-level syntheses. Traversal results are also given to the LLM as candidates.
+
+Both deliver **not facts** but **hypotheses**: “Maybe these belong together.” The LLM decides.
+
+**Step B: LLM reading step (the actual read)**
+
+The LLM receives:
 
 ```
-SYSTEM: Du bist ein Leser mit Arbeitsgedächtnis. Du liest einen Text
-Abschnitt für Abschnitt. Bei jedem Schritt sagst du, was sich in
-deinem Verständnis ändert.
+SYSTEM: You are a reader with working memory. You read a text
+section by section. At each step you say how your understanding changes.
 
 USER: {
-  "current_reading": "<Abschnitt-Text>",
+  "current_reading": "<section text>",
   "current_understanding": {
-    "active_concepts": [...],   // kompakte Darstellung der warmen Konzepte
-    "active_connections": [...], // wichtigste aktive Verbindungen
-    "open_tensions": [...],      // was noch unklar ist
-    "recent_syntheses": [...]    // letzte Verdichtungen
+    "active_concepts": [...],   // compact view of warm concepts
+    "active_connections": [...], // most important active links
+    "open_tensions": [...],      // what remains unclear
+    "recent_syntheses": [...]    // latest condensations
   },
   "hypotheses": {
-    "similarity_candidates": [...], // aus Schritt A
-    "traversal_candidates": [...]   // aus Schritt A
+    "similarity_candidates": [...], // from step A
+    "traversal_candidates": [...]   // from step A
   }
 }
 ```
 
-Der LLM antwortet nicht mit "extrahierten Entities". Er antwortet mit
-einem **Verständnis-Update**:
+The LLM does not answer with “extracted entities.” It answers with an **understanding update**:
 
 ```json
 {
-  "new_concepts": [...],           // was neu dazukommt
-  "new_connections": [...],        // neue Verbindungen, die er sieht
-  "confirmed_hypotheses": [...],   // welche Kandidaten aus Schritt A er bestätigt
-  "rejected_hypotheses": [...],    // welche er verwirft, und warum
-  "revisions": [...],              // was sich an bisherigem Verständnis ändert
-  "synthesis": null | {...},       // wenn das LLM jetzt bereit ist zu verdichten
-  "open_tensions": [...]           // was bleibt ungeklärt
+  "new_concepts": [...],
+  "new_connections": [...],
+  "confirmed_hypotheses": [...],
+  "rejected_hypotheses": [...],
+  "revisions": [...],
+  "synthesis": null | {...},
+  "open_tensions": [...]
 }
 ```
 
-**Der Schlüssel:** `revisions`. Wenn das LLM in diesem Schritt erkennt,
-dass ein früheres Konzept oder eine frühere Verbindung jetzt anders zu
-verstehen ist, schreibt es eine Revision. Die Revision hat eine
-Begründung und eine Referenz auf den Schritt, in dem das revidierte
-Konzept entstanden ist. Das Konzept im Arbeitsgedächtnis wird
-entsprechend aktualisiert — mit Revisions-Provenienz.
+**Key:** `revisions`. When the LLM sees that an earlier concept or link must be reinterpreted, it emits a revision with rationale and a reference to the step where the revised concept originated. The concept in working memory is updated — with revision provenance.
 
-**Schritt C: Arbeitsgedächtnis aktualisieren**
+**Step C: update working memory**
 
-Die Antwort des LLM wird in den ReadingState geschrieben:
-- Neue Konzepte werden hinzugefügt
-- Neue Verbindungen werden hinzugefügt
-- Revisionen werden angewendet (mit Provenienz)
-- Aktivierungsgewichte werden aktualisiert (neue Konzepte auf 1.0,
-  bestehende leicht erhöht wenn referenziert, alle anderen leicht
-  zerfallen)
-- Wenn Kapazitätsgrenze überschritten: Komprimierung
+The LLM response is written into ReadingState:
+- Add new concepts
+- Add new connections
+- Apply revisions (with provenance)
+- Update activation weights (new concepts at 1.0, referenced ones slightly boosted, others slightly decayed)
+- If capacity exceeded: compression
 
-**Schritt D: Lokales Netz schreiben**
+**Step D: write local mesh**
 
-Die Konzepte und Verbindungen aus dem ReadingState werden in das
-lokale Lese-Session-Netz (LanceDB) geschrieben. Noch nicht in die
-globale Chronik — das ist ein separater Schritt nach dem Lesen.
+Concepts and links from ReadingState are written to the local reading-session mesh (LanceDB). Not yet into the global Chronicle — that is a separate step after reading.
 
-### 3.3 Die Granularitäts-Entscheidung
+### 3.3 Granularity choice
 
-v1 hat pro Paragraph einen LLM-Call gemacht. Das ist eine starre
-Vorgabe. In v2 entscheidet das System dynamisch:
+v1 used one LLM call per paragraph. That is rigid. In v2 the system chooses dynamically:
 
-**Satz-Granularität:** Wenn ein Abschnitt viele neue Konzepte einführt
-oder eine Revision auslöst, wird auf Satzebene gelesen. Mehr Calls,
-aber präziseres Verständnis.
+**Sentence granularity:** When a section introduces many new concepts or triggers revision, read at sentence level. More calls, finer understanding.
 
-**Absatz-Granularität:** Der Normalfall für informationsdichte Absätze.
+**Paragraph granularity:** The default for information-dense paragraphs.
 
-**Kapitel-Granularität (Skim):** Wenn die aktiven Konzepte des
-Arbeitsgedächtnisses den Kapiteltitel bereits gut abdecken — wenn
-das LLM im vorigen Schritt signalisiert hat, dass dieses Kapitel
-vertrautes Terrain ist — dann kann ein Kapitel mit einem einzigen
-"Skim"-Call gelesen werden. Das entspricht dem menschlichen
-"Trust-and-skim".
+**Chapter granularity (skim):** When active working-memory concepts already cover the chapter title well — when the prior step signaled familiar terrain — a chapter can be read with a single “skim” call. That matches human “trust and skim.”
 
-Die Granularitätsentscheidung ist Teil des LLM-Outputs: eine Option
-`"next_granularity": "sentence" | "paragraph" | "section" | "skim"`.
+Granularity choice is part of the LLM output: `"next_granularity": "sentence" | "paragraph" | "section" | "skim"`.
 
 ---
 
-## 4. Das lokale Lese-Netz
+## 4. The local reading mesh
 
-Während des Lesens entsteht ein **lokales Netz** — nicht die globale
-Chronik, sondern ein Session-spezifisches Netz, das das Verständnis
-des aktuellen Artikels materialisiert.
+During reading a **local mesh** forms — not the global Chronicle, but a session-specific mesh materializing understanding of the current article.
 
-Dieses Netz lebt in LanceDB (in-process, nicht persistent zwischen
-Sessions). Es enthält:
+This mesh lives in LanceDB (in-process, not persisted across sessions). It contains:
 
-- **Konzept-Knoten**: ein Embedding-Vektor + Label + Aktivierungsgewicht
-  + Revisions-Geschichte
-- **Verständnis-Kanten**: kein Codebook, kein festes Schema. Der LLM
-  beschreibt die Verbindung in einem Satz. Das Embedding dieser Beschreibung
-  *ist* das Kanten-Embedding.
-- **Synthese-Knoten**: Abstraktionen über mehreren Konzept-Knoten.
-  Ihre Position im Vektorraum ist berechnet (gewichteter Durchschnitt der
-  Basis-Knoten plus dem Embedding des LLM-generierten Synthese-Labels).
+- **Concept nodes:** embedding vector + label + activation weight + revision history
+- **Understanding edges:** no codebook, no fixed schema. The LLM describes the link in one sentence. The embedding of that description *is* the edge embedding.
+- **Synthesis nodes:** abstractions over several concept nodes. Their position in vector space is computed (weighted average of base nodes plus the embedding of the LLM-generated synthesis label).
 
-Die Kanten entstehen durch **Verstehen** (LLM-Urteil), nicht durch
-Ähnlichkeit. Aber die Ähnlichkeit der Kanten-Embeddings untereinander
-ist das, was später Spreading Activation durch das Netz ermöglicht.
+Edges arise from **understanding** (LLM judgment), not raw similarity. But similarity among edge embeddings is what later enables spreading activation through the mesh.
 
-Das lokale Netz nach dem vollständigen Lesen eines Artikels ist das
-**Verständnis des Artikels** — nicht ein Extrakt, sondern eine
-Wissensstruktur, die zeigt wie die Konzepte zusammenhängen, auf welchen
-Ebenen, mit welcher Stärke, mit welcher Revisions-Geschichte.
+After a full read, the local mesh is the **understanding of the article** — not an extract, but a knowledge structure showing how concepts connect, at which levels, with which strength, with which revision history.
 
-### 4.1 Die Dichte des Netzes
+### 4.1 Mesh density
 
-Wo kommt die 1000:1-Ratio her?
+Where does the 1000:1 ratio come from?
 
-Primär durch **implizite Kanten**: nach dem Lesen, wenn alle
-Konzept-Embeddings im lokalen Netz liegen, läuft ein Post-Pass:
-jeder Knoten bekommt kNN-Edges zu seinen nächsten Nachbarn im
-Embedding-Raum. Diese Edges tragen kein LLM-Label — sie sind reine
-Vektornähe, gewichtet mit cosine similarity. Sie sind die
-Materialisierung der assoziativen Verbindungen, die ein Leser hat,
-ohne sie explizit formulieren zu können.
+Primarily **implicit edges:** after reading, when all concept embeddings sit in the local mesh, a post-pass runs: each node receives kNN edges to nearest neighbors in embedding space. These edges carry no LLM label — they are pure vector proximity, weighted by cosine similarity. They materialize associative links a reader has without being able to state them explicitly.
 
-Explizite Kanten (LLM-vergeben): ~800 Knoten × ~10 Verbindungen = ~8000
-Implizite Kanten (Vektornähe, k=200): ~800 Knoten × ~200 = ~160.000
+Explicit edges (LLM-assigned): ~800 nodes × ~10 links ≈ ~8,000  
+Implicit edges (vector proximity, k=200): ~800 × ~200 ≈ ~160,000  
 
-Verhältnis: ~200:1. Mit Chronik-Einbettung (wo bestehende Knoten
-weitere Edges einbringen): deutlich höher.
+Ratio ~200:1. With Chronicle embedding (existing nodes add more edges): significantly higher.
 
-Der Unterschied zu v1: die impliziten Kanten kommen **nach** dem
-LLM-gesteuerten Verständnis — sie sind Verdichtung, nicht Ersatz.
+Difference from v1: implicit edges come **after** LLM-driven understanding — they are condensation, not replacement.
 
 ---
 
-## 5. Revision — das Herzstück
+## 5. Revision — the centerpiece
 
-Revision ist das, was Nous v2 von v1 grundlegend unterscheidet.
+Revision is what fundamentally distinguishes Kadmos v2 from v1.
 
-### 5.1 Wie Revision ausgelöst wird
+### 5.1 How revision is triggered
 
-In jedem LLM-Call prüft der LLM sein aktuelles Verständnis gegen den
-neuen Abschnitt. Er kann eine Revision auslösen wenn:
+In every LLM call the model checks current understanding against the new passage. It may trigger revision when:
 
-- Ein früheres Konzept durch neuen Kontext falsch oder unvollständig ist
-- Eine frühere Verbindung sich als irrtümlich oder umgekehrt herausstellt
-- Eine frühere Synthese zu grob war und aufgebrochen werden muss
+- An earlier concept is wrong or incomplete given new context
+- An earlier link turns out mistaken or reversed
+- An earlier synthesis was too coarse and must be split
 
-Der LLM signalisiert dies durch das `revisions`-Feld in seiner Antwort.
+The LLM signals this via the `revisions` field in its response.
 
-### 5.2 Was eine Revision enthält
+### 5.2 What a revision contains
 
 ```json
 {
-  "target_concept_id": "...",         // was wird revidiert
+  "target_concept_id": "...",
   "revision_type": "update" | "split" | "merge" | "invalidate",
-  "reason": "...",                    // ein Satz: warum
-  "triggering_passage": "...",        // der Textteil, der die Revision ausgelöst hat
-  "old_understanding": "...",         // was vorher galt
-  "new_understanding": "..."          // was jetzt gilt
+  "reason": "...",
+  "triggering_passage": "...",
+  "old_understanding": "...",
+  "new_understanding": "..."
 }
 ```
 
-`split`: ein Konzept wird zu zwei. `merge`: zwei werden zu einem.
-`invalidate`: ein Konzept war falsch — es wird nicht gelöscht (Provenienz
-bleibt erhalten), aber als invalidiert markiert.
+`split`: one concept becomes two. `merge`: two become one. `invalidate`: a concept was wrong — it is not deleted (provenance preserved) but marked invalid.
 
-### 5.3 Wie weit Revisionen zurückreichen
+### 5.3 How far revisions reach
 
-In v1: nur innerhalb des aktuellen Abschnitts. In v2: über die gesamte
-Lese-Session. Das Arbeitsgedächtnis hält alle Konzepte mit ihren
-Entstehungs-Schritt-Referenzen. Eine Revision kann auf Schritt 3 verweisen,
-auch wenn wir gerade in Schritt 47 sind.
+In v1: only within the current section. In v2: across the whole reading session. Working memory holds all concepts with birth-step references. A revision may point to step 3 while we are at step 47.
 
-Die Einschränkung: das LLM sieht nur die **kompakte Darstellung** des
-Arbeitsgedächtnisses, nicht den Rohtext aller bisherigen Schritte.
-Es kann also nur revidieren, was im aktuellen Arbeitsgedächtnis sichtbar
-ist. Was bereits komprimiert wurde (zu einer Synthese verdichtet), ist
-als Synthese noch adressierbar — die Revision würde dann die Synthese
-selbst betreffen, nicht ihre Basis-Konzepte einzeln.
+Constraint: the LLM only sees the **compact rendering** of working memory, not the raw text of all prior steps. It can only revise what is visible in current working memory. What was already compressed into a synthesis remains addressable at the synthesis level — revision then targets the synthesis, not each base concept individually.
 
 ---
 
-## 6. Technisches Substrat
+## 6. Technical substrate
 
-### 6.1 LanceDB als Primärspeicher
+### 6.1 LanceDB as primary store
 
-Das lokale Lese-Netz lebt in einer In-Process-LanceDB-Instanz.
-Append-only, kein Locking, keine Transaktionen. Fehler-Korrekturen
-werden als neue Rows mit `supersedes`-Referenz geschrieben, nie als
-Update.
+The local reading mesh lives in an in-process LanceDB instance. Append-only, no locking, no transactions. Corrections are written as new rows with `supersedes` references, never as in-place updates.
 
-Nach dem Lesen: die lokale LanceDB kann in die globale Chronik
-exportiert werden (separater Schritt, nicht Teil des Lesens selbst).
+After reading: the local LanceDB can be exported into the global Chronicle (separate step, not part of reading itself).
 
 ### 6.2 Embeddings
 
-Jedes Konzept bekommt sofort ein Embedding — local, ohne LLM, mit
-dem konfigurierten Embedding-Modell (BAAI/bge-small-en-v1.5 oder besser).
-Das Embedding des Konzept-Labels ist der primäre Vektor.
+Every concept gets an embedding immediately — local, no LLM, using the configured embedding model (BAAI/bge-small-en-v1.5 or better). The embedding of the concept label is the primary vector.
 
-Kanten-Embeddings werden aus dem Embedding der Verbindungs-Beschreibung
-berechnet (der Satz, den das LLM als Begründung geliefert hat).
+Edge embeddings are computed from the embedding of the connection description (the sentence the LLM gave as rationale).
 
-### 6.3 PyTorch für Spreading Activation (Post-Read)
+### 6.3 PyTorch for spreading activation (post-read)
 
-Nach dem Lesen, wenn das lokale Netz vollständig ist, kann ein
-Spreading-Activation-Pass über den Graphen laufen — als CSR-Tensor
-in PyTorch, nicht als Graphdatenbank-Traversal. Das ist der Schritt,
-der die impliziten kNN-Kanten materializes und das Netz auf die
-gewünschte Dichte bringt.
+After reading, when the local mesh is complete, a spreading-activation pass may run over the graph — as a CSR tensor in PyTorch, not as graph-database traversal. That is the step that **materializes** implicit kNN edges and brings the mesh toward the desired density.
 
-### 6.4 KnowledgeStore-Protokoll
+### 6.4 KnowledgeStore protocol
 
-Nous v2 schreibt **nicht** durch das bestehende `KnowledgeStore`-Protokoll,
-das auf Neo4j ausgelegt ist. Es schreibt direkt in LanceDB.
+Kadmos v2 does **not** write the session-local mesh through the legacy `KnowledgeStore` API shape that was tuned for the old graph-backed path; it writes directly to LanceDB for the local reading mesh.
 
-Die globale Chronik (Neo4j oder ein zukünftiger LanceDB-basierter Store)
-wird nach dem Lesen als separater Export befüllt. Das entkoppelt den
-Leseprozess von der Persistenz-Infrastruktur.
+The global Chronicle is filled after reading via a separate export step into whatever global store the deployment uses, decoupling the read path from persistence infrastructure.
 
 ---
 
-## 7. Was v2 nicht baut (Scope-Grenzen)
+## 7. What v2 explicitly does not build (scope)
 
-- **Keine globale Chronik-Integration während des Lesens.** Die
-  Ähnlichkeitssuche in Schritt A läuft zunächst nur über das lokale
-  Lese-Session-Netz. Chronik-Suche kommt in v3.
-- **Keine Multi-Artikel-Sessions.** v2 liest einen Artikel pro Session.
-- **Kein Cockpit.** Output ist JSON + AnnotatedReading + RunReport.
-- **Kein Streaming.** Der Leseprozess ist synchron, ein Schritt nach
-  dem anderen.
-- **Kein Multi-Resolution-Modell.** Ein LLM für alle Granularitäten.
+- **No global Chronicle integration during reading.** Step A similarity search runs only over the local reading-session mesh initially. Chronicle-wide search is a v3 topic.
+- **No multi-article sessions.** v2 reads one article per session.
+- **No cockpit.** Output is JSON + AnnotatedReading + RunReport.
+- **No streaming.** Reading is synchronous, one step after another.
+- **No multi-resolution model stack.** One LLM for all granularities.
 
 ---
 
-## 8. Was Monkey 1 in v2 bedeutet
+## 8. What Monkey 1 means in v2
 
-Die Vergleichsmetrik aus dem v1-Brief bleibt gültig, aber mit anderen
-Erwartungen:
+The comparison metric from the v1 brief still applies, with shifted expectations:
 
-| Metrik | v1 Ergebnis | v2 Ziel |
-|---|---|---|
-| Edge/Node-Ratio (explizit) | 1.10 | 5–15 (LLM-Verbindungen + Synthesen) |
-| Edge/Node-Ratio (gesamt mit kNN) | 1.10 | 100–500 |
-| Revision events | 0 | messbar > 0 |
-| Synthesis-Hierarchie-Levels | 1 (alle paragraph) | 3–4 (paragraph, section, article) |
-| Cross-source connections (bei Chronik-Export) | 636 | höher, durch Verstehen |
+| Metric | v1 result | v2 target |
+|--------|-----------|-----------|
+| Edge/node ratio (explicit) | 1.10 | 5–15 (LLM links + syntheses) |
+| Edge/node ratio (total with kNN) | 1.10 | 100–500 |
+| Revision events | 0 | measurable > 0 |
+| Synthesis hierarchy levels | 1 (all paragraph) | 3–4 (paragraph, section, article) |
+| Cross-source connections (on Chronicle export) | 636 | higher, through understanding |
 
-Die 1000:1-Ratio ist das Fernziel für den Chronik-Export mit kNN-Pass.
-Innerhalb einer Lese-Session (explizite + implizite Kanten): 100–500:1
-ist das realistische v2-Ziel.
+The 1000:1 ratio remains a long-range goal for Chronicle export with a kNN pass. Within one reading session (explicit + implicit edges): 100–500:1 is the realistic v2 target.
 
 ---
 
-## 9. Die offenen Entscheidungen für den Implementierungsplan
+## 9. Open decisions for the implementation plan
 
-Diese Fragen beantwortet Hesiod im Implementierungsbrief, der auf
-diesem Architekturbeschluss aufbaut:
+Hesiod answers these in the implementation brief built on this architecture decision:
 
-**Q1 — Granularitäts-Initialisierung.** Mit welcher Granularität
-beginnt der erste Schritt? Satz, Absatz, oder dynamisch je nach
-Artikel-Länge?
+**Q1 — Granularity bootstrap.** Does the first step start at sentence, paragraph, or dynamically by article length?
 
-**Q2 — Arbeitsgedächtnis-Komprimierung.** Wann genau wird komprimiert?
-Beim Überschreiten der Kapazitätsgrenze, oder vorausschauend an
-Sektionsgrenzen?
+**Q2 — Working-memory compression.** When exactly do we compress? On capacity overflow, or proactively at section boundaries?
 
-**Q3 — Hypothesen-Budget.** Wie viele Kandidaten aus Ähnlichkeitssuche
-und Traversal werden dem LLM pro Schritt präsentiert? Mehr Kandidaten =
-bessere Urteile, aber mehr Token-Kosten.
+**Q3 — Hypothesis budget.** How many candidates from similarity and traversal per step? More candidates → better judgments, higher token cost.
 
-**Q4 — Revisions-Reichweite.** Wie weit zurück kann der LLM
-revidieren? Nur aktive Konzepte, oder auch komprimierte Synthesen?
+**Q4 — Revision reach.** How far back can the LLM revise? Only active concepts, or compressed syntheses too?
 
-**Q5 — LanceDB-Schema.** Wie werden Konzepte, Kanten und Revisionen
-in LanceDB modelliert? Separate Tabellen oder eine einheitliche
-Assertions-Tabelle?
+**Q5 — LanceDB schema.** How are concepts, edges, and revisions modeled? Separate tables vs one unified assertions table?
 
-**Q6 — AnnotatedReading-Format.** Was genau enthält das
-Ausgabe-JSON? Soll es den vollständigen Revisions-Graph enthalten,
-oder nur die finale Lesezustand?
+**Q6 — AnnotatedReading format.** What exactly is in the output JSON? Full revision graph vs final reading state only?
 
-**Q7 — Kanten-Embedding.** Embedding des Verbindungs-Beschreibungs-Satzes
-(teurer, semantisch reicher) oder Mittelwert der Quell- und Ziel-Embeddings
-(billig, aber verliert den Verbindungstyp)?
+**Q7 — Edge embedding.** Embed the connection-description sentence (richer, costlier) vs mean of source and target embeddings (cheap, loses link type nuance)?
 
 ---
 
-## 10. Warum das schwer ist — und warum es richtig ist
+## 10. Why this is hard — and why it is right
 
-Das Schwierige an v2: das LLM muss sich an frühere Schritte "erinnern",
-ohne den Rohtext aller früheren Schritte zu bekommen (zu lang, zu teuer).
-Die Lösung — eine kompakte Darstellung des Arbeitsgedächtnisses — ist
-selbst ein Design-Problem. Zu kompakt: das LLM verliert Kontext und
-kann nicht gut revidieren. Zu ausführlich: die Prompts werden teuer und
-langsam.
+The hard part of v2: the LLM must “remember” earlier steps without receiving raw text from all prior steps (too long, too expensive). The solution — a compact rendering of working memory — is itself a design problem. Too compact: the model loses context and cannot revise well. Too verbose: prompts become expensive and slow.
 
-Das ist das Kernproblem, das Nous v2 lösen muss. Es gibt keine fertige
-Antwort darauf. Es ist empirisch: man baut, man misst, man kalibriert.
-Das ist der Wert des ersten Corpus-Laufs.
+That is the core problem Kadmos v2 must solve. There is no canned answer; it is empirical: build, measure, calibrate. That is the value of the first corpus run.
 
-Das Richtige daran: es ist das Problem, das man lösen *muss*, wenn man
-ein System bauen will, das wirklich liest statt nur extrahiert. v1 hat
-dieses Problem umgangen, indem es jeden Paragraph isoliert behandelt hat.
-v2 stellt sich ihm.
+Why it matters: it is the problem you **must** solve to build a system that truly reads instead of only extracting. v1 avoided it by isolating every paragraph. v2 confronts it.
 
 ---
 

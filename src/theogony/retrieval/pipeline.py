@@ -78,9 +78,8 @@ from theogony.retrieval.chronicle_thinking import (
     plan_chronicle_thinking_refine,
 )
 from theogony.retrieval.constellation import ConstellationAssembler
-from theogony.retrieval.multi_hop import MultiHopResult, MultiHopRetriever
-from theogony.retrieval.strategies.protocol import RetrievalStrategy
-from theogony.retrieval.strategy_factory import build_retrieval_strategy
+from theogony.retrieval.multi_hop import MultiHopResult
+from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesize import Answer, AnswerSynthesizerLike
 from theogony.retrieval.synthesizer_factory import build_synthesizer
 
@@ -94,7 +93,7 @@ HIGH_CONFIDENCE_FLOOR = 0.7
 
 
 async def _retrieve_merged_for_sub_pairs(
-    retriever: MultiHopRetriever,
+    retriever: SpreadingActivationRetriever,
     sub_pairs: list[tuple[str, list[float]]],
     *,
     k: int,
@@ -175,12 +174,11 @@ class QueryPipeline:
     def __init__(
         self,
         embedder: EmbeddingProvider,
-        retriever: MultiHopRetriever,
+        retriever: SpreadingActivationRetriever,
         assembler: ConstellationAssembler,
         synthesizer: AnswerSynthesizerLike,
         relevance: RelevanceTracker,
         *,
-        strategy: RetrievalStrategy | None = None,
         settings: Settings | None = None,
         report_writer: RunReportWriter | None = None,
         edge_pheromone: EdgePheromoneTracker | None = None,
@@ -190,10 +188,7 @@ class QueryPipeline:
         growth_bridge: GrowthBridge | None = None,
     ) -> None:
         self._embedder = embedder
-        if strategy is not None:
-            self._retriever = MultiHopRetriever(retriever.store, strategy=strategy)
-        else:
-            self._retriever = retriever
+        self._retriever = retriever
         self._assembler = assembler
         self._synthesizer = synthesizer
         self._relevance = relevance
@@ -307,16 +302,13 @@ class QueryPipeline:
         embedding_duration_ms = int((time.perf_counter() - embed_perf) * 1000)
 
         # ---- 2. retrieve (parallel multi-hop per sub-query, merged by best score)
-        retriever = self._retriever
         if strategy is not None:
-            retriever = MultiHopRetriever(
-                self._retriever.store,
-                strategy=build_retrieval_strategy(
-                    self._retriever.store, self._settings, override=strategy
-                ),
+            log.warning(
+                "ask: strategy=%r ignored — retrieval uses spreading activation only",
+                strategy,
             )
         retrieval_result = await _retrieve_merged_for_sub_pairs(
-            retriever,
+            self._retriever,
             sub_pairs,
             k=k,
             hops=hops,
@@ -413,7 +405,7 @@ class QueryPipeline:
             embedding_duration_ms += int((time.perf_counter() - emb_extra) * 1000)
             new_pairs = list(zip(new_queries, new_vecs, strict=True))
             merged_more = await _retrieve_merged_for_sub_pairs(
-                retriever,
+                self._retriever,
                 new_pairs,
                 k=k,
                 hops=hops,
@@ -737,10 +729,7 @@ async def build_pipeline_from_settings(
     mnemosyne = build_mnemosyne_classifier(settings, resolved_llm)
     return QueryPipeline(
         embedder=embedder,
-        retriever=MultiHopRetriever(
-            store,
-            strategy=build_retrieval_strategy(store, settings),
-        ),
+        retriever=SpreadingActivationRetriever(store, embedder),
         assembler=ConstellationAssembler(store),
         synthesizer=synthesizer,
         relevance=RelevanceTracker(

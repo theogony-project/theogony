@@ -15,7 +15,6 @@ from theogony.config.settings import (
     IngestStageBaselines,
     IngestVerdictThresholds,
     LLMSettings,
-    Neo4jSettings,
     OneirosVerdictThresholds,
     QueryVerdictThresholds,
     ReportSettings,
@@ -65,12 +64,6 @@ class TestSettingsDefaults:
         s = Settings()
         assert s.embedding.model_id == "BAAI/bge-small-en-v1.5"
         assert s.embedding.dim == 384
-
-    def test_default_neo4j_targets_localhost(self) -> None:
-        s = Settings()
-        assert s.neo4j.uri == "bolt://localhost:7687"
-        assert s.neo4j.user == "neo4j"
-        assert isinstance(s.neo4j.password, SecretStr)
 
     def test_default_data_dir_is_data(self) -> None:
         assert Settings().data_dir == Path("data")
@@ -126,12 +119,12 @@ class TestSettingsFromEnv:
     def test_nested_settings_use_double_underscore(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("THEOGONY_LLM__PROVIDER", "anthropic")
         monkeypatch.setenv("THEOGONY_LLM__MODEL_ID", "claude-haiku-4-5")
-        monkeypatch.setenv("THEOGONY_NEO4J__PASSWORD", "from-env")
+        monkeypatch.setenv("THEOGONY_DATA_DIR", "/tmp/theogony-settings-env-test")
         monkeypatch.setenv("THEOGONY_LOG_LEVEL", "DEBUG")
         s = Settings()
         assert s.llm.provider == "anthropic"
         assert s.llm.model_id == "claude-haiku-4-5"
-        assert s.neo4j.password.get_secret_value() == "from-env"
+        assert s.data_dir == Path("/tmp/theogony-settings-env-test")
         assert s.log_level == "DEBUG"
 
     def test_dotenv_file_is_loaded(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -152,8 +145,10 @@ class TestSecretsNeverLeak:
         assert "sk-DO-NOT-LEAK" not in repr(s)
         assert "sk-DO-NOT-LEAK" not in str(s)
 
-    def test_repr_does_not_reveal_neo4j_password(self) -> None:
-        s = Settings(neo4j=Neo4jSettings(password=SecretStr("super-secret-pw")))
+    def test_repr_does_not_reveal_hosted_bypass_token(self) -> None:
+        from theogony.config.settings import HostedSettings
+
+        s = Settings(hosted=HostedSettings(rate_limit_bypass_token=SecretStr("super-secret-pw")))
         assert "super-secret-pw" not in repr(s)
         assert "super-secret-pw" not in str(s)
 

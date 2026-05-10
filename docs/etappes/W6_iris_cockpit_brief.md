@@ -46,7 +46,7 @@ The five components:
 **Rejected alternatives** (so this is not re-debated mid-sprint):
 
 - ❌ **React / Next.js / Vue** — adds a build pipeline, second repo, second deploy artefact. Over-engineered for the scope.
-- ❌ **Streamlit / Gradio** — fast to prototype, hard to make "hübsch", hard to integrate with the existing FastAPI auth seam.
+- ❌ **Streamlit / Gradio** — fast to prototype, hard to make polished, hard to integrate with the existing FastAPI auth seam.
 - ❌ **Dash / Bokeh** — Python-native dashboards but visually dated; bad fit for the "this should look modern" requirement.
 - ❌ **Tailwind via Tailwind-CLI build step** — more performant in production but adds the build pipeline we are explicitly avoiding. Phase-3 sub-ticket if CDN load times become a problem.
 - ❌ **Inline Tailwind in `<style>` tags** — defeats Tailwind's purgeable-CSS model and leads to massive HTML payload growth.
@@ -128,19 +128,19 @@ Default content (auto-created on first save if missing):
 ```markdown
 # Manifest of <hostname>
 
-## Primäre Wissensdomäne
+## Primary knowledge domain
 
 (declare what knowledge this Pantheon instance is for)
 
-## Sprachen
+## Languages
 
-- Primär: <language>
+- Primary: <language>
 
-## Ausschlüsse
+## Exclusions
 
 (declare what this instance does NOT cover)
 
-## Aktualisierungs-Verhalten
+## Update behaviour
 
 (declare how new knowledge is acquired)
 ```

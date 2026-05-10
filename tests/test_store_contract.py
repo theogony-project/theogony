@@ -2,24 +2,16 @@
 Parametrised KnowledgeStore contract suite (Plan §2.2, §3.8).
 
 Every concrete KnowledgeStore implementation MUST pass every test in
-this file. The InMemoryKnowledgeStore is the always-on parameter
-(no external services). Neo4jKnowledgeStore joins the matrix when
-``THEOGONY_TEST_NEO4J=1`` is set in the environment (Plan §3.8 + E7
-brief): the fixture starts a ``testcontainers`` Neo4j container per
-session, runs the same assertions against the production backend,
-and tears the container down on session exit.
+this file. Today the matrix is ``InMemoryKnowledgeStore`` only (Neo4j
+retired — ``docs/etappes/RETIREMENT_NEO4J_MULTIHOP.md``).
 
 These tests assert behaviour, not implementation detail. The fixture
-yields async-context-managed stores; every test gets a clean state
-(``MATCH (n) DETACH DELETE n`` between tests for the Neo4j backend,
-fresh ``InMemoryKnowledgeStore`` for the in-memory one).
+yields a fresh ``InMemoryKnowledgeStore`` per test.
 """
 
 from __future__ import annotations
 
-import os
 from collections.abc import AsyncIterator
-from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -41,15 +33,7 @@ from theogony.stores import InMemoryKnowledgeStore
 # Backend matrix
 # ---------------------------------------------------------------------------
 
-_NEO4J_GATE = os.environ.get("THEOGONY_TEST_NEO4J") == "1"
-
-STORE_BACKENDS: list[str] = ["in_memory"]
-if _NEO4J_GATE:
-    STORE_BACKENDS.append("neo4j")
-
-#: Embedding dim used by every test in this suite. The Neo4j HNSW
-#: vector index is rebuilt at this dim per session. Production-default
-#: 384 is covered by tests/test_neo4j_store_live.py separately.
+#: Embedding dim used by every test in this suite.
 _CONTRACT_EMBEDDING_DIM = 4
 
 
@@ -57,8 +41,7 @@ def _emb(*values: float) -> list[float]:
     """Pad / truncate ``values`` to the contract-suite embedding dim.
 
     Tests want short, inspectable vectors like ``_emb(1.0, 0.0)``;
-    the Neo4j HNSW index needs them at the configured dim. Padding
-    with zeros preserves cosine direction, so test assertions about
+    padding with zeros preserves cosine direction, so test assertions about
     ranking remain meaningful.
     """
     if len(values) > _CONTRACT_EMBEDDING_DIM:
@@ -66,88 +49,10 @@ def _emb(*values: float) -> list[float]:
     return [float(v) for v in values] + [0.0] * (_CONTRACT_EMBEDDING_DIM - len(values))
 
 
-# Cache the testcontainers Neo4j container for the whole session — bringing
-# it up costs ~30-60 s, the contract suite has ~50 tests; we share one
-# container across all of them and reset state between tests.
-_NEO4J_CONTAINER: Any = None
-_NEO4J_URI: str | None = None
-_NEO4J_USER: str | None = None
-_NEO4J_PASSWORD: str | None = None
-
-
-@pytest.fixture(scope="session")
-def neo4j_container() -> Any:
-    """Session-scoped testcontainers Neo4j 5.x.
-
-    Skipped when ``THEOGONY_TEST_NEO4J`` is not ``1``. Tested against
-    the same Community-edition default as ``docker-compose.yml`` (Plan
-    §3.1a edition note — Pydantic-enforced existence; no Enterprise
-    constraints).
-    """
-    if not _NEO4J_GATE:
-        pytest.skip("Set THEOGONY_TEST_NEO4J=1 to run Neo4j contract suite.")
-
-    global _NEO4J_CONTAINER, _NEO4J_URI, _NEO4J_USER, _NEO4J_PASSWORD
-    if _NEO4J_CONTAINER is not None:
-        return _NEO4J_CONTAINER
-
-    try:
-        from testcontainers.neo4j import Neo4jContainer
-    except ImportError as exc:
-        pytest.skip(f"testcontainers[neo4j] not installed: {exc}")
-
-    # 5.18-community matches the docker-compose default + Plan §3.1a.
-    # APOC / Bloom / Enterprise plugins are explicitly out of scope (E7 brief).
-    container = Neo4jContainer("neo4j:5.18-community")
-    container.start()
-    _NEO4J_CONTAINER = container
-    _NEO4J_URI = container.get_connection_url()
-    _NEO4J_USER = container.username
-    _NEO4J_PASSWORD = container.password
-    return container
-
-
-@pytest_asyncio.fixture(params=STORE_BACKENDS)
-async def store(request: pytest.FixtureRequest) -> AsyncIterator[KnowledgeStore]:
-    """Parametrised store fixture.
-
-    Yields a connected store with clean state. For the in-memory backend
-    a fresh dict-backed instance per test; for the Neo4j backend the
-    session-cached container with a per-test ``MATCH (n) DETACH DELETE
-    n`` reset so tests stay independent.
-    """
-    backend = request.param
-    if backend == "in_memory":
-        yield InMemoryKnowledgeStore()
-        return
-    if backend == "neo4j":
-        # Lazy local imports keep test collection cheap when the
-        # Neo4j matrix is gated out.
-        from theogony.config.settings import Neo4jSettings
-        from theogony.stores import Neo4jKnowledgeStore
-
-        request.getfixturevalue("neo4j_container")  # ensure container started
-        from pydantic import SecretStr
-
-        settings = Neo4jSettings(
-            uri=str(_NEO4J_URI),
-            user=str(_NEO4J_USER),
-            password=SecretStr(str(_NEO4J_PASSWORD)),
-            database="neo4j",
-        )
-        # Contract-suite embeddings are 4-dim throughout for visual
-        # clarity (cosine math stays inspectable in tests). The
-        # production HNSW dim (384, BGE-small) is exercised separately
-        # in tests/test_neo4j_store_live.py.
-        async with Neo4jKnowledgeStore(
-            settings, embedding_dim=_CONTRACT_EMBEDDING_DIM
-        ) as neo_store:
-            # Wipe between tests so no state leaks across fixture invocations.
-            async with neo_store._session() as session:  # noqa: SLF001 — test fixture
-                await session.run("MATCH (n) DETACH DELETE n")
-            yield neo_store
-        return
-    raise NotImplementedError(f"unknown backend: {backend}")
+@pytest_asyncio.fixture
+async def store() -> AsyncIterator[KnowledgeStore]:
+    """Fresh in-memory store per test."""
+    yield InMemoryKnowledgeStore()
 
 
 # ---------------------------------------------------------------------------
@@ -507,17 +412,7 @@ class TestClusters:
         # Padded embeddings: ([1,0,0,0] + [3,4,0,0]) / 2 = [2,2,0,0].
         assert centroid == pytest.approx(_emb(2.0, 2.0))
 
-    async def test_centroid_with_mixed_dim_returns_empty(
-        self, store: KnowledgeStore, request: pytest.FixtureRequest
-    ) -> None:
-        # Constructing nodes with mismatched embedding dims is impossible
-        # against the Neo4j store (Plan §3.1a "never silently truncate"
-        # rejects writes whose embedding length differs from the index
-        # dim). The mixed-dim centroid contract therefore stays
-        # in-memory-only — Neo4j cannot reach the state this test
-        # asserts about.
-        if "neo4j" in request.node.callspec.id:
-            pytest.skip("mixed-dim embeddings are unreachable on Neo4j (HNSW dim is fixed)")
+    async def test_centroid_with_mixed_dim_returns_empty(self, store: KnowledgeStore) -> None:
         a = make_node("A", embedding=[1.0, 2.0])
         b = make_node("B", embedding=[1.0, 2.0, 3.0])
         await store.upsert_node(a)

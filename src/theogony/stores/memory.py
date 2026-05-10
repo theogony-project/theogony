@@ -260,6 +260,12 @@ class InMemoryKnowledgeStore:
         for edge in edges:
             await self.upsert_edge(edge)
 
+    async def export_graph_for_spreading(
+        self,
+    ) -> tuple[list[KnowledgeNode], list[KnowledgeEdge]]:
+        """Return all nodes and edges for spreading-activation / tensor mesh export."""
+        return list(self._nodes.values()), list(self._edges.values())
+
     async def get_edges_among(
         self,
         node_ids: Sequence[str],

@@ -32,6 +32,7 @@ class LanceDBKnowledgeStore:
         self.db_path = str(db_path)
         self.db = lancedb.connect(self.db_path)
         self.embedding_dim = embedding_dim
+        self._mesh_row_node_ids: list[str] = []
 
         # Define schemas
         self.node_schema = pa.schema(
@@ -242,11 +243,13 @@ class LanceDBKnowledgeStore:
         edges_df = self.edges_table.to_pandas()
 
         if len(nodes_df) == 0:
+            self._mesh_row_node_ids = []
             engine.load_from_arrays([], [], [], [], [], [], [])
             return
 
         # Map UUIDs to integer indices for CSR
         node_id_to_idx = {node_id: idx for idx, node_id in enumerate(nodes_df["id"])}
+        self._mesh_row_node_ids = [str(x) for x in nodes_df["id"].tolist()]
 
         # Extract embeddings
         node_embeddings = nodes_df["vector"].tolist()

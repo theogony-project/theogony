@@ -4,8 +4,8 @@ GET /health smoke (Plan §3.7; E9 brief).
 Asserts:
 - 200 + payload shape;
 - the LLM is NOT invoked (a health endpoint that pings Gemini is wrong);
-- the store backend name is reflected (in_memory in tests, neo4j in
-  production — same field, same shape);
+- the store backend name is reflected (``in_memory`` in the default API
+  test fixture; ``lancedb`` when that backend is wired);
 - report counts come from the per-test settings.run_reports_dir.
 """
 

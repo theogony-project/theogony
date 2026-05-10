@@ -14,8 +14,9 @@ without further round-trips:
 - ``timing_ms``: stage breakdown (chat prep / embed / retrieve / synthesize / total)
 - ``chat``: rolling summary, ``prior_messages_kept`` (sync after compaction), token estimates
 - ``retrieval``: ``seed_count``, ``final_node_count``, ``hops``, ``k``,
-  ``thinking_max`` (cap on extra post-synthesis rounds), ``strategy``,
-  optional ``nodes_per_hop`` (``None`` for ``fixed_depth``)
+  ``thinking_max`` (cap on extra post-synthesis rounds), ``strategy``
+  (always ``spreading_activation``),
+  optional ``nodes_per_hop`` (typically ``None``)
 - ``entry_plan``: Chronicle entry planning metadata — ``contextual_query`` and
   ``context_question`` mirror the Gutenberg ``get_context_question`` shape
   (resolved intent, then model search strings; no anchor merge);
@@ -62,9 +63,8 @@ from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
-from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline, compose_query_for_retrieval
-from theogony.retrieval.strategy_factory import build_retrieval_strategy
+from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesizer_factory import build_synthesizer
 
 log = get_logger("cockpit.explorer")
@@ -137,10 +137,7 @@ def _build_pipeline(
     mnemosyne = build_mnemosyne_classifier(settings, llm)
     return QueryPipeline(
         embedder=embedder,
-        retriever=MultiHopRetriever(
-            store,
-            strategy=build_retrieval_strategy(store, settings),
-        ),
+        retriever=SpreadingActivationRetriever(store, embedder),
         assembler=ConstellationAssembler(store),
         synthesizer=build_synthesizer(settings, llm, audit_log=audit),
         relevance=RelevanceTracker(
@@ -325,7 +322,7 @@ async def run_explorer_query(
         "duplicates_removed": int(report.multi_hop.duplicates_removed),
         "hops": hops_eff,
         "k": k_eff,
-        "strategy": settings.retrieval.strategy,
+        "strategy": "spreading_activation",
         "nodes_per_hop": report.multi_hop.nodes_per_hop,
         "thinking_max": thinking_eff,
     }

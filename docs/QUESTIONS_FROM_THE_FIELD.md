@@ -25,15 +25,17 @@ Order is most-recent first.
 
 ---
 
-## 2026-04-23 — Wo sehe ich als Mensch eigentlich die Chronik?
+## 2026-04-23 — Where can a human actually see the Chronicle?
 
 **Asker**: human (Jakob), via Composer conversation (W6 / Iris).
 
-**Question** (verbatim):
+**Question** (original German, verbatim):
 
 > Gibt es irgendwo eine Übersicht — Status, Cluster, Reports — die
 > ich im Browser öffnen kann, ohne JSON-Dateien zu grep-en? MCP ist
 > für Agenten; was ist die Fläche für Menschen?
+
+**English sense:** Is there an overview — status, clusters, reports — I can open in the browser without grepping JSON files? MCP is for agents; what is the human-facing surface?
 
 **Why it matters**:
 
@@ -49,7 +51,7 @@ Shipped as **[PHX-0074 — Iris / Pantheon Cockpit](../phoenix-backlog/PHX-0074.
 
 **Asker**: human (Jakob), via Composer conversation.
 
-**Question** (verbatim):
+**Question** (original German, verbatim):
 
 > Sind die Vektordimensionen für alle Daten gleich? Würde es Sinn
 > machen, für bestimmte Datentypen andere Vektordimensionen zu
@@ -60,9 +62,11 @@ Shipped as **[PHX-0074 — Iris / Pantheon Cockpit](../phoenix-backlog/PHX-0074.
 > Vektordatenbank halten und wie würde der Zugriff auf diese Daten
 > aussehen? Und ließen sich diese Daten verknüpfen?
 
+**English sense:** Are vector dimensions the same for all data? Should different modalities use different embedding dimensions (e.g. text vs genetic code vs code)? Can they live in one vector store, how would access work, and can they be linked?
+
 **Why it matters**:
 
-The Chronik today holds one 384-dim embedding per node from
+The Chronicle today holds one 384-dim embedding per node from
 BAAI/bge-small-en-v1.5. That is the right Gen-1 choice and it is
 also wrong for the long horizon. Different data modalities have
 structurally different optimal embedding geometries:
@@ -84,10 +88,11 @@ The architectural answer fits Pantheon's existing primitives
 almost without modification:
 
 - Add `KnowledgeNode.modality: str = "text"` (default-compatible).
-- One Neo4j vector index per (modality, dim) tuple — supported
-  natively since Neo4j 5.18 (2024).
-- `RetrievalStrategy` (F3) gains an optional `modality_scope`
-  on `RetrievalBudget`; default None means fan-out.
+- Per-(modality, dim) vector routing in the Chronicle substrate (tensor /
+  LanceDB direction — see PHX-0002); no pointer-chasing graph DB as the
+  core mesh.
+- Retrieval / spreading budgets gain an optional `modality_scope`;
+  default `None` means fan-out across modalities where applicable.
 - Cross-modal links use the existing `KnowledgeEdge.relation_type`
   with strings like `"DESCRIBES_CODE"`, `"EXPRESSES_PROTEIN"`,
   `"ILLUSTRATES_CONCEPT"`. No edge schema change.
@@ -116,7 +121,7 @@ here manually so the pattern is visible from day one.
 Until Mnemosyne is live:
 
 1. Identify a question that meets at least one of:
-   - The Chronik returned a verdict of `partial` or `failed` on
+   - The Chronicle returned a verdict of `partial` or `failed` on
      it AND the topic is structural to the chronicle.
    - The question is *about* the chronicle (its schema, its
      embedding spaces, its workers, its lifecycle).

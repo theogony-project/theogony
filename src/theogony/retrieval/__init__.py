@@ -13,7 +13,7 @@ from theogony.retrieval.constellation import (
     STRONG_MATCH_THRESHOLD,
     ConstellationAssembler,
 )
-from theogony.retrieval.multi_hop import MultiHopResult, MultiHopRetriever
+from theogony.retrieval.multi_hop import MultiHopResult
 from theogony.retrieval.synthesize import (
     Answer,
     AnswerSynthesizer,
@@ -35,7 +35,7 @@ __all__ = [
     "build_synthesizer",
     "ConstellationAssembler",
     "MultiHopResult",
-    "MultiHopRetriever",
+    "SpreadingActivationRetriever",
     "QueryPipeline",
     "QueryResult",
 ]
@@ -60,5 +60,9 @@ def __getattr__(name: str) -> object:
         from theogony.retrieval.pipeline import build_pipeline_from_settings
 
         return build_pipeline_from_settings
+    if name == "SpreadingActivationRetriever":
+        from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
+
+        return SpreadingActivationRetriever
     msg = f"module {__name__!r} has no attribute {name!r}"
     raise AttributeError(msg)
