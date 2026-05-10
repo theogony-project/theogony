@@ -154,7 +154,7 @@ These live in `notes/architecture/` and represent the most detailed technical th
 
 ### Operations
 
-- [`hosted/README.md`](../hosted/README.md): Docker image, generic container deploy, optional Fly.io manifests, Hugging Face Spaces / Modal notes, Smithery listing, `/health`, rate limits (PHX-0066 Phase 1)
+- [`hosted/README.md`](../hosted/README.md): Docker image, deploy/run, Smithery, `/health`, rate limits (PHX-0066 Phase 1)
 
 ### Builder Agent Prompts
 

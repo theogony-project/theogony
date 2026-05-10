@@ -89,7 +89,7 @@ If `cypher-shell` is unavailable and `THEOGONY_NEO4J__URI` is set, the script ma
 
 After the local recording is verified, deploy the same container image to a host you operate and run a remote smoke walk against the hosted MCP. Procedure goes into `demo/living_growth_hosted.md` (new):
 
-- one **container roll** per [`hosted/README.md`](../../hosted/README.md) (build, optional registry push, restart/redeploy — or optional `fly deploy` if you use the checked-in Fly manifests)
+- one **container roll** per [`hosted/README.md`](../../hosted/README.md) (build, optional registry push, restart/redeploy)
 - one `mcp` smoke call sequence (using the existing MCP test pattern under `tests/test_mcp_server.py` as reference) hitting `pantheon_ask` against a thin region
 - expected: identical phase sequence to local
 

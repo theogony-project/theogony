@@ -33,23 +33,17 @@ From the **repository root** (so `pyproject.toml` and `src/` are in the build co
 docker build -f hosted/Dockerfile -t theogony-mcp:local .
 ```
 
-The repository root `.dockerignore` matches `hosted/.dockerignore` (same ignore rules; plain `docker build` has no `--ignorefile` flag on older Docker engines). The root **`Dockerfile` is a symlink to `hosted/Dockerfile`** so tools that insist on `./Dockerfile` (including some remote builders) still run the correct recipe.
+Root **`Dockerfile`** symlinks **`hosted/Dockerfile`**; root **`.dockerignore`** matches **`hosted/.dockerignore`**. The image installs from the checkout (no PyPI publish required). Size is often **≤ ~500 MB** on CPU-only wheels; some resolvers pull a **large CUDA PyTorch** build (image can exceed 500 MB). The image does **not** run `python -m spacy download`; the bundled seed is already extracted.
 
-The image installs Theogony from the checkout (no PyPI publish required). Target size is **≤ ~500 MB** on lean CPU wheels; some platforms resolve a **large CUDA-enabled PyTorch** build (image can exceed 500 MB). Phase 2 may add a slimmer variant; for now prefer documenting the measured `docker images` size for your registry.
+## Run
 
-## Run the image (any container host)
-
-The default path is: **build** (above), **push** to your registry (if needed), then **run** on Kubernetes, a VPS, or another container host you operate. There is **no** organisation-operated public demo URL you should rely on; run your own image or use Fly (below) with **your** app name. Historical Phoenix tickets may still mention an old `*.fly.dev` hostname for context.
-
-Example local smoke:
+After **build** (above), run the image on your host (push to a registry first if needed). Local smoke:
 
 ```bash
 docker run --rm -p 8080:8080 theogony-mcp:local
 ```
 
-Then `GET http://localhost:8080/health` and point an MCP client at `http://localhost:8080/sse` (POST JSON-RPC to the `endpoint` URL the SSE stream advertises under `/messages/`).
-
-First cold build can be **slow** on some hosts (large PyTorch wheels, multi-arch). Prefer documenting the measured `docker images` size for your registry.
+`GET /health` returns a JSON snapshot (`version`, store, counts, …). MCP clients use `/sse` (JSON-RPC to the `endpoint` under `/messages/` advertised by the stream).
 
 ### Persistent Neo4j (Chronik keeps growing across deploys)
 
@@ -66,44 +60,15 @@ The container reads **`HOST`** and **`PORT`**; defaults are `0.0.0.0` and `8080`
 
 **No webhook auto-redeploy** in Phase 1 — redeploy manually when you cut a new image.
 
-## Fly.io (optional)
+## Other hosts
 
-The repo ships **`fly.toml`** (root) and **`hosted/fly.toml`** for operators who deploy on [Fly.io](https://fly.io/). This is **not** required for local Docker or other hosts.
-
-1. Install the [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/) and log in.
-2. Reserve an app name (`fly apps create <name>`) and set `app = "<name>"` in `hosted/fly.toml` if it still shows a placeholder.
-3. From the **repository root**:
-   ```bash
-   fly deploy --remote-only
-   ```
-   or explicitly:
-   ```bash
-   fly deploy -c hosted/fly.toml --dockerfile hosted/Dockerfile --remote-only
-   ```
-   Root `fly.toml` pins `hosted/Dockerfile` so hatchling sees `src/` during the image build. First full build can be **slow** (large wheels / multi-arch); see Fly build logs for timing.
-4. Health and MCP: `https://<your-app>.fly.dev/health` and `https://<your-app>.fly.dev/sse` (same JSON-RPC + `/messages/` pattern as in the generic path above).
-
-For **Neo4j** on Fly, use `fly secrets set` with the same `THEOGONY_NEO4J__*` / `THEOGONY_MCP_SEED` variable names as in *Persistent Neo4j* above. RAM hints live in the `[[vm]]` block in `hosted/fly.toml`.
-
-## Hugging Face Spaces (Docker)
-
-1. Create a **Docker** Space and push this repo (or a fork).
-2. Set the Space **Dockerfile path** to `hosted/Dockerfile` and build context to the **repository root**.
-3. Expose port **8080** (or set `PORT` to the Space’s required port and align the Space UI setting).
-4. Point your MCP client at `https://<user>-<space>.hf.space/sse` (or the Space URL your UI shows).
-
-## Modal (sketch)
-
-Wrap the same container command in a Modal `@web_server` that exposes port 8080, or run `theogony mcp --transport sse --seed --host 0.0.0.0 --port $MODAL_PORT` inside a Modal image built from `hosted/Dockerfile`. Modal’s port wiring differs by template — set `PORT`/`HOST` to match Modal’s proxy.
+- **Hugging Face Spaces** (Docker): set Dockerfile to `hosted/Dockerfile`, build context to the **repository root**, expose port **8080** (or align `PORT`), MCP at your Space base URL + `/sse`.
+- **Modal** (sketch): same image; expose **8080** and set `HOST`/`PORT` to match Modal’s proxy.
 
 ## Smithery
 
 1. After deploy, fill `HOSTED_URL` in `hosted/smithery.yaml` (or paste the public base URL in Smithery’s UI).
 2. Register the server on [Smithery](https://smithery.ai/) and validate the manifest (YAML + tool list).
-
-## Monitoring
-
-- **`GET /health`**: JSON snapshot (`version`, `store`, embedding model id + `@v1`, counts, `uptime_seconds`, `last_query_at` after the first successful MCP POST under `/messages/`).
 
 ## Rate limits
 
@@ -114,13 +79,3 @@ Defaults: **60/hour** and **1000/day** per client IP (rolling windows). Tune wit
 - `THEOGONY_HOSTED__RATE_LIMIT_BYPASS_TOKEN` (optional secret; send header `X-Theogony-RateLimit-Bypass` with the same value to skip limits for trusted callers).
 
 Set `THEOGONY_HOSTED__RATE_LIMIT_PER_HOUR=0` to **disable** rate limiting entirely.
-
-## Phase 2 (not this PR)
-
-- GitHub webhook → automatic redeploy  
-- Per-call LLM API key pass-through (when MCP standardises it)  
-- Federation / Hestia-hosted auditing per separate Phoenix tickets  
-
-## spaCy
-
-The hosted image **does not** run `python -m spacy download …`. The bundled seed is already extracted; only the sentence-transformer embedder loads at startup.
