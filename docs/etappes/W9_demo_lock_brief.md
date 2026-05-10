@@ -85,15 +85,15 @@ If `cypher-shell` is unavailable and `THEOGONY_NEO4J__URI` is set, the script ma
 4. **How to reproduce** — pointer to `demo/reset_living_growth.sh` and `demo/living_growth.md`. Two commands: reset, walk.
 5. **Where the recording lives** — link target only (the actual recording is published by the user, not by Talos).
 
-### Knob 4 — Hosted Fly.io smoke deploy
+### Knob 4 — Hosted smoke deploy
 
-After the local recording is verified, deploy the same code to the existing Fly.io app and run a remote smoke walk against the hosted MCP. Procedure goes into `demo/living_growth_hosted.md` (new):
+After the local recording is verified, deploy the same container image to a host you operate and run a remote smoke walk against the hosted MCP. Procedure goes into `demo/living_growth_hosted.md` (new):
 
-- one `fly deploy --config hosted/fly.toml` invocation
+- one **container roll** per [`hosted/README.md`](../../hosted/README.md) (build, optional registry push, restart/redeploy — or optional `fly deploy` if you use the checked-in Fly manifests)
 - one `mcp` smoke call sequence (using the existing MCP test pattern under `tests/test_mcp_server.py` as reference) hitting `pantheon_ask` against a thin region
 - expected: identical phase sequence to local
 
-This file is documentation only. Talos does not deploy. The user runs `fly deploy` from their own credentials.
+This file is documentation only. Talos does not deploy. The operator runs their own deploy pipeline.
 
 ### Knob 5 — Backlog hygiene tag
 
@@ -207,7 +207,7 @@ Builds on W7-A + W7-B + W8.
 What this PR does:
 - adds demo/reset_living_growth.sh (gated by THEOGONY_ALLOW_DEMO_RESET=1)
 - adds demo/living_growth.md (the 3-minute recording script)
-- adds demo/living_growth_hosted.md (Fly.io smoke walk)
+- adds demo/living_growth_hosted.md (hosted smoke walk)
 - adds docs/LIVING_DEMO.md (operator-facing summary)
 - appends backlog-hygiene lines per Living Demo Plan §"Backlog hygiene"
 - adds Living Demo pointer to README
@@ -215,7 +215,7 @@ What this PR does:
 What this PR does NOT do:
 - it changes zero production code
 - it does not record the video (the user records it after merge)
-- it does not deploy anything (the user runs fly deploy)
+- it does not deploy anything (the operator runs their own container host)
 
 Acceptance criteria run locally:
 - `bash demo/reset_living_growth.sh` (refuses without env)

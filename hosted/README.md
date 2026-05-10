@@ -4,11 +4,11 @@ This directory packages a **single-instance** MCP server over **HTTP/SSE**. The 
 
 **Bounded writes:** the MCP tool `pantheon_chronicle_append` lets agents add short text fragments as new `KnowledgeNode` rows (embedded, `mcp_agent` provenance, `hypothesized` status) under strict size caps. There is still **no full Gutenberg ingest** over MCP (that remains the long-running API/CLI path).
 
-**Persistence:** in the default container, appended nodes live in RAM with the seed and are lost on restart. For a Chronik that **keeps growing across deploys**, point the server at **Neo4j** and set `THEOGONY_MCP_SEED=0` (see *Persistent Neo4j on Fly* below).
+**Persistence:** in the default container, appended nodes live in RAM with the seed and are lost on restart. For a Chronik that **keeps growing across deploys**, point the server at **Neo4j** and set `THEOGONY_MCP_SEED=0` (see *Persistent Neo4j* below).
 
 ## Cost expectations
 
-- **Operator**: typically **under €5/month** on free tiers (one small VM; Fly.io shared CPU is enough for read-only traffic).
+- **Operator**: typically **under €5/month** on free tiers (one small shared-CPU VM is enough for read-only traffic).
 - **LLM**: the container image defaults to `THEOGONY_LLM__PROVIDER=stub`. There is **no** hosted LLM key in Phase 1; natural-language synthesis still requires a **local** install with a real provider + API keys, or PHX-0066 Phase 2 (per-call key pass-through when MCP supports it).
 
 ### What works on the stub LLM (`THEOGONY_LLM__PROVIDER=stub`)
@@ -19,9 +19,9 @@ This directory packages a **single-instance** MCP server over **HTTP/SSE**. The 
 
 ## Cockpit on hosted
 
-The same container runs **FastAPI + MCP-SSE + Iris** when the build includes the cockpit package. After deploy, `https://<your-app>.fly.dev/cockpit` exists as a route; whether humans can use it depends entirely on env (see [`docs/COCKPIT.md`](../docs/COCKPIT.md)).
+The same container runs **FastAPI + MCP-SSE + Iris** when the build includes the cockpit package. After deploy, `https://<your-public-base-url>/cockpit` exists as a route when you expose the service; whether humans can use it depends entirely on env (see [`docs/COCKPIT.md`](../docs/COCKPIT.md)).
 
-1. **Operator-only (default intent)** — leave `THEOGONY_COCKPIT__ENABLED=true` (default) with **`THEOGONY_COCKPIT__PUBLIC=false`** (default). The process still listens on `0.0.0.0:8080` for MCP, but cockpit routes return **403** when the request is not from loopback. Operators reach the UI via **SSH tunnel**, **Fly `proxy`**, or a **sidecar admin port** (e.g. bind cockpit settings to `127.0.0.1` on `8081` while MCP stays on `8080` — see cockpit settings in `COCKPIT.md`).
+1. **Operator-only (default intent)** — leave `THEOGONY_COCKPIT__ENABLED=true` (default) with **`THEOGONY_COCKPIT__PUBLIC=false`** (default). The process still listens on `0.0.0.0:8080` for MCP, but cockpit routes return **403** when the request is not from loopback. Operators reach the UI via **SSH tunnel**, **your platform’s private networking / port-forward**, or a **sidecar admin port** (e.g. bind cockpit settings to `127.0.0.1` on `8081` while MCP stays on `8080` — see cockpit settings in `COCKPIT.md`).
 2. **Public URL with capped content** — set **`THEOGONY_COCKPIT__SAMPLE_ONLY=true`** so search, clusters, and report tables are capped to a fixed sample. You may still need **`THEOGONY_COCKPIT__PUBLIC=true`** plus an explicit **`THEOGONY_COCKPIT__BIND_HOST`** that matches how traffic arrives if you truly want the dashboard on the public listener; treat this as a **demo** posture, not a private chronicle browser.
 3. **Full graph on a public listener (not recommended in Phase 1)** — would require **`THEOGONY_COCKPIT__PUBLIC=true`** without sample-only, exposing the same aggregations the operator sees. **No authentication ships in Phase 1** ([PHX-0074](../phoenix-backlog/PHX-0074.yaml)); prefer tunnel or split-port until Phase 2 auth lands.
 
@@ -33,44 +33,57 @@ From the **repository root** (so `pyproject.toml` and `src/` are in the build co
 docker build -f hosted/Dockerfile -t theogony-mcp:local .
 ```
 
-The repository root `.dockerignore` matches `hosted/.dockerignore` (same ignore rules; plain `docker build` has no `--ignorefile` flag on older Docker engines). The root **`Dockerfile` is a symlink to `hosted/Dockerfile`** so tools that insist on `./Dockerfile` (including some Fly Depot builds) still run the correct recipe.
+The repository root `.dockerignore` matches `hosted/.dockerignore` (same ignore rules; plain `docker build` has no `--ignorefile` flag on older Docker engines). The root **`Dockerfile` is a symlink to `hosted/Dockerfile`** so tools that insist on `./Dockerfile` (including some remote builders) still run the correct recipe.
 
 The image installs Theogony from the checkout (no PyPI publish required). Target size is **≤ ~500 MB** on lean CPU wheels; some platforms resolve a **large CUDA-enabled PyTorch** build (image can exceed 500 MB). Phase 2 may add a slimmer variant; for now prefer documenting the measured `docker images` size for your registry.
 
-## Fly.io (primary path)
+## Run the image (any container host)
 
-The reference deployment lives at **https://theogony-mcp.fly.dev/** (single-instance, read-only, `pantheon_self` seed). To run your own:
+The default path is: **build** (above), **push** to your registry (if needed), then **run** on Kubernetes, a VPS, or another container host you operate. There is **no** organisation-operated public demo URL you should rely on; run your own image or use Fly (below) with **your** app name. Historical Phoenix tickets may still mention an old `*.fly.dev` hostname for context.
 
-1. Install the [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/) (`curl -L https://fly.io/install.sh | sh`) and log in (`fly auth signup` / `fly auth login`).
-2. Pick a globally-unique app name and reserve it: `fly apps create <your-name>`. Then set `app = "<your-name>"` in `hosted/fly.toml` (the file is pre-pinned to `theogony-mcp`).
-3. From the **repository root**, deploy via Fly's remote builder (no local Docker needed). Use either the root `fly.toml` (pins `hosted/Dockerfile` so `src/` is in the build context for hatchling) or the explicit flags:
-   ```bash
-   fly deploy --remote-only
-   ```
-   ```bash
-   fly deploy -c hosted/fly.toml --dockerfile hosted/Dockerfile --remote-only
-   ```
-   If the image build fails with `file does not exist: src/theogony/__init__.py`, Fly is using a Dockerfile that only copied `pyproject.toml` — fix the app's `[build]` dockerfile path or deploy from an up-to-date checkout with the root `fly.toml` present.
-   **`fly launch plan generate` (experimental)** can fail with: *launch manifest was created for a FastAPI app, but this is a Dockerfile app*. The hosted MCP image is **Dockerfile-first**; `fastapi` is only a library dependency. Regenerate the plan from the **repo root** so Fly reads your pinned build: `fly launch plan propose -c fly.toml -r <region> [--name <unique>]` and pass **only the JSON object** from that command’s stdout (strip any leading log lines) as the manifest to `generate`. Safer for this repo: skip `launch plan` and use **`fly deploy`** (or `fly deploy --build-only --push`) with the same `fly.toml`. Note: `generate` may rewrite `fly.toml` — review diffs or work on a branch.
-   First build is **slow** (~30–40 min wall-clock end-to-end): pip install of CUDA-bundled PyTorch wheels takes ~8 min × 2 (multi-arch), layer export ~8 min × 2, push to `registry.fly.io` ~4 min, machine rollout ~30 s. Image lands at ~2.7 GB. Subsequent deploys with cached layers are much faster.
-4. Health: `https://<your-app>.fly.dev/health` returns JSON (`status`, `embedding_model`, `node_count`, `edge_count`, `uptime_seconds`, `last_query_at`). For the `pantheon_self` seed expect `node_count=278`, `edge_count=1168`.
-5. MCP SSE URL for clients: `https://<your-app>.fly.dev/sse` (POST JSON-RPC to the `endpoint` URL the SSE stream advertises under `/messages/`).
+Example local smoke:
+
+```bash
+docker run --rm -p 8080:8080 theogony-mcp:local
+```
+
+Then `GET http://localhost:8080/health` and point an MCP client at `http://localhost:8080/sse` (POST JSON-RPC to the `endpoint` URL the SSE stream advertises under `/messages/`).
+
+First cold build can be **slow** on some hosts (large PyTorch wheels, multi-arch). Prefer documenting the measured `docker images` size for your registry.
 
 ### Persistent Neo4j (Chronik keeps growing across deploys)
 
-1. Provision **Neo4j Aura** (or any Bolt 5.x reachable from Fly) and note `URI`, user, password, database name.
-2. **Fly secrets** (example names — match `Neo4jSettings` / `THEOGONY_NEO4J__*` in `src/theogony/config/settings.py`):
+1. Provision **Neo4j Aura** (or any Bolt 5.x reachable from the container) and note `URI`, user, password, database name.
+2. Inject secrets the way your platform expects (Kubernetes `Secret`, PaaS env UI, …). Names must match `Neo4jSettings` / `THEOGONY_NEO4J__*` in `src/theogony/config/settings.py`, for example:
    - `THEOGONY_NEO4J__URI` — e.g. `neo4j+s://xxxx.databases.neo4j.io`
    - `THEOGONY_NEO4J__USER`, `THEOGONY_NEO4J__PASSWORD`, `THEOGONY_NEO4J__DATABASE` (often `neo4j`)
-3. **Turn off the in-memory seed** so the process opens the real store:
-   - `fly secrets set THEOGONY_MCP_SEED=0`
+3. Set **`THEOGONY_MCP_SEED=0`** so the process opens the real store instead of re-seeding memory.
 4. **Bootstrap once** (from any machine with the same Neo4j env): `theogony seed` imports the bundled `pantheon_self` dump into Neo4j, or skip and start from an empty graph.
-5. **Redeploy** the app. Agents can then call MCP tool **`pantheon_chronicle_append`** to add vetted text fragments; they land as normal nodes and survive restarts.
-6. Optional: `fly secrets set THEOGONY_MCP_APPEND__ENABLED=false` to disable appends on a fully public demo without touching rate limits.
+5. **Restart / redeploy** the container. Agents can then call MCP tool **`pantheon_chronicle_append`** to add vetted text fragments; they land as normal nodes and survive restarts.
+6. Optional: set `THEOGONY_MCP_APPEND__ENABLED=false` to disable appends on a fully public demo without touching rate limits.
 
-The container reads **`HOST`** and **`PORT`**; defaults are `0.0.0.0` and `8080`. RAM: see the `[[vm]]` block in `hosted/fly.toml` (the sentence-transformer needs headroom on first `/sse` connect).
+The container reads **`HOST`** and **`PORT`**; defaults are `0.0.0.0` and `8080`. **Memory:** the sentence-transformer loads on first `/sse` connect; allow **about 1 GB RAM** or more in production-like deployments.
 
-**No webhook auto-redeploy** in Phase 1 — run `fly deploy` manually when you cut a new image.
+**No webhook auto-redeploy** in Phase 1 — redeploy manually when you cut a new image.
+
+## Fly.io (optional)
+
+The repo ships **`fly.toml`** (root) and **`hosted/fly.toml`** for operators who deploy on [Fly.io](https://fly.io/). This is **not** required for local Docker or other hosts.
+
+1. Install the [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/) and log in.
+2. Reserve an app name (`fly apps create <name>`) and set `app = "<name>"` in `hosted/fly.toml` if it still shows a placeholder.
+3. From the **repository root**:
+   ```bash
+   fly deploy --remote-only
+   ```
+   or explicitly:
+   ```bash
+   fly deploy -c hosted/fly.toml --dockerfile hosted/Dockerfile --remote-only
+   ```
+   Root `fly.toml` pins `hosted/Dockerfile` so hatchling sees `src/` during the image build. First full build can be **slow** (large wheels / multi-arch); see Fly build logs for timing.
+4. Health and MCP: `https://<your-app>.fly.dev/health` and `https://<your-app>.fly.dev/sse` (same JSON-RPC + `/messages/` pattern as in the generic path above).
+
+For **Neo4j** on Fly, use `fly secrets set` with the same `THEOGONY_NEO4J__*` / `THEOGONY_MCP_SEED` variable names as in *Persistent Neo4j* above. RAM hints live in the `[[vm]]` block in `hosted/fly.toml`.
 
 ## Hugging Face Spaces (Docker)
 
