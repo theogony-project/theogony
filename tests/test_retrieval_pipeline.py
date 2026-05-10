@@ -29,8 +29,8 @@ from theogony.curiosity.run_report import CuriosityRunReport
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
-from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline, QueryResult
+from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesize import AnswerSynthesizer
 from theogony.stores import InMemoryKnowledgeStore
 
@@ -144,7 +144,7 @@ def _build_pipeline(
     growth_bridge: GrowthBridge | None = None,
 ) -> QueryPipeline:
     embedder = _ConstantEmbedder()
-    retriever = MultiHopRetriever(store)
+    retriever = SpreadingActivationRetriever(store, embedder)
     assembler = ConstellationAssembler(store)
     llm = StubLLMProvider(default=llm_response)
     synthesizer = AnswerSynthesizer(llm)
@@ -374,7 +374,7 @@ class TestSubQueryEmbedsRetrievalExpansion:
         store = InMemoryKnowledgeStore()
         hedin, tibet = await _populate_two_node_chronik(store)
         embedder = _CapturingEmbedder()
-        retriever = MultiHopRetriever(store)
+        retriever = SpreadingActivationRetriever(store, embedder)
         assembler = ConstellationAssembler(store)
         llm = StubLLMProvider(default=f"ok [{hedin.id}] [{tibet.id}].")
         synthesizer = AnswerSynthesizer(llm)

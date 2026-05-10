@@ -77,12 +77,10 @@ from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.models import OneirosTickReport
 from theogony.reporting.writer import RUN_REPORT_TYPE_SUBDIRS, RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
-from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
-from theogony.retrieval.strategy_factory import build_retrieval_strategy
+from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesizer_factory import build_synthesizer
 from theogony.stores.memory import InMemoryKnowledgeStore
-from theogony.stores.neo4j_store import Neo4jKnowledgeStore
 
 if TYPE_CHECKING:  # pragma: no cover
     pass
@@ -131,8 +129,8 @@ async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpR
     """Open all long-lived resources for the MCP server.
 
     When ``seed_path`` is set, the dump is loaded into an in-memory store
-    before traffic is accepted. When ``seed_path`` is ``None``, Neo4j
-    is opened as in the original Gen 1 MCP path.
+    before traffic is accepted. When ``seed_path`` is ``None``, an empty
+    in-memory store is used (Neo4j path retired).
 
     Startup ordering: settings → logging → audit (sync open) →
     Wikidata cache (sync, optional) → embedder warm-up → LLM factory
@@ -191,9 +189,7 @@ async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpR
                 mcp_ask_blocked_message = _MCP_ASK_NO_LLM_KEY
     else:
         llm = build_llm_from_settings(settings)
-        neo = Neo4jKnowledgeStore(settings.neo4j, embedding_dim=embedder.dim)
-        await neo.__aenter__()
-        store = neo
+        store = InMemoryKnowledgeStore()
 
     report_writer = RunReportWriter(settings.run_reports_dir)
 
@@ -216,8 +212,7 @@ async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpR
         )
     finally:
         with contextlib.suppress(Exception):
-            if isinstance(store, Neo4jKnowledgeStore):
-                await store.__aexit__(None, None, None)
+            pass
         if hasattr(llm, "aclose"):
             with contextlib.suppress(Exception):
                 await llm.aclose()
@@ -240,10 +235,7 @@ def _build_query_pipeline(res: McpResources) -> QueryPipeline:
     mnemosyne = build_mnemosyne_classifier(settings, res.llm)
     return QueryPipeline(
         embedder=res.embedder,
-        retriever=MultiHopRetriever(
-            res.store,
-            strategy=build_retrieval_strategy(res.store, settings),
-        ),
+        retriever=SpreadingActivationRetriever(res.store, res.embedder),
         assembler=ConstellationAssembler(res.store),
         synthesizer=build_synthesizer(settings, res.llm, audit_log=res.audit),
         relevance=RelevanceTracker(

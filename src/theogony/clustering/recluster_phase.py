@@ -15,7 +15,6 @@ from theogony.config.logging import get_logger
 from theogony.config.settings import ClusteringSettings
 from theogony.core.model import ClusterSummary, KnowledgeNode, Layer
 from theogony.stores.memory import InMemoryKnowledgeStore
-from theogony.stores.neo4j_store import Neo4jKnowledgeStore
 
 if TYPE_CHECKING:
     from theogony.core.store import KnowledgeStore
@@ -226,13 +225,15 @@ async def _persist_assignments(
 async def _refresh_cross_cluster_flags(store: KnowledgeStore) -> None:
     if isinstance(store, InMemoryKnowledgeStore):
         await _refresh_cross_cluster_memory(store)
-    elif isinstance(store, Neo4jKnowledgeStore):
-        await store.refresh_cross_cluster_edge_flags()
-    else:
-        log.warning(
-            "recluster: unknown store type for cross_cluster refresh: %s",
-            type(store).__name__,
-        )
+        return
+    refresh = getattr(store, "refresh_cross_cluster_edge_flags", None)
+    if callable(refresh):
+        await refresh()
+        return
+    log.warning(
+        "recluster: store type %s has no cross_cluster refresh hook; skipping",
+        type(store).__name__,
+    )
 
 
 async def _refresh_cross_cluster_memory(store: InMemoryKnowledgeStore) -> None:

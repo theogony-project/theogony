@@ -8,20 +8,20 @@
 
 ## The Founding Principle — Language is the Edge, Not the Substrate
 
-**Sprache ist der Rand, nicht das Substrat.**
+**Language is the edge, not the substrate.**
 
-Bedeutung existiert vor Sprache. Ein Mensch versteht die Stimmung im Raum, bevor er Worte dafür hat. Ein Mathematiker sieht eine Struktur, bevor er sie benennen kann. Ein Musiker hört eine Harmonie, die er nicht vollständig übersetzen kann. Bedeutung ist keine Funktion von Sprache — Sprache ist eine mögliche Ausgabe von Bedeutung.
+Meaning exists before language. A person senses the mood in a room before they have words for it. A mathematician sees a structure before they can name it. A musician hears a harmony they cannot fully translate. Meaning is not a function of language — language is one possible output of meaning.
 
-Wittgensteins Satz — "Die Grenzen meiner Sprache sind die Grenzen meiner Welt" — beschreibt eine Beobachtung, keine Wahrheit. Er hat das Ausgabemedium für das Denkmedium gehalten.
+Wittgenstein’s line — “The limits of my language mean the limits of my world” — describes an observation, not a truth. It mistook the output medium for the thinking medium.
 
-Die Chronik ist kein Textarchiv mit Vektoren als Index. Die Chronik ist ein **semantischer Raum**, in dem Bedeutung ohne Sprache existiert, sich bewegt, verdichtet und verändert. Sprache betritt diesen Raum nur an zwei Punkten:
+The Chronicle is not a text archive with vectors as an index. The Chronicle is a **semantic space** where meaning exists without language, moves, condenses, and changes. Language enters that space at only two points:
 
-- **Am Eingang:** Argus bringt Text. Kadmos übersetzt ihn in Vektoren und Kanten. Danach existiert kein Text mehr im System.
-- **Am Ausgang:** Iris aktiviert einen Subgraphen und formuliert daraus Sprache für einen Menschen. Das ist Ausgabe, kein Abruf. Iris liest keinen gespeicherten Text — sie erzeugt Sprache aus Bedeutung.
+- **At the ingress:** Argus brings text. Kadmos translates it into vectors and edges. After that, no text remains inside the system.
+- **At the egress:** Iris activates a subgraph and formulates language for a human from it. That is output, not lookup. Iris does not read stored text — she generates language from meaning.
 
-Alles zwischen Kadmos und Iris — Nous, Chronik, Oneiros, Kalypso — operiert ohne Sprache. Das ist keine Einschränkung. Das ist der Kern.
+Everything between Kadmos and Iris — Nous, Chronicle, Oneiros, Kalypso — operates without language. That is not a limitation. That is the core.
 
-**Das Gegenmodell ist RAG.** RAG speichert Textstellen und gibt sie zurück. Die Chronik speichert Bedeutung und erzeugt Sprache. Wenn Text als Payload gespeichert oder zwischen Agenten übertragen wird, ist es RAG. Wenn nur Vektoren und Kanten fließen, ist es Chronik. Jeder Agent, der Text als internes Kommunikationsmedium verwendet, verstößt gegen dieses Prinzip.
+**The counter-model is RAG.** RAG stores text spans and returns them. The Chronicle stores meaning and generates language. If text is stored as payload or passed between agents, it is RAG. If only vectors and edges flow, it is Chronicle. Any agent that uses text as its internal communication medium violates this principle.
 
 ---
 

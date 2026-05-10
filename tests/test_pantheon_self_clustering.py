@@ -1,4 +1,4 @@
-"""Integration: pantheon_self seed + one re-cluster pass + retrieval parity (PHX-0060)."""
+"""Integration: pantheon_self seed + one re-cluster pass + spreading retrieval (PHX-0060)."""
 
 from __future__ import annotations
 
@@ -8,19 +8,15 @@ import pytest
 
 from theogony.agents.llm import StubLLMProvider
 from theogony.clustering.runner import run_one_recluster_pass
-from theogony.config.settings import ClusteringSettings, RetrievalSettings, Settings
+from theogony.config.settings import ClusteringSettings, Settings
 from theogony.core.model import KnowledgeEdge, KnowledgeNode, NodeType
 from theogony.docs_ingest import read_dump
 from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
-from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
-from theogony.retrieval.strategies.budget import RetrievalBudget
-from theogony.retrieval.strategies.cluster_narrowing import ClusterNarrowingRetrievalStrategy
-from theogony.retrieval.strategies.fixed_depth import FixedDepthStrategy
-from theogony.retrieval.strategy_factory import build_retrieval_strategy
+from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesize import AnswerSynthesizer
 from theogony.seeds import pantheon_self_dump_path
 from theogony.stores.memory import InMemoryKnowledgeStore
@@ -36,7 +32,7 @@ async def _load_pantheon_seed(store: InMemoryKnowledgeStore) -> tuple[int, int]:
 
 
 @pytest.mark.asyncio
-async def test_pantheon_self_recluster_and_retrieval_parity(tmp_path: Path) -> None:
+async def test_pantheon_self_recluster_and_spreading_query(tmp_path: Path) -> None:
     store = InMemoryKnowledgeStore()
     node_count, _edge_count = await _load_pantheon_seed(store)
 
@@ -67,72 +63,26 @@ async def test_pantheon_self_recluster_and_retrieval_parity(tmp_path: Path) -> N
     )
     await embedder.embed("warmup")
     query = "What is Pantheon?"
-    q_emb = await embedder.embed(query)
+    retriever = SpreadingActivationRetriever(store, embedder)
+    mh = await retriever.retrieve(await embedder.embed(query), k=15, hops=2, min_weight=0.01)
+    assert len(mh.scored_nodes) >= 1
 
-    budget = RetrievalBudget(max_nodes=15, hops=2)
-    fixed = MultiHopRetriever(store, strategy=FixedDepthStrategy(store))
-    narrow = MultiHopRetriever(
-        store,
-        strategy=ClusterNarrowingRetrievalStrategy(
-            store,
-            top_n_clusters=8,
-            inner_strategy=FixedDepthStrategy(store),
-        ),
-    )
-    rf = await fixed.retrieve(q_emb, k=budget.max_nodes, hops=budget.hops, layer=None)
-    rn = await narrow.retrieve(q_emb, k=budget.max_nodes, hops=budget.hops, layer=None)
-    top_k = 8
-    fixed_ids = [s.node.id for s in rf.scored_nodes[:top_k]]
-    narrow_ids = [s.node.id for s in rn.scored_nodes[:top_k]]
-    assert fixed_ids == narrow_ids, (
-        f"cluster_narrow changed top-{top_k} ordering vs fixed_depth: "
-        f"{fixed_ids!r} vs {narrow_ids!r}"
-    )
-
+    top_ids = [s.node.id for s in mh.scored_nodes[:8]]
     llm = StubLLMProvider(
         default="Pantheon is the project's knowledge substrate "
-        + " ".join(f"[{nid}]" for nid in fixed_ids[:5])
+        + " ".join(f"[{nid}]" for nid in top_ids[:5])
         + "."
     )
     synth = AnswerSynthesizer(llm)
     relevance = RelevanceTracker(store)
-    pipe_fixed = QueryPipeline(
+    pipeline = QueryPipeline(
         embedder=embedder,
-        retriever=fixed,
+        retriever=retriever,
         assembler=ConstellationAssembler(store),
         synthesizer=synth,
         relevance=relevance,
         settings=settings,
         report_writer=None,
     )
-    relevance_n = RelevanceTracker(store)
-    pipe_narrow = QueryPipeline(
-        embedder=embedder,
-        retriever=narrow,
-        assembler=ConstellationAssembler(store),
-        synthesizer=synth,
-        relevance=relevance_n,
-        settings=settings,
-        report_writer=None,
-    )
-    ask_k, ask_hops = 15, 2
-    out_f = await pipe_fixed.ask(query, k=ask_k, hops=ask_hops)
-    out_n = await pipe_narrow.ask(query, k=ask_k, hops=ask_hops)
-    assert out_f.answer.cited_node_ids == out_n.answer.cited_node_ids
-
-    # Also exercise the factory path used by API/CLI.
-    strat = build_retrieval_strategy(
-        store,
-        settings.model_copy(
-            update={
-                "retrieval": RetrievalSettings(
-                    strategy="cluster_narrow",
-                    cluster_narrow_top_n_clusters=8,
-                )
-            }
-        ),
-    )
-    via_factory = await MultiHopRetriever(store, strategy=strat).retrieve(
-        q_emb, k=budget.max_nodes, hops=budget.hops, layer=None
-    )
-    assert [s.node.id for s in via_factory.scored_nodes[:top_k]] == fixed_ids
+    out = await pipeline.ask(query, k=15, hops=2)
+    assert len(out.answer.cited_node_ids) >= 1

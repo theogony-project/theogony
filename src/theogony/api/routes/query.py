@@ -10,8 +10,8 @@ Honest failure: any provider / transport exception escaping the
 pipeline becomes ``503 Service Unavailable`` with a structured
 :class:`ErrorResponse`. The QueryPipeline already swallows
 synthesizer transport errors into an empty Answer with verdict
-``"failed"``, so a true 503 here means the embed / multi_hop /
-assemble path itself failed (rare but possible: Neo4j timeout).
+``"failed"``, so a true 503 here means the embed / spreading /
+assemble path itself failed (rare but possible: store or tensor layer).
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ async def query(
         # The retrieval stack's own honest-failure paths (synthesizer
         # transport error → empty Answer + verdict=failed) handle the
         # common case. A genuine exception escaping ask() means embed
-        # or multi_hop or assemble itself raised, which is a 503.
+        # or spreading retrieval or assemble itself raised, which is a 503.
         log.exception("query pipeline raised: %s", exc)
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -1,12 +1,10 @@
-# Nous — Architekturbeschreibung
+# Nous — architecture description
 
-**Status:** Umgezogen  
-**Datum:** 2026-05-09
+**Status:** Moved  
+**Date:** 2026-05-09
 
-Dieses Dokument wurde umbenannt. Der Inhalt beschreibt die kognitive Lese-Architektur
-als **Translationsschicht (Kadmos)**, nicht als kognitiven Syntheselayer (Nous).
+This document was renamed. The material describes the **cognitive reading architecture as a translation layer (Kadmos)**, not as the cognitive synthesis layer (Nous).
 
-→ **Neuer Ort:** [`kadmos_v2_brief.md`](kadmos_v2_brief.md)
+→ **New location:** [`kadmos_v2_brief.md`](kadmos_v2_brief.md)
 
-Für die Nous-Architektur (GNN-Encoder + Syntheselayer, Vektoren als primärer Input)
-wird ein eigener Brief erstellt, sobald Kadmos v2 implementiert ist.
+A separate brief for **Nous** (GNN encoder + synthesis layer, vectors as primary input) will be written once Kadmos v2 is implemented.

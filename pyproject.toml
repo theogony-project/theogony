@@ -23,7 +23,6 @@ keywords = [
     "mcp",
     "model-context-protocol",
     "provenance",
-    "neo4j",
     "pantheon",
     "chronik",
 ]
@@ -60,7 +59,6 @@ dependencies = [
     "httpx>=0.27.0",
     "sentence-transformers>=3.0.0",
     "spacy>=3.7.0",
-    "neo4j>=5.18.0",
     "python-dotenv>=1.0.0",
     "python-ulid>=2.2",
     "rich>=13.0.0",
@@ -89,11 +87,7 @@ dev = [
     # when the user has not installed the gemini extra. Cheap; the
     # SDK is small.
     "google-genai>=1.0.0",
-    # testcontainers[neo4j] for the parametrised contract suite +
-    # tests/test_neo4j_store_live.py (Plan §3.8 + E7 brief).
-    # CI runs the Neo4j matrix when THEOGONY_TEST_NEO4J=1; locally
-    # `docker compose up neo4j` is the no-testcontainers path.
-    "testcontainers[neo4j]>=4.0",
+    "testcontainers>=4.0",
     # MCP SDK so test_mcp_server.py runs inside the dev matrix without
     # forcing humans to install the optional ``mcp`` extra by hand.
     "mcp>=1.0.0",
@@ -177,7 +171,6 @@ include = [
     "README.md",
     "LICENSE",
     "pyproject.toml",
-    "docker-compose.yml",
     ".env.example",
 ]
 exclude = [

@@ -5,9 +5,10 @@ Loads **full** :class:`~theogony.config.settings.Settings` from the environment
 **384-dim BGE** embeddings so the bundled ``pantheon_self`` seed stays
 vector-compatible when the DB is empty.
 
-By default the chronicle backend is **Neo4j** (``THEOGONY_COCKPIT__KNOWLEDGE_STORE``,
-default ``neo4j``) so growth and immune-worker runs persist. Use ``memory`` for
-offline / CI. If ``build_llm_from_settings`` succeeds (e.g. ``ANTHROPIC_API_KEY``
+By default the chronicle backend is **in-memory** (Neo4j retired; see
+``docs/etappes/RETIREMENT_NEO4J_MULTIHOP.md``). The bundled ``pantheon_self``
+seed is loaded on every startup.
+If ``build_llm_from_settings`` succeeds (e.g. ``ANTHROPIC_API_KEY``
 set with provider ``anthropic``), the Explorer uses **real LLM synthesis**;
 otherwise it falls back to **stub** + offline citation snippets so the app still
 starts without secrets.
@@ -36,7 +37,6 @@ from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
 from theogony.reporting.writer import RunReportWriter
 from theogony.seeds import pantheon_self_dump_path
 from theogony.stores.memory import InMemoryKnowledgeStore
-from theogony.stores.neo4j_store import Neo4jKnowledgeStore
 
 log = get_logger("cockpit.standalone")
 
@@ -120,41 +120,18 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings.run_reports_dir.mkdir(parents=True, exist_ok=True)
     audit = ExtractionAuditLog(settings.data_dir / "audit.sqlite")
     audit.__enter__()
-    neo_store: Neo4jKnowledgeStore | None = None
     store: KnowledgeStore
     try:
-        if settings.cockpit.knowledge_store == "neo4j":
-            neo_store = Neo4jKnowledgeStore(
-                settings.neo4j,
-                embedding_dim=settings.embedding.dim,
-            )
-            try:
-                await neo_store.__aenter__()
-            except Exception as exc:
-                raise RuntimeError(
-                    "Cockpit standalone could not open Neo4j "
-                    f"(THEOGONY_COCKPIT__KNOWLEDGE_STORE=neo4j, uri={settings.neo4j.uri!r}). "
-                    "Start Neo4j (e.g. `docker compose up -d`) or set "
-                    "THEOGONY_COCKPIT__KNOWLEDGE_STORE=memory for an offline in-process chronicle."
-                ) from exc
-            store = neo_store
-            if await store.count_nodes(None) == 0:
-                _, nodes, edges = read_dump(pantheon_self_dump_path())
-                node_objs = [n for n in nodes if isinstance(n, KnowledgeNode)]
-                edge_objs = [e for e in edges if isinstance(e, KnowledgeEdge)]
-                await store.batch_upsert_nodes(node_objs)
-                await store.batch_upsert_edges(edge_objs)
-                log.info(
-                    "cockpit standalone: seeded empty Neo4j with pantheon_self (%d nodes)",
-                    len(node_objs),
-                )
-        else:
-            store = InMemoryKnowledgeStore()
-            _, nodes, edges = read_dump(pantheon_self_dump_path())
-            node_objs = [n for n in nodes if isinstance(n, KnowledgeNode)]
-            edge_objs = [e for e in edges if isinstance(e, KnowledgeEdge)]
-            await store.batch_upsert_nodes(node_objs)
-            await store.batch_upsert_edges(edge_objs)
+        store = InMemoryKnowledgeStore()
+        _, nodes, edges = read_dump(pantheon_self_dump_path())
+        node_objs = [n for n in nodes if isinstance(n, KnowledgeNode)]
+        edge_objs = [e for e in edges if isinstance(e, KnowledgeEdge)]
+        await store.batch_upsert_nodes(node_objs)
+        await store.batch_upsert_edges(edge_objs)
+        log.info(
+            "cockpit standalone: loaded pantheon_self seed (%d nodes)",
+            len(node_objs),
+        )
         embedder = _build_embedder(settings)
         llm = _standalone_llm(settings)
         writer = RunReportWriter(settings.run_reports_dir)
@@ -171,15 +148,12 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         if settings.cockpit.enabled:
             mount_cockpit(app, settings)
             log.info(
-                "cockpit standalone at http://%s/cockpit/  store=%s embedder=%s",
+                "cockpit standalone at http://%s/cockpit/  store=memory embedder=%s",
                 settings.cockpit.bind_host,
-                settings.cockpit.knowledge_store,
                 getattr(embedder, "model_id", type(embedder).__name__),
             )
         yield
     finally:
-        if neo_store is not None:
-            await neo_store.__aexit__(None, None, None)
         audit.__exit__(None, None, None)
 
 
@@ -190,12 +164,7 @@ app = FastAPI(title="Theogony Cockpit", lifespan=_lifespan)
 async def cockpit_health() -> JSONResponse:
     """Lightweight health endpoint for cockpit standalone mode."""
     store = getattr(app.state, "store", None)
-    if isinstance(store, InMemoryKnowledgeStore):
-        backend = "memory"
-    elif isinstance(store, Neo4jKnowledgeStore):
-        backend = "neo4j"
-    else:
-        backend = "unknown"
+    backend = "memory" if isinstance(store, InMemoryKnowledgeStore) else "unknown"
     llm = getattr(app.state, "llm", None)
     return JSONResponse(
         {

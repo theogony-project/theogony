@@ -8,20 +8,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.cockpit.async_util import run_async
+from tests.cockpit.conftest import load_truncated_pantheon_seed
 from theogony.agents.llm import StubLLMProvider
 from theogony.clustering.runner import run_one_recluster_pass
 from theogony.config.settings import ClusteringSettings, Settings
-from theogony.core.model import KnowledgeEdge, KnowledgeNode
-from theogony.docs_ingest import read_dump
 from theogony.reporting.writer import RunReportWriter
-from theogony.seeds import pantheon_self_dump_path
 from theogony.stores.memory import InMemoryKnowledgeStore
 
 
 async def _load_pantheon(store: InMemoryKnowledgeStore) -> None:
-    _, nodes, edges = read_dump(pantheon_self_dump_path())
-    await store.batch_upsert_nodes([n for n in nodes if isinstance(n, KnowledgeNode)])
-    await store.batch_upsert_edges([e for e in edges if isinstance(e, KnowledgeEdge)])
+    await load_truncated_pantheon_seed(store)
 
 
 @pytest.fixture

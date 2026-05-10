@@ -14,13 +14,10 @@ fields (confidence/relevance/connectivity/freshness) but not
 ``last_accessed`` — that field lives on ``KnowledgeNode`` itself.
 The tracker therefore reads the full node via ``get_node``, mutates
 ``last_accessed`` and ``scores.relevance`` in memory, and writes
-back via ``upsert_node``. That is two Bolt round-trips per cited
+back via ``upsert_node``. That is two store round-trips per cited
 node. Acceptable for Gen 1's ≤ 10-cited-nodes-per-answer cardinality;
 PHX-0048 (atomic single-roundtrip update) supersedes this once
-landed. The two-roundtrip pattern matches what the Neo4j store
-already does internally for vitality denormalisation
-(``Neo4jKnowledgeStore.update_scores`` re-reads first), so we are
-not adding a new perf cliff — we are matching an existing one.
+landed.
 """
 
 from __future__ import annotations

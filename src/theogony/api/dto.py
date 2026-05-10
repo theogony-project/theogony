@@ -41,7 +41,7 @@ class HealthResponse(BaseModel):
 
     status: Literal["ok"] = "ok"
     version: str
-    store: str = "neo4j"
+    store: str = "in_memory"
     embedding_model: str
     embedding_dim: int = Field(ge=1)
     report_counts: dict[str, int] = Field(default_factory=dict)
@@ -68,7 +68,13 @@ class QueryRequest(BaseModel):
             "settings.retrieval.chronicle_thinking.max_rounds."
         ),
     )
-    strategy: Literal["fixed_depth", "edge_product", "cluster_narrow"] | None = None
+    strategy: Literal["fixed_depth", "edge_product", "cluster_narrow"] | None = Field(
+        default=None,
+        description=(
+            "Legacy request field accepted for backward compatibility; "
+            "ignored — retrieval is spreading activation only."
+        ),
+    )
     pheromone_mode: Literal["follow", "ignore", "invert"] = "follow"
 
 

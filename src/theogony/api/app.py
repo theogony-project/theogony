@@ -46,7 +46,7 @@ from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
 from theogony.extraction.wikidata_cache import WikidataCache
 from theogony.memory.oneiros import OneirosWorker
 from theogony.reporting.writer import RunReportWriter
-from theogony.stores.neo4j_store import Neo4jKnowledgeStore
+from theogony.stores.memory import InMemoryKnowledgeStore
 
 log = get_logger("api.app")
 
@@ -57,8 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     Startup ordering matters: settings → audit (synchronous open) →
     embedder warm-up (load + one-shot embed) → LLM factory (validates
-    keys without calling out) → Neo4j store (opens the Bolt
-    connection + ensures schema) → report writer.
+    keys without calling out) → in-memory Chronik store → report writer.
 
     Shutdown reverses the order. The ``OneirosWorker`` background
     task (``app.state.oneiros_task``) is cancelled first; the
@@ -94,10 +93,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     llm = build_llm_from_settings(settings)
 
-    # Neo4j store: async context manager. We open it via __aenter__ so
-    # the driver + schema bootstrap survive across the lifespan yield.
-    store = Neo4jKnowledgeStore(settings.neo4j, embedding_dim=embedder.dim)
-    await store.__aenter__()
+    # In-memory Chronik store (Neo4j retired — see docs/etappes/RETIREMENT_NEO4J_MULTIHOP.md).
+    store = InMemoryKnowledgeStore()
 
     report_writer = RunReportWriter(settings.run_reports_dir)
 
@@ -123,7 +120,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.oneiros_task = asyncio.create_task(worker.run())
 
     log.info(
-        "api lifespan: startup complete (store=neo4j embedding_dim=%d)",
+        "api lifespan: startup complete (store=in_memory embedding_dim=%d)",
         settings.embedding.dim,
     )
     if settings.cockpit.enabled:
@@ -141,7 +138,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             app.state.oneiros_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await asyncio.wait_for(app.state.oneiros_task, timeout=5.0)
-        await app.state.store.__aexit__(None, None, None)
         if hasattr(app.state.llm, "aclose"):
             await app.state.llm.aclose()
         if app.state.wikidata_cache is not None:

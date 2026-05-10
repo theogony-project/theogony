@@ -27,8 +27,8 @@ from theogony.curiosity.trigger import GapClass
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
-from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
+from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesize import AnswerSynthesizer
 from theogony.stores import InMemoryKnowledgeStore
 
@@ -55,9 +55,10 @@ async def test_growth_bridge_demo_path_smoke(tmp_path: Path) -> None:
     store = InMemoryKnowledgeStore()
     writer = RunReportWriter(tmp_path)
     bridge = GrowthBridge(GrowthBridgeSettings(enabled=True))
+    emb = _ConstantEmbedder()
     pipeline = QueryPipeline(
-        embedder=_ConstantEmbedder(),
-        retriever=MultiHopRetriever(store),
+        embedder=emb,
+        retriever=SpreadingActivationRetriever(store, emb),
         assembler=ConstellationAssembler(store),
         synthesizer=AnswerSynthesizer(StubLLMProvider(default="")),
         relevance=RelevanceTracker(store),

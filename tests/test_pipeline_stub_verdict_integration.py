@@ -9,8 +9,8 @@ from theogony.config.settings import Settings
 from theogony.core.model import KnowledgeEdge, KnowledgeNode, NodeType, SourceRef
 from theogony.memory.relevance import RelevanceTracker
 from theogony.retrieval.constellation import ConstellationAssembler
-from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline, QueryResult
+from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesize import AnswerSynthesizer
 from theogony.stores import InMemoryKnowledgeStore
 
@@ -50,9 +50,10 @@ async def test_query_pipeline_attaches_stub_verdict_to_report() -> None:
     n.scores.confidence = 0.2
     await store.upsert_node(n)
     llm = StubLLMProvider(default=f"Answer [{n.id}].")
+    emb = _ConstEmbedder()
     pipe = QueryPipeline(
-        embedder=_ConstEmbedder(),
-        retriever=MultiHopRetriever(store),
+        embedder=emb,
+        retriever=SpreadingActivationRetriever(store, emb),
         assembler=ConstellationAssembler(store),
         synthesizer=AnswerSynthesizer(llm),
         relevance=RelevanceTracker(store),
@@ -104,9 +105,10 @@ async def test_query_pipeline_attaches_region_descriptor_with_dominant_cluster_i
         KnowledgeEdge(source_id=a.id, target_id=b.id, relation_type="R", evidence_span="e")
     )
     llm = StubLLMProvider(default=f"See [{a.id}] [{b.id}] [{c.id}].")
+    emb = _ConstEmbedder()
     pipe = QueryPipeline(
-        embedder=_ConstEmbedder(),
-        retriever=MultiHopRetriever(store),
+        embedder=emb,
+        retriever=SpreadingActivationRetriever(store, emb),
         assembler=ConstellationAssembler(store),
         synthesizer=AnswerSynthesizer(llm),
         relevance=RelevanceTracker(store),

@@ -3,14 +3,14 @@ Shared FastAPI test fixtures (Plan §3.8 layer 4).
 
 Builds an isolated FastAPI app per test session that uses
 ``InMemoryKnowledgeStore`` + ``StubLLMProvider`` instead of the
-production Neo4j + Gemini lifespan resources. Tests override the
+production FastAPI lifespan (BGE download, optional Gemini keys, etc.).
 DI dependencies surgically via ``app.dependency_overrides`` rather
 than monkeypatching modules — this is the FastAPI-recommended
 pattern and keeps the production code paths untouched.
 
 Why we don't run the real ``lifespan``: the production lifespan
-opens a Bolt connection, downloads BGE-small, and validates the
-Gemini key. None of those should run for a /query unit test.
+downloads BGE-small and may validate LLM keys. None of those should
+run for a /query unit test.
 ``LIFESPAN_DISABLED_APP`` is the offline shadow.
 """
 
@@ -38,9 +38,8 @@ from theogony.extraction.audit import ExtractionAuditLog
 from theogony.memory.relevance import RelevanceTracker
 from theogony.reporting.writer import RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
-from theogony.retrieval.multi_hop import MultiHopRetriever
 from theogony.retrieval.pipeline import QueryPipeline
-from theogony.retrieval.strategy_factory import build_retrieval_strategy
+from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesize import AnswerSynthesizer
 from theogony.stores import InMemoryKnowledgeStore
 
@@ -90,7 +89,7 @@ def api_settings(tmp_path: Path) -> Settings:
     derived path follows.
 
     ``embedding.dim`` matches :class:`_TinyEmbedder` (4) so Explorer append
-    and query paths do not trip the Neo4j dim guard in CI.
+    and query paths stay consistent with the spreading retriever.
     """
     settings = Settings(
         data_dir=tmp_path / "data",
@@ -151,10 +150,7 @@ def api_app(
     def _make_pipeline() -> QueryPipeline:
         return QueryPipeline(
             embedder=embedder,
-            retriever=MultiHopRetriever(
-                api_store,
-                strategy=build_retrieval_strategy(api_store, api_settings),
-            ),
+            retriever=SpreadingActivationRetriever(api_store, embedder),
             assembler=ConstellationAssembler(api_store),
             synthesizer=AnswerSynthesizer(api_llm, audit_log=api_audit),
             relevance=RelevanceTracker(
