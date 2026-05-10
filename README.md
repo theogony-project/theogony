@@ -29,19 +29,18 @@ The long-horizon vision: the Chronik grows into the dominant knowledge substrate
 
 ## Where we are
 
-This is an early-stage research project. The architecture is well-thought-out and documented. The code is a working proof of concept, not a production system.
+This is an early-stage research project. The architecture is documented and the substrate is in active migration toward its target shape. The code is a working proof of concept, not a production system.
 
 **What runs today:**
-- A pipeline that reads a text (currently: books from Project Gutenberg, Wikipedia articles), extracts concepts and relations using an LLM, and writes them as nodes and edges into a knowledge graph
-- A retrieval layer that does multi-hop vector + graph search and returns cited answers
-- A background process (Oneiros) that continuously scores and promotes knowledge — more confident, better-connected nodes become "trusted"; stale ones decay
-- A small MCP server so AI assistants like Claude Desktop or Cursor can query the Chronik directly as a tool
+- An ingest pipeline that reads a text (books from Project Gutenberg, Wikipedia articles) and writes concept nodes and typed weighted edges into the substrate, with structured run reports for every pass.
+- An in-process columnar / tensor substrate: nodes and edges live in an in-memory store (LanceDB persistence is being wired in); a `TensorMeshEngine` builds a CSR adjacency tensor on demand and runs Spreading Activation over it as sparse matrix-vector multiplication. **No graph database. No multi-hop traversal language.** Queries arrive as vectors; activation propagates; a constellation comes back.
+- A background process (Oneiros) that continuously scores and promotes knowledge — more confident, better-connected nodes become "trusted"; stale ones decay.
+- A small MCP server so AI assistants like Claude Desktop or Cursor can query the Chronik directly as a tool.
 
-**What we build next:**
-- **Kadmos** — the text translation layer. Reads raw text and produces a primitive vector mesh: nodes with embeddings, typed local edges (NEXT, SAME_PARAGRAPH, SAME_SECTION, WIKI_LINK), no text stored. Fast, no deep LLM calls, structurally faithful to the source. The Observe layer's first step.
-- **Nous** — the cognitive synthesis layer. Takes the Kadmos mesh as input (no text) and weaves it into a denser knowledge network: diagonal connections, cross-paragraph syntheses, revision of earlier nodes when later context demands it. Operates via a GNN encoder + LLM synthesis loop, without text as an intermediate medium. The Observe layer's second step.
-- **Tensor-Manifold** — replacing the current graph database (Neo4j) with a GPU-resident sparse tensor structure (LanceDB + PyTorch CSR). Spreading Activation runs as matrix multiplication. Edges are vectors, not string labels. The Chronik becomes queryable in milliseconds regardless of size.
-- **Iris** — the first Remember-layer agent: receives an activated vector subgraph and generates natural language from its structure — not by retrieving stored text, but by formulating from the constellation of vectors and edges.
+**What we build next** (in order, and decided in writing):
+- **Kadmos v2** — the text translation layer, redesigned. An LLM that *reads with working memory* — sentence by sentence, with revisions when later context demands it, with cross-passage syntheses that emerge as the reading proceeds — and emits a labelled intermediate that is then collapsed into vectors and typed edges by an internal embedding pass. After that pass, no text remains in the substrate. See [`docs/etappes/kadmos_v2_brief.md`](docs/etappes/kadmos_v2_brief.md).
+- **The Mesh-Native Language Model (MNLM)** — the cognitive primitive that operates *inside* the substrate. Vector subgraphs in, vector subgraphs out, no text in the middle. A frozen Llama-3-8B-Instruct body adapted with a Graph-KV input mechanism, a Latent Flow Matching output head, and Substrate-Resonant Recurrence — a recurrent loop in which every K-th reasoning step interleaves a one-hop Spreading Activation call, so the model and the substrate share recurrent state. Trained against the substrate itself: the retrieval primitive is the loss surface. **Nous** (synthesis), **Oneiros** (consolidation), and **Kalypso** (emergent discovery) are all roles of this one architectural class. The binding architecture decision lives in [`docs/etappes/mesh_native_lm_brief.md`](docs/etappes/mesh_native_lm_brief.md); it is the operative document.
+- **The full LanceDB persistence path** — completing the migration from in-memory storage to append-only columnar storage on disk, with PyTorch CSR tensors as the runtime form, so the substrate is queryable in milliseconds regardless of size and rebuildable from disk.
 
 The full development sequence is in [ROADMAP.md](ROADMAP.md).
 
@@ -57,33 +56,27 @@ That layer should be open, provenance-first, inspectable, and structured for mac
 
 The Chronik is the first concrete step toward that. It is a **living vector-graph**: concepts as high-dimensional embeddings, relationships as weighted typed edges, clusters as navigational regions, queries as activation fields that propagate and return constellations. It grows by reading the world. It consolidates by dreaming. It defends itself through a background immune system of agents.
 
-This is early. The two open empirical questions we build toward:
+This is early. The three open empirical questions we build toward:
 
-1. Does **Nous** — the cognitive synthesis reading agent — produce a denser, better-connected Chronik than chunked extraction? (We believe yes, because synthesis weaves cross-sentence and cross-chapter connections that chunking cannot. Needs to be shown.)
-2. Does **Spreading Activation** over a dense vector-graph retrieve better than ANN search + graph traversal at high edge density? (We believe yes. Needs to be shown.)
+1. Does **Kadmos v2** — reading with working memory and revision — produce a denser, better-connected Chronik than the chunked extraction baseline? Hypothesis: yes, because synthesis weaves cross-sentence and cross-chapter connections that chunking cannot. The first corpus run will show whether the hypothesis holds.
+2. Does **Spreading Activation** over a dense vector-graph retrieve better than kNN + heuristic traversal at high edge density? Hypothesis: yes, once edge density crosses the regime where typed multi-hop structure becomes legible to activation propagation.
+3. Does the **MNLM** — operating natively on vector subgraphs, with the substrate's retrieval primitive as its training signal — produce inference that exceeds what any individual source text contains? Hypothesis: yes, and *this is the test that distinguishes the Chronik from a very good RAG*. Operationalised as a three-stage falsifier (directional binding → multi-hop QA → cross-domain emergent knowledge) in [`docs/etappes/mesh_native_lm_brief.md`](docs/etappes/mesh_native_lm_brief.md) §6.
 
-These experiments are the next milestones. See [ROADMAP.md](ROADMAP.md).
+These experiments are the next milestones. See [ROADMAP.md](ROADMAP.md) for the development sequence and the binding architecture briefs for the falsifiers.
 
 ---
 
 ## Try it
 
-The quickest way to see the system is to seed it with the project's own documentation and ask it a question — no external data needed.
+The quickest way to see the system is to seed it with the project's own documentation and ask it a question — no external data needed, no database to set up. The default substrate is in-process.
 
 ```bash
 git clone https://github.com/theogony-project/theogony && cd theogony
 pip install -e ".[dev]"
 
 # Import the project's own docs as a queryable knowledge network
-# (requires a running Neo4j — see below — and a local embedding model)
 theogony seed
 theogony ask "What is the Chronik?"
-```
-
-To run Neo4j locally:
-
-```bash
-docker compose up -d neo4j
 ```
 
 To ingest a real text (Sven Hedin's *Trans-Himalaya*, a public-domain book on Tibet):
@@ -94,7 +87,7 @@ theogony ingest 43497 --sentences 500
 theogony ask "Who was Sven Hedin and where did he travel?"
 ```
 
-Answers cite every claim with a node ID (`AKA-…`) that links back to the source passage. The system also produces a structured self-report for every run: what it found, how confident it was, where it failed.
+Answers cite every claim with a node ID (`AKA-…`) that links back to the source passage. Retrieval runs as Spreading Activation over the substrate's CSR tensor — there is no Cypher, no SQL, no graph database. The system also produces a structured self-report for every run: what it found, how confident it was, where it failed.
 
 ```bash
 theogony reports list        # see all run reports
@@ -131,7 +124,7 @@ Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_conf
 }
 ```
 
-Tools: `pantheon_ask`, `pantheon_node`, `pantheon_status`, `pantheon_reports_list`, `pantheon_reports_show`.
+Tools: `pantheon_ask`, `pantheon_node`, `pantheon_status`, `pantheon_reports_list`, `pantheon_reports_show`, `pantheon_chronicle_append`.
 
 ---
 
@@ -142,13 +135,17 @@ The full document map with recommended reading paths by audience is in [docs/IND
 | Document | What it covers |
 |---|---|
 | [ROADMAP.md](ROADMAP.md) | The five-phase development sequence |
+| [docs/TARGET_ARCHITECTURE.md](docs/TARGET_ARCHITECTURE.md) | The binding technical target — substrate, pipeline, three non-negotiable decisions |
+| [docs/etappes/kadmos_v2_brief.md](docs/etappes/kadmos_v2_brief.md) | Kadmos v2 — cognitive reading as a translation layer |
+| [docs/etappes/mesh_native_lm_brief.md](docs/etappes/mesh_native_lm_brief.md) | The binding MNLM architecture brief — frozen Llama + Graph-KV + Latent Flow Matching + Substrate-Resonant Recurrence |
 | [docs/VISION.md](docs/VISION.md) | The compact vision — how agents use the Chronik |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design — layers, data model, retrieval |
 | [docs/DEEP_TECH_VISION.md](docs/DEEP_TECH_VISION.md) | The deeper substrate direction |
 | [notes/architecture/vector_native_spreading_activation.md](notes/architecture/vector_native_spreading_activation.md) | Tensor-Manifold and Spreading Activation design |
-| [notes/architecture/reading_agent_vision.md](notes/architecture/reading_agent_vision.md) | Nous — the cognitive reading model |
-| [docs/CHRONICLE_PRINCIPLES.md](docs/CHRONICLE_PRINCIPLES.md) | Nine non-negotiable design principles |
+| [notes/architecture/reading_agent_vision.md](notes/architecture/reading_agent_vision.md) | The cognitive model behind reading-as-synthesis |
+| [docs/CHRONICLE_PRINCIPLES.md](docs/CHRONICLE_PRINCIPLES.md) | Ten non-negotiable design principles |
 | [docs/BUILD_DOCTRINE.md](docs/BUILD_DOCTRINE.md) | Why we ingest fast and heal post-hoc |
+| [docs/IMMUNE_SYSTEM.md](docs/IMMUNE_SYSTEM.md) | Why pre-gates judging content are forbidden — sample-based post-hoc cells |
 | [docs/GLOSSARY.md](docs/GLOSSARY.md) | Canonical terminology — Chronik, Pantheon, Nous, Oneiros, … |
 | [AGENTS.md](AGENTS.md) | If you are an AI agent contributing to this repo |
 
