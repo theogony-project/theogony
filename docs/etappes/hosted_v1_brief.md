@@ -5,7 +5,7 @@
 **Date:** 2026-04-21  
 **Branch:** new branch off `main`, e.g. `feat/hosted-mcp-v1`  
 **Scope:** one PR, tightly scoped  
-**Predecessor:** PR #37 (MCP server), PR #40 (`pantheon_self` seed). PHX-0066 is the parent vision ticket; this etappe is its **Phase 1** — the minimum viable hosted setup the operator can deploy themselves to Fly.io and list on Smithery.
+**Predecessor:** PR #37 (MCP server), PR #40 (`pantheon_self` seed). PHX-0066 is the parent vision ticket; this etappe is its **Phase 1** — the minimum viable hosted setup the operator can deploy themselves to a container host and list on Smithery.
 
 Direct brief, no Daedalus. This is a deployment / packaging etappe, not an architectural decision round.
 
@@ -19,7 +19,7 @@ PHX-0037 (MCP server) and PHX-0040 (Pantheon-of-Pantheon seed) shipped the subst
 2. **No deploy artefacts** — there is no Dockerfile, no container image, no Smithery manifest, no deploy guide. Every prospective operator would have to reinvent the wheel.
 3. **No seed-on-startup helper** — `theogony mcp` today expects a pre-seeded store. A hosted single-instance service that boots fresh needs to seed itself before serving its first request.
 
-This PR fixes those three gaps. It does **not** ship the public deployment itself — that is the operator's manual `flyctl deploy` step, with their own credentials. It ships the artefacts that make that deploy a single-command operation.
+This PR fixes those three gaps. It does **not** ship the public deployment itself — that is the operator's manual **image rebuild + redeploy** on their own infrastructure. It ships the artefacts that make that deploy a small, documented set of steps.
 
 ---
 
@@ -29,9 +29,9 @@ After this PR:
 
 - `theogony mcp --transport sse --host 0.0.0.0 --port 8080` runs the MCP server over HTTP/SSE.
 - `theogony mcp --seed-from <path>` (or `--seed`, defaulting to the bundled `pantheon_self` dump) loads the seed into the in-memory store before opening the MCP transport.
-- `hosted/Dockerfile` produces a container image (target ≤ 500 MB) that the operator deploys to Fly.io / HuggingFace Spaces / Modal in one command.
+- `hosted/Dockerfile` produces a container image (target ≤ 500 MB) that the operator deploys to HuggingFace Spaces / Modal / a VPS / Kubernetes in one flow.
 - `hosted/smithery.yaml` lists the service for the Smithery MCP registry.
-- `hosted/README.md` walks the operator through the Fly.io deploy in under 10 minutes, with HuggingFace Spaces and Modal as alternatives.
+- `hosted/README.md` walks the operator through a generic container deploy in under 10 minutes, with HuggingFace Spaces and Modal as named alternatives.
 - A smoke test verifies the SSE transport actually serves an MCP `tools/list` request end-to-end inside an integration test.
 
 ---
@@ -103,11 +103,9 @@ hosted/
 ├── Dockerfile
 ├── README.md
 ├── smithery.yaml
-├── fly.toml         # Fly.io app config; not committed with credentials
+├── fly.toml         # optional Fly.io app config; edit app name for your deploy
 └── .dockerignore
 ```
-
-The contents are spec'd in detail below ("Implementation plan").
 
 ### 4. Read-only single-instance hosted service
 
@@ -153,15 +151,15 @@ The SSE transport's Starlette app exposes a `/health` route returning JSON:
 }
 ```
 
-Used by Fly.io's health-check loop and by operators monitoring the service.
+Used by load balancers, orchestrators, and operators monitoring the service.
 
 ### 8. Don't pre-decide the hosting target
 
-The Dockerfile + the documented deploy steps must work on **at least Fly.io** as the primary target, with **HuggingFace Spaces (Docker SDK)** and **Modal** as documented alternatives. No code may assume Fly.io specifically. Configuration that differs per platform (e.g., port, host binding) is operator-provided via env vars (`PORT`, `HOST`).
+The Dockerfile + the documented deploy steps must work on **at least one** generic container runtime the operator controls, with **HuggingFace Spaces (Docker SDK)** and **Modal** as documented alternatives. No code may assume a specific vendor. Configuration that differs per platform (e.g., port, host binding) is operator-provided via env vars (`PORT`, `HOST`).
 
 ### 9. No automatic webhook-on-push integration
 
-A GitHub-webhook-triggered redeploy on every `main` push is a great Phase 2 feature but **out of scope** for this etappe. Document the manual `flyctl deploy` step in the README. The operator can layer a webhook on top later if they want it.
+A GitHub-webhook-triggered redeploy on every `main` push is a great Phase 2 feature but **out of scope** for this etappe. Document the manual **image rebuild + redeploy** step in the README. The operator can layer a webhook on top later if they want it.
 
 ---
 
@@ -330,7 +328,7 @@ Document, in this order:
 
 1. **What this hosts** (one paragraph — the bundled `pantheon_self` chronicle as a public read-only MCP service).
 2. **Cost expectations** (operator side ≤ €5/month on free tiers; LLM cost is pass-through to the calling agent).
-3. **Fly.io deploy** (step-by-step, with `flyctl launch` walkthrough).
+3. **Generic container deploy** (build, optional registry push, run; env vars for `PORT` / `HOST`).
 4. **HuggingFace Spaces deploy** (Docker SDK; Spaces config snippet).
 5. **Modal deploy** (one short Modal stub; less detailed because Modal is the alternative path).
 6. **Smithery listing** (after deploy, register the URL on Smithery).
@@ -363,7 +361,7 @@ Use `httpx` (already a core dep) for the HTTP client. Use `pytest-asyncio` (alre
 
 **Token cost for Composer**: medium. SSE transport addition is real code (estimate 80–150 lines including the Starlette wiring), the new tests are small, the documentation is short but careful. Total estimate ≤ €0.50.
 
-**Runtime cost for the operator**: ≤ €5/month on Fly.io free tier (3 × 256 MB shared CPU machines is more than enough for a single-instance read-only service). The bundled seed loads in ~5 s at startup; subsequent tool calls are ms.
+**Runtime cost for the operator**: ≤ €5/month on typical free or shared-CPU tiers (a single small instance is enough for a read-only service). The bundled seed loads in ~5 s at startup; subsequent tool calls are ms.
 
 **Image size cost**: target ≤ 500 MB. The `sentence-transformers` install brings PyTorch CPU which is the largest single footprint. Acceptable for now; image-size optimisation is Phase 2.
 
@@ -393,7 +391,7 @@ Use `httpx` (already a core dep) for the HTTP client. Use `pytest-asyncio` (alre
 - [ ] `theogony mcp --transport sse --host 0.0.0.0 --port 8080 --seed` runs locally and serves an SSE endpoint that an MCP client (Claude Desktop SSE config, or `mcp-cli`) can connect to.
 - [ ] `tests/test_mcp_sse.py` passes locally with the env gate enabled. Existing `tests/test_mcp_server.py` (stdio smoke) stays green without modification.
 - [ ] `hosted/Dockerfile` builds successfully (`docker build hosted/`); image size ≤ 500 MB.
-- [ ] `hosted/README.md` walks an operator through Fly.io deploy in under 10 minutes; HuggingFace Spaces and Modal alternative paths are documented.
+- [ ] `hosted/README.md` walks an operator through generic container deploy in under 10 minutes; HuggingFace Spaces and Modal alternative paths are documented.
 - [ ] `hosted/smithery.yaml` is valid YAML; Smithery's manifest validator passes (operator-tested manually after deploy).
 - [ ] PHX-0066 catalogue entry updated.
 - [ ] `pytest -q` green. `ruff check` clean. `ruff format --check` clean. `mypy` clean on the touched modules.
@@ -403,7 +401,7 @@ Use `httpx` (already a core dep) for the HTTP client. Use `pytest-asyncio` (alre
 
 ## After this PR
 
-The operator can deploy to Fly.io in one command and list on Smithery. Two follow-on tracks open up:
+The operator can deploy the image in a short scripted flow and list on Smithery. Two follow-on tracks open up:
 
 1. **Phase 2 of PHX-0066**: webhook-on-push redeploy, per-call LLM key pass-through (when MCP protocol supports it), federation enable.
 2. **The "agents-can-find-and-use-Pantheon" verification loop**: with the hosted instance live, the user can register the SSE endpoint in Cursor / Claude Desktop and run the verification protocol from the architecture-audit conversation (cited node IDs from the bundled seed prove the agent really queried the chronicle).

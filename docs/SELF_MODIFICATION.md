@@ -109,7 +109,7 @@ Self-modification is enabled per deployment, not globally. The default Pantheon 
 
 Even now, several years before stage 3 is realistic, the substrate must be built so that stage 3 is not foreclosed:
 
-- **Repository structure must support deterministic deploys.** A self-authoring system needs a clear "merge to main → deploy to production" pipeline that does not depend on undocumented human ritual. Today's GitHub Actions / Fly.io setup already trends this way.
+- **Repository structure must support deterministic deploys.** A self-authoring system needs a clear "merge to main → deploy to production" pipeline that does not depend on undocumented human ritual. Today's GitHub Actions plus container-image deploy paths already trend this way.
 - **Configuration must not require human-only secrets.** Anything Mnemosyne needs to test her own changes (LLM API keys, external service credentials) must be reachable by the deployment pipeline, not only by individual humans.
 - **Tests must be the canonical specification.** A self-authoring system can only build what tests describe; if tests are sparse, the bot will build the wrong thing. Test coverage is therefore not a quality goal — it is the substrate of the bot's future authoring capacity.
 - **Documentation must address the bot, not only humans.** AGENTS.md is the right shape for this. Future versions of the bot will read documentation at the same time as humans do; the doc must serve both audiences.
