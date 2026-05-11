@@ -2198,5 +2198,17 @@ def kadmos_crawl(
     )
 
 
+@kadmos_app.command("crawl-status")
+def kadmos_crawl_status() -> None:
+    """Show crawl progress from the latest crawl_log.jsonl.
+
+    Reads docs/research/mnlm/poc/crawl_log.jsonl and computes per-domain
+    and overall progress.  Safe to run while a crawl is in progress.
+    """
+    from theogony.kadmos.crawl import print_crawl_status
+
+    print_crawl_status()
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()

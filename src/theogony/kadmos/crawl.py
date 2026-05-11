@@ -306,11 +306,34 @@ class CrawlCoordinator:
                                 )
 
                         # Process the article
+                        log.info(
+                            "crawl: [%d/%d] starting %s (domain=%s)",
+                            self._processed + self._skipped + 1,
+                            self._total_articles,
+                            title,
+                            domain,
+                        )
                         result = await self._process_one_article(
                             title=title,
                             domain=domain,
                             url=url,
                         )
+                        log.info(
+                            "crawl: [%d/%d] done %s — %s, %d concepts, %d edges, %.0fs, €%.4f",
+                            self._processed + self._skipped + 1,
+                            self._total_articles,
+                            title,
+                            result.verdict,
+                            result.concept_count,
+                            result.edge_count,
+                            result.duration_s,
+                            result.cost_eur,
+                        )
+
+                        # Every 5 articles, emit a progress summary line
+                        processed_so_far = self._processed + self._skipped
+                        if processed_so_far > 0 and processed_so_far % 5 == 0:
+                            self._log_progress_summary()
 
                         # Record in crawl log
                         log_entry = {
@@ -451,6 +474,24 @@ class CrawlCoordinator:
                 f"Run again to retry failed articles.[/yellow]"
             )
 
+    def _log_progress_summary(self) -> None:
+        """Emit a one-line progress summary at INFO level."""
+        remaining = self._total_articles - self._processed - self._skipped
+        domain_parts = []
+        for domain, (done, total) in sorted(self._domain_progress.items()):
+            domain_parts.append(f"{domain}={done}/{total}")
+        log.info(
+            "crawl: PROGRESS processed=%d skipped=%d failed=%d "
+            "partial=%d remaining=%d cost=€%.4f domains=[%s]",
+            self._processed,
+            self._skipped,
+            self._failed,
+            self._partial,
+            remaining,
+            self._total_cost_eur,
+            " ".join(domain_parts),
+        )
+
     def _iter_batches(self, corpus: list[dict]) -> list[list[dict]]:
         """Split the corpus into domain-sequential batches."""
         # Group by domain (preserving order from corpus)
@@ -539,6 +580,110 @@ class CrawlCoordinator:
             session_id=session_id,
             error=None,
         )
+
+
+# ---------------------------------------------------------------------------
+# Standalone status summary (used by ``theogony kadmos crawl-status``)
+# ---------------------------------------------------------------------------
+
+
+def print_crawl_status(
+    *,
+    corpus_path: Path = CORPUS_PATH,
+    crawl_log_path: Path = CRAWL_LOG_PATH,
+) -> None:
+    """Print a human-readable crawl progress summary to stdout.
+
+    Reads the locked corpus and the append-only crawl log, then computes
+    per-domain and overall progress.  Safe to call while a crawl is running.
+    """
+    if not corpus_path.exists():
+        print(f"[!] Corpus not found: {corpus_path}")
+        return
+
+    with open(corpus_path, encoding="utf-8") as f:
+        corpus = json.load(f)
+
+    entries: dict[str, dict] = {}
+    if crawl_log_path.exists():
+        with open(crawl_log_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                    if entry.get("title"):
+                        # Keep only the latest entry per title
+                        entries[entry["title"]] = entry
+                except json.JSONDecodeError:
+                    pass
+
+    # Per-domain counts
+    domain_total: dict[str, int] = {}
+    domain_done: dict[str, int] = {}
+    domain_failed: dict[str, int] = {}
+    total_cost = 0.0
+    total_duration = 0.0
+    total_concepts = 0
+
+    for article in corpus:
+        domain = article.get("domain", "unknown")
+        domain_total[domain] = domain_total.get(domain, 0) + 1
+
+        entry = entries.get(article["title"])
+        if entry:
+            v = entry.get("verdict", "")
+            if v != "failed":
+                domain_done[domain] = domain_done.get(domain, 0) + 1
+                total_cost += entry.get("cost_eur", 0)
+                total_duration += entry.get("duration_s", 0)
+                total_concepts += entry.get("concept_count", 0)
+            if v == "failed":
+                domain_failed[domain] = domain_failed.get(domain, 0) + 1
+
+    done_total = sum(domain_done.values())
+    failed_total = sum(domain_failed.values())
+    remaining = len(corpus) - done_total
+
+    # Build output
+    lines: list[str] = []
+    sep = "-" * 60
+    lines.append("")
+    lines.append("MNLM PoC Crawl Status")
+    lines.append(sep)
+
+    for domain in sorted(domain_total):
+        total = domain_total[domain]
+        done = domain_done.get(domain, 0)
+        failed = domain_failed.get(domain, 0)
+        pct = 100.0 * done / total if total > 0 else 0
+        bar_len = 20
+        filled = int(bar_len * done / total) if total > 0 else 0
+        bar = "█" * filled + "░" * (bar_len - filled)
+        flag = f"  {failed} failed" if failed else ""
+        flag = f"\033[31m{flag}\033[0m" if failed else flag
+        lines.append(f"  {domain:20s} {bar}  {done:3d}/{total:<3d} ({pct:5.1f}%){flag}")
+
+    lines.append(sep)
+    lines.append(
+        f"  TOTAL       {done_total:3d}/{len(corpus):<3d} articles  "
+        f"  failed={failed_total}  remaining={remaining}"
+    )
+    lines.append(f"  Concepts:   {total_concepts}")
+    lines.append(f"  Cost:       \u20ac{total_cost:.4f}")
+    lines.append(f"  Duration:   {total_duration:.0f}s")
+
+    if failed_total:
+        lines.append(sep)
+        lines.append("  Failed articles (will be retried on next run):")
+        for article in corpus:
+            entry = entries.get(article["title"])
+            if entry and entry.get("verdict") == "failed":
+                lines.append(f"    - {article['title']}")
+
+    lines.append("")
+    print("\n".join(lines))
 
 
 @dataclass
