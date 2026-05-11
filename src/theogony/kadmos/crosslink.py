@@ -175,10 +175,11 @@ class ChronikCrosslinker:
             }
 
         # Step 1: ensure all nodes have embeddings
+        # (embeddings are expected to be pre-computed by the async caller;
+        # this fallback handles dicts that slipped through without them)
         for n in new_nodes:
-            if "embedding" not in n or not n["embedding"]:
-                text = n.get("label", "")
-                n["embedding"] = list(embedder.embed(text))
+            if not n.get("embedding"):
+                n["embedding"] = [0.0] * self._dim
 
         # Step 2: separate synthesis nodes (preferred for linking) from regular
         synthesis_nodes = [n for n in new_nodes if n.get("node_type") == "synthesis"]

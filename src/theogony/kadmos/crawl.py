@@ -574,7 +574,7 @@ class CrawlCoordinator:
             # Collect synthesis nodes (meta-concepts) first, then concepts
             crosslink_nodes: list[dict] = []
             for synth in annotated.final_syntheses:
-                emb = list(self._embedder.embed(synth.label + ": " + synth.description))
+                emb = await self._embedder.embed(synth.label + ": " + synth.description)
                 emb_vec = emb[:384] if len(emb) >= 384 else emb + [0.0] * (384 - len(emb))
                 crosslink_nodes.append(
                     {
@@ -582,14 +582,16 @@ class CrawlCoordinator:
                         "label": synth.label,
                         "embedding": emb_vec,
                         "node_type": "synthesis",
-                        "source_anchor": f"{annotated.source_url}#synthesis-{synth.synthesis_level}",
+                        "source_anchor": (
+                            f"{annotated.source_url}#synthesis-{synth.synthesis_level}"
+                        ),
                     }
                 )
             for concept in annotated.final_active_concepts:
                 text = concept.label
                 if concept.description:
                     text += " " + concept.description
-                emb = list(self._embedder.embed(text))
+                emb = await self._embedder.embed(text)
                 emb_vec = emb[:384] if len(emb) >= 384 else emb + [0.0] * (384 - len(emb))
                 crosslink_nodes.append(
                     {
