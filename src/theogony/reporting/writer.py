@@ -32,6 +32,7 @@ from theogony.reporting.models import (
     IngestRunReport,
     KadmosRunReport,
     MnemosyneObservationCluster,
+    MnlmRunReport,
     NousRunReport,
     OneirosTickReport,
     QueryRunReport,
@@ -54,6 +55,7 @@ RUN_REPORT_TYPE_SUBDIRS: tuple[str, ...] = (
     "mnemosyne_conductor",
     "nous",
     "kadmos",
+    "mnlm",
 )
 
 ReportType = (
@@ -70,6 +72,7 @@ ReportType = (
     | type[MnemosyneConductorReport]
     | type[NousRunReport]
     | type[KadmosRunReport]
+    | type[MnlmRunReport]
 )
 
 
@@ -186,4 +189,6 @@ class RunReportWriter:
             return ErisCampaignReport.model_validate(raw)
         if rt == "mnemosyne_conductor":
             return MnemosyneConductorReport.model_validate(raw)
+        if rt == "mnlm":
+            return MnlmRunReport.model_validate(raw)
         return None

@@ -70,6 +70,7 @@ class RunReportBase(BaseModel):
         "mnemosyne_conductor",
         "nous",
         "kadmos",
+        "mnlm",
     ]
     started_at: datetime
     finished_at: datetime
@@ -488,3 +489,29 @@ class KadmosRunReport(RunReportBase):
     wall_clock_s: float = Field(ge=0.0)
     annotated_reading_path: str | None = None
     lancedb_path: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# MNLM — Mesh-Native Language Model run report (mesh_native_lm_brief §4.3)
+# ---------------------------------------------------------------------------
+
+
+class MnlmRunReport(RunReportBase):
+    """Run report emitted by the MNLM service at the end of a call batch.
+
+    See mesh_native_lm_brief.md §4.3 for the binding schema.
+    """
+
+    report_type: Literal["mnlm"] = "mnlm"
+    role: Literal["nous", "oneiros", "kalypso", "generic"]
+    calls_made: int = Field(ge=0)
+    calls_succeeded: int = Field(ge=0)
+    primitives_emitted_total: int = Field(ge=0)
+    primitives_by_kind: dict[str, int] = Field(default_factory=dict)
+    mean_trajectory_entropy: float | None = None
+    mean_latent_steps: float | None = None
+    mean_sa_cycles: float | None = None
+    halted_reason_counts: dict[str, int] = Field(default_factory=dict)
+    verdict: Literal["completed", "partial", "failed"]
+    findings_emitted: int = Field(default=0, ge=0)
+    notes: str = Field(default="", max_length=4096)

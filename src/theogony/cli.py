@@ -2134,5 +2134,81 @@ def kadmos_read(
     )
 
 
+# ---------------------------------------------------------------------------
+# MNLM PoC — resumable crawl (mnlm_poc_brief.md §5 Track A)
+# ---------------------------------------------------------------------------
+
+
+async def _run_kadmos_crawl(
+    *,
+    batch_size: int,
+    max_failures: int,
+    kadmos_data_dir: Path | None,
+) -> None:
+    from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
+    from theogony.kadmos.crawl import CrawlCoordinator
+
+    settings = _load_settings()
+    llm = build_llm_from_settings(settings)
+    embedder = LocalSentenceTransformerEmbedder()
+
+    coordinator = CrawlCoordinator(
+        llm_provider=llm,
+        embedder=embedder,
+        kadmos_data_dir=kadmos_data_dir,
+        batch_size=batch_size,
+        max_failures=max_failures,
+    )
+    await coordinator.run()
+
+
+@kadmos_app.command("crawl")
+def kadmos_crawl(
+    batch_size: int = typer.Option(  # noqa: B008
+        20,
+        "--batch-size",
+        "-b",
+        help="Number of articles per batch (default: 20).",
+    ),
+    max_failures: int = typer.Option(  # noqa: B008
+        10,
+        "--max-failures",
+        "-m",
+        help="Stop after this many consecutive failures (default: 10).",
+    ),
+    kadmos_data_dir: Path | None = typer.Option(  # noqa: B008
+        None,
+        "--data-dir",
+        "-d",
+        help="Override the Kadmos data directory (default: data/kadmos).",
+    ),
+) -> None:
+    """Run the resumable MNLM PoC crawl over all 200 corpus articles.
+
+    Skips articles already recorded in docs/research/mnlm/poc/crawl_log.jsonl
+    with a non-failed verdict.  Press Ctrl+C to finish the current article
+    and stop gracefully; press Ctrl+C again to force-exit immediately.
+    """
+    asyncio.run(
+        _run_kadmos_crawl(
+            batch_size=batch_size,
+            max_failures=max_failures,
+            kadmos_data_dir=kadmos_data_dir,
+        )
+    )
+
+
+@kadmos_app.command("crawl-status")
+def kadmos_crawl_status() -> None:
+    """Show crawl progress from the latest crawl_log.jsonl.
+
+    Reads docs/research/mnlm/poc/crawl_log.jsonl and computes per-domain
+    and overall progress.  Safe to run while a crawl is in progress.
+    """
+    from theogony.kadmos.crawl import print_crawl_status
+
+    print_crawl_status()
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()

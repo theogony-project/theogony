@@ -15,6 +15,7 @@ Phoenix re-embedding pass can target only stale-model nodes.
 from __future__ import annotations
 
 import asyncio
+import threading
 from typing import Protocol, runtime_checkable
 
 from theogony.config.logging import get_logger
@@ -86,6 +87,7 @@ class LocalSentenceTransformerEmbedder:
         self._dim = dim
         self._cache_folder = cache_folder
         self._model: object | None = None  # SentenceTransformer; deferred import
+        self._load_lock = threading.Lock()
 
     @property
     def model_id(self) -> str:
@@ -96,8 +98,12 @@ class LocalSentenceTransformerEmbedder:
         return self._dim
 
     def _load_model(self) -> object:
-        """Lazy SentenceTransformer load. Synchronous, called inside to_thread."""
-        if self._model is None:
+        """Lazy SentenceTransformer load with thread safety."""
+        if self._model is not None:
+            return self._model
+        with self._load_lock:
+            if self._model is not None:
+                return self._model
             from sentence_transformers import SentenceTransformer
 
             log.info(
