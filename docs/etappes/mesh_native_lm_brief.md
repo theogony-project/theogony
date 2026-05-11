@@ -786,4 +786,67 @@ The five Round-1 artifacts in `docs/research/mnlm/` are preserved as input. They
 
 ---
 
-*Hesiod withdraws. The architecture belongs to Talos and to the experiments that decide §8 W6, W10, W12.*
+## 13. Sponsor-Track: Minimal PoC Pass
+
+**Purpose:** Before the full §8 sprint is feasible, the project needs to demonstrate that the architecture is buildable and that the key signals exist. This section defines a minimal, budget-constrained pass through the entire pipeline — not to produce a trained MNLM, but to produce evidence sufficient for a compute-sponsor pitch.
+
+The §8 roadmap is not modified. The PoC pass is a precursor to it, executed with reduced corpus, reduced training steps, and reduced model size where permitted.
+
+### 13.1 What the PoC pass proves — and does not prove
+
+**Proves:**
+- The Graph-KV adapter integrates with a frozen Llama-class base model without numerical degeneration
+- The LFM-GAE decoder head produces `MeshDelta` objects that pass Pydantic validation at the sealed-union level
+- The Substrate-Resonant Recurrence loop runs within the latency budget (~25–100 ms per SA call) on the existing `TensorMeshEngine`
+- Phase A loss decreases monotonically on the micro-corpus (the supervised signal is real)
+- The Phase B SA-alignment reward discriminates between better and worse candidate deltas (the RL signal is real)
+- Directional binding accuracy is above chance on Mini-DBB-20 (the architecture is not structurally broken)
+- The end-to-end pipeline executes: Kadmos article → `MeshInput` → MNLM → `MeshDelta` → SA query → activation result
+
+**Does not prove:**
+- That the model meets the §6 falsifier thresholds (95 % DBB-200, MuSiQue within 5 pt, Monkey-3 > baseline)
+- That the LFM head converges stably at production corpus scale
+- That Phase B GRPO training converges to a good policy
+- Any production-readiness claim
+
+The PoC pass is an existence proof, not a quality proof. The quality proof is §8.
+
+### 13.2 Scaled-down execution plan
+
+| Step | §8 Full Scale | §13 PoC Scale | Compute |
+|---|---|---|---|
+| Schemas + scaffolding (§10 W1–2) | Full — unchanged | **Identical to §8.** No compromise on schemas. | 0 GPU-h |
+| Graph-KV + Recurrence smoke test | Llama-3-8B-Instruct, FP16 | **Llama-3.2-1B** (4-bit quant), forward pass only. | ~1–2 GPU-h |
+| Kadmos amendment (§7, W4) | Full amendment, 200 LoC | **Identical to §8.** Contract compliance is not scaled. | 0 GPU-h |
+| Phase A micro-training (W5–6) | 10 k articles, ~5 M pairs, 1 epoch | **200 articles, ~50 k pairs, 2 000–5 000 gradient steps.** Convergence not required; loss must decrease. | ~5–10 GPU-h |
+| Mini-DBB-20 (instead of DBB-200) | 200 pairs, ≥ 95 % target | **20 pairs, target: accuracy > 60 % (above chance).** Not a pass/fail gate — a direction signal. | ~1–2 GPU-h |
+| Phase B micro-GRPO (W7–8) | 50 k episodes, K = 8 | **1 000 episodes, K = 4.** Goal: reward mean rises over first 500 episodes. | ~5–10 GPU-h |
+| Mini-MuSiQue (50 questions) | 500 questions, two thresholds | **50 questions, no hard threshold.** Record accuracy; note direction vs text-RAG baseline. | ~1 GPU-h |
+| Mini-Monkey-3 (10 pairs, 2 raters) | 100 pairs, 5 raters, κ ≥ 0.7 | **10 pairs, 2 raters, qualitative only.** No statistical significance test. | 0 GPU-h + ~2 h human time |
+| **Total** | **280–520 GPU-h, ~850–1 600 EUR** | **~15–25 GPU-h, ~15–50 EUR** | |
+
+### 13.3 Model choice for the PoC
+
+§3.1 locks **Llama-3-8B-Instruct** as the production base model. That decision is not changed.
+
+For the PoC pass, **Llama-3.2-1B** (or equivalent 1 B-class open-weights model) is permitted as the pipeline validator. Rationale: the PoC is testing whether the *stack* runs, not whether the *model* meets the §6.1 directional-binding threshold. A 1 B model is expected to produce weaker binding accuracy than 8 B — this is acceptable at PoC scale. The jump to 8 B is the first thing the sponsor budget buys.
+
+If the PoC uses a 1 B model, the Mini-DBB-20 result must be reported as "1B-class model, not directly comparable to §6.1" in the `MnlmRunReport`. Do not report it as a scaled-down version of the Stage-1 falsifier — it is a pipeline smoke test, not a falsifier result.
+
+### 13.4 Output artifacts the PoC must produce
+
+Talos commits the following to `docs/research/mnlm/poc/` after the PoC pass:
+
+1. `poc_run_report.md` — a `MnlmRunReport`-structured narrative covering: which model was used, how many training steps, Mini-DBB-20 accuracy, Phase B reward curve (start vs end), Mini-MuSiQue result, Mini-Monkey-3 qualitative notes, honest failure modes observed, and an explicit statement of what the PoC does and does not prove.
+2. `poc_pipeline_trace.json` — one end-to-end trace: a single Kadmos article ingested, a single `MeshInput` produced, a single `MeshDelta` emitted, a single SA result returned. Stored as a reproducible fixture for sponsor demonstrations.
+3. `poc_reward_curve.png` — the Phase B micro-GRPO reward curve (1 000 episodes). A rising curve is the signal; a flat or falling curve is a finding that requires investigation before the sponsor pitch.
+
+### 13.5 Sponsor handoff
+
+After the PoC artifacts are committed, the human commander reviews `poc_run_report.md`. If the pipeline ran and the signals are directionally positive (loss fell in Phase A, reward rose in Phase B, Mini-DBB-20 > 60 %), file a Phoenix Backlog ticket `PHX-####: sponsor compute acquisition for MNLM §8 full run` with the PoC artifacts attached as evidence. Then wait for compute access before executing §8.
+
+If the PoC produces a negative signal (loss does not fall, reward is flat, Mini-DBB-20 ≈ 50 %), do not pitch the sponsor. File a Phoenix Backlog ticket against this brief and escalate to Daedalus. The PoC has done its job: it found the failure cheaply, before spending 1 600 EUR on a broken design.
+
+---
+
+*Hesiod withdraws. The architecture belongs to Talos and to the experiments that decide §8 W6, W10, W12 — and, before those, to the PoC pass in §13 that earns the right to run them.*
