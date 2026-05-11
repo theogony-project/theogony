@@ -538,92 +538,93 @@ class CrawlCoordinator:
 
         elapsed = time.monotonic() - start_time
 
-        # Persist AnnotatedReading JSON
-        ar_dir = self._kadmos_data_dir / "readings"
-        ar_dir.mkdir(parents=True, exist_ok=True)
-        ar_path = ar_dir / f"{session_id}.json"
-        ar_path.write_text(annotated.model_dump_json(indent=2), encoding="utf-8")
-
-        # Crosslink into the global Chronicle
-        try:
-            from theogony.kadmos.crosslink import ChronikCrosslinker
-
-            # Collect synthesis nodes (meta-concepts) first, then concepts
-            crosslink_nodes: list[dict] = []
-            for synth in annotated.final_syntheses:
-                emb = await self._embedder.embed(synth.label + ": " + synth.description)
-                emb_vec = emb[:384] if len(emb) >= 384 else emb + [0.0] * (384 - len(emb))
-                crosslink_nodes.append(
-                    {
-                        "id": f"SYNTH-{synth.id[:20]}",
-                        "label": synth.label,
-                        "embedding": emb_vec,
-                        "node_type": "synthesis",
-                        "source_anchor": (
-                            f"{annotated.source_url}#synthesis-{synth.synthesis_level}"
-                        ),
-                    }
-                )
-            for concept in annotated.final_active_concepts:
-                text = concept.label
-                if concept.description:
-                    text += " " + concept.description
-                emb = await self._embedder.embed(text)
-                emb_vec = emb[:384] if len(emb) >= 384 else emb + [0.0] * (384 - len(emb))
-                crosslink_nodes.append(
-                    {
-                        "id": f"CONC-{concept.id[:20]}",
-                        "label": concept.label,
-                        "embedding": emb_vec,
-                        "node_type": "concept",
-                        "source_anchor": f"{annotated.source_url}#step-{concept.step_created}",
-                    }
-                )
-
-            crosslinker = ChronikCrosslinker(
-                db_path=self._kadmos_data_dir / "chronicle",
-            )
-            crosslink_result = crosslinker.ingest_and_link(
-                embedder=self._embedder,
-                new_nodes=crosslink_nodes,
-                new_edges=[],
-                source_domain=domain,
-            )
-            log.info(
-                "crawl: crosslink session=%s %d nodes written, %d crosslinks",
-                session_id,
-                crosslink_result["nodes_written"],
-                crosslink_result["crosslinks_created"],
-            )
-        except Exception as exc:
-            log.warning("crawl: crosslink failed session=%s error=%s", session_id, exc)
-
-        # Export MeshInput (post-embedding pass, §7 amendment)
-        try:
-            from theogony.kadmos.mesh_export import annotated_reading_to_mesh_input
-
-            mesh_input = annotated_reading_to_mesh_input(
-                annotated,
-                self._embedder,
-                role="generic",
-                run_id=session_id,
-            )
-            mi_dir = self._mesh_inputs_dir
-            mi_dir.mkdir(parents=True, exist_ok=True)
-            mi_path = mi_dir / f"{session_id}.json"
-            mi_path.write_text(mesh_input.model_dump_json(indent=2), encoding="utf-8")
-            log.info(
-                "crawl: mesh_input exported session=%s path=%s (%d nodes, %d edges)",
-                session_id,
-                mi_path,
-                len(mesh_input.nodes),
-                len(mesh_input.edges),
-            )
-        except Exception as exc:
-            log.warning("crawl: mesh_input export failed session=%s error=%s", session_id, exc)
-
         # Map KadmosRunReport status to crawl verdict
         report_verdict = report.status  # "completed", "partial", "failed"
+
+        # Only persist, crosslink, and export if the session produced content
+        if annotated.total_concepts > 0:
+            # Persist AnnotatedReading JSON
+            ar_dir = self._kadmos_data_dir / "readings"
+            ar_dir.mkdir(parents=True, exist_ok=True)
+            ar_path = ar_dir / f"{session_id}.json"
+            ar_path.write_text(annotated.model_dump_json(indent=2), encoding="utf-8")
+
+            # Crosslink into the global Chronicle
+            try:
+                from theogony.kadmos.crosslink import ChronikCrosslinker
+
+                crosslink_nodes: list[dict] = []
+                for synth in annotated.final_syntheses:
+                    emb = await self._embedder.embed(synth.label + ": " + synth.description)
+                    emb_vec = emb[:384] if len(emb) >= 384 else emb + [0.0] * (384 - len(emb))
+                    crosslink_nodes.append(
+                        {
+                            "id": f"SYNTH-{synth.id[:20]}",
+                            "label": synth.label,
+                            "embedding": emb_vec,
+                            "node_type": "synthesis",
+                            "source_anchor": (
+                                f"{annotated.source_url}#synthesis-{synth.synthesis_level}"
+                            ),
+                        }
+                    )
+                for concept in annotated.final_active_concepts:
+                    text = concept.label
+                    if concept.description:
+                        text += " " + concept.description
+                    emb = await self._embedder.embed(text)
+                    emb_vec = emb[:384] if len(emb) >= 384 else emb + [0.0] * (384 - len(emb))
+                    crosslink_nodes.append(
+                        {
+                            "id": f"CONC-{concept.id[:20]}",
+                            "label": concept.label,
+                            "embedding": emb_vec,
+                            "node_type": "concept",
+                            "source_anchor": f"{annotated.source_url}#step-{concept.step_created}",
+                        }
+                    )
+
+                crosslinker = ChronikCrosslinker(
+                    db_path=self._kadmos_data_dir / "chronicle",
+                )
+                crosslink_result = crosslinker.ingest_and_link(
+                    embedder=self._embedder,
+                    new_nodes=crosslink_nodes,
+                    new_edges=[],
+                    source_domain=domain,
+                )
+                log.info(
+                    "crawl: crosslink session=%s %d nodes written, %d crosslinks",
+                    session_id,
+                    crosslink_result["nodes_written"],
+                    crosslink_result["crosslinks_created"],
+                )
+            except Exception as exc:
+                log.warning("crawl: crosslink failed session=%s error=%s", session_id, exc)
+
+            # Export MeshInput (post-embedding pass, §7 amendment)
+            try:
+                from theogony.kadmos.mesh_export import annotated_reading_to_mesh_input
+
+                mesh_input = annotated_reading_to_mesh_input(
+                    annotated,
+                    self._embedder,
+                    role="generic",
+                    run_id=session_id,
+                )
+                mi_dir = self._mesh_inputs_dir
+                mi_dir.mkdir(parents=True, exist_ok=True)
+                mi_path = mi_dir / f"{session_id}.json"
+                mi_path.write_text(mesh_input.model_dump_json(indent=2), encoding="utf-8")
+                log.info(
+                    "crawl: mesh_input exported session=%s path=%s (%d nodes, %d edges)",
+                    session_id,
+                    mi_path,
+                    len(mesh_input.nodes),
+                    len(mesh_input.edges),
+                )
+            except Exception as exc:
+                log.warning("crawl: mesh_input export failed session=%s error=%s", session_id, exc)
 
         return CrawlArticleResult(
             title=title,
