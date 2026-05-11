@@ -1,0 +1,1202 @@
+[
+  {
+    "title": "Bernoulli's principle",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Bernoulli's_principle",
+    "monkey3_pair": "Ohm's law"
+  },
+  {
+    "title": "Ohm's law",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Ohm's_law",
+    "monkey3_pair": "Bernoulli's principle"
+  },
+  {
+    "title": "Entropy",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Entropy",
+    "monkey3_pair": "Entropy (information theory)"
+  },
+  {
+    "title": "Thermodynamics",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Thermodynamics",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Fluid dynamics",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Fluid_dynamics",
+    "monkey3_pair": "Eigenvalues and eigenvectors"
+  },
+  {
+    "title": "Maxwell's equations",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Maxwell's_equations",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Special relativity",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Special_relativity",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Wave–particle duality",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Wave-particle_duality",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Conservation of energy",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Conservation_of_energy",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Electromagnetism",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Electromagnetism",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Kinetic theory of gases",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Kinetic_theory_of_gases",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Second law of thermodynamics",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Second_law_of_thermodynamics",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Heat transfer",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Heat_transfer",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Navier–Stokes equations",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Navier-Stokes_equations",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Quantum mechanics",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Quantum_mechanics",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Classical mechanics",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Classical_mechanics",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Newton's laws of motion",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Newton's_laws_of_motion",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Statistical mechanics",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Statistical_mechanics",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Electromagnetic radiation",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Electromagnetic_radiation",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Quantum field theory",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Quantum_field_theory",
+    "monkey3_pair": null
+  },
+  {
+    "title": "General relativity",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/General_relativity",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Speed of light",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Speed_of_light",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Momentum",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Momentum",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Friction",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Friction",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Gravity",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Gravity",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Magnetism",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Magnetism",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Electric charge",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Electric_charge",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Electric current",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Electric_current",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Thermal conduction",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Thermal_conduction",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Phase transition",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Phase_transition",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Brownian motion",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Brownian_motion",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Laminar flow",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Laminar_flow",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Turbulence",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Turbulence",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Doppler effect",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Doppler_effect",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Diffraction",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Diffraction",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Interference (wave propagation)",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Interference_(wave_propagation)",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Optics",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Optics",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Photon",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Photon",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Electron",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Electron",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Atomic theory",
+    "domain": "physics",
+    "url": "https://en.wikipedia.org/wiki/Atomic_theory",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Natural selection",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Natural_selection",
+    "monkey3_pair": "Markov chain"
+  },
+  {
+    "title": "Cell membrane",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Cell_membrane",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Action potential",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Action_potential",
+    "monkey3_pair": null
+  },
+  {
+    "title": "DNA replication",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/DNA_replication",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Immune system",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Immune_system",
+    "monkey3_pair": "Feedback"
+  },
+  {
+    "title": "Protein folding",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Protein_folding",
+    "monkey3_pair": "Fixed-point theorem"
+  },
+  {
+    "title": "Homeostasis",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Homeostasis",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Synaptic plasticity",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Synaptic_plasticity",
+    "monkey3_pair": "Bayes' theorem"
+  },
+  {
+    "title": "Enzyme catalysis",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Enzyme_catalysis",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Capillary action",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Capillary_action",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Evolution",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Evolution",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Cell (biology)",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Cell_(biology)",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Mitosis",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Mitosis",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Meiosis",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Meiosis",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Photosynthesis",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Photosynthesis",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Cellular respiration",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Cellular_respiration",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Gene expression",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Gene_expression",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Transcription (biology)",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Transcription_(biology)",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Translation (biology)",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Translation_(biology)",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Central dogma of molecular biology",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Central_dogma_of_molecular_biology",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Neurotransmission",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Neurotransmission",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Neuron",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Neuron",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Synapse",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Synapse",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Cell cycle",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Cell_cycle",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Lipid bilayer",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Lipid_bilayer",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Active transport",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Active_transport",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Passive transport",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Passive_transport",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Apoptosis",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Apoptosis",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Cell signaling",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Cell_signaling",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Metabolism",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Metabolism",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Glycolysis",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Glycolysis",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Krebs cycle",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Krebs_cycle",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Oxidative phosphorylation",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Oxidative_phosphorylation",
+    "monkey3_pair": null
+  },
+  {
+    "title": "DNA",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/DNA",
+    "monkey3_pair": null
+  },
+  {
+    "title": "RNA",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/RNA",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Mutation",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Mutation",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Genetic drift",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Genetic_drift",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Speciation",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Speciation",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Ecology",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Ecology",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Population dynamics",
+    "domain": "biology",
+    "url": "https://en.wikipedia.org/wiki/Population_dynamics",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Graph theory",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Graph_theory",
+    "monkey3_pair": "Printing press"
+  },
+  {
+    "title": "Markov chain",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Markov_chain",
+    "monkey3_pair": "Natural selection"
+  },
+  {
+    "title": "Fourier transform",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Fourier_transform",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Fixed-point theorem",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Fixed-point_theorem",
+    "monkey3_pair": "Protein folding"
+  },
+  {
+    "title": "Eigenvalues and eigenvectors",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Eigenvalues_and_eigenvectors",
+    "monkey3_pair": "Fluid dynamics"
+  },
+  {
+    "title": "Cellular automaton",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Cellular_automaton",
+    "monkey3_pair": "Industrial Revolution"
+  },
+  {
+    "title": "Information theory",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Information_theory",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Bayes' theorem",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Bayes'_theorem",
+    "monkey3_pair": "Synaptic plasticity"
+  },
+  {
+    "title": "Topology",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Topology",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Network theory",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Network_theory",
+    "monkey3_pair": "Roman Empire"
+  },
+  {
+    "title": "Set theory",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Set_theory",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Probability theory",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Probability_theory",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Linear algebra",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Linear_algebra",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Calculus",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Calculus",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Differential equation",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Differential_equation",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Game theory",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Game_theory",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Chaos theory",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Chaos_theory",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Complex analysis",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Complex_analysis",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Group theory",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Group_theory",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Number theory",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Number_theory",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Statistics",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Statistics",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Bayesian inference",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Bayesian_inference",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Entropy (information theory)",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Entropy_(information_theory)",
+    "monkey3_pair": "Entropy"
+  },
+  {
+    "title": "Boolean algebra",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Boolean_algebra",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Combinatorics",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Combinatorics",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Category theory",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Category_theory",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Graph coloring",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Graph_coloring",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Random walk",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Random_walk",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Central limit theorem",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Central_limit_theorem",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Optimization (mathematics)",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Optimization_(mathematics)",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Convex optimization",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Convex_optimization",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Manifold",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Manifold",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Dimension",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Dimension",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Fractal",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Fractal",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Self-similarity",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Self-similarity",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Power law",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Power_law",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Statistical ensemble (mathematical physics)",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Statistical_ensemble_(mathematical_physics)",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Dynamic system",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Dynamic_system",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Perturbation theory",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Perturbation_theory",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Vector space",
+    "domain": "mathematics",
+    "url": "https://en.wikipedia.org/wiki/Vector_space",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Industrial Revolution",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Industrial_Revolution",
+    "monkey3_pair": "Cellular automaton"
+  },
+  {
+    "title": "Scientific Revolution",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Scientific_Revolution",
+    "monkey3_pair": null
+  },
+  {
+    "title": "French Revolution",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/French_Revolution",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Roman Empire",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Roman_Empire",
+    "monkey3_pair": "Network theory"
+  },
+  {
+    "title": "Byzantine Empire",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Byzantine_Empire",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Printing press",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Printing_press",
+    "monkey3_pair": "Graph theory"
+  },
+  {
+    "title": "Enlightenment (Age of Reason)",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Enlightenment_(Age_of_Reason)",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Cold War",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Cold_War",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Silk Road",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Silk_Road",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Renaissance",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Renaissance",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Age of Discovery",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Age_of_Discovery",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Industrialisation",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Industrialisation",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Columbian exchange",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Columbian_exchange",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Steam engine",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Steam_engine",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Factory system",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Factory_system",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Mass production",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Mass_production",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Feudalism",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Feudalism",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Mercantilism",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Mercantilism",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Capitalism",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Capitalism",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Protestant Reformation",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Protestant_Reformation",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Spanish Empire",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Spanish_Empire",
+    "monkey3_pair": null
+  },
+  {
+    "title": "British Empire",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/British_Empire",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Mongol Empire",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Mongol_Empire",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Ottoman Empire",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Ottoman_Empire",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Han dynasty",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Han_dynasty",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Tang dynasty",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Tang_dynasty",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Viking Age",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Viking_Age",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Bronze Age",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Bronze_Age",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Iron Age",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Iron_Age",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Agricultural revolution",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Agricultural_revolution",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Urbanization",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Urbanization",
+    "monkey3_pair": null
+  },
+  {
+    "title": "World War I",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/World_War_I",
+    "monkey3_pair": null
+  },
+  {
+    "title": "World War II",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/World_War_II",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Treaty of Westphalia",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Treaty_of_Westphalia",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Congress of Vienna",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Congress_of_Vienna",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Decolonization",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Decolonization",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Space Race",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Space_Race",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Information Age",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Information_Age",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Globalization",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Globalization",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Digital Revolution",
+    "domain": "history",
+    "url": "https://en.wikipedia.org/wiki/Digital_Revolution",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Epistemology",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Epistemology",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Emergence",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Emergence",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Systems thinking",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Systems_thinking",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Reductionism",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Reductionism",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Analogy",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Analogy",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Cognitive dissonance",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Cognitive_dissonance",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Mental model",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Mental_model",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Abstraction",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Abstraction",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Causality",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Causality",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Feedback",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Feedback",
+    "monkey3_pair": "Immune system"
+  },
+  {
+    "title": "Philosophy of science",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Philosophy_of_science",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Ontology",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Ontology",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Metaphysics",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Metaphysics",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Logic",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Logic",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Deductive reasoning",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Deductive_reasoning",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Inductive reasoning",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Inductive_reasoning",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Abductive reasoning",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Abductive_reasoning",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Scientific method",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Scientific_method",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Paradigm",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Paradigm",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Paradigm shift",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Paradigm_shift",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Heuristic",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Heuristic",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Bayesian probability",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Bayesian_probability",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Confirmation bias",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Confirmation_bias",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Cognitive bias",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Cognitive_bias",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Rationality",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Rationality",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Bounded rationality",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Bounded_rationality",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Decision theory",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Decision_theory",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Complex system",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Complex_system",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Self-organization",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Self-organization",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Attractor",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Attractor",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Nonlinear system",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Nonlinear_system",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Agent-based model",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Agent-based_model",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Distributed cognition",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Distributed_cognition",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Collective intelligence",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Collective_intelligence",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Swarm intelligence",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Swarm_intelligence",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Connectionism",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Connectionism",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Symbolic artificial intelligence",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Symbolic_artificial_intelligence",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Consciousness",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Consciousness",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Free will",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Free_will",
+    "monkey3_pair": null
+  },
+  {
+    "title": "Constructivism (philosophy of science)",
+    "domain": "philosophy",
+    "url": "https://en.wikipedia.org/wiki/Constructivism_(philosophy_of_science)",
+    "monkey3_pair": null
+  }
+]
