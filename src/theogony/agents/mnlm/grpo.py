@@ -147,8 +147,12 @@ class MicroGRPOTrainer:
             device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
         self._projector.to(device)
-        self._projector.train()
-        self._policy_params = self._policy_params.to(device)
+
+        # Move policy params to correct device while preserving Parameter wrapper
+        if self._policy_params.device != device:
+            self._policy_params = torch.nn.Parameter(
+                self._policy_params.to(device),
+            )
 
         optimizer = torch.optim.AdamW(
             [self._policy_params],
