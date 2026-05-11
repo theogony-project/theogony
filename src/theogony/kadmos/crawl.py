@@ -567,6 +567,30 @@ class CrawlCoordinator:
         ar_path = ar_dir / f"{session_id}.json"
         ar_path.write_text(annotated.model_dump_json(indent=2), encoding="utf-8")
 
+        # Export MeshInput (post-embedding pass, §7 amendment)
+        try:
+            from theogony.kadmos.mesh_export import annotated_reading_to_mesh_input
+
+            mesh_input = annotated_reading_to_mesh_input(
+                annotated,
+                self._embedder,
+                role="generic",
+                run_id=session_id,
+            )
+            mi_dir = self._mesh_inputs_dir
+            mi_dir.mkdir(parents=True, exist_ok=True)
+            mi_path = mi_dir / f"{session_id}.json"
+            mi_path.write_text(mesh_input.model_dump_json(indent=2), encoding="utf-8")
+            log.info(
+                "crawl: mesh_input exported session=%s path=%s (%d nodes, %d edges)",
+                session_id,
+                mi_path,
+                len(mesh_input.nodes),
+                len(mesh_input.edges),
+            )
+        except Exception as exc:
+            log.warning("crawl: mesh_input export failed session=%s error=%s", session_id, exc)
+
         # Map KadmosRunReport status to crawl verdict
         report_verdict = report.status  # "completed", "partial", "failed"
 
