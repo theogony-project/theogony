@@ -14,6 +14,7 @@ Produces phase_a_loss.jsonl (loss every 100 steps over 5000 steps).
 from __future__ import annotations
 
 import json
+import math
 import time
 from pathlib import Path
 from typing import Any
@@ -219,6 +220,12 @@ class PhaseATrainer:
         self._log_interval = log_interval
         self._loss_history: list[dict] = []
 
+    @staticmethod
+    def _cosine_lr(step: int, num_steps: int, min_lr_ratio: float = 0.1) -> float:
+        """Cosine LR schedule: eta * 0.5 * (1 + cos(pi * step / num_steps))."""
+        progress = step / max(num_steps, 1)
+        return min_lr_ratio + (1.0 - min_lr_ratio) * 0.5 * (1.0 + math.cos(math.pi * progress))
+
     def train(
         self,
         dataset: PhaseADataset,
@@ -227,10 +234,9 @@ class PhaseATrainer:
     ) -> list[dict]:
         """Run the training loop.
 
-        For the PoC, this trains the GraphProjector's cross-attention
-        parameters on the supervised targets.  The projector produces
-        prefix tokens, and we measure how well they predict primitive
-        kinds and node types.
+        Uses a proper Linear layer for kind_logits (not torch.randn)
+        and a persistent embedding projector (not recreated per step).
+        Cosine LR decay via math.cos.
         """
         if device is None:
             device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
@@ -239,10 +245,23 @@ class PhaseATrainer:
         self._projector.to(device)
         self._projector.train()
 
+        # Proper trainable prediction heads (not recreated per step)
+        llm_dim = self._projector._llm_dim
+        self._kind_head = nn.Linear(llm_dim, 8).to(device)
+        self._emb_head = nn.Linear(llm_dim, 384).to(device)
+        self._optimizer.add_param_group({"params": self._kind_head.parameters()})
+        self._optimizer.add_param_group({"params": self._emb_head.parameters()})
+
         start_time = time.monotonic()
         num_samples = dataset.size
+        base_lr = self._optimizer.param_groups[0]["lr"]
 
         for step in range(self._num_steps):
+            # Cosine LR update
+            lr_factor = self._cosine_lr(step, self._num_steps)
+            for pg in self._optimizer.param_groups:
+                pg["lr"] = base_lr * lr_factor
+
             # Sample random batch
             indices = torch.randint(0, max(num_samples, 1), (self._batch_size,)).tolist()
             if num_samples == 0:
@@ -250,7 +269,7 @@ class PhaseATrainer:
 
             model_inputs, targets = dataset.get_batch(indices, device)
 
-            # Forward pass through projector
+            # Forward through projector
             prefix = self._projector.forward(
                 node_embeddings=model_inputs["node_embeddings"],
                 edge_indices=model_inputs["edge_indices"],
@@ -258,40 +277,27 @@ class PhaseATrainer:
                 node_mask=model_inputs["node_mask"],
             )
 
-            # Compute losses
-            batch_size = prefix.size(0)
-
-            # 1. Cross-entropy: predict primitive kind from pooled prefix
-            pooled = prefix.mean(dim=1)  # (B, llm_dim)
-            kind_logits = torch.randn(batch_size, 8, device=device)  # placeholder
+            # 1. Cross-entropy via proper head
+            pooled = prefix.mean(dim=1)
+            kind_logits = self._kind_head(pooled)
             ce_loss = F.cross_entropy(kind_logits, targets["primitive_kind"])
 
-            # 2. MSE: predict embedding from pooled prefix
-            emb_proj = torch.nn.Linear(prefix.size(-1), 384, device=device)
-            emb_pred = emb_proj(pooled)
+            # 2. MSE via proper head
+            emb_pred = self._emb_head(pooled)
             mse_loss = F.mse_loss(emb_pred, targets["embedding_mse"])
 
-            # 3. Auxiliary trajectory-stability loss (placeholder)
-            aux_loss = torch.tensor(0.0, device=device)
-
-            total_loss = ce_loss + mse_loss + aux_loss
+            total_loss = ce_loss + mse_loss
 
             # Backward
             self._optimizer.zero_grad()
             total_loss.backward()
+            torch.nn.utils.clip_grad_norm_(self._projector.parameters(), max_norm=1.0)
             self._optimizer.step()
-
-            # Cosine LR decay
-            progress = step / max(self._num_steps, 1)
-            current_lr = self._optimizer.param_groups[0]["lr"]
-            if step > 0:
-                lr_factor = (1.0 + (self._num_steps - 1 - step) * progress) / self._num_steps
-                for pg in self._optimizer.param_groups:
-                    pg["lr"] = current_lr * max(0.1, lr_factor)
 
             # Logging
             if step % self._log_interval == 0 or step == self._num_steps - 1:
                 elapsed = time.monotonic() - start_time
+                current_lr = self._optimizer.param_groups[0]["lr"]
                 entry = {
                     "step": step,
                     "loss": round(total_loss.item(), 6),
