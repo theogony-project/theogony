@@ -233,14 +233,13 @@ class CrawlCoordinator:
                 done, total = self._domain_progress[domain]
                 self._domain_progress[domain] = (done + 1, total)
 
-        # Count how many are already done
+        # Count how many are already done — will be set via skip loop below
         already_done = sum(
             1
             for article in corpus
             if article["title"] in completed
             and completed[article["title"]].get("verdict") != "failed"
         )
-        self._skipped = already_done
 
         if already_done == len(corpus):
             self._console.print(
@@ -269,144 +268,122 @@ class CrawlCoordinator:
 
         self._setup_signal_handler()
         self._task_id = self._progress.add_task("Crawling", total=max(1, len(corpus)))
+        semaphore = asyncio.Semaphore(self._batch_size)
 
         try:
-            with Live(self._build_layout(), console=self._console, refresh_per_second=4) as live:
-                for _batch_idx, batch in enumerate(self._iter_batches(corpus)):
+            # First pass: collect remaining articles (skip completed)
+            remaining: list[dict] = []
+            for article in corpus:
+                title = article["title"]
+                if title in completed and completed[title].get("verdict") != "failed":
+                    self._skipped += 1
+                    continue
+                remaining.append(article)
+
+            if not remaining:
+                self._console.print(
+                    Panel.fit(
+                        f"[green]All {len(corpus)} articles already processed.[/green]",
+                        title="Crawl complete",
+                        border_style="green",
+                    )
+                )
+                return
+
+            log.info(
+                "crawl: starting — %d remaining, %d already done, parallel=%d",
+                len(remaining),
+                self._skipped,
+                self._batch_size,
+            )
+
+            async def process_with_sem(article: dict) -> dict | None:
+                """Process one article. Returns a log line dict or None."""
+                async with semaphore:
                     if self._shutdown_requested:
-                        self._console.print(
-                            "\n[yellow]Shutdown requested — stopping after current batch.[/yellow]"
-                        )
+                        return None
+                    title = article["title"]
+                    domain = article.get("domain", "unknown")
+                    url = article.get("url", "")
+
+                    log.info("crawl: starting %s (domain=%s)", title, domain)
+                    result = await self._process_one_article(
+                        title=title,
+                        domain=domain,
+                        url=url,
+                    )
+
+                    # Record in crawl log (append-safe across parallel tasks)
+                    log_entry = {
+                        "title": title,
+                        "domain": domain,
+                        "url": url,
+                        "verdict": result.verdict,
+                        "concept_count": result.concept_count,
+                        "edge_count": result.edge_count,
+                        "duration_s": round(result.duration_s, 1),
+                        "cost_eur": round(result.cost_eur, 6),
+                        "session_id": result.session_id,
+                    }
+                    self._append_to_crawl_log(log_entry)
+                    completed[title] = log_entry
+
+                    return log_entry
+
+            # Process in parallel batches
+            with Live(self._build_layout(), console=self._console, refresh_per_second=4) as live:
+                for batch_start in range(0, len(remaining), self._batch_size):
+                    if self._shutdown_requested:
+                        log.info("crawl: shutdown requested — stopping")
                         break
 
+                    batch = remaining[batch_start : batch_start + self._batch_size]
+                    batch_results = await asyncio.gather(*[process_with_sem(a) for a in batch])
+
+                    # Process results (sequential fast path — no LLM calls here)
                     batch_lines: list[str] = []
-                    for article in batch:
-                        if self._shutdown_requested:
-                            break
-
-                        processed_so_far = self._processed + self._skipped
-
-                        title = article["title"]
-                        domain = article.get("domain", "unknown")
-                        url = article.get("url", "")
-
-                        # Check if already completed
-                        if title in completed:
-                            existing = completed[title]
-                            if existing.get("verdict") != "failed":
-                                self._progress.update(
-                                    self._task_id,
-                                    advance=1,
-                                )
-                                batch_lines.append(f"[dim]{title} — already done, skipped[/dim]")
-                                continue
-                            else:
-                                # Previously failed — retry
-                                batch_lines.append(
-                                    f"[yellow]{title} — retrying after previous failure[/yellow]"
-                                )
-
-                        # Process the article
-                        log.info(
-                            "crawl: [%d/%d] starting %s (domain=%s)",
-                            processed_so_far + 1,
-                            self._total_articles,
-                            title,
-                            domain,
-                        )
-                        result = await self._process_one_article(
-                            title=title,
-                            domain=domain,
-                            url=url,
-                        )
-                        log.info(
-                            "crawl: [%d/%d] done %s — %s, %d concepts, %d edges, %.0fs, €%.4f",
-                            processed_so_far + 1,
-                            self._total_articles,
-                            title,
-                            result.verdict,
-                            result.concept_count,
-                            result.edge_count,
-                            result.duration_s,
-                            result.cost_eur,
-                        )
-
-                        # Every 5 articles, emit a progress summary line
-                        if processed_so_far > 0 and processed_so_far % 5 == 0:
-                            self._log_progress_summary()
-
-                        # Record in crawl log
-                        log_entry = {
-                            "title": title,
-                            "domain": domain,
-                            "url": url,
-                            "verdict": result.verdict,
-                            "concept_count": result.concept_count,
-                            "edge_count": result.edge_count,
-                            "duration_s": round(result.duration_s, 1),
-                            "cost_eur": round(result.cost_eur, 6),
-                            "session_id": result.session_id,
-                        }
-                        self._append_to_crawl_log(log_entry)
-
-                        # Also update the in-memory completed dict
-                        completed[title] = log_entry
-
-                        # Update domain progress
-                        done, total = self._domain_progress.get(domain, (0, 1))
-                        self._domain_progress[domain] = (done + 1, total)
-
-                        # Update global counters
+                    for _article, entry in zip(batch, batch_results, strict=True):
+                        if entry is None:
+                            continue
                         self._processed += 1
-                        self._total_cost_eur += result.cost_eur
-                        self._total_duration_s += result.duration_s
+                        self._total_cost_eur += entry["cost_eur"]
+                        self._total_duration_s += entry["duration_s"]
 
-                        if result.verdict == "failed":
-                            self._failed += 1
-                            self._consecutive_failures += 1
-                        else:
-                            self._consecutive_failures = 0
-                            if result.verdict == "partial":
-                                self._partial += 1
-
-                        self._progress.update(self._task_id, advance=1)
-
-                        # Check max consecutive failures
-                        if self._consecutive_failures >= self._max_failures:
-                            self._console.print(
-                                f"\n[bold red]Stopping: {self._max_failures} consecutive "
-                                f"failures.[/bold red]"
-                            )
-                            batch_lines.append(
-                                f"[red]{title} — {result.verdict} "
-                                f"({self._consecutive_failures}/"
-                                f"{self._max_failures} consecutive)[/red]"
-                            )
-                            live.update(self._build_layout(batch_lines))
-                            await asyncio.sleep(0.1)  # let live render
-                            return
-
-                        # Build status line
                         verdict_style = {
                             "completed": "green",
                             "partial": "yellow",
                             "failed": "red",
-                        }.get(result.verdict, "white")
+                        }.get(entry["verdict"], "white")
                         batch_lines.append(
-                            f"[{verdict_style}]{title}[/{verdict_style}] — "
-                            f"{result.verdict}, "
-                            f"{result.concept_count} concepts, "
-                            f"{result.edge_count} edges, "
-                            f"{result.duration_s:.0f}s, "
-                            f"€{result.cost_eur:.4f}"
+                            f"[{verdict_style}]{entry['title']}[/{verdict_style}] — "
+                            f"{entry['verdict']}, {entry['concept_count']} concepts, "
+                            f"{entry['edge_count']} edges, {entry['duration_s']:.0f}s, "
+                            f"€{entry['cost_eur']:.4f}"
                         )
 
-                    live.update(self._build_layout(batch_lines))
-                    await asyncio.sleep(0.1)  # let live render
+                        if entry["verdict"] == "failed":
+                            self._failed += 1
+                            self._consecutive_failures += 1
+                        else:
+                            self._consecutive_failures = 0
+                            if entry["verdict"] == "partial":
+                                self._partial += 1
 
-                    # Brief pause between batches to let rate limits settle
-                    if not self._shutdown_requested:
-                        await asyncio.sleep(1)
+                        # Update domain progress
+                        domain = entry["domain"]
+                        done, total = self._domain_progress.get(domain, (0, 1))
+                        self._domain_progress[domain] = (done + 1, total)
+
+                    self._log_progress_summary()
+                    live.update(self._build_layout(batch_lines))
+                    await asyncio.sleep(0.1)
+
+                    if self._consecutive_failures >= self._max_failures:
+                        log.warning(
+                            "crawl: stopping — %d consecutive failures",
+                            self._consecutive_failures,
+                        )
+                        break
 
         finally:
             self._restore_signal_handler()
