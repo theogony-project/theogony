@@ -35,16 +35,20 @@ if TYPE_CHECKING:
 
 log = get_logger("kadmos.crosslink")
 
-# Default similarity threshold — only create edges above this cosine similarity
-_DEFAULT_SIMILARITY_THRESHOLD = 0.65
-
-# Max similar nodes to retrieve per query
+# Max similar candidates to retrieve per query
 _DEFAULT_TOP_K = 50
 
-# How many of the top-K results to actually link.
-# Following the user spec: ~2-5% of new nodes link, each connecting to
-# up to ~50 existing nodes. We take the top results above threshold.
+# How many edges a single new node may create at most
 _MAX_EDGES_PER_NODE = 50
+
+# Minimum cosine similarity to create any edge (hard floor)
+_MIN_SIMILARITY_FLOOR = 0.50
+
+# For regular concept nodes: top fraction that receives links (~3%)
+_CONCEPT_LINK_FRACTION = 0.03
+
+# For synthesis (meta-concept) nodes: top fraction (~20%)
+_SYNTHESIS_LINK_FRACTION = 0.20
 
 
 class ChronikCrosslinker:
@@ -67,9 +71,10 @@ class ChronikCrosslinker:
         self,
         db_path: str | Path = "data/chronicle",
         embedding_dim: int = 384,
-        similarity_threshold: float = _DEFAULT_SIMILARITY_THRESHOLD,
         top_k: int = _DEFAULT_TOP_K,
         max_edges_per_node: int = _MAX_EDGES_PER_NODE,
+        concept_link_fraction: float = _CONCEPT_LINK_FRACTION,
+        synthesis_link_fraction: float = _SYNTHESIS_LINK_FRACTION,
     ) -> None:
         self._db_path = Path(db_path)
         self._db_path.mkdir(parents=True, exist_ok=True)
@@ -78,9 +83,10 @@ class ChronikCrosslinker:
 
         self._db: lancedb.LanceDBConnection = lancedb.connect(str(self._db_path))
         self._dim = embedding_dim
-        self._threshold = similarity_threshold
         self._top_k = top_k
         self._max_edges_per_node = max_edges_per_node
+        self._concept_link_fraction = concept_link_fraction
+        self._synthesis_link_fraction = synthesis_link_fraction
 
         self._init_tables()
 
@@ -194,15 +200,18 @@ class ChronikCrosslinker:
         existing_count = self.node_count - len(new_nodes)
 
         if existing_count > 0:
-            # Find matches for synthesis nodes first (meta-concepts preferred)
+            # Synthesis nodes (meta-concepts): link broadly
             for n in synthesis_nodes:
                 matches = self._find_similar(n["id"], n["embedding"])
-                crosslinks.extend(self._make_cross_edges(n, matches))
+                # Take top fraction of matches (e.g. 20% of top-K)
+                keep = max(1, int(len(matches) * self._synthesis_link_fraction))
+                crosslinks.extend(self._make_cross_edges(n, matches[:keep]))
 
-            # Find matches for regular concept nodes (lower priority)
+            # Regular concept nodes: link sparsely
             for n in concept_nodes:
                 matches = self._find_similar(n["id"], n["embedding"])
-                crosslinks.extend(self._make_cross_edges(n, matches))
+                keep = max(1, int(len(matches) * self._concept_link_fraction))
+                crosslinks.extend(self._make_cross_edges(n, matches[:keep]))
 
         # Step 5: write all edges (intra-article + crosslinks)
         all_edges = list(new_edges) + crosslinks
@@ -210,13 +219,12 @@ class ChronikCrosslinker:
             self._write_edges(all_edges)
 
         log.info(
-            "crosslink: domain=%s nodes=%d edges=%d crosslinks=%d matches_found=%d "
+            "crosslink: domain=%s nodes=%d edges=%d crosslinks=%d "
             "chronicle_total_nodes=%d chronicle_total_edges=%d",
             source_domain,
             nodes_written,
             len(new_edges),
             len(crosslinks),
-            sum(1 for c in crosslinks if c["weight"] > self._threshold),
             self.node_count,
             self.edge_count,
         )
@@ -273,11 +281,9 @@ class ChronikCrosslinker:
                 "id": r["id"],
                 "label": r.get("label", ""),
                 "node_type": r.get("node_type", "concept"),
-                # LanceDB cosine distance is in [0, 2]; convert to similarity [0, 1]
                 "score": max(0.0, 1.0 - r.get("_distance", 0) / 2.0),
             }
             for r in results
-            if (1.0 - r.get("_distance", 0) / 2.0) >= self._threshold
         ]
 
     def _make_cross_edges(self, source_node: dict, matches: list[dict]) -> list[dict]:
@@ -286,6 +292,9 @@ class ChronikCrosslinker:
 
         edges = []
         for m in matches[: self._max_edges_per_node]:
+            weight = round(m["score"], 4)
+            if weight < _MIN_SIMILARITY_FLOOR:
+                continue
             # Deterministic edge ID
             raw = f"cross/{source_node['id']}->{m['id']}"
             eid = "EDGE-" + hashlib.sha256(raw.encode()).hexdigest()[:12]
