@@ -263,6 +263,7 @@ class ChronikCrosslinker:
 
         results = (
             self._nodes_tbl.search(query_embedding)
+            .metric("cosine")
             .where(f"id != '{query_id}'")
             .limit(min(self._top_k, 200))
             .to_list()
@@ -272,10 +273,11 @@ class ChronikCrosslinker:
                 "id": r["id"],
                 "label": r.get("label", ""),
                 "node_type": r.get("node_type", "concept"),
-                "score": r["_distance"],
+                # LanceDB cosine distance is in [0, 2]; convert to similarity [0, 1]
+                "score": max(0.0, 1.0 - r.get("_distance", 0) / 2.0),
             }
             for r in results
-            if r.get("_distance", 0) >= self._threshold
+            if (1.0 - r.get("_distance", 0) / 2.0) >= self._threshold
         ]
 
     def _make_cross_edges(self, source_node: dict, matches: list[dict]) -> list[dict]:
