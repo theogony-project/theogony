@@ -91,6 +91,9 @@ dev = [
     # MCP SDK so test_mcp_server.py runs inside the dev matrix without
     # forcing humans to install the optional ``mcp`` extra by hand.
     "mcp>=1.0.0",
+    # Import-linter for MNLM boundary enforcement (§3.6):
+    # prevents text-generation imports from leaking into the MNLM module.
+    "import-linter>=1.12",
 ]
 gemini = [
     "google-genai>=1.0.0",
@@ -218,3 +221,16 @@ Must pass with InMemory store + StubLLM — no real services, no money spent."""
     """live_anthropic: optional real Anthropic planner / web_search smoke (W11). \
 Run locally with ANTHROPIC_API_KEY and THEOGONY_RUN_LIVE_ANTHROPIC=1; never enabled in CI.""",
 ]
+
+# --- Import-linter contracts -----------------------------------------------
+# MNLM boundary text enforcement (mesh_native_lm_brief.md §3.6):
+# Forbid the MNLM module from importing any text-generation pipeline.
+[tool.importlinter]
+root_package = "theogony"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "MNLM no text generation"
+type = "forbidden"
+source_modules = ["theogony.agents.mnlm"]
+forbidden_modules = ["transformers"]
