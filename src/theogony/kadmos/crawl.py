@@ -294,7 +294,6 @@ class CrawlCoordinator:
                         if title in completed:
                             existing = completed[title]
                             if existing.get("verdict") != "failed":
-                                self._skipped += 1
                                 self._progress.update(
                                     self._task_id,
                                     advance=1,
