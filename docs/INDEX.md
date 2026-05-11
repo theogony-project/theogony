@@ -122,6 +122,7 @@ This path is about open problems, future directions, and the long-horizon princi
 
 ### Deep Concept Documents
 
+- [`CHRONIK_SCALE.md`](CHRONIK_SCALE.md): concrete scale analysis — node/edge counts, storage estimates, infrastructure tiers, and operating costs at each scale from PoC to full public knowledge corpus; the perishable companion to `PANTHEON_VISION.md §"The Scale of the Chronik"`
 - [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md): the deeper substrate and future shape of the system
 - [`CHRONESE.md`](CHRONESE.md): the proposed canonical semantic language of the Chronik
 - [`METIS.md`](METIS.md): the advisory agent and situational wisdom layer

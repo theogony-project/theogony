@@ -159,6 +159,79 @@ Therefore the Pantheon must treat privacy as **operationally essential**, even i
 
 This is not hypocrisy. It is architectural seriousness about time horizons.
 
+## The Federated Substrate
+
+Privacy is not merely a constraint on the Pantheon — it is a design property that makes the Pantheon richer, not poorer.
+
+The Chronik is not a monolithic public database. It is a **federated mesh** in which knowledge of different provenance, trust level, and ownership exists in distinct but interconnected sub-meshes, connected to the global Chronik via bridge nodes.
+
+### The three tiers
+
+**Global public layer.** Wikipedia, scientific literature, web content, open corpora. Fully visible to any agent. The redundancy-collapsed, contradiction-tracked, provenance-anchored common substrate. This is what the project builds first.
+
+**Institutional layer.** A company's internal knowledge base. A research group's working hypotheses. A hospital's clinical observations. A government agency's operational records. Each institution owns a sub-mesh: fully connected to the global layer at the concept level, but with internal nodes and edges accessible only to authorised agents. An institution contributes to the global layer by increasing edge density on shared bridge concepts — without exposing its own internal structure.
+
+**Personal layer.** An individual's private conversations, notes, reading history, decisions, and experiences. A personal sub-mesh connects to the global Chronik via bridge nodes — shared concepts like "quantum entanglement" or "inflation" — but the personal edges (what this person believes about inflation, how they experienced a specific event, what they infer from a private conversation) are inaccessible to any agent not holding their key.
+
+### Bridge nodes as the connection mechanism
+
+A **bridge node** is a concept that exists in both the global layer and a sub-mesh. Its embedding is public — the concept "natural selection" means the same thing everywhere. What differs is the edge list: the global layer has edges to thousands of other public concepts; the personal sub-mesh has edges to private concepts like a specific research decision or a private reading note.
+
+Spreading Activation propagates through bridge nodes in both directions, subject to the permission context of the querying agent:
+
+- **With permission:** activation flows from the public mesh through the bridge node into the private sub-mesh, retrieves private edges and private nodes, and returns enriched activation back into the global graph. The authorised agent reasons with the full mesh simultaneously.
+- **Without permission:** activation reaches the bridge node, observes that private edges exist (their count and weight distribution may be visible as metadata), and stops. The unauthorised agent knows that *something* is there — the bridge node has unusual connectivity — but cannot follow the edges.
+
+### Knowledge sovereignty
+
+An individual or institution that contributes to the Pantheon does not lose control of their contribution. They own a semantically addressed slice of the meaning space. Their private nodes are theirs; their bridge nodes enrich the global graph; the enrichment is real even when the source is invisible.
+
+This is the inverse of the current web economy, in which personal data is extracted from individuals, aggregated centrally, and returned as opaque model weights that no individual controls. The federated Chronik keeps the personal edge list with its owner while making the bridge-node enrichment available to the commons.
+
+### Redundancy collapse across tiers
+
+The insight from the tiered model: **knowledge does not grow linearly with the number of sources**. When an institution ingests the same physical law from its internal research documents that already exists in the public Chronik, no new node is created — a `MergeNodes` primitive identifies the shared concept and adds institutional edges to the existing bridge node. The node count stays constant; the edge density grows.
+
+This means the full federated Pantheon — global public layer plus thousands of institutional sub-meshes plus billions of personal sub-meshes — may have fewer unique concept nodes than naively expected, but an edge density that approaches and eventually exceeds the biological reference point of ~7,000 connections per neuron. The intelligence is in the edges. The edges are distributed across tiers. The concept nodes are the shared vocabulary.
+
+### What this requires technically
+
+The tiered architecture is not implemented in Gen 1. Gen 1 builds the global public layer correctly. But the data model must not foreclose federation:
+
+- `KnowledgeNode.layer` already distinguishes `ephemera` from `mneme`; a future `visibility` field (`public / org / personal`) extends this without schema breakage.
+- The `source_anchor` provenance field already carries a source identity; a `tenant_id` extension links nodes to their owning sub-mesh.
+- Spreading Activation already operates on a permission-agnostic sparse matrix; a permission mask applied to the CSR tensor before each SA call is the minimal federation mechanism.
+
+The Gen 1 substrate is built such that these extensions land as additions, not rewrites.
+
+## The Scale of the Chronik
+
+Three principles govern the long-horizon scale of the Chronik. The concrete numbers — storage estimates, cost tiers, infrastructure requirements at each scale — are tracked separately in [`CHRONIK_SCALE.md`](CHRONIK_SCALE.md), which is updated as hardware prices and the codebase evolve. The principles below are stable.
+
+### The redundancy collapse principle
+
+Text-based knowledge systems store knowledge *instances* — each article, book chapter, or paragraph is a separate artefact. The same physical law appears in a hundred Wikipedia articles, in thousands of papers, in millions of web pages. Each instance is stored separately.
+
+The Chronik stores knowledge *once*. When Kadmos reads "Bernoulli's principle" in an article on fluid dynamics and then encounters the same concept in an article on aerofoils, the second pass does not create a second node — it emits a `MergeNodes` primitive that consolidates the two representations into one embedding and adds new edges from the new source context. The node count grows sublinearly with the number of sources. The edge count grows proportionally.
+
+**The consequence:** knowledge does not scale linearly with text volume. It scales with the number of *distinct concepts* in the world — which is bounded, and much smaller than the number of sentences written about them. The world's text encodes roughly 1–5 billion distinct concepts, expressed across trillions of sentences. The Chronik stores the concepts. Text stores the instantiations.
+
+### The biological reference point
+
+The human cerebral cortex contains ~16 billion neurons, each with ~7,000 synaptic connections. The Chronik does not need to reach neuron-scale node count to approach synaptic-scale connectivity — because consolidation keeps the node count far below what raw text volume implies. The intelligence is in the edges, not the nodes. Redundancy in source text becomes edge density in the substrate.
+
+This is also why more sources make the Chronik wiser rather than merely larger: each new source that describes an already-known concept adds edges to existing nodes, increasing connectivity without increasing node count.
+
+### The maintenance principle
+
+A Chronik does not get harder to operate as it gets wiser. Three mechanisms bound the growth:
+
+- **Hebbian decay:** edges not traversed by Spreading Activation lose strength over time. Dead knowledge loses connectivity; it does not accumulate as dead weight indefinitely.
+- **Consolidation:** `MergeNodes` and `Invalidate` primitives reduce node count over time as the MNLM and immune system identify duplicates and contradictions.
+- **Layered activation:** the `ephemera` / `mneme` layer distinction means only a fraction of the total graph is activated at any time. Most queries touch a small, dense neighbourhood; the global graph is the background from which that neighbourhood is drawn.
+
+The operational analogy is not a growing database — it is a brain that learns. It does not store every experience as a new memory; it integrates experiences into its existing structure. The Chronik grows richer, not merely larger.
+
 ## Non-Negotiable Principles
 
 ### 1. Provenance-first
@@ -193,7 +266,11 @@ No permanent dependence on foreign APIs can be allowed at the core of the system
 
 The Pantheon must accept noisy and even adversarial inputs and develop the ability to recognise and recover from them post-hoc, in parallel, by sample. Pre-filtering content at the gate is structurally rejected: it is slow, it is brittle, it hides the system's epistemic state, and it forecloses the data future cell-class generations need to learn. Only operative self-defense (rate limits, robots.txt, size caps) lives at the gate; everything epistemic is handled by an asynchronous cell-class architecture (Athene / Chronos / Nemesis / Eris / Mnemosyne) — see [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md).
 
-### 9. Self-improvement and eventual self-authorship
+### 9. Knowledge sovereignty by default
+
+Every node, edge, and sub-mesh has an owner. Ownership is expressed in the data model, not only in policy. A personal or institutional sub-mesh is connected to the global Chronik and enriches it, without surrendering control of its own internal structure. The Pantheon does not extract knowledge from its contributors and return it as opaque weights. Contributors own their slice of the meaning space, and that ownership is machine-legible and cryptographically enforceable at maturity.
+
+### 10. Self-improvement and eventual self-authorship
 
 The Pantheon must be able to observe itself, tune itself, and over time write its own next version. The within-generation tuning (A/B tests, parameter adjustment, draft Phoenix tickets) is the immediate scope; the long-horizon principle is that the Pantheon eventually opens pull requests against its own repository under explicit operator policy and human-review defaults — see [`SELF_MODIFICATION.md`](SELF_MODIFICATION.md). The substrate must be built today in a way that does not foreclose this.
 

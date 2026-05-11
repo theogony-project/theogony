@@ -75,6 +75,8 @@ IRIS — translates vector constellations into language
 
 Language enters at Kadmos. Language exits at Iris. Everything in between is vector space.
 
+The pipeline above describes a single mesh tier. The Chronik is designed to host **multiple federated tiers** — a global public layer, institutional sub-meshes, and personal sub-meshes — all connected via bridge nodes (shared concept vectors). Spreading Activation respects permission boundaries: it propagates into a sub-mesh only if the querying agent holds the access context for that tier. See [`PANTHEON_VISION.md`](PANTHEON_VISION.md) §"The Federated Substrate" for the full architectural description. Gen 1 implements the global public layer only; the data model is designed not to foreclose federation.
+
 ---
 
 ## The Three Non-Negotiable Technical Decisions
