@@ -606,7 +606,7 @@ class CrawlCoordinator:
             try:
                 from theogony.kadmos.mesh_export import annotated_reading_to_mesh_input
 
-                mesh_input = annotated_reading_to_mesh_input(
+                mesh_input = await annotated_reading_to_mesh_input(
                     annotated,
                     self._embedder,
                     role="generic",
