@@ -95,7 +95,7 @@ def _compute_edge_id(source_id: str, target_id: str, description: str) -> str:
     return f"EDGE-kadmos{h}"
 
 
-def _concept_to_mesh_node(
+async def _concept_to_mesh_node(
     concept: ActiveConcept,
     concept_node_id: str,
     source_url: str,
@@ -110,9 +110,7 @@ def _concept_to_mesh_node(
     text_to_embed = concept.label
     if concept.description:
         text_to_embed += ": " + concept.description
-    emb = list(embedder.embed(text_to_embed))
-
-    # Pad or truncate to 384
+    emb = list(await embedder.embed(text_to_embed))
     emb_vec = emb[:384] if len(emb) >= 384 else emb + [0.0] * (384 - len(emb))
 
     source_passage = concept.source_passage or ""
@@ -129,7 +127,7 @@ def _concept_to_mesh_node(
     )
 
 
-def _synthesis_to_mesh_node(
+async def _synthesis_to_mesh_node(
     synthesis: SynthesisNode,
     synthesis_node_id: str,
     source_url: str,
@@ -137,7 +135,7 @@ def _synthesis_to_mesh_node(
 ) -> MeshInputNode:
     """Convert a SynthesisNode into a MeshInputNode with node_type='synthesis'."""
     text_to_embed = f"{synthesis.label}: {synthesis.description}"
-    emb = list(embedder.embed(text_to_embed))
+    emb = list(await embedder.embed(text_to_embed))
 
     emb_vec = emb[:384] if len(emb) >= 384 else emb + [0.0] * (384 - len(emb))
 
@@ -202,7 +200,7 @@ def _make_synthesis_abstraction_edge(
     )
 
 
-def annotated_reading_to_mesh_input(
+async def annotated_reading_to_mesh_input(
     annotated: AnnotatedReading,
     embedder: EmbeddingProvider,
     role: str = "generic",
@@ -256,7 +254,7 @@ def annotated_reading_to_mesh_input(
     for concept in annotated.final_active_concepts:
         cid = _compute_node_id(concept)
         node_id_map[concept.id] = cid
-        node = _concept_to_mesh_node(concept, cid, source_url, embedder)
+        node = await _concept_to_mesh_node(concept, cid, source_url, embedder)
         mesh_nodes[cid] = node
         active_node_ids.append(cid)
 
@@ -266,7 +264,7 @@ def annotated_reading_to_mesh_input(
         # Map original IDs
         for orig_id in synthesis.basis_concept_ids:
             node_id_map[orig_id] = node_id_map.get(orig_id, orig_id)
-        node = _synthesis_to_mesh_node(synthesis, sid, source_url, embedder)
+        node = await _synthesis_to_mesh_node(synthesis, sid, source_url, embedder)
         mesh_nodes[sid] = node
         active_node_ids.append(sid)
 

@@ -47,7 +47,7 @@ class StubEmbedder:
 
     model_id: str = "stub-test-embedder/v0"
 
-    def embed(self, text: str) -> list[float]:
+    async def embed(self, text: str) -> list[float]:
         """Return a deterministic 384-dim vector derived from the text hash."""
         h = hash(text)
         seed = h & 0xFFFFFFFF
@@ -180,10 +180,11 @@ def test_compute_edge_id_deterministic() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_concept_to_mesh_node() -> None:
+@pytest.mark.asyncio
+async def test_concept_to_mesh_node() -> None:
     concept = _make_concept()
     nid = _compute_node_id(concept)
-    node = _concept_to_mesh_node(concept, nid, "https://example.org", _EMBEDDER)
+    node = await _concept_to_mesh_node(concept, nid, "https://example.org", _EMBEDDER)
     assert node.node_id == nid
     assert len(node.embedding) == 384
     assert node.activation_weight == 0.9
@@ -191,7 +192,8 @@ def test_concept_to_mesh_node() -> None:
     assert node.layer == "ephemera"
 
 
-def test_concept_to_mesh_node_with_revision() -> None:
+@pytest.mark.asyncio
+async def test_concept_to_mesh_node_with_revision() -> None:
     from theogony.kadmos.model import RevisionRecord
 
     concept = _make_concept()
@@ -204,7 +206,7 @@ def test_concept_to_mesh_node_with_revision() -> None:
         )
     )
     nid = _compute_node_id(concept)
-    node = _concept_to_mesh_node(concept, nid, "https://example.org", _EMBEDDER)
+    node = await _concept_to_mesh_node(concept, nid, "https://example.org", _EMBEDDER)
     assert node.revision_depth == 1
 
 
@@ -213,10 +215,11 @@ def test_concept_to_mesh_node_with_revision() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_synthesis_to_mesh_node() -> None:
+@pytest.mark.asyncio
+async def test_synthesis_to_mesh_node() -> None:
     synthesis = _make_synthesis()
     sid = _compute_node_id(synthesis)
-    node = _synthesis_to_mesh_node(synthesis, sid, "https://example.org", _EMBEDDER)
+    node = await _synthesis_to_mesh_node(synthesis, sid, "https://example.org", _EMBEDDER)
     assert node.node_type == "synthesis"
     assert len(node.embedding) == 384
 
@@ -226,47 +229,47 @@ def test_synthesis_to_mesh_node() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_empty_reading_produces_valid_mesh_input() -> None:
+@pytest.mark.asyncio
+async def test_empty_reading_produces_valid_mesh_input() -> None:
     """An AnnotatedReading with no concepts passes the MeshInput validator
-    if the schema's min_length=1 constraints are satisfied.
-    For an empty reading we still can't violate the schema — this tests
-    that the export function handles it gracefully."""
+    if the schema's min_length=1 constraints are satisfied."""
     annotated = _minimal_annotated_reading()
     with pytest.raises(ValidationError, match="at least 1 item"):
-        annotated_reading_to_mesh_input(annotated, _EMBEDDER)
+        await annotated_reading_to_mesh_input(annotated, _EMBEDDER)
 
 
-def test_single_concept_produces_one_node() -> None:
+@pytest.mark.asyncio
+async def test_single_concept_produces_one_node() -> None:
     annotated = _minimal_annotated_reading()
     annotated.final_active_concepts = [_make_concept()]
     annotated.total_concepts = 1
-    mi = annotated_reading_to_mesh_input(annotated, _EMBEDDER)
+    mi = await annotated_reading_to_mesh_input(annotated, _EMBEDDER)
     assert len(mi.nodes) == 1
     assert mi.nodes[0].node_type == "concept"
     assert len(mi.active_node_ids) == 1
 
 
-def test_synthesis_creates_node_and_abstraction_edge() -> None:
+@pytest.mark.asyncio
+async def test_synthesis_creates_node_and_abstraction_edge() -> None:
     annotated = _minimal_annotated_reading()
     concept = _make_concept(cid="c1", label="Basis")
     synthesis = _make_synthesis(sid="s1", label="Synthesis", basis_ids=["c1"])
     annotated.final_active_concepts = [concept]
     annotated.final_syntheses = [synthesis]
-    mi = annotated_reading_to_mesh_input(annotated, _EMBEDDER)
-    # Should have both nodes
+    mi = await annotated_reading_to_mesh_input(annotated, _EMBEDDER)
     assert len(mi.nodes) == 2
     types = {n.node_type for n in mi.nodes}
     assert "concept" in types
     assert "synthesis" in types
-    # Should have one abstraction edge
     assert len(mi.edges) >= 1
     synthesis_node_ids = [n.node_id for n in mi.nodes if n.node_type == "synthesis"]
     for edge in mi.edges:
         if edge.source_id in synthesis_node_ids:
-            assert edge.relation_codebook_id == 1  # abstraction_of
+            assert edge.relation_codebook_id == 1
 
 
-def test_open_tensions_flow_to_aux() -> None:
+@pytest.mark.asyncio
+async def test_open_tensions_flow_to_aux() -> None:
     annotated = _minimal_annotated_reading()
     c = _make_concept()
     annotated.final_active_concepts = [c]
@@ -283,12 +286,13 @@ def test_open_tensions_flow_to_aux() -> None:
         wm_size_after=0,
     )
     annotated.steps = [step]
-    mi = annotated_reading_to_mesh_input(annotated, _EMBEDDER)
+    mi = await annotated_reading_to_mesh_input(annotated, _EMBEDDER)
     assert "kadmos_open_tensions" in mi.aux
     assert len(mi.aux["kadmos_open_tensions"]) == 2
 
 
-def test_edge_integrity_all_referenced_nodes_exist() -> None:
+@pytest.mark.asyncio
+async def test_edge_integrity_all_referenced_nodes_exist() -> None:
     """Verify every edge's source and target exist in nodes."""
     annotated = _minimal_annotated_reading()
     c1 = _make_concept(cid="c1", label="Concept A")
@@ -301,7 +305,6 @@ def test_edge_integrity_all_referenced_nodes_exist() -> None:
     )
     annotated.final_active_concepts = [c1, c2]
 
-    # Add a step that creates an edge between them
     step = ReadingStep(
         step_index=0,
         granularity="paragraph",
@@ -321,44 +324,47 @@ def test_edge_integrity_all_referenced_nodes_exist() -> None:
         wm_size_after=2,
     )
     annotated.steps = [step]
-    mi = annotated_reading_to_mesh_input(annotated, _EMBEDDER)
+    mi = await annotated_reading_to_mesh_input(annotated, _EMBEDDER)
     node_ids = {n.node_id for n in mi.nodes}
     for edge in mi.edges:
         assert edge.source_id in node_ids, f"Edge source {edge.source_id} not in nodes"
         assert edge.target_id in node_ids, f"Edge target {edge.target_id} not in nodes"
 
 
-def test_deterministic_conversion_idempotent() -> None:
+@pytest.mark.asyncio
+async def test_deterministic_conversion_idempotent() -> None:
     """Same input produces same MeshInput (same node IDs, edge IDs)."""
     annotated = _minimal_annotated_reading()
     c = _make_concept()
     annotated.final_active_concepts = [c]
-    mi1 = annotated_reading_to_mesh_input(annotated, _EMBEDDER)
-    mi2 = annotated_reading_to_mesh_input(annotated, _EMBEDDER)
-    # Node IDs should be the same
+    mi1 = await annotated_reading_to_mesh_input(annotated, _EMBEDDER)
+    mi2 = await annotated_reading_to_mesh_input(annotated, _EMBEDDER)
     assert mi1.nodes[0].node_id == mi2.nodes[0].node_id
     assert mi1.nodes[0].embedding == mi2.nodes[0].embedding
 
 
-def test_run_id_uses_provided_value() -> None:
+@pytest.mark.asyncio
+async def test_run_id_uses_provided_value() -> None:
     annotated = _minimal_annotated_reading()
     c = _make_concept()
     annotated.final_active_concepts = [c]
     annotated.total_concepts = 1
-    mi = annotated_reading_to_mesh_input(annotated, _EMBEDDER, run_id="explicit-run-001")
+    mi = await annotated_reading_to_mesh_input(annotated, _EMBEDDER, run_id="explicit-run-001")
     assert mi.run_id == "explicit-run-001"
 
 
-def test_context_role_is_set() -> None:
+@pytest.mark.asyncio
+async def test_context_role_is_set() -> None:
     annotated = _minimal_annotated_reading()
     c = _make_concept()
     annotated.final_active_concepts = [c]
     annotated.total_concepts = 1
-    mi = annotated_reading_to_mesh_input(annotated, _EMBEDDER, role="nous")
+    mi = await annotated_reading_to_mesh_input(annotated, _EMBEDDER, role="nous")
     assert mi.context.role == "nous"
 
 
-def test_mesh_input_validates_after_conversion() -> None:
+@pytest.mark.asyncio
+async def test_mesh_input_validates_after_conversion() -> None:
     """Verify the produced MeshInput passes its own model_validator."""
     annotated = _minimal_annotated_reading()
     c1 = _make_concept(cid="c1", label="Alpha")
@@ -382,9 +388,7 @@ def test_mesh_input_validates_after_conversion() -> None:
         wm_size_after=2,
     )
     annotated.steps = [step]
-    # This calls the model_validator internally; should not raise
-    mi = annotated_reading_to_mesh_input(annotated, _EMBEDDER)
-    # Re-validate explicitly to confirm
+    mi = await annotated_reading_to_mesh_input(annotated, _EMBEDDER)
     from theogony.agents.mnlm.dto import MeshInput
 
     MeshInput.model_validate(mi.model_dump())
