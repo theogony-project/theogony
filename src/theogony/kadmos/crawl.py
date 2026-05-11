@@ -284,6 +284,8 @@ class CrawlCoordinator:
                         if self._shutdown_requested:
                             break
 
+                        processed_so_far = self._processed + self._skipped
+
                         title = article["title"]
                         domain = article.get("domain", "unknown")
                         url = article.get("url", "")
@@ -308,7 +310,7 @@ class CrawlCoordinator:
                         # Process the article
                         log.info(
                             "crawl: [%d/%d] starting %s (domain=%s)",
-                            self._processed + self._skipped + 1,
+                            processed_so_far + 1,
                             self._total_articles,
                             title,
                             domain,
@@ -320,7 +322,7 @@ class CrawlCoordinator:
                         )
                         log.info(
                             "crawl: [%d/%d] done %s — %s, %d concepts, %d edges, %.0fs, €%.4f",
-                            self._processed + self._skipped + 1,
+                            processed_so_far + 1,
                             self._total_articles,
                             title,
                             result.verdict,
@@ -331,7 +333,6 @@ class CrawlCoordinator:
                         )
 
                         # Every 5 articles, emit a progress summary line
-                        processed_so_far = self._processed + self._skipped
                         if processed_so_far > 0 and processed_so_far % 5 == 0:
                             self._log_progress_summary()
 
