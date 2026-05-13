@@ -4,6 +4,8 @@
 
 **Terminology:** *Pantheon* here means the **planetary chronicle / knowledge substrate** (long horizon), not the mythological agent roles (Argus, Athene, …). See [`GLOSSARY.md`](GLOSSARY.md).
 
+**Operative companions:** these principles are implemented and bound at the substrate level by [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md), at the runtime level by [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md), and at the retrieval / learning level by [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md). When a principle below requires concrete mechanism — *how* native identity emerges, *how* contradiction stays first-class, *how* trails strengthen the graph, *how* Vector-Vector-Mesh actually works — those three documents are the binding answer.
+
 ---
 
 ## The Founding Principle — Language is the Edge, Not the Substrate

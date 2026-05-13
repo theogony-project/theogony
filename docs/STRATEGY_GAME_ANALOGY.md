@@ -1,7 +1,7 @@
 # Strategy-Game Analogy
 
 **Status:** canonical product/interaction analogy, not a literal architecture.
-**Companion docs:** [`VISION.md`](VISION.md), [`PANTHEON_VISION.md`](PANTHEON_VISION.md), [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md).
+**Companion docs:** [`VISION.md`](VISION.md), [`PANTHEON_VISION.md`](PANTHEON_VISION.md), [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md), [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) (operational use of agent diversity at the substrate retrieval layer; parallel-universe substrate experimentation).
 **Audience:** anyone designing Cockpit, worker orchestration, agent autonomy, resource controls, or demos.
 
 ## The Analogy

@@ -4,6 +4,8 @@
 
 **Scope:** Gen 1 Phase 1 only. Node-level relevance bumps (`RelevanceTracker`) remain; edge pheromones are additive.
 
+**Relationship to mesh-substrate doctrine.** This document specifies the *current Gen 1 Phase 1* mechanism for edge reinforcement and decay (the `pheromone_delta` overlay, `last_traversed`, the three traversal modes, the `PheromoneDecayPhase`). The broader, target-state edge dynamics — Hebbian update with three-factor reward modulation, super-linear (tier-modulated) decay, bounded saturation, atrophy decoupled from deletion, homeostatic renormalisation, effective-resistance-preserving sub-node splits, eligibility traces for credit assignment — are specified in [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) and [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md). The pheromone overlay is the simpler engineering precursor to those mechanics; both shapes coexist during Gen 1 evolution. The `pheromone_mode` traversal modes (`follow` / `ignore` / `invert`) remain valid at all stages — they are an orthogonal axis to the substrate's own dynamics.
+
 ---
 
 ## Principle
@@ -66,5 +68,7 @@ Knobs live under `Settings.oneiros.edge_pheromone` (`decay_horizon_days`, `decay
 ## See also
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — Memory architecture and Oneiros tick pipeline.
+- [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) — target edge dynamics (super-linear decay, bounded saturation, atrophy decoupled from deletion, homeostatic renormalisation, effective-resistance-preserving splits) that the pheromone overlay precedes.
+- [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) — three-factor reinforcement learning and eligibility traces — the target shape of write-back from query consumption.
 - [`RETRIEVAL_STRATEGIES.md`](RETRIEVAL_STRATEGIES.md) — Strategy stack and `pheromone_mode` wiring.
 - [`docs/etappes/W2_edge_pheromone_brief.md`](etappes/W2_edge_pheromone_brief.md) — full design brief.

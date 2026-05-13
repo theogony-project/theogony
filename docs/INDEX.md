@@ -48,18 +48,24 @@ This path moves from the compact vision into the deeper substrate and then into 
 For someone focused on the Tensor-Manifold core, the Kadmos→MNLM pipeline, and the cognitive synthesis model — the technical heart of where Theogony is going:
 
 1. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — the founding principle: language is the edge, not the substrate. Read this first.
-2. [`../notes/architecture/vector_native_spreading_activation.md`](../notes/architecture/vector_native_spreading_activation.md) — Spreading Activation over CSR tensors, edge-as-vector, Constellation injection into KV-cache
-3. [`../notes/architecture/reading_agent_vision.md`](../notes/architecture/reading_agent_vision.md) — the cognitive model behind reading-as-synthesis: how human reading works and how Kadmos implements it
-4. [`etappes/kadmos_v2_brief.md`](etappes/kadmos_v2_brief.md) — Kadmos v2: the translation layer, text → labeled intermediate → vector mesh
-5. [`etappes/mesh_native_lm_brief.md`](etappes/mesh_native_lm_brief.md) — **THE binding MNLM architecture brief, filed by Hesiod, 2026-05-10.** Locks the architecture (Llama-3-8B + Graph-KV + Latent Flow Matching + Substrate-Resonant Recurrence + Graph-GRPO with SA-alignment), the binding `MeshInput` / `MeshDelta` Pydantic schemas, the three-stage falsifier (DBB-200 → MuSiQue → Monkey-3), and the 12-week Talos roadmap. Read this for the *answer* to the MNLM question.
-6. [`etappes/mesh_native_lm_research_brief.md`](etappes/mesh_native_lm_research_brief.md) — the prior research brief that triggered the work in (5). Read this for the *question*. Round-1 artifacts that fed (5) live in `../research/mnlm/`.
-7. [`../notes/deep_research/run12_brief.md`](../notes/deep_research/run12_brief.md) — the same MNLM question, self-contained for external research agents (Gemini Deep Research, DeepSeek, …). Their answers live in `../research/mnlm/{deepresearch,DeepSeek}.md`.
-8. [`etappes/nous_v2_brief.md`](etappes/nous_v2_brief.md) — pointer to (5); no standalone Nous brief exists yet by design (Nous is the first MNLM instance, written *after* the MNLM v1 ships and Stage-2 falsifier passes).
-9. [`research/sub_linguistic_knowledge_substrates.md`](research/sub_linguistic_knowledge_substrates.md) and [`../notes/deep_research/run11_brief.md`](../notes/deep_research/run11_brief.md) — Run 11's prior question on the substrate itself (does the *Chronik* support inference?). Frontier-model responses in `../notes/deep_research/run11_*.md`. Run 12 is the next question on top.
-10. [`../notes/architecture/oss_adjacent_landscape.md`](../notes/architecture/oss_adjacent_landscape.md) — orientation map of adjacent OSS and research
-11. [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md) — the six representational languages of the Chronik
+2. [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) — the binding architecture: LanceDB + PyTorch, Spreading Activation, no text storage after Kadmos, edge/node density target. Read this second.
+3. [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) — **the binding substrate doctrine.** Two-tier nodes (Observation Chunks and Consolidated Nodes; eager Q-ID linking when identity is clear, emergent identity otherwise), edge dynamics (super-linear decay, saturation, atrophy ≠ death, global homeostatic renormalisation, effective-resistance-preserving splits), agent-driven cleanup (deduplication, contradiction resolution, false-information removal, redundancy compression), pathology and staged therapy with Mendel-weighed escalation. Read this before designing or implementing anything that reads or writes a node, an edge, a vector, or an Oneiros tick.
+4. [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) — the storage / concurrency / hardware companion to (3): Hot/Warm/Cold tiering, MVCC via Lance versioning, batched-SpMV runtime, Oneiros tick order, hardware tier targets, migration from the current PoC.
+5. [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) — the retrieval / learning / multi-agent / modality companion to (3): diversified injection (MMR + weight-class stratification + sub-mesh signature search), three-factor reinforcement learning with eligibility traces, frame-sensitive resonance, multi-agent strategy-game framing with parallel-universe experimentation, multi-modal extension as a substrate affordance.
+6. [`../notes/architecture/vector_native_spreading_activation.md`](../notes/architecture/vector_native_spreading_activation.md) — earlier MVP-level Spreading Activation note (German). Largely superseded by (3)–(5); kept as historical context.
+7. [`../notes/architecture/reading_agent_vision.md`](../notes/architecture/reading_agent_vision.md) — the cognitive model behind reading-as-synthesis: how human reading works and how Kadmos implements it.
+8. [`etappes/kadmos_v2_brief.md`](etappes/kadmos_v2_brief.md) — Kadmos v2: the translation layer, text → labeled intermediate → vector mesh.
+9. [`etappes/mesh_native_lm_brief.md`](etappes/mesh_native_lm_brief.md) — **THE binding MNLM architecture brief, filed by Hesiod, 2026-05-10.** Locks the architecture (Llama-3-8B + Graph-KV + Latent Flow Matching + Substrate-Resonant Recurrence + Graph-GRPO with SA-alignment), the binding `MeshInput` / `MeshDelta` Pydantic schemas, the three-stage falsifier (DBB-200 → MuSiQue → Monkey-3), and the 12-week Talos roadmap. Read this for the *answer* to the MNLM question.
+10. [`etappes/mesh_native_lm_research_brief.md`](etappes/mesh_native_lm_research_brief.md) — the prior research brief that triggered the work in (9). Read this for the *question*. Round-1 artifacts that fed (9) live in `../research/mnlm/`.
+11. [`../notes/deep_research/run12_brief.md`](../notes/deep_research/run12_brief.md) — the same MNLM question, self-contained for external research agents (Gemini Deep Research, DeepSeek, …). Their answers live in `../research/mnlm/{deepresearch,DeepSeek}.md`.
+12. [`etappes/nous_v2_brief.md`](etappes/nous_v2_brief.md) — pointer to (9); no standalone Nous brief exists yet by design (Nous is the first MNLM instance, written *after* the MNLM v1 ships and Stage-2 falsifier passes).
+13. [`research/sub_linguistic_knowledge_substrates.md`](research/sub_linguistic_knowledge_substrates.md) and [`../notes/deep_research/run11_brief.md`](../notes/deep_research/run11_brief.md) — Run 11's prior question on the substrate itself (does the *Chronik* support inference?). Frontier-model responses in `../notes/deep_research/run11_*.md`. Run 12 is the next question on top.
+14. [`../notes/architecture/oss_adjacent_landscape.md`](../notes/architecture/oss_adjacent_landscape.md) — orientation map of adjacent OSS and research.
+15. [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md) — the six representational languages of the Chronik.
 
 The three-layer model (Observe / Learn / Remember) is the organizing principle. Kadmos is the translation layer at ingress. Nous, Oneiros, Kalypso (and as-yet-unnamed roles) are MNLM-class agents that read and write the substrate without text. Language enters at Kadmos; whether and how it leaves again at the far egress is a downstream question we are not yet thinking about.
+
+The triplet (3)–(5) — `MESH_SUBSTRATE.md`, `MESH_IMPLEMENTATION.md`, `MESH_RETRIEVAL.md` — is the canonical specification of the substrate beneath the MNLM. They specify the *behaviour* (substrate), the *runtime* (implementation), and the *use* (retrieval) respectively. Read all three before designing or implementing the substrate at any level deeper than the existing PoC.
 
 ### 4. Semantic Core
 
@@ -136,6 +142,10 @@ This path is about open problems, future directions, and the long-horizon princi
 ### System Design Documents
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md): the current system blueprint
+- [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md): binding technical target — what the substrate must become (LanceDB + PyTorch, Spreading Activation, no text storage after Kadmos, edge/node density target)
+- [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md): canonical doctrine for the storage layer beneath all Pantheon cognition — two-tier nodes (eager identity when clear, emergent when not), edge dynamics (super-linear decay, saturation, atrophy ≠ death, homeostatic renormalisation, effective-resistance-preserving splits), agent-driven cleanup (deduplication, contradiction resolution, false-information removal, redundancy compression), pathology and staged therapy with Mendel-weighed escalation. Binds every agent that reads or writes a node, an edge, or a tick.
+- [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md): implementation guidance for the mesh substrate — Hot/Warm/Cold tiering, MVCC via Lance versioning, batched-SpMV runtime, Oneiros tick order, hardware tier targets, migration from the current PoC. Companion to `MESH_SUBSTRATE.md`.
+- [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md): canonical doctrine for retrieval, learning, and cross-modal extension — diversified injection (MMR + weight-class stratification + sub-mesh signature search), three-factor reinforcement learning with eligibility traces, frame-sensitive resonance, multi-agent strategy-game framing with parallel-universe experimentation, multi-modal extension as a substrate affordance. Binds every agent that issues a query or consumes a Constellation.
 - [`GLOSSARY.md`](GLOSSARY.md): canonical terminology
 - [`PHEROMONE.md`](PHEROMONE.md): edge pheromone trails, decay, and Slow-Path `pheromone_mode` (PHX-0057 Phase 1)
 
@@ -169,6 +179,9 @@ Current prompts:
 ## Suggested Use
 
 - When writing new documents, align your terminology with [`GLOSSARY.md`](GLOSSARY.md).
-- When proposing new architectural ideas, cross-check them against [`PANTHEON_VISION.md`](PANTHEON_VISION.md), [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md), [`VISION.md`](VISION.md), [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md), and [`ARCHITECTURE.md`](ARCHITECTURE.md).
+- When proposing new architectural ideas, cross-check them against [`PANTHEON_VISION.md`](PANTHEON_VISION.md), [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md), [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md), [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md), [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md), [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md), [`VISION.md`](VISION.md), [`DEEP_TECH_VISION.md`](DEEP_TECH_VISION.md), and [`ARCHITECTURE.md`](ARCHITECTURE.md).
+- When proposing changes to *substrate behaviour* — node anatomy, edge dynamics, decay, saturation, pruning, splits, pathology surveillance, therapy — read [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) first.
+- When proposing changes to *substrate runtime* — storage layout, concurrency, hardware tiering, Oneiros tick scheduling — read [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) first.
+- When proposing changes to *retrieval* — query construction, injection, learning, multi-agent dynamics, multi-modal — read [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) first.
 - When an idea belongs to a future generation rather than the current one, add it to the Phoenix backlog.
 - When in doubt about the spirit of the project, return to [`README.md`](../README.md) and [`PHILOSOPHY.md`](../PHILOSOPHY.md).
