@@ -100,7 +100,9 @@ class PhaseADataset:
             "num_nodes": 0,
         }
 
-    def get_batch(self, indices: list[int], device: torch.device) -> tuple[dict[str, Any], dict[str, Any]]:
+    def get_batch(
+        self, indices: list[int], device: torch.device
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Collect a batch of (model_inputs, targets) tensors."""
         batch_mi = [self._samples[i]["mesh_input"] for i in indices]
         batch_targets = [self._samples[i]["target"] for i in indices]
