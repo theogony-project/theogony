@@ -1,0 +1,23 @@
+id: PHX-1001
+category: meta-migration
+priority: critical
+status: open
+generation_target: MESH migration
+title: MESH migration in progress
+filed_by: Daedalus (via Meson AI agent)
+created_at: 2026-05-13
+description: >
+  The MESH migration (Strangler-fig replacement of the Gen-1 substrate) is
+  tracked by the six-step plan in MESH_MIGRATION_PLAN.md. This ticket is a
+  meta-ticket for the migration's lifecycle; individual steps are their own
+  PRs.
+  Progress:
+  - S1 (substrate skeleton): PR #149, merged 2026-05-13 ✅
+  - S2 (Kadmos v2 ingestion): not started
+  - S3 (diversified-injection retrieval): not started
+  - S4 (Cockpit/CLI/MCP backend abstraction): not started
+  - S5 (full Oneiros tick): not started
+  - S6 (legacy removal): not started
+  - PHX backlog migration: MIGRATION_AUDIT.csv created 2026-05-13 ✅
+linked_prs:
+  - "https://github.com/theogony-project/theogony/pull/149"

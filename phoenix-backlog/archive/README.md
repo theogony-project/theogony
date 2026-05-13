@@ -6,13 +6,13 @@ They were moved here (via `git mv`, so history is preserved) when the binding do
 
 ## Status of these tickets
 
-Each ticket here is one of three things; **the labelling pass that decides which** has not yet been done. The migration plan ([`MESH_MIGRATION_PLAN.md`](../../docs/MESH_MIGRATION_PLAN.md) §"Parallel etappe — PHX backlog migration") specifies the labelling pass as its own piece of work:
+Each ticket has been labelled via the migration audit at [`MIGRATION_AUDIT.csv`](MIGRATION_AUDIT.csv). The three outcomes are:
 
-- **carry-forward** — the ticket addresses a real concern that survives the migration. When labelled as such, a new ticket gets filed in the post-migration backlog (numbered PHX-1000+), with `migrated_from: PHX-XXXX` linking back to the archived YAML.
-- **obsolete** — the ticket addresses a concern that no longer applies (e.g., tickets about Neo4j, about codebook edge compression the MESH doctrine does not use, about retrieval strategies that diversified injection absorbs). When labelled as such, the YAML stays here unchanged.
-- **absorbed into MESH doctrine** — the ticket's concern is now part of the MESH triplet itself (e.g., "Activation Engine v1" → `MESH_RETRIEVAL.md` §"Diversified injection" and §"Spreading Activation as the universal retrieval primitive"). When labelled as such, the YAML stays here unchanged.
+- **carry-forward** — a new PHX-1000+ ticket has been filed; see the post-migration catalogue at [`docs/PHOENIX_BACKLOG.md`](../../docs/PHOENIX_BACKLOG.md).
+- **obsolete** — the concern no longer applies (Neo4j-specific, or superseded by the MESH doctrine). The YAML stays here unchanged.
+- **absorbed into MESH doctrine** — the concern is now part of the MESH triplet itself. The YAML stays here unchanged.
 
-The audit trail of the labelling pass will live in `MIGRATION_AUDIT.csv` next to this README (one row per archived ticket: `id, title, decision, new_ticket_id_or_null, reason`). That file does not yet exist; it is produced when the labelling pass runs.
+**The pass is complete as of 2026-05-13.** 28 tickets were carried forward, 13 were absorbed, and 10 were declared obsolete.
 
 ## Why preserve them at all
 
