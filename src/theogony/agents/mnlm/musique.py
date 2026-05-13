@@ -133,14 +133,14 @@ class MiniMuSiQue:
         direction_critical_only: bool = False,
     ) -> dict[str, Any]:
         """Compute accuracy from evaluation results.
-        
+
         Parameters
         ----------
         results:
             List of dicts with 'question_id', 'predicted', 'expected', 'is_correct'.
         direction_critical_only:
             If True, only count direction-critical questions.
-        
+
         Returns dict with accuracy metrics.
         """
         if direction_critical_only:
