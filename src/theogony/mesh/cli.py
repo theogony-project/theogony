@@ -51,23 +51,22 @@ def mesh_status(
 
 @mesh_app.command("ingest")
 def mesh_ingest(
-    sentences: str = typer.Argument(..., help="Comma-separated list of sentences."),
-    source_type: str = typer.Option("text", "--source-type", help="Source type label."),
-    source_id: str = typer.Option("inline", "--source-id", help="Source identifier."),
-    title: str = typer.Option("Untitled", "--title", help="Source title."),
-    anchor: str = typer.Option("", "--anchor", help="Source anchor (URL, ISBN, etc.)."),
+    book_id: str = typer.Argument(..., help="Project Gutenberg book id (e.g. 43497)."),
+    sentence_count: int = typer.Option(
+        0, "--sentences", "-n", help="Max sentences to ingest (0 = all)."
+    ),
     mesh_root: Path | None = MESH_ROOT,
 ) -> None:
-    """Ingest sentences into the MESH substrate (Step S2)."""
+    """Ingest a Gutenberg book into the MESH substrate (Step S2)."""
+    import asyncio
+
     settings = Settings()
     root = mesh_root.resolve() if mesh_root is not None else _default_root(settings)
     rt = MeshRuntime.open(root)
-    pipeline = MeshIngestionPipeline(rt)
-    result = pipeline.ingest_sentences(
-        sentences=[s.strip() for s in sentences.split(",") if s.strip()],
-        source_type=source_type,
-        source_identifier=source_id,
-        title=title,
-        anchor=anchor,
-    )
+
+    async def _run() -> dict:
+        async with MeshIngestionPipeline(rt) as pipeline:
+            return await pipeline.ingest_gutenberg(book_id, max_sentences=sentence_count)
+
+    result = asyncio.run(_run())
     _console.print(Panel.fit(json.dumps(result, indent=2), title="mesh ingest result"))
