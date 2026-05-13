@@ -5,15 +5,15 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Status: Early Research](https://img.shields.io/badge/status-early%20research-orange.svg)](ROADMAP.md)
 
-**Transforming the world's knowledge into a vast, living network of vectors and edges — navigated by AI agents without ever translating into text.**
+**Transforming the world's knowledge into a vast, living network of vectors and edges — navigated by AI agents in the same representational space they compute in, with text reserved for the human-facing edges of the system.**
 
 ---
 
 ## What this is
 
-Theogony builds the **Chronik** — a knowledge substrate that operates in the native language of AI systems: vectors and weighted edges, without text as an internal medium.
+Theogony builds the **Chronik** — a knowledge substrate that operates in the native language of AI systems: vectors and weighted edges, with text reserved for the system's edges rather than its retrieval primitive.
 
-Text enters once, at ingestion. It is translated into a dense mesh of embedding vectors and typed edges. After that, it is gone. Everything that follows — synthesis, consolidation, retrieval, reasoning — happens in vector space.
+Source text enters once, at ingestion. Kadmos translates it into a dense mesh of embedding vectors and weighted edges. The raw source text is not what subsequent retrieval reads — Spreading Activation propagates over the vector-edge tensor, never over strings. Short, regenerable summary metadata (a node's description, an edge's relation descriptor, a source-anchor's URL) lives in the substrate as agent-readable annotation, but the substrate's retrieval surface is vector and structure, not prose.
 
 The central empirical question driving the architecture: **can a dense vector-graph support inference that exceeds what any individual source text contains?** Not retrieve what was written — but surface what was never written, because it follows from the structure of connected meaning.
 
@@ -33,11 +33,13 @@ The long-horizon vision: the Chronik grows into the dominant knowledge substrate
 
 This is an early-stage research project. The substrate doctrine — how the mesh must behave, how it is implemented, how it is used — is fully specified in the MESH triplet ([`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md), [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md), [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md)). The code is a working proof of concept walking toward that target.
 
-**What runs today:**
-- An ingest pipeline that reads a text (books from Project Gutenberg, Wikipedia articles) and writes nodes and typed weighted edges into the substrate, with structured run reports for every pass.
+**What runs today (Generation 1, being replaced by the migration):**
+- An ingest pipeline that reads a text (books from Project Gutenberg, Wikipedia articles) and writes nodes and weighted edges into the substrate, with structured run reports for every pass.
 - An in-process columnar / tensor substrate: nodes and edges live in an in-memory store (LanceDB persistence is being wired in); a `TensorMeshEngine` builds a CSR adjacency tensor on demand and runs Spreading Activation over it as sparse matrix-vector multiplication. **No graph database. No multi-hop traversal language.** Queries arrive as vectors; activation propagates; a constellation comes back.
 - A background process (Oneiros) that continuously scores and promotes knowledge — more confident, better-connected nodes become "trusted"; stale ones decay.
 - A small MCP server so AI assistants like Claude Desktop or Cursor can query the Chronik directly as a tool.
+
+This is the Generation-1 layer the strangler-fig migration ([`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md)) is replacing. Its schema (single embedding per node, string-typed edges, binary ephemera/mneme memory model) does *not* match the MESH-substrate doctrine below; the new substrate will grow beside it in `src/theogony/mesh/` per Step S1 and eventually displace it.
 
 **What the substrate looks like at the target** ([`MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md) is the binding doctrine):
 - **Two tiers of nodes.** Tier 0 Observation Chunks (one extracted observation each — semantic vector, frame vector, provenance). Tier 1+ Consolidated Nodes (entities, concepts, bridges, source-anchors — multiple vectors, regenerable description, Q-IDs, tier-modulated decay).
@@ -46,12 +48,15 @@ This is an early-stage research project. The substrate doctrine — how the mesh
 - **Agent-driven cleanup, post-hoc.** Deduplication, contradiction resolution, false-information removal, redundancy compression — all operate on existing substrate state, with audit. No pre-gates judging content at insertion.
 - **Pathology surveillance and staged therapy.** Argus watches topology for five known pathologies (refutation absorption, saturation lockout, …); Oneiros applies five staged therapies, with the Mendel risk weighed before any destructive step.
 
-**What we build next** (in order, decided in writing):
-- **Kadmos v2** — the text translation layer, redesigned. An LLM that *reads with working memory* — sentence by sentence, with revisions when later context demands it — and emits chunks and reference edges into the substrate per the MESH-doctrine eager-linking rules. See [`docs/etappes/kadmos_v2_brief.md`](docs/etappes/kadmos_v2_brief.md).
-- **The Mesh-Native Language Model (MNLM)** — the cognitive primitive that operates *inside* the substrate. Vector subgraphs in, vector subgraphs out, no text in the middle. A frozen Llama-3-8B-Instruct body adapted with a Graph-KV input mechanism, a Latent Flow Matching output head, and Substrate-Resonant Recurrence — a recurrent loop in which every K-th reasoning step interleaves a one-hop Spreading Activation call, so the model and the substrate share recurrent state. Trained against the substrate itself: the retrieval primitive is the loss surface. **Nous** (synthesis), **Oneiros** (consolidation), and **Kalypso** (emergent discovery) are all roles of this one architectural class. Architecture: [`docs/etappes/mesh_native_lm_brief.md`](docs/etappes/mesh_native_lm_brief.md).
-- **The full LanceDB persistence path** — completing the migration from in-memory storage to append-only columnar storage on disk, with PyTorch sparse CSR tensors for the SpMV runtime and a parallel Lance metadata table for the rich edge descriptors. Runtime spec: [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md).
+**How we build it.** The bridge from Gen-1 to the MESH-doctrine substrate runs through a **strangler-fig migration** in six PR-sized steps: substrate skeleton (S1), Kadmos v2 writing into the new substrate (S2), diversified-injection retrieval (S3), surface backends (S4), the full Oneiros tick (S5), legacy removal (S6). The plan is binding and self-contained — [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md) names the deliverables, the Definition of Done, the forbidden patterns, and the exact first PR. Each step lands on `main` independently; nothing breaks between steps; the new substrate grows beside the old one until it has fully replaced it.
 
-The full development sequence is in [ROADMAP.md](ROADMAP.md).
+**What the steps build, in concrete components:**
+
+- **Kadmos v2** (Step S2) — the text translation layer, redesigned. An LLM that *reads with working memory* — sentence by sentence, with revisions when later context demands it — and emits chunks and reference edges into the new substrate per the MESH-doctrine eager-linking rules. Architecture brief: [`docs/etappes/kadmos_v2_brief.md`](docs/etappes/kadmos_v2_brief.md).
+- **The Mesh-Native Language Model (MNLM)** (Step S5) — the cognitive primitive that operates *inside* the substrate. Vector subgraphs in, vector subgraphs out. A frozen Llama-3-8B-Instruct body adapted with a Graph-KV input mechanism, a Latent Flow Matching output head, and Substrate-Resonant Recurrence — a recurrent loop in which every K-th reasoning step interleaves a one-hop Spreading Activation call, so the model and the substrate share recurrent state. **Nous** (synthesis), **Oneiros** (consolidation), and **Kalypso** (emergent discovery) are roles of this one architectural class. Architecture: [`docs/etappes/mesh_native_lm_brief.md`](docs/etappes/mesh_native_lm_brief.md) (predates the MESH pivot of 2026-05-13; alignment pass pending).
+- **The full LanceDB persistence path** (Steps S1–S4) — the migration from in-memory storage to append-only columnar storage on disk, with PyTorch sparse CSR tensors for the SpMV runtime and a parallel Lance metadata table for the rich edge descriptors. Runtime spec: [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md).
+
+The long-horizon development sequence is in [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -75,65 +80,35 @@ These experiments are the next milestones. See [ROADMAP.md](ROADMAP.md) for the 
 
 ---
 
-## Try it
+## Running the Gen-1 demo (legacy layer)
 
-The quickest way to see the system is to seed it with the project's own documentation and ask it a question — no external data needed, no database to set up. The default substrate is in-process.
+> The commands below exercise the **Generation-1** layer the migration is replacing. They are useful to see Spreading Activation against a small in-process mesh and to test the MCP surface, but the substrate they touch is not the one specified by [`MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md). Once migration step S1 lands, a parallel `theogony mesh ...` subcommand group will exercise the new substrate; once S6 lands, the commands below will either move to the new substrate transparently or disappear. Track the migration in [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md).
 
 ```bash
 git clone https://github.com/theogony-project/theogony && cd theogony
 pip install -e ".[dev]"
 
-# Import the project's own docs as a queryable knowledge network
-theogony seed
-theogony ask "What is the Chronik?"
-```
+theogony seed                                          # ingest this repo's own docs
+theogony ask "What is the Chronik?"                    # Spreading Activation over the seeded mesh
 
-To ingest a real text (Sven Hedin's *Trans-Himalaya*, a public-domain book on Tibet):
-
-```bash
-# Requires an API key — set ANTHROPIC_API_KEY or OPENAI_API_KEY
+# Optional: ingest a real text (Project Gutenberg #43497 = Sven Hedin, Trans-Himalaya).
+# Requires an LLM API key — ANTHROPIC_API_KEY or OPENAI_API_KEY.
 theogony ingest 43497 --sentences 500
 theogony ask "Who was Sven Hedin and where did he travel?"
+
+theogony reports list                                  # structured self-report per run
+pytest -q                                              # tests; no external services needed
 ```
 
-Answers cite every claim with a node ID (`AKA-…`) that links back to the source passage. Retrieval runs as Spreading Activation over the substrate's CSR tensor — there is no Cypher, no SQL, no graph database. The system also produces a structured self-report for every run: what it found, how confident it was, where it failed.
+Answers cite every claim with a Gen-1 node ID (`AKA-…`) that links back to the source passage. Retrieval runs as Spreading Activation over an in-memory CSR tensor — no Cypher, no SQL, no graph database.
 
-```bash
-theogony reports list        # see all run reports
-theogony reports show <id>   # inspect one
-```
-
-Run the tests (no external services needed):
-
-```bash
-pytest -q
-```
-
----
-
-## Use as an AI tool (MCP)
-
-If you use Claude Desktop, Cursor, or any MCP-compatible host, you can register Theogony as a tool and query the Chronik directly from your AI assistant.
-
-```bash
-pip install -e ".[mcp]"
-theogony mcp    # stdio transport — this is what MCP hosts launch
-```
-
-Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+**MCP surface** (Claude Desktop / Cursor / any MCP host): `pip install -e ".[mcp]"`, then add to your host config:
 
 ```json
-{
-  "mcpServers": {
-    "theogony": {
-      "command": "theogony",
-      "args": ["mcp"]
-    }
-  }
-}
+{ "mcpServers": { "theogony": { "command": "theogony", "args": ["mcp"] } } }
 ```
 
-Tools: `pantheon_ask`, `pantheon_node`, `pantheon_status`, `pantheon_reports_list`, `pantheon_reports_show`, `pantheon_chronicle_append`.
+Tools: `pantheon_ask`, `pantheon_node`, `pantheon_status`, `pantheon_reports_list`, `pantheon_reports_show`, `pantheon_chronicle_append`. The MCP surface is the one Gen-1 piece designed to survive the migration largely unchanged — migration step S4 introduces a backend abstraction so the same tools route through either substrate.
 
 ---
 
@@ -169,7 +144,7 @@ The project is open source (Apache 2.0). Contributions are welcome.
 
 If you want to contribute code, read [AGENTS.md](AGENTS.md) — it applies equally to humans and AI coding agents. The short version: schema-first, honest failure reports, no silent scope creep, one PR per coherent change.
 
-If you want to contribute ideas, open an issue or start a discussion. The most useful thing right now is feedback on the two core bets above.
+If you want to contribute ideas, open an issue or start a discussion. The most useful thing right now is feedback on the three empirical questions above and on the strangler-fig migration plan.
 
 ---
 
