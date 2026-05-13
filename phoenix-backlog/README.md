@@ -1,6 +1,6 @@
 # Phoenix Backlog — Active Tickets
 
-> **State as of 2026-05-13.** The MESH migration pivot has just landed (see [`docs/MESH_MIGRATION_PLAN.md`](../docs/MESH_MIGRATION_PLAN.md)). The 51 PHX YAMLs that existed under the Generation-1 doctrine have been moved to [`archive/`](archive/README.md) — they remain as historical record and as input to the labelling pass that decides which of them carry forward into the new substrate's backlog. **The post-migration backlog starts at PHX-1000.** Until the labelling pass and the first post-migration tickets land, this directory holds only `archive/`, this README, and any new PHX-1000+ YAML that an agent files while working on the migration itself.
+> **State as of 2026-05-13 — post-migration.** The MESH migration pivot has landed (see [`docs/MESH_MIGRATION_PLAN.md`](../docs/MESH_MIGRATION_PLAN.md)) and the 51 legacy PHX YAMLs have been labelled via [`archive/MIGRATION_AUDIT.csv`](archive/MIGRATION_AUDIT.csv). The post-migration backlog is open at PHX-1000+; the meta-ticket [`PHX-1001.yaml`](PHX-1001.yaml) tracks the migration lifecycle. The new catalogue is at [`docs/PHOENIX_BACKLOG.md`](../docs/PHOENIX_BACKLOG.md).
 >
 > The legacy catalogue at [`docs/PHOENIX_BACKLOG.md`](../docs/PHOENIX_BACKLOG.md) reflects the pre-MESH state. Any ticket cited from a pre-MESH document refers to that legacy catalogue; the new catalogue will be written when the labelling pass completes.
 
