@@ -76,6 +76,7 @@ from theogony.extraction.wikidata_client import WikidataClient
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.oneiros import OneirosWorker
 from theogony.memory.relevance import RelevanceTracker
+from theogony.mesh.cli import mesh_app
 from theogony.reporting.writer import RUN_REPORT_TYPE_SUBDIRS, RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.pipeline import QueryPipeline
@@ -149,6 +150,8 @@ kadmos_app = typer.Typer(
     help="Kadmos v2 — cognitive reading with working memory, revision, and synthesis.",
 )
 app.add_typer(kadmos_app, name="kadmos")
+
+app.add_typer(mesh_app, name="mesh")
 
 _console = Console()
 
