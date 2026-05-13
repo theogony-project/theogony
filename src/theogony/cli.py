@@ -82,6 +82,7 @@ from theogony.retrieval.pipeline import QueryPipeline
 from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesizer_factory import build_synthesizer
 from theogony.stores.memory import InMemoryKnowledgeStore
+from theogony.mesh.cli import mesh_app
 
 if TYPE_CHECKING:
     from theogony.acquisition.base import RawContent
@@ -149,6 +150,8 @@ kadmos_app = typer.Typer(
     help="Kadmos v2 — cognitive reading with working memory, revision, and synthesis.",
 )
 app.add_typer(kadmos_app, name="kadmos")
+
+app.add_typer(mesh_app, name="mesh")
 
 _console = Console()
 
