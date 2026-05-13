@@ -1,5 +1,13 @@
 # Architecture
 
+> **Precedence.** This document describes the **Generation-1 architecture as currently implemented** (four-layer pipeline, in-memory / Neo4j store, KnowledgeNode / KnowledgeEdge schema with single embedding and string relation types). For **substrate behaviour, runtime, and use**, the operative doctrine is the MESH triplet:
+>
+> - [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) — two-tier nodes (Observation Chunks Tier 0 + Consolidated Nodes Tier 1+), edge anatomy (quantitative core + optional semantic descriptors), super-linear decay, saturation, atrophy ≠ death, agent-driven cleanup, staged therapy
+> - [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) — LanceDB nodes + PyTorch sparse CSR edges + delta buffer, MVCC concurrency, batched-SpMV runtime, Hot / Warm / Cold tiering
+> - [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) — diversified injection (MMR + weight-class stratification + sub-mesh signature), three-factor reinforcement learning, frame-sensitive resonance, multi-modal extension
+>
+> Where this document's schema, store interface, or memory model conflict with the MESH triplet at the substrate level, the triplet is operative. The four-layer architecture and the agent-roster sections below remain useful as a description of the Gen-1 system as it ships today.
+
 ## Overview
 
 Theogony is a four-layer system with a cross-cutting **Pantheon agents** framework (Zeus, Argus, Athene, … — see [`GLOSSARY.md`](GLOSSARY.md)). The central component is **the Chronik** — Generation 1's living vector-graph knowledge network that stores knowledge as interconnected embeddings, relations, and provenance rather than as static text. Long-horizon direction for the *substrate* itself is the **Pantheon** (planetary chronicle); the Chronik is the first operational instantiation. At maturity, the graph and vector layers are operational projections of a deeper canonical semantic layer: **Chronese**.

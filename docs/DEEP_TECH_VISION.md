@@ -3,8 +3,10 @@
 This document sits between [`docs/VISION.md`](docs/VISION.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 `VISION.md` states the civilizational bet.
-`ARCHITECTURE.md` describes the current architectural direction.
+`ARCHITECTURE.md` describes the current Gen-1 architectural direction.
 This document explores the deeper substrate that the Chronik may ultimately require if it grows into a true planetary knowledge system.
+
+**Operative substrate doctrine.** For substrate-layer mechanics, runtime, and use — the actual binding behaviour of the storage layer beneath Pantheon cognition — the MESH triplet ([`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md), [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md), [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md)) is operative. This Deep Tech Vision describes representational and conceptual layers (the six languages, the deep stack, digital twins, the scientific workbench) that sit *above* the substrate; the substrate doctrine specifies *how* those layers actually run.
 
 Two companion documents deepen specific strands from this vision:
 
@@ -544,50 +546,48 @@ It is structured memory at civilizational scale.
 
 Bold does not mean reckless.
 
-### Phase 1
+The path below describes the engineering progression. The substrate's *behavioural* doctrine is fixed by the MESH triplet at all phases; what changes between phases is the implementation depth and the scale tier.
 
-Build a layered system, not a monolith.
+### Phase 1 — Substrate foundation (current)
 
-- raw sources in object storage
-- append-only observations in Parquet, ClickHouse, or similar
-- graph projection in Neo4j
-- vector projection in Neo4j or Qdrant
+Build a layered system, not a monolith. Realise the MESH triplet at PoC / Tier-0 scale:
+
+- raw sources in object storage; `raw_text_ref` pointer per chunk (never read on the hot path)
+- two-tier nodes (Tier 0 Observation Chunks, Tier 1+ Consolidated) in **LanceDB** (Parquet/Arrow, columnar, versioned)
+- edges as a **PyTorch sparse CSR tensor** for the SpMV hot path, plus a parallel Lance metadata table for the optional semantic descriptors (`relation_descriptor`, `relation_kind`, `description`, P-IDs)
+- delta buffer for Hebbian writes, merged into CSR at each Oneiros tick
 - agents in Python
-- strict schemas from the beginning
+- strict schemas from the beginning — Pydantic v2 with `extra="forbid"`
 
-The crucial principle is:
-**Neo4j should be a view, not the ultimate truth.**
+The legacy Neo4j store remains as a Gen-1 working bridge; new substrate code writes directly to LanceDB + PyTorch CSR per [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md). The `KnowledgeStore` interface exists so the migration does not require rewriting anything above the store layer.
 
-### Phase 2
+### Phase 2 — Activation runtime maturity
 
-Build a dedicated activation runtime.
+The Spreading Activation primitive is already specified in [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) as batched SpMV / SpMM over the CSR tensor. Phase 2 makes the full retrieval discipline production-ready:
 
-Not only Cypher queries, but a service that computes activation fields from:
+- diversified injection (Maximum Marginal Relevance + weight-class stratification + sub-mesh signature via Weisfeiler-Lehman hashing)
+- frame-routed propagation (masked SpMV)
+- three-factor reinforcement learning with eligibility traces
+- the full Oneiros tick (decay, renormalisation, consolidation, splits, pathology surveillance, therapy)
 
-- embeddings
-- graph edges
-- epistemic signs
-- temporal rules
-- budget constraints
+Most of this is Python on top of PyTorch sparse + Lance MVCC. Performance-critical paths may migrate toward Rust or to dedicated GPU sparse libraries (cuSPARSE on NVIDIA, MPS sparse ops on Apple) as Tier-1 scale arrives.
 
-This can begin in Python and migrate toward Rust for performance-critical paths.
+### Phase 3 — Custom kernel if justified by scale and empirical need
 
-### Phase 3
+At Tier 2+ scale (multilingual Wikipedia, scientific literature, ~10⁸+ consolidated nodes, ~10¹⁰+ edges), a custom kernel may become attractive for:
 
-Build a custom kernel if justified by scale and empirical need.
+- memory control on the CSR edge tensor at multi-TB scale
+- concurrency primitives beyond what Python + PyTorch comfortably support
+- custom hyperedge data structures for the event-hypergraph projection
+- disk-near indexing for cold-tier nodes
+- distributed sharding (by topic cluster or by tier)
+- safe serialisation across federation peers
+- GPU-adjacent acceleration tuned to the substrate's specific SpMV / SpMM patterns
 
-Rust becomes attractive here because of:
+Python remains the language of fast research and agent behaviour.
+Rust becomes plausible as the language of durable memory at multi-server scale.
 
-- memory control
-- concurrency
-- custom hyperedge data structures
-- disk-near indexing
-- sharding
-- safe serialization
-- GPU-adjacent acceleration
-
-Python remains the language of fast research and agent behavior.
-Rust becomes the language of durable memory.
+Whether to take this step is empirical — Mnemosyne's metrics and operator scale targets decide.
 
 ## Final Thesis
 

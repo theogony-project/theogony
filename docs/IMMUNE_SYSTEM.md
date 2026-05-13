@@ -1,8 +1,10 @@
 # The Immune System
 
 **Status:** canonical doctrine for defense and self-improvement in Pantheon.
-**Companion docs:** [`PANTHEON_VISION.md`](PANTHEON_VISION.md) (long-horizon north star), [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) (compact non-negotiables), [`SELF_MODIFICATION.md`](SELF_MODIFICATION.md) (the ultimate horizon — Pantheon writing its own next version), [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Agent-driven cleanup" and §"Pathology and therapy" (the substrate-level continuation of this doctrine: post-hoc topological pathology surveillance, agent-driven cleanup of contradictions / false information / redundancies / duplicates, staged therapy with Mendel-weighed escalation).
+**Companion docs:** [`PANTHEON_VISION.md`](PANTHEON_VISION.md) (long-horizon north star), [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) (compact non-negotiables), [`SELF_MODIFICATION.md`](SELF_MODIFICATION.md) (the ultimate horizon — Pantheon writing its own next version), [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Agent-driven cleanup" and §"Pathology and therapy" (the substrate-level extension of this doctrine: post-hoc topological pathology surveillance, agent-driven cleanup of contradictions / false information / redundancies / duplicates, staged therapy with Mendel-weighed escalation).
 **Audience:** every agent that touches the Chronik. Read this before designing or implementing anything that filters, verifies, removes, or audits content.
+
+**Precedence note.** Where this document specifies *substrate-layer* behaviour — specifically the question of when destruction of nodes / edges / claims is permissible — the [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Agent-driven cleanup" and §"Pathology and therapy" sections are operative. The substrate doctrine permits agent-driven destruction (deduplication, contradiction resolution, false-information removal, redundancy compression, and Stage 4–5 therapy when the Mendel risk has been weighed and rejected) under audit. The principle below that "Athene never deletes" remains correct for *Athene specifically* and for *single-claim flagging without supporting evidence*. The broader "no destruction outside resource pressure" framing implied by the older version is superseded: destruction is permitted, with audit trail and proportionality.
 
 ## Why this doc exists
 

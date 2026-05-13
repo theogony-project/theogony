@@ -21,6 +21,8 @@ AI agents don't read the Chronik. They activate it. A query arrives as a vector.
 
 The long-horizon vision: the Chronik grows into the dominant knowledge substrate of the age of AI — not a better search engine, not a bigger database, but the rail layer beneath the models. A shared, open, inspectable record of what the world knows, has known, and disputes. Models are vehicles. They will improve and be replaced. The Chronik is the track they all run on.
 
+**→ [docs/MESH_SUBSTRATE.md](docs/MESH_SUBSTRATE.md)** — **the binding substrate doctrine.** How the mesh is structured (two-tier nodes, eager identity, frame-sensitive vectors), how it grows and forgets (Hebbian update, super-linear decay, saturation caps, atrophy ≠ death, pruning under resource pressure), how it heals (agent-driven cleanup, five-stage therapy with Mendel risk weighed). Companions: [`MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md) (runtime — LanceDB + sparse PyTorch + MVCC + batched SpMV) and [`MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md) (use — diversified injection, three-factor reinforcement learning, multi-agent strategy game, multi-modal extension).  
+**→ [docs/MESH_MIGRATION_PLAN.md](docs/MESH_MIGRATION_PLAN.md)** — **the binding strangler-fig migration plan** from the current Generation-1 codebase to the MESH-triplet substrate. Six PR-sized steps, parallel Phoenix-backlog migration, a concrete first PR. **Read this if you are picking up substrate implementation work.**  
 **→ [ROADMAP.md](ROADMAP.md)** — the development sequence, five phases, current priorities.  
 **→ [docs/INDEX.md](docs/INDEX.md)** — the full document map with reading paths by audience.  
 **→ [AGENTS.md](AGENTS.md)** — if you are an AI coding agent (Cursor, Codex, Claude Code, …) contributing to this repo: read this first, it is the binding working contract.
@@ -29,18 +31,25 @@ The long-horizon vision: the Chronik grows into the dominant knowledge substrate
 
 ## Where we are
 
-This is an early-stage research project. The architecture is documented and the substrate is in active migration toward its target shape. The code is a working proof of concept, not a production system.
+This is an early-stage research project. The substrate doctrine — how the mesh must behave, how it is implemented, how it is used — is fully specified in the MESH triplet ([`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md), [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md), [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md)). The code is a working proof of concept walking toward that target.
 
 **What runs today:**
-- An ingest pipeline that reads a text (books from Project Gutenberg, Wikipedia articles) and writes concept nodes and typed weighted edges into the substrate, with structured run reports for every pass.
+- An ingest pipeline that reads a text (books from Project Gutenberg, Wikipedia articles) and writes nodes and typed weighted edges into the substrate, with structured run reports for every pass.
 - An in-process columnar / tensor substrate: nodes and edges live in an in-memory store (LanceDB persistence is being wired in); a `TensorMeshEngine` builds a CSR adjacency tensor on demand and runs Spreading Activation over it as sparse matrix-vector multiplication. **No graph database. No multi-hop traversal language.** Queries arrive as vectors; activation propagates; a constellation comes back.
 - A background process (Oneiros) that continuously scores and promotes knowledge — more confident, better-connected nodes become "trusted"; stale ones decay.
 - A small MCP server so AI assistants like Claude Desktop or Cursor can query the Chronik directly as a tool.
 
-**What we build next** (in order, and decided in writing):
-- **Kadmos v2** — the text translation layer, redesigned. An LLM that *reads with working memory* — sentence by sentence, with revisions when later context demands it, with cross-passage syntheses that emerge as the reading proceeds — and emits a labelled intermediate that is then collapsed into vectors and typed edges by an internal embedding pass. After that pass, no text remains in the substrate. See [`docs/etappes/kadmos_v2_brief.md`](docs/etappes/kadmos_v2_brief.md).
-- **The Mesh-Native Language Model (MNLM)** — the cognitive primitive that operates *inside* the substrate. Vector subgraphs in, vector subgraphs out, no text in the middle. A frozen Llama-3-8B-Instruct body adapted with a Graph-KV input mechanism, a Latent Flow Matching output head, and Substrate-Resonant Recurrence — a recurrent loop in which every K-th reasoning step interleaves a one-hop Spreading Activation call, so the model and the substrate share recurrent state. Trained against the substrate itself: the retrieval primitive is the loss surface. **Nous** (synthesis), **Oneiros** (consolidation), and **Kalypso** (emergent discovery) are all roles of this one architectural class. The binding architecture decision lives in [`docs/etappes/mesh_native_lm_brief.md`](docs/etappes/mesh_native_lm_brief.md); it is the operative document.
-- **The full LanceDB persistence path** — completing the migration from in-memory storage to append-only columnar storage on disk, with PyTorch CSR tensors as the runtime form, so the substrate is queryable in milliseconds regardless of size and rebuildable from disk.
+**What the substrate looks like at the target** ([`MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md) is the binding doctrine):
+- **Two tiers of nodes.** Tier 0 Observation Chunks (one extracted observation each — semantic vector, frame vector, provenance). Tier 1+ Consolidated Nodes (entities, concepts, bridges, source-anchors — multiple vectors, regenerable description, Q-IDs, tier-modulated decay).
+- **Eager identity when the evidence is clear; emergent otherwise.** Q-ID match, description match, or strong structural context attaches a chunk's reference edge to an existing Tier-1 node at insertion. When no signal is decisive, the substrate creates an entity-candidate that Oneiros consolidates or atrophies over later ticks.
+- **Lifelike dynamics.** Hebbian update + super-linear decay (strong unused edges decay faster than weak ones); bounded saturation in count and weight per node; atrophy decoupled from death (nodes stay until the pruner runs under resource pressure); global homeostatic renormalisation; effective-resistance-preserving sub-node splits when hubs grow too large.
+- **Agent-driven cleanup, post-hoc.** Deduplication, contradiction resolution, false-information removal, redundancy compression — all operate on existing substrate state, with audit. No pre-gates judging content at insertion.
+- **Pathology surveillance and staged therapy.** Argus watches topology for five known pathologies (refutation absorption, saturation lockout, …); Oneiros applies five staged therapies, with the Mendel risk weighed before any destructive step.
+
+**What we build next** (in order, decided in writing):
+- **Kadmos v2** — the text translation layer, redesigned. An LLM that *reads with working memory* — sentence by sentence, with revisions when later context demands it — and emits chunks and reference edges into the substrate per the MESH-doctrine eager-linking rules. See [`docs/etappes/kadmos_v2_brief.md`](docs/etappes/kadmos_v2_brief.md).
+- **The Mesh-Native Language Model (MNLM)** — the cognitive primitive that operates *inside* the substrate. Vector subgraphs in, vector subgraphs out, no text in the middle. A frozen Llama-3-8B-Instruct body adapted with a Graph-KV input mechanism, a Latent Flow Matching output head, and Substrate-Resonant Recurrence — a recurrent loop in which every K-th reasoning step interleaves a one-hop Spreading Activation call, so the model and the substrate share recurrent state. Trained against the substrate itself: the retrieval primitive is the loss surface. **Nous** (synthesis), **Oneiros** (consolidation), and **Kalypso** (emergent discovery) are all roles of this one architectural class. Architecture: [`docs/etappes/mesh_native_lm_brief.md`](docs/etappes/mesh_native_lm_brief.md).
+- **The full LanceDB persistence path** — completing the migration from in-memory storage to append-only columnar storage on disk, with PyTorch sparse CSR tensors for the SpMV runtime and a parallel Lance metadata table for the rich edge descriptors. Runtime spec: [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md).
 
 The full development sequence is in [ROADMAP.md](ROADMAP.md).
 
@@ -134,19 +143,22 @@ The full document map with recommended reading paths by audience is in [docs/IND
 
 | Document | What it covers |
 |---|---|
+| **[docs/MESH_SUBSTRATE.md](docs/MESH_SUBSTRATE.md)** | **The binding substrate doctrine — two-tier nodes, edge anatomy, dynamics, agent-driven cleanup, pathology and staged therapy. Read this before designing or implementing anything that reads or writes a node, an edge, or a tick.** |
+| **[docs/MESH_IMPLEMENTATION.md](docs/MESH_IMPLEMENTATION.md)** | **Runtime: Hot/Warm/Cold tiering, LanceDB MVCC, PyTorch sparse CSR + delta buffer, batched-SpMV Spreading Activation, Oneiros tick order, hardware tier targets.** |
+| **[docs/MESH_RETRIEVAL.md](docs/MESH_RETRIEVAL.md)** | **Use: diversified injection (MMR + weight-class stratification + sub-mesh signature), three-factor reinforcement learning, frame-sensitive resonance, multi-agent strategy game, multi-modal extension.** |
+| **[docs/MESH_MIGRATION_PLAN.md](docs/MESH_MIGRATION_PLAN.md)** | **The strangler-fig migration plan from the Gen-1 codebase to the MESH substrate. Six PR-sized steps, parallel Phoenix-backlog migration, the first concrete PR.** |
 | [ROADMAP.md](ROADMAP.md) | The five-phase development sequence |
-| [docs/TARGET_ARCHITECTURE.md](docs/TARGET_ARCHITECTURE.md) | The binding technical target — substrate, pipeline, three non-negotiable decisions |
+| [docs/TARGET_ARCHITECTURE.md](docs/TARGET_ARCHITECTURE.md) | The architectural floor — pipeline, three non-negotiable technical decisions (no raw text storage as retrieval payload, LanceDB + PyTorch, Spreading Activation as primitive). The MESH triplet builds the structure that stands on this floor. |
 | [docs/etappes/kadmos_v2_brief.md](docs/etappes/kadmos_v2_brief.md) | Kadmos v2 — cognitive reading as a translation layer |
 | [docs/etappes/mesh_native_lm_brief.md](docs/etappes/mesh_native_lm_brief.md) | The binding MNLM architecture brief — frozen Llama + Graph-KV + Latent Flow Matching + Substrate-Resonant Recurrence |
 | [docs/VISION.md](docs/VISION.md) | The compact vision — how agents use the Chronik |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design — layers, data model, retrieval |
-| [docs/DEEP_TECH_VISION.md](docs/DEEP_TECH_VISION.md) | The deeper substrate direction |
-| [notes/architecture/vector_native_spreading_activation.md](notes/architecture/vector_native_spreading_activation.md) | Tensor-Manifold and Spreading Activation design |
-| [notes/architecture/reading_agent_vision.md](notes/architecture/reading_agent_vision.md) | The cognitive model behind reading-as-synthesis |
+| [docs/PANTHEON_VISION.md](docs/PANTHEON_VISION.md) | Long-horizon north star — the planetary chronicle the Chronik walks toward |
 | [docs/CHRONICLE_PRINCIPLES.md](docs/CHRONICLE_PRINCIPLES.md) | Ten non-negotiable design principles |
-| [docs/BUILD_DOCTRINE.md](docs/BUILD_DOCTRINE.md) | Why we ingest fast and heal post-hoc |
-| [docs/IMMUNE_SYSTEM.md](docs/IMMUNE_SYSTEM.md) | Why pre-gates judging content are forbidden — sample-based post-hoc cells |
-| [docs/GLOSSARY.md](docs/GLOSSARY.md) | Canonical terminology — Chronik, Pantheon, Nous, Oneiros, … |
+| [docs/BUILD_DOCTRINE.md](docs/BUILD_DOCTRINE.md) | Why we ingest fast and heal post-hoc — Function-First Phase |
+| [docs/IMMUNE_SYSTEM.md](docs/IMMUNE_SYSTEM.md) | Why pre-gates judging content are forbidden — sample-based post-hoc cells (claim-level companion to MESH §"Agent-driven cleanup" + §"Pathology and therapy") |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The Gen-1 system as it ships today — four-layer pipeline, agent roster |
+| [docs/GLOSSARY.md](docs/GLOSSARY.md) | Canonical terminology — Chronik, Pantheon, MESH substrate vocabulary, Nous, Oneiros, … |
+| [docs/DEEP_TECH_VISION.md](docs/DEEP_TECH_VISION.md) | The deeper substrate direction |
 | [AGENTS.md](AGENTS.md) | If you are an AI agent contributing to this repo |
 
 ---

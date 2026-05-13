@@ -9,7 +9,7 @@ When a term appears in multiple documents, this file should be treated as the de
 The overall project, architecture, and open initiative devoted to building the **Chronik** (today's operational system) as the first software toward the **Pantheon** (long-horizon planetary chronicle / knowledge substrate) and the surrounding **Pantheon agents**. See [`PANTHEON_VISION.md`](PANTHEON_VISION.md) and [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md).
 
 **Chronik**  
-The living knowledge system at the center of Theogony *right now* — Generation 1's vector-graph memory: ingestion, retrieval, Oneiros, Neo4j, run reports. It is the operational layer implementing chronicle-shaped knowledge toward the wider **Pantheon** ambition; the two terms are not interchangeable.
+The living knowledge system at the center of Theogony *right now* — Generation 1's vector-graph memory: ingestion, retrieval, Oneiros, run reports. Storage is migrating from the legacy in-memory / Neo4j layer to the target architecture (LanceDB columnar nodes + PyTorch sparse-CSR edge tensors per [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md)). The substrate's behavioural doctrine is the MESH triplet ([`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md), [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md), [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md)). The Chronik is the operational layer implementing chronicle-shaped knowledge toward the wider **Pantheon** ambition; the two terms are not interchangeable.
 
 **Akasha**  
 The global, shared, public knowledge space of the Chronik. This is the world-knowledge layer.

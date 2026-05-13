@@ -49,9 +49,17 @@ NOUS — weaves the primitive mesh into a denser knowledge network
 CHRONIK — the persistent semantic space
     Storage:  LanceDB (columnar, append-only, versioned)
     Runtime:  PyTorch CSR tensor (Spreading Activation as SpMV)
-    Nodes:    embedding vectors. No text attributes.
-    Edges:    typed, weighted, vectorized. No string labels.
-    Provenance: minimal — source ID + timestamp. Not for retrieval.
+    Nodes:    multiple embedding vectors (semantic, frame, structural, temporal,
+              description) + optional regenerable description text + Q-ID tags +
+              tier counters. Two tiers: Observation Chunks (Tier 0) and
+              Consolidated Nodes (Tier 1+). Raw source text is NOT stored.
+    Edges:    quantitative core (source, target, weight, decay_tier,
+              frame_consistency) + optional semantic descriptors
+              (relation_descriptor, relation_kind, description, P-IDs,
+              creation_context). The quantitative core drives SpMV; the
+              descriptors travel for agent / repair / debugging use.
+    Provenance: source-anchor entities at Tier 1+ (URLs, DOIs, ISBNs) plus
+              per-chunk raw_text_ref pointer (not retrieval payload).
     ↓
 ONEIROS — thinks continuously
     Not a batch consolidation job.
@@ -83,8 +91,8 @@ The pipeline above describes a single mesh tier. The Chronik is designed to host
 
 These are decided. They are not under discussion.
 
-**1. No text storage after Kadmos.**  
-Once Kadmos has translated a source, the text is not stored in the Chronik. Not as node attributes. Not as edge annotations. Not as snippets. A minimal provenance ID (source URL + timestamp) exists for the immune system. Nothing else.
+**1. No raw text storage after Kadmos.**  
+Once Kadmos has translated a source, the raw source text is not stored in the Chronik as retrieval payload. SpMV reads vectors, not strings. A minimal `raw_text_ref` pointer exists per chunk so the immune system can re-derive from the source when needed; source-anchor entities (Tier-1+ nodes flagged with `is_source_anchor`) carry URLs, DOIs, ISBNs as structured anchors. Short text fields — `description` on nodes and edges, `relation_descriptor`, `tags`, `source_url` — are summary metadata, *not* raw source text, and they are explicitly permitted; they are how agents and humans read the mesh. See [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Field discipline" and §"Source-anchor entities".
 
 **2. LanceDB + PyTorch, not Neo4j.**  
 Neo4j is deprecated for the core mesh. It cannot execute Spreading Activation. It cannot handle 1000:1 edge/node density. It uses pointer-chasing, not tensor operations. The target store is LanceDB (append-only columnar vector store) with PyTorch CSR tensors for runtime Spreading Activation.
@@ -118,7 +126,7 @@ How we get there:
 
 **Not RAG.** RAG stores text chunks and retrieves them. The Chronik stores meaning and generates language from it. If text is being stored as payload — in nodes, edges, or agent communications — it is RAG thinking, and it violates the architecture.
 
-**Not a knowledge graph in the traditional sense.** Traditional knowledge graphs (Wikidata, DBpedia) store facts as subject-predicate-object triples with string labels. The Chronik stores meaning as vectors. Edge types are not string labels — they are vectors from a codebook that encode the semantic character of the relation.
+**Not a knowledge graph in the traditional sense.** Traditional knowledge graphs (Wikidata, DBpedia) store facts as subject-predicate-object triples whose retrieval primitive is graph traversal over string-labeled edges. The Chronik stores meaning as vectors and retrieves via Spreading Activation. Edges may carry optional semantic descriptors (`relation_descriptor`, `relation_kind`, P-IDs) for agent and human consumption — but the substrate's *retrieval primitive* is SpMV over the weighted edge tensor, not Cypher-style label matching. The descriptors travel with the edge; they are not the way the substrate finds things.
 
 **Not a vector database.** A vector database does kNN search over embeddings. The Chronik does Spreading Activation over a dense typed graph. The difference is multi-hop, causal, temporal, structural reasoning — not just geometric proximity.
 
@@ -148,9 +156,9 @@ These are failure modes observed in previous implementation rounds. Do not repea
 **Do not build stateless LLM-per-paragraph extraction into Kadmos.**  
 Kadmos v1's failure was context-free extraction: one LLM call per paragraph, no memory of what came before, no revision. That pattern is forbidden. What is allowed — and what Kadmos v2 implements — is an LLM that reads with working memory, carries forward a running synthesis, and revises earlier concepts when later context demands it. This is not "extraction per paragraph". It is reading. The distinction matters: extraction treats each paragraph as an isolated data source; reading treats the text as a temporal experience that builds cumulative understanding.
 
-Labels on concepts are a **transitional representation** inside Kadmos. They are produced by the LLM during the reading pass, used to build the rich intermediate structure (ReadingState, synthesis nodes, typed edges), and then translated into embedding vectors by Kadmos's internal embedding pass. After the embedding pass, labels are retained only as debugging metadata — not as primary node representation, not for retrieval.
+Labels on concepts are a **transitional representation** inside Kadmos. They are produced by the LLM during the reading pass, used to build the rich intermediate structure (ReadingState, synthesis nodes, typed edges), and then translated into embedding vectors by Kadmos's internal embedding pass. The vectors are the substrate's retrieval primitives.
 
-**Do not store text labels as primary node representations.** Labels are permitted as debugging metadata. They are not knowledge. They are not used for retrieval. A node is its embedding vector and its edges.
+**Do not use text labels as the retrieval primitive.** A node's primary retrieval representation is its embedding vectors (semantic, frame, structural, temporal, description); its edges are the substrate's structural truth. *In addition*, Tier-1+ consolidated nodes carry an authoritative regenerable `description` (a short discriminating text summary) and edges may carry `relation_descriptor` / `description` / `pids` — these are agent-readable metadata for repair, disambiguation, LLM injection, and human inspection per [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Field discipline" point 4 and §"Edge anatomy". They are not retrieval primitives, but they are not "debugging only" either.
 
 **Do not write through the Neo4j KnowledgeStore Protocol for Kadmos or Nous.** The KnowledgeStore Protocol is a legacy interface for the current codebase. Kadmos and Nous write directly to LanceDB. The migration is the architecture, not a future concern.
 

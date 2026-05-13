@@ -1,8 +1,8 @@
 # Chronik Scale Analysis
 
 **Status:** Living document. Update when hardware prices, corpus estimates, or infrastructure assumptions change materially.  
-**Companion:** [`PANTHEON_VISION.md`](PANTHEON_VISION.md) §"The Scale of the Chronik" — the stable principles. This document holds the numbers.  
-**Last updated:** 2026-05-11
+**Companion:** [`PANTHEON_VISION.md`](PANTHEON_VISION.md) §"The Scale of the Chronik" — the stable principles. This document holds the numbers. For the substrate's behavioural and runtime spec — the actual storage layout that determines these numbers — see [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) and [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md), which are operative.  
+**Last updated:** 2026-05-13
 
 ---
 
@@ -14,7 +14,9 @@ Concrete storage estimates, cost figures, and infrastructure tier descriptions a
 
 ## The consolidation ratio
 
-When Kadmos reads a Wikipedia article, it extracts concept nodes and edges. When a second article describes the same concept, the MNLM emits a `MergeNodes` primitive rather than a new node. The consolidation ratio — what fraction of raw Kadmos output collapses into existing nodes — has been estimated at **~60–80%** based on embedding-cluster analysis of medium-sized corpora.
+When Kadmos reads a Wikipedia article, it extracts Tier-0 Observation Chunks and reference edges to Tier-1+ entity / concept / source-anchor nodes. For entities the linker can confidently resolve (Q-ID match, description match, or strong structural context per [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Why two tiers — and how identity actually gets committed"), the chunk's reference edges attach directly to existing Tier-1 nodes — no duplicate is created. For entities the linker cannot confidently resolve, an entity-candidate node is created, and Oneiros consolidates accumulated candidates into stable Tier-1 nodes over later ticks. Concept nodes (without Q-ID) form emergently from co-resonating chunks.
+
+The **consolidation ratio** — what fraction of raw Kadmos-emitted Tier-1 candidates collapses into existing nodes — has been estimated at **~60–80%** based on embedding-cluster analysis of medium-sized corpora.
 
 This ratio is the key variable in all scale estimates below. If it is lower in practice (e.g. 40%), node counts are higher; if higher (e.g. 90%), they are lower. The MNLM PoC pass (§13 of `mesh_native_lm_brief.md`) will produce the first empirical data point.
 
@@ -38,12 +40,15 @@ This ratio is the key variable in all scale estimates below. If it is lower in p
 
 | Metric | Raw Kadmos output | After consolidation (~70%) |
 |---|---|---|
-| Concept nodes | ~500 million | **~100–150 million** |
-| Explicit structural edges (Kadmos) | ~1 billion | ~1 billion |
-| With kNN similarity wiring (100×) | — | ~10–15 billion |
-| Node storage (384-dim float32 embeddings + metadata) | ~850 GB | **~250–380 GB** |
-| Edge storage (codebook id + 32-dim nuance + weight) | ~350 GB | ~350–500 GB |
-| **Total consolidated storage** | ~1.2 TB raw | **~5–8 TB** |
+| Tier-0 observation chunks | ~500 million | unchanged (chunks are not deduplicated; consolidation operates on Tier-1+ candidates) |
+| Tier-1+ consolidated nodes (entities + concepts + source-anchors) | ~150–200 million candidates | **~50–100 million stable** |
+| Explicit reference edges (Kadmos chunk → Tier-1 node) | ~1.5 billion | ~1.5 billion |
+| Hebbian + kNN similarity edges (50–100× over Tier-1 nodes) | — | ~10–15 billion |
+| Node storage (multiple vectors per Tier-1 node: 1024-d semantic + 64-d frame + 128-d structural where populated + 1024-d description where populated, plus metadata) | — | **~300–500 GB** |
+| Edge storage — quantitative CSR (source, target, weight FP16, decay_tier, frame_consistency) | — | ~50–80 GB |
+| Edge storage — Lance metadata table (descriptors on ~10–30% of edges) | — | ~30–60 GB |
+| Audit ledger + historical Lance versions | — | ~100–500 GB cumulative |
+| **Total consolidated storage** | — | **~5–8 TB** |
 
 Infrastructure at this tier: single high-memory server (512 GB RAM for CSR runtime tensor, NVMe SSD for LanceDB vector store). LanceDB or Milvus. No distributed system required.
 
@@ -105,28 +110,30 @@ The Chronik does not need to reach neuron-scale node count to approach synaptic-
 
 ## Infrastructure evolution path
 
-| Tier | Vector store | Sparse adjacency | SA implementation |
-|---|---|---|---|
-| 0–1 | LanceDB (local/cloud) | PyTorch CSR in RAM | Single-node SpMV |
-| 2 | LanceDB Cloud or Milvus | PyTorch CSR, high-memory server | Single-node SpMV |
-| 3 | Milvus distributed | GraphBLAS / DistDGL distributed | Hierarchical SA (coarse routing + fine within shard) |
-| 4 | Milvus + per-sub-mesh private stores | Global distributed + local private shards | SA with permission masks per tier |
+| Tier | Vector store (nodes) | Edge runtime | Edge metadata | SA implementation |
+|---|---|---|---|---|
+| 0–1 | LanceDB (local/cloud) | PyTorch sparse CSR in RAM (or MPS / consumer GPU) | Lance table | Single-node batched SpMV |
+| 2 | LanceDB | PyTorch sparse CSR on A100 / H100 (FP16 weights) | Lance table | Single-node batched SpMM (many concurrent activations) |
+| 3 | LanceDB distributed (or Milvus where Lance does not scale) | Sharded sparse CSR per topic cluster; GraphBLAS / DistDGL for cross-shard ops | Lance distributed | Hierarchical SA (coarse routing across shards + fine within shard) |
+| 4 | Per-sub-mesh stores plus a global public layer | Distributed sparse CSR with permission masks | Distributed | SA with per-tier permission masks (per [`PANTHEON_VISION.md`](PANTHEON_VISION.md) §"The Federated Substrate") |
 
-The transition from Tier 1 to Tier 2 is a configuration change (larger server). The transition from Tier 2 to Tier 3 is an infrastructure change (distributed systems). The transition from Tier 3 to Tier 4 is an architectural change (federation protocol, permission masks, sub-mesh ownership model).
+The transition from Tier 1 to Tier 2 is a configuration change (larger server, possibly GPU). The transition from Tier 2 to Tier 3 is an infrastructure change (distributed systems). The transition from Tier 3 to Tier 4 is an architectural change (federation protocol, permission masks, sub-mesh ownership model).
 
-Each transition is designed as an addition to the existing substrate, not a rewrite. The LanceDB columnar format, PyTorch CSR layout, and SpMV-based SA primitive are forward-compatible with Milvus, GraphBLAS, and distributed SA at higher tiers.
+Each transition is designed as an addition to the existing substrate, not a rewrite. The LanceDB columnar node format, PyTorch sparse CSR edge tensor, COO delta buffer, and SpMV / SpMM SA primitive are forward-compatible with distributed Lance, GraphBLAS, and per-tier permission masks at higher tiers. The substrate doctrine ([`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md)) is the same at every tier; only the deployment topology changes.
 
 ---
 
 ## Periodic maintenance operations
 
-As the Chronik grows, three background operations keep it operationally stable:
+The substrate's own dynamics ([`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"The dynamics" and §"Consolidation, splits, and tier promotion") provide bounded growth without external scheduling. Three background operations are nonetheless worth naming here as scale-shapers:
 
-**Weekly shard rebalancing (Tier 3+).** A graph partitioning job (METIS or spectral bisection) recalculates shard boundaries to ensure SA queries remain ~90% shard-local. Nodes whose embedding neighbourhood has migrated across shard boundaries are moved. This prevents hot-spots and cross-shard traffic from growing unboundedly.
+**Oneiros tick (all tiers).** The substrate's single-writer process — runs every few minutes at Tier 0, every 15–30 minutes at Tier 1 dev, hourly at Tier 1 production, every few hours at Tier 2+. Each tick drains the Hebbian delta buffer, applies **super-linear decay** (tier-modulated, `k = 2` for Tier 0, gentler for higher tiers) so unused edges shrink faster than used ones, applies **global homeostatic renormalisation** to keep total-edge-weight / node-count near `R_ideal`, runs consolidations (promoting Tier-0 chunk clusters into Tier-1 entity/concept candidates, merging entity-candidates into stable nodes), and enforces saturation caps (count + weight per tier). The substrate stays bounded by construction, not by a separate sweep.
 
-**Hebbian decay sweep (all tiers).** Edges not traversed by Spreading Activation over a configurable window (default: 90 days) have their `hebbian_strength` decayed. Edges below a minimum threshold are candidates for `Invalidate`. This bounds the growth of the edge layer and prevents dead knowledge from accumulating indefinitely.
+**Pruner (all tiers).** Triggered only by **resource pressure** — RAM occupancy above threshold, query latency above target, GPU memory above ceiling. When tripped, removes the weakest atrophied nodes and edges first, content-blind, until the trigger condition clears with margin. **Pruning is the only operation that destroys information**; everything else either transforms or moves. In a system with unbounded RAM and compute, nothing is ever pruned.
 
-**Consolidation pass (all tiers).** The MNLM and immune system continuously emit `MergeNodes` and `Invalidate` primitives as they identify duplicates and contradictions. A weekly consolidation sweep collects pending primitives, applies them in batch, and re-indexes affected nodes. This is the mechanism by which the Chronik shrinks intelligently as it grows in coverage.
+**Agent-driven cleanup (all tiers).** Argus, Athene, and other Pantheon agents emit findings post-hoc — `MergeProposal` for duplicate Tier-1 nodes, `ContradictionFinding` with `CONTRADICTS` edges, `RemovalProposal` for demonstrably false information (with audit trail and evidence), `RedundancyProposal` for chunks making the same observation. Oneiros applies these findings at tick boundaries with full audit-ledger entries.
+
+**Shard rebalancing (Tier 3+ only).** At distributed scale, a graph-partitioning job (METIS or spectral bisection) recalculates shard boundaries so SA queries remain ~90% shard-local. Nodes whose embedding neighbourhood has migrated across shard boundaries are moved. Single-server tiers (≤ Tier 2) do not need this operation.
 
 ---
 
