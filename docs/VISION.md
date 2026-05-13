@@ -2,9 +2,11 @@
 
 **Theogony** is the deliberate attempt to **separate knowledge from reasoning** at civilizational scale.
 
-Long term, it aims at the **Pantheon** — a planetary chronicle / knowledge substrate (native identity, provenance, governed visibility, chronicle over encyclopedia). Read [`PANTHEON_VISION.md`](PANTHEON_VISION.md) and the seven-point [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md).
+Long term, it aims at the **Pantheon** — a planetary chronicle / knowledge substrate (native identity, provenance, governed visibility, chronicle over encyclopedia). Read [`PANTHEON_VISION.md`](PANTHEON_VISION.md) and the ten-point [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md).
 
 **Today, Theogony builds the Chronik** — a living, open, verifiable vector-graph knowledge network that externalizes factual knowledge from large language models. The Chronik is Generation 1's operational system: the first real software toward that Pantheon shape, not the final name for the whole ambition.
+
+The substrate beneath the Chronik — how nodes are born, how identity is committed, how edges decay and saturate, how agents clean up contradictions, how the substrate defends itself against its own pathologies — is specified by the MESH triplet: [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md), [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md), [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md). That triplet is the binding behavioural specification for everything that follows.
 
 ## The Core Idea
 

@@ -106,7 +106,7 @@ class ChunkNode(BaseModel):
     raw_text_ref: str                   # opaque pointer; raw text is NOT stored in the mesh
 ```
 
-`raw_text_ref` exists because the immune system may sometimes need to re-derive the chunk from its source. It is **not** retrieval payload. No agent ever consumes `raw_text_ref` during Spreading Activation; doing so violates [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) §"Language is the Edge, Not the Substrate".
+`raw_text_ref` exists because the immune system may sometimes need to re-derive the chunk from its source — and because human debugging occasionally wants to look at the literal source string behind a vector. It is **not** retrieval payload. No agent ever consumes `raw_text_ref` during Spreading Activation; the retrieval primitives operate on vectors, not strings, and reading the raw text on the hot path would defeat the substrate's entire reason for being vector-native.
 
 ### Tier-1+ — Consolidated Node
 
@@ -211,6 +211,28 @@ Source-anchor entities turn provenance into a structural feature of the mesh rat
 - Multiple chunks extracted from the same source share the same source-anchor entity — saving storage and giving Argus a single point at which to assess source reliability.
 - Source hierarchies (article → chapter → paragraph) are expressed as ordinary edges with `relation_kind = "hierarchy"`, not as a parallel hierarchy schema.
 - A source-anchor entity that has accumulated many flagged chunks (false-information findings, contradictions) is a structural signal about source quality — Argus can reason about reliability per-source without a separate source-quality table.
+
+**Description convention.** Source-anchor descriptions follow a stable, machine-parseable format. The description combines a *source-type tag*, the source's *human-readable title*, and a *structured anchor* (URL, DOI, ISBN, or similar) in parentheses. The format is:
+
+```
+{type}: {title} ({anchor})
+```
+
+Examples covering the common cases:
+
+- `'Wikipedia article: Thomas Addison (https://en.wikipedia.org/wiki/Thomas_Addison)'`
+- `'Wikipedia section: Discovery of Addison's disease — Thomas Addison § Career (https://en.wikipedia.org/wiki/Thomas_Addison#Career)'`
+- `'Wikipedia paragraph: ¶3 of Thomas Addison § Early life (https://en.wikipedia.org/wiki/Thomas_Addison#Early_life:p3)'`
+- `'Wikipedia article: Biochemistry (https://en.wikipedia.org/wiki/Biochemistry)'`
+- `'Book: The History of Endocrinology, by John Smith (ISBN:978-0-12-345678-9)'`
+- `'Book chapter: "Thyroid hormones" — The History of Endocrinology, chapter 4 (ISBN:978-0-12-345678-9#ch4)'`
+- `'Paper: "On the Constitutional and Local Effects of Disease of the Suprarenal Capsules" by Thomas Addison, 1855 (doi:10.1000/example)'`
+- `'Web page: Pantheon Project — About (https://example.org/about)'`
+- `'Dataset: Human Protein Atlas v22 (https://www.proteinatlas.org/about)'`
+
+The format mirrors the natural-language way agents and humans refer to sources, while leaving a structured anchor embedded for direct provenance retrieval. The `source_url` field on the node carries the same anchor separately in a machine-clean form (no surrounding title text), so a consumer that needs the URL specifically does not have to parse it back out of the description. The `description_vector` (when populated on a source-anchor) embeds this whole description string, so source-anchor entities can be matched against each other and against incoming source citations via the same description-based eager-linking signal that named entities use — see §"Why two tiers — and how identity actually gets committed" signal 2.
+
+For sources without a globally-resolvable anchor (private corpora, internal documents), use a stable internal identifier in the same parenthetical position — e.g., `'Internal report: Q3 2024 ingestion review (internal://reports/2024-q3-ingest)'`. The convention is about *uniqueness and re-derivability*, not about web-public reachability.
 
 **Mechanics.** Source-anchor entities follow normal substrate dynamics: they have semantic_vector and frame_vector and (often) description_vector, they participate in Hebbian update and decay, they can be consolidated (a once-stable Wikipedia article URL is itself a stable thing), and they can be sub-node-split when one source-anchor accumulates too many references (rare but possible — a heavily-cited textbook with many chapters might split into per-chapter sub-nodes). They never carry Q-IDs unless the source itself has one (some sources do — books with ISBNs, papers with DOIs; these can be treated as identity anchors analogous to Q-IDs).
 
@@ -478,7 +500,7 @@ The substrate's dynamics are powerful because they are self-reinforcing. They ar
 
 This is distinct from agent-driven cleanup (above): cleanup targets *specific identified problems*; therapy targets *patterns of pathology* that emerge from the substrate's own dynamics. Both are post-hoc, both are agent-driven, both are auditable. They differ in what they look for and what they do.
 
-This section specifies how the pathology / therapy loop works. It extends [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md) with the same post-hoc, sample-based, asynchronous discipline, applied to topology-as-structure rather than to claims-as-content.
+This section specifies how the pathology / therapy loop works. The discipline is post-hoc, sample-based, asynchronous — Argus inspects topology on her own schedule and emits findings; Oneiros applies therapy at tick boundaries; no real-time gate inspects every Hebbian update. The substrate-level surveillance described here and the claim-level immune-system work share this temporal logic; both reject pre-gating by design, because pre-gating would force diagnostic decisions on insufficient evidence and would lock the substrate into whoever last validated it.
 
 ### The five topological symptoms of a thought-spiral
 
@@ -531,7 +553,7 @@ The substrate does *not* enforce a categorical "no destruction" rule. It enforce
 
 The judgement is Argus's, made for each specific region. Mnemosyne tracks Argus's destruction recommendations over time and tunes Argus's thresholds via the standard A/B framework when calibration data accumulates.
 
-This is consistent with [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) §1 *"Chronicle over encyclopedia"* — contestation and weak evidence stay legible, the substrate does not flatten to settled summaries — but it does not extend that principle into a categorical prohibition on agent-driven destruction. Such a prohibition would prevent the substrate from removing demonstrably wrong information after it has been demonstrated wrong, which is itself an encyclopedia-like flattening (the encyclopedia of "everything we ever thought, never reconsidered").
+The substrate's stance: contestation and weak evidence stay legible — the substrate does not flatten itself into settled summaries, and a region holding a minority position keeps the right to grow back if subsequent evidence supports it. But this epistemic openness is not a categorical prohibition on destruction. Refusing to ever remove anything would prevent the substrate from cleaning up information that has been demonstrated wrong — and an everything-we-ever-thought, never-reconsidered substrate is itself a flattening, just one biased toward the past rather than toward the present. The binding constraint is *audit*, not *preservation-at-all-costs*: information may go, but the substrate does not silently forget that it once held the claim.
 
 ### Argus's substrate role
 
@@ -600,13 +622,83 @@ If the operator's hardware tier changes (e.g., move from a 256 GB workstation to
 
 ---
 
+## Second worked example: one sentence, several chunks, concepts without Q-IDs
+
+The first worked example shows what happens when richly-named, Wikidata-anchored content arrives. A second example shows the more common case in real biographical or narrative text: a single sentence produces *several* chunks, most reference targets are *abstract concepts without Q-IDs*, and the same entity gets piled with new evidence rather than re-created.
+
+Source sentence (continuing the Wikipedia article about Thomas Addison):
+
+> *"He bought a house in Hatton Garden in 1819, and from that time had a private practice."*
+
+This sentence describes two distinct happenings (the purchase event and the resulting state of practising medicine privately from then on). Kadmos extracts **two or three chunks**, each capturing a different angle of the underlying material:
+
+- **Chunk A** — *"Thomas Addison bought a house in Hatton Garden in 1819."* (frame: *event / transaction*)
+- **Chunk B** — *"Thomas Addison owned a house in Hatton Garden from 1819 onwards."* (frame: *state / ownership*)
+- **Chunk C** — *"Thomas Addison ran a private practice from 1819 onwards."* (frame: *activity / profession*)
+
+Each chunk is a Tier-0 node with its own `semantic_vector`, its own `frame_vector`, and its own reference edges. They share most of their targets but are *not* duplicates: A's frame is the moment of transaction, B's frame is the resulting ownership state, C's frame is the consequent professional activity. They will be retrieved differently by frame-routed queries (see below).
+
+**Entity-targets these chunks reference.** The chunks attach reference edges to a mix of Q-ID-anchored entities and concept nodes that have no Q-ID:
+
+| Target node | Tier | Q-ID? | Description (excerpt) |
+|---|---|---|---|
+| `Thomas Addison` | 1 | `Q336997` (yes) | *"Thomas Addison (1793–1860), English physician, described Addison's disease and the suprarenal capsules."* |
+| `Hatton Garden` | 1 | `Q6597321` (yes) | *"Hatton Garden, district of central London known historically for jewellery trade and medical practices."* |
+| `Year 1819` | anchor | n/a (anchor node) | the temporal anchor for 1819 on the substrate's time axis |
+| `Private practice` | 1 | none | *"the practice of running an independent medical service, paid by patients directly rather than through a hospital or institution"* |
+| `House ownership` | 1 | none | *"the legal and practical state of owning a residential property"* |
+| `Buying property` | 1 | none | *"the transaction of acquiring a real-estate property in exchange for payment"* |
+
+Three of these are Q-ID-anchored entities; three are pure concepts the substrate forms on its own (no Wikidata item exists for "the abstract practice of running a private medical practice in a way you can refer back to"). Both kinds use the same Tier-1 `ConsolidatedNode` schema; only `qids` differs (`[Q336997, …]` vs. `[]`).
+
+**Edges produced by the three chunks.** Each chunk attaches reference edges to its targets with `relation_descriptor`, `relation_kind`, and (where applicable) Wikidata P-IDs:
+
+| Edge | `relation_descriptor` | `relation_kind` | `pids` |
+|---|---|---|---|
+| Chunk A → Thomas Addison | `"subject"` | `"attribution"` | — |
+| Chunk A → Hatton Garden | `"location_of_event"` | `"attribute"` | `[P276]` *(location)* |
+| Chunk A → Year 1819 | `"happened_in_year"` | `"temporal"` | `[P585]` *(point in time)* |
+| Chunk A → Buying property | `"event_kind"` | `"attribute"` | `[P31]` *(instance of)* |
+| Chunk B → Thomas Addison | `"subject"` | `"attribution"` | — |
+| Chunk B → Hatton Garden | `"located_at"` | `"attribute"` | `[P276]` |
+| Chunk B → House ownership | `"state_kind"` | `"attribute"` | `[P31]` |
+| Chunk B → Year 1819 | `"began_in_year"` | `"temporal"` | `[P580]` *(start time)* |
+| Chunk C → Thomas Addison | `"subject"` | `"attribution"` | — |
+| Chunk C → Private practice | `"activity_kind"` | `"attribute"` | `[P31]` |
+| Chunk C → Year 1819 | `"began_in_year"` | `"temporal"` | `[P580]` |
+
+The frame difference between Chunk A's `"location_of_event"` edge and Chunk B's `"located_at"` edge is exactly the point: same target (Hatton Garden), different relation type, because the underlying frame differs (transaction at a place vs. residence at a place). The mesh distinguishes them, both via the chunks' `frame_vector`s and via the explicit edge metadata.
+
+**What about identity for the named entities?** Thomas Addison already exists in the substrate from earlier paragraphs (the prior worked example created the `Q336997` node when his name was first encountered). Each new chunk attaches a *new* reference edge to the *existing* Thomas Addison node — `fired_total` and `fired_recent` increment, the node accumulates evidence, and Oneiros will regenerate the description on its next consolidation tick if the new chunks bring discriminating content. **No second Thomas Addison node is created.** The Q-ID uniqueness invariant (§"Field discipline" point 3) guarantees this even if the new chunks reach the substrate via concurrent ingestion: at most a transient duplicate, resolved by Oneiros immediately.
+
+Hatton Garden, on the other hand, may not yet exist when these chunks arrive. If it does not, Kadmos creates the Tier-1 entity node on the spot from the Wikidata link plus the local extraction context, with an initial description and an initial `description_vector`. Subsequent mentions in other paragraphs link to this same node.
+
+The three concept nodes (`Private practice`, `House ownership`, `Buying property`) almost certainly do not exist yet, and they have no Q-IDs to anchor against. They are created as entity-candidates (`is_candidate = True`) with a description derived from the local context. Many subsequent biographies will reference the *same* concept of "private medical practice"; over time Oneiros consolidates the candidate nodes into a single stable concept, `is_candidate` flips to `False`, and a richer description accumulates. The substrate's concept formation is exactly this — a Q-ID-less Tier-1 node that earns its existence by being referenced from many directions.
+
+**What this example shows that the thyroxine example does not.**
+
+1. **One sentence produces multiple chunks.** Each chunk is a distinct frame of the same underlying happening. The chunks are not redundant; they are different angles, retrievable independently.
+2. **Most reference-targets in real text have no Q-ID.** Abstract activity categories, life-event types, professional roles, ownership states — none of these have Wikidata items. The substrate forms them as concept nodes through eager-candidate-creation followed by emergent consolidation. Wikidata anchors named entities; the substrate forms its own concept layer for everything else.
+3. **An existing entity accumulates evidence rather than spawning duplicates.** Each new chunk adds a reference edge to the existing `Thomas Addison` node; nothing about Addison's identity is *re-decided* at insertion. The Q-ID uniqueness invariant makes this safe even under concurrent ingestion.
+4. **Edge metadata carries the relational structure that the chunk's frame alone cannot.** `"location_of_event"` vs. `"located_at"` distinguishes Chunk A's transactional frame from Chunk B's ownership-state frame, even though both edges target Hatton Garden. The P-IDs make the relations machine-interpretable when the substrate needs to align with external Wikidata-shaped knowledge.
+
+**Retrieval downstream.** With these chunks in place, the substrate serves frame-distinct queries from the same underlying state:
+
+- *"When did Addison move his practice to Hatton Garden?"* — frame: *event/transaction* + temporal. Activates Chunk A strongly, Chunk B and C weakly. Constellation: Addison, Hatton Garden, Year 1819, Buying property.
+- *"What property did Addison own?"* — frame: *state/ownership*. Activates Chunk B strongly, A and C weakly. Constellation: Addison, Hatton Garden, House ownership, Year 1819.
+- *"Where did Addison practice medicine privately?"* — frame: *activity/profession*. Activates Chunk C strongly, A and B weakly. Constellation: Addison, Private practice, Hatton Garden (via the shared location), Year 1819.
+
+**Three queries, three different Constellations, one underlying mesh state.** The chunks' apparent redundancy is structurally useful: each chunk carries the right frame for one class of query, and frame routing during Spreading Activation makes sure each query lands on its own subset of evidence. This is what the two-tier model and the frame_vector buy together — the substrate represents the same underlying material as different views, and surfaces the right view at the right time.
+
+---
+
 ## What the substrate does not do
 
 A small set of forbidden patterns — the discipline lines the substrate's correctness depends on. Everything not on this list is an affordance. The substrate is designed for intelligent agents working in a richly-equipped space; it constrains the few things that, if violated, make the substrate structurally incoherent.
 
-1. **No insertion-time content validation gates.** Per [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md) and [`BUILD_DOCTRINE.md`](BUILD_DOCTRINE.md): the substrate accepts every chunk Kadmos produces, including ones the immune system will later flag. Identity linking, deduplication, contradiction resolution, false-information removal, and consolidation all happen *post-hoc* — see §"Agent-driven cleanup". A function that returns `False` for "do we want this chunk?" before insertion is forbidden because it hides the substrate's actual epistemic state and creates the bottleneck the immune-system doctrine was written to prevent.
+1. **No insertion-time content validation gates.** The substrate accepts every chunk that arrives. Identity linking (eager when Q-ID / description / structural signals are clear, emergent when not), deduplication, contradiction resolution, false-information removal, and consolidation all happen *post-hoc* — see §"Agent-driven cleanup" and §"Pathology and therapy". A function that returns `False` for "do we want this chunk?" before insertion is forbidden because pre-gates force identity and quality decisions on the weakest possible evidence (a single chunk in isolation), and they create a bottleneck in which the system's actual epistemic state becomes invisible. The substrate's strength is *post-hoc* evidence accumulation across many chunks; pre-gates throw that strength away. ([`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md) and [`BUILD_DOCTRINE.md`](BUILD_DOCTRINE.md) reach the same conclusion from different angles; the substrate doctrine arrives at it from the dynamics themselves.)
 
-2. **No raw text storage in the substrate beyond the `raw_text_ref` pointer.** Per [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) §"Language is the Edge, Not the Substrate": substrate operations work in vector space. Raw text is provenance, not content. The `raw_text_ref` exists so the immune system can re-derive a chunk from its source if needed; no agent treats `raw_text_ref` as retrieval payload. (Note: this prohibition applies to *raw text*. Short text fields like `description`, `relation_descriptor`, or `tags` are summary metadata for agent and human consumption, and are explicitly permitted — see §"Field discipline" point 4 and §"Edge anatomy".)
+2. **No raw text storage in the substrate beyond the `raw_text_ref` pointer.** The substrate's primitives — Hebbian update, super-linear decay, Spreading Activation, frame routing, sub-mesh signature matching — operate on vectors and structure. They do not read strings. Storing the full source text inside a mesh node would be dead weight on every read, every SpMV, every consolidation pass: it has no place in the substrate's hot path. `raw_text_ref` exists as an opaque pointer back to the source so the immune system can re-derive a chunk when needed; no agent treats it as retrieval payload. (This prohibition applies to *raw source text*. Short text fields — `description`, `relation_descriptor`, `description` on edges, `tags`, `source_url` — are summary metadata, regenerable, and explicitly permitted; they are how agents and humans read the mesh. See §"Field discipline" point 4, §"Source-anchor entities", and §"Edge anatomy".)
 
 3. **No hard hierarchical pointer field on nodes.** No `parent_node_id`, no `belongs_to_category`, no `is_part_of`. Hierarchical structure that matters at retrieval is computed from topology, or materialised as separate views. The reason is in §"Field discipline" point 5: hierarchies ossify and constrain refactoring of the very classifications the mesh is designed to evolve.
 
@@ -634,7 +726,7 @@ These are the points where the doctrine deliberately stops short of prescription
 
 - **Multi-modal extension.** The substrate dynamics are modality-agnostic — Hebb, decay, saturation, splits, frame routing, pathology all operate on abstract nodes and edges. Adding image, molecular, genetic, or geographic vectors does not require structural change. The choice between *one mesh with multiple modal vectors per node* and *parallel meshes with bridge nodes* is an engineering judgement that is made when the second modality enters production. See [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) §"Multi-modal extension" for the affordance discussion.
 
-- **Federation-aware dynamics.** When the substrate federates across multiple instances (per [`PANTHEON_VISION.md`](PANTHEON_VISION.md) §"The Federated Substrate"), the global renormalisation and the population-relative healthy band become harder to define. Local-substrate and global-federation versions of the same metric will need to coexist. This is Gen 3+ work.
+- **Federation-aware dynamics.** When the substrate federates across multiple instances, the global renormalisation and the population-relative healthy band become harder to define. Local-substrate and global-federation versions of the same metric will need to coexist. This is Gen 3+ work.
 
 - **Hardware backpressure on Oneiros.** Oneiros's tick frequency, Argus's sampling rate, and the pruner's pressure threshold form a control loop. Tuning that loop so the substrate stays responsive under varying load is operations work, not doctrine.
 
@@ -653,7 +745,7 @@ The components of the substrate's dynamics interact. They were not designed inde
 
 A subset of these mechanisms — for example, super-linear decay without renormalisation, or saturation without splits — produces a substrate that fails differently than the full design. That is not necessarily wrong, but it is a different system. Implementations should be honest about which subset they realise and which failure modes are open as a result.
 
-This document commits to the full mechanism as the *target*. The Function-First Phase ([`BUILD_DOCTRINE.md`](BUILD_DOCTRINE.md)) explicitly accepts that early implementations will not realise everything at once. The Phoenix Backlog tracks what is missing; honest run reports surface failure modes; Mnemosyne's A/B framework tunes the parameters as evidence accumulates. The mechanism is a target to walk toward, not a precondition for shipping.
+This document commits to the full mechanism as the *target*. Early implementations will not realise everything at once, and that is acceptable — the substrate's behavioural target is something the codebase walks toward, not a precondition for shipping any individual layer. The Phoenix Backlog tracks what is missing; honest run reports surface failure modes; the substrate's own A/B mechanism (Lance-branched parallel universes per [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) §"Parallel universes — empirical comparison of strategies") tunes the parameters as evidence accumulates.
 
 ---
 

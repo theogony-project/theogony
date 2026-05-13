@@ -1,7 +1,9 @@
 # Reading Agent — Vision
 
+> **Status: historical context.** This vision note captured the early thinking about reading-as-synthesis that later became Kadmos v2. The cognitive model (sentence-by-sentence reading, working memory, parallel Chronicle activation, repair on contradiction, fuzzy hierarchy) remains valid and informs Kadmos v2's design. What has changed: the substrate this reading layer writes *into* is now specified in detail by the MESH triplet — [`docs/MESH_SUBSTRATE.md`](../../docs/MESH_SUBSTRATE.md) (two-tier nodes, eager linking, edge anatomy), [`docs/MESH_IMPLEMENTATION.md`](../../docs/MESH_IMPLEMENTATION.md) (LanceDB + PyTorch sparse CSR + MVCC), [`docs/MESH_RETRIEVAL.md`](../../docs/MESH_RETRIEVAL.md) (diversified injection, frame routing, three-factor RL). Older roadmap framings call this layer "Nous"; current naming separates the two — **Kadmos v2** is the text-to-substrate reading layer (this document's subject); **Nous** is the first MNLM instance that operates *inside* the substrate. The binding Kadmos v2 brief is [`docs/etappes/kadmos_v2_brief.md`](../../docs/etappes/kadmos_v2_brief.md). Where this note conflicts with the MESH triplet or the Kadmos v2 brief, those are operative.
+
 **Author:** Chaos (vision/reflection role) — handed off to Hesiod and Talos.
-**Status:** Orientation note — captures the vision, not the plan.
+**Status:** Orientation note — captures the early reading-agent vision; superseded for substrate-layer behaviour by the MESH triplet and for the reading layer by [`docs/etappes/kadmos_v2_brief.md`](../../docs/etappes/kadmos_v2_brief.md).
 **Date:** 2026-05-03.
 **Conversation:** Long reflection session with the user. The user explicitly asked
 that this vision be persisted before implementation begins.

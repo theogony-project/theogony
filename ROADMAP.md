@@ -8,6 +8,10 @@ This document is the single authoritative sequence of what Theogony builds,
 in what order, and why each phase is a prerequisite for the next.
 It is not a sprint plan. It is the horizon.
 
+**Operative substrate doctrine:** the MESH triplet — [`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md), [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md), [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md) — specifies what the substrate must behave like, how it is implemented, and how it is used. Every phase below realises some part of that triplet. Where this roadmap and the triplet conflict on substrate-layer behaviour, the triplet is operative.
+
+**Operative migration plan:** [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md) — the binding strangler-fig plan for replacing the current Generation-1 codebase with the MESH-triplet substrate. The roadmap below describes the *what* (five long-horizon phases); the migration plan describes the *how* (six PR-sized strangler steps for the substrate replacement, parallel Phoenix-backlog migration). Both are binding; they address different questions.
+
 ---
 
 ## The Core Thesis (One Paragraph)
@@ -26,9 +30,12 @@ human input and human output. In the interior, there is only the Manifold.
 ## Phase 1 — Reading (Current Priority)
 
 **Goal:** A system that *synthesises* knowledge as it reads, not one that
-*parses* text into extractions.
+*parses* text into extractions — and that writes its output into the
+substrate following the MESH-doctrine eager-linking rules
+([`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md) §"Why two tiers — and
+how identity actually gets committed").
 
-### The Cognitive Synthesis Agent — **Nous**
+### The Cognitive Reading Layer — **Kadmos v2**
 
 A human does not extract concepts from a text. She synthesises them
 continuously, sentence by sentence, carrying a working memory forward:
@@ -36,6 +43,15 @@ continuously, sentence by sentence, carrying a working memory forward:
 condensed into a synthesis that pre-warms the next sentence. Paragraphs
 condense into chapter-syntheses. Repair fires when a new sentence
 contradicts an earlier synthesis.
+
+Kadmos v2 implements exactly this and emits Tier-0 Observation Chunks
+plus reference edges into the substrate at insertion time. Where the
+chunk references entities the linker can resolve confidently (Q-ID,
+description, or strong structural context), Kadmos attaches reference
+edges directly to existing Tier-1 entity / concept / source-anchor
+nodes — eagerly. Where no signal is decisive, Kadmos creates entity-
+candidate nodes that Oneiros later consolidates or atrophies. See
+[`docs/etappes/kadmos_v2_brief.md`](docs/etappes/kadmos_v2_brief.md).
 
 The Reading Agent implements exactly this:
 
@@ -55,10 +71,19 @@ The Reading Agent produces an **AnnotatedReading** — a machine-readable,
 human-inspectable record of the temporal synthesis process. This is the
 unit of comparison between human and agent comprehension.
 
-**Why this comes first:** Without Nous, the Chronik is filled by a
-stateless parser. The Chronik's value is proportional to the quality
-of synthesis at ingest. Better synthesis = richer structure = better
+**Why this comes first:** Without Kadmos v2, the substrate is filled by
+a stateless parser whose output does not respect the eager-linking
+discipline. The substrate's value is proportional to the quality of
+synthesis at ingest. Better synthesis = richer Tier-0 chunks + richer
+Tier-1 entity / concept structure = better Spreading Activation
 retrieval = better agents downstream.
+
+**On the name "Nous".** In the older roadmap framing, the cognitive
+reading layer was called "Nous". The current naming separates the two
+roles: **Kadmos v2** is the text → substrate translation layer at
+ingress (Phase 1); **Nous** is the first MNLM instance (Phase 4), a
+substrate-native agent that operates *inside* the mesh, not on text.
+See [`docs/etappes/mesh_native_lm_brief.md`](docs/etappes/mesh_native_lm_brief.md).
 
 ### Agent Initialisation Space (inside the Chronik)
 
@@ -94,41 +119,61 @@ and to Mnemosyne for meta-learning.
 ## Phase 2 — Chronik Architecture (Tensor-Manifold)
 
 **Goal:** The Chronik as a solid, readable, writable, GPU-resident
-Tensor-Manifold that supports Spreading Activation natively.
+Tensor-Manifold that supports Spreading Activation natively — realising
+the MESH triplet's behavioural and implementation doctrine.
 
 ### Core architecture
 
+Binding spec: [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md).
+Summary:
+
 | Layer | Technology | Role |
 |---|---|---|
-| **Persistent store** | LanceDB (Parquet/Arrow) | Append-only columnar vector storage for nodes and edges |
-| **Runtime manifold** | PyTorch CSR tensors | Spreading Activation via SpMV, GPU-resident |
-| **Edge representation** | First-class vectors + Codebook compression | Relation types as embeddings, not string labels |
-| **Query interface** | Activation injection → Constellation return | No Cypher, no SQL |
-| **Write interface** | Append-only ledger, supersedes-edges for corrections | Immutable provenance |
+| **Persistent node store** | LanceDB (Parquet/Arrow, columnar) | Two-tier nodes (Tier 0 Chunks, Tier 1+ Consolidated); per-vector HNSW indices on semantic / frame / structural / temporal / description embeddings; versioned snapshots |
+| **Edge runtime (SpMV path)** | PyTorch sparse CSR tensor | Quantitative fields only: `(source, target, weight, decay_tier, frame_consistency)`. Built by Oneiros; loaded into RAM / GPU. SpMV / SpMM for batched Spreading Activation |
+| **Edge delta buffer (write path)** | Append-only COO | Hebbian updates accumulate lock-free; merged into CSR at every Oneiros tick |
+| **Edge metadata** | Parallel Lance table | Optional semantic descriptors: `relation_descriptor`, `relation_kind`, `description`, `pids` (Wikidata P-IDs), `creation_context`. Read only when an agent inspects an edge — never on the SpMV hot path |
+| **Anchor index** | Lance + inverted index | Temporal, geographic, language, and genome-position anchor nodes obey different rules (immutable, very-high-cap, no decay); range queries use index lookups, not graph traversal |
+| **Audit ledger** | Append-only Lance | Every consolidation, split, therapy action, pruning, agent-driven cleanup writes a structured record |
+| **Query interface** | Activation injection (single vector or sub-mesh with structure) → Constellation | No Cypher, no SQL, no "fast path" around Spreading Activation |
+| **Concurrency** | MVCC (Lance versioning) | Unlimited parallel reads against pinned snapshots; Oneiros is the single writer of new versions |
 
-### Potential Escalation (Spreading Activation)
+### Spreading Activation
 
-Activation injected at a query point spreads through the manifold:
+Binding spec: [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md).
+Summary:
 
-```
-E_target = (E_source × W_edge) - D_decay
-```
+- **Diversified seeding (always on).** Maximum Marginal Relevance + weight-class stratification (micro / medium / large / hub); optional sub-mesh signature search using Weisfeiler-Lehman hashing. Plain top-K-by-cosine retrieval is forbidden in production.
+- **Frame-routed propagation.** Edges contribute only when their `frame_consistency` with the query's active frame profile exceeds a threshold. Implemented as a masked SpMV / SpMM fused into the GPU kernel.
+- **Damped propagation.** Activation decays per hop; propagation halts at `min_activation` (~0.05) or `max_hops` (default 3, ≤ 5 in production).
+- **Constellation result.** The activated subgraph is returned as a structured working set: nodes, edges (with descriptors), source anchors, gaps. Directly injectable into the consuming agent's latent space.
+- **Three-factor learning.** Consumer feedback (LLM self-rating, downstream task success) modulates Hebbian update along the activation trace; eligibility traces back-propagate sparse rewards across multi-hop paths.
 
-Where edge weight `W_edge` is the cosine similarity between the stimulus
-vector and the edge vector, modulated by Hebbian reactivation frequency
-(pheromones). Propagation halts when energy drops below threshold `T_min`.
+### Substrate dynamics
 
-The result is a **Constellation** — a subgraph of nodes and edges above
-the activation threshold, returned as a tensor matrix directly injectable
-into a model's KV-cache or as soft prompts.
+Binding spec: [`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md).
+Summary:
+
+- **Two-tier nodes** with eager identity when Q-ID / description / structural signals are clear, emergent identity otherwise.
+- **Super-linear decay** (default `k = 2`, tier-modulated) — strong unused edges decay faster than weak ones; high edge weight signifies *currently relevant*, not *historically important*.
+- **Saturation caps** in both count and weight, indexed by tier (Tier 0: 10K / S; Tier 1: 50K / 5S; Tier 2: 200K / 20S; Tier 3: 1M / 100S).
+- **Atrophy decoupled from death** — nodes stay until the pruner runs under resource pressure. The mesh loses memory only under genuine resource constraints.
+- **Global homeostatic renormalisation** keeps the substrate's total-edge-weight / node-count ratio near a target `R_ideal`.
+- **Effective-resistance-preserving sub-node splits** when hubs reach their cap.
+- **Agent-driven cleanup** (deduplication, contradiction resolution, false-information removal, redundancy compression) operates post-hoc with audit; pre-gates judging content at insertion remain forbidden.
+- **Topology pathology surveillance** by Argus (five symptoms) and **five staged therapies** with the Mendel risk weighed before any invasive step.
 
 ### Scale targets
 
-| Phase | Nodes | Edges | Storage | Deployment |
+Binding numbers: [`docs/CHRONIK_SCALE.md`](docs/CHRONIK_SCALE.md).
+Summary:
+
+| Tier | Nodes (consolidated) | Edges | Storage | Deployment |
 |---|---|---|---|---|
-| Gen 1 (current) | millions | tens of millions | gigabytes | single machine |
-| Gen 2 | billions | trillions | terabytes | clustered |
-| Gen 3 | trillions | — | petabytes | globally distributed |
+| 0 (PoC / Gen 1 dev) | ≤ 10⁶ | ≤ 10⁸ | ≤ 5 GB | Single laptop |
+| 1 (English Wikipedia) | ~10⁸ | ~10¹⁰ | ~5–8 TB | Single server (256–512 GB RAM, A100/H100) |
+| 2 (multilingual + sources) | ~10⁸–10⁹ | ~10¹⁰–10¹¹ | ~15–50 TB | Single large server or small cluster |
+| 3 (federated full public knowledge) | ~10⁹–10¹⁰ | ~10¹¹–10¹² | ~50–500 TB | Distributed |
 
 ---
 
@@ -281,14 +326,22 @@ purely preparatory. The Chronik grows at every step.
 
 | Document | Purpose |
 |---|---|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System architecture and layer definitions |
+| **[`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md)** | **Operative substrate doctrine — two-tier nodes, edge anatomy, dynamics, agent-driven cleanup, pathology and staged therapy. Binding for substrate behaviour.** |
+| **[`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md)** | **Operative runtime spec — Hot/Warm/Cold tiering, LanceDB + sparse PyTorch + MVCC + batched SpMV, Oneiros tick order. Binding for substrate runtime.** |
+| **[`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md)** | **Operative retrieval spec — diversified injection, three-factor reinforcement learning, frame routing, multi-agent strategy game, multi-modal extension. Binding for substrate use.** |
+| **[`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md)** | **Operative migration plan — strangler-fig replacement of Gen-1 with the MESH substrate. Six PR-sized steps + parallel Phoenix-backlog migration + the first concrete PR.** |
+| [`docs/TARGET_ARCHITECTURE.md`](docs/TARGET_ARCHITECTURE.md) | The architectural floor: no raw text as retrieval payload, LanceDB + PyTorch, Spreading Activation as the only retrieval primitive. The MESH triplet builds on this. |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Gen-1 system as it ships today — four-layer pipeline, agent roster, KnowledgeStore interface. For substrate-layer questions the MESH triplet is operative. |
 | [`docs/CHRONICLE_PRINCIPLES.md`](docs/CHRONICLE_PRINCIPLES.md) | Ten non-negotiable doctrines |
 | [`docs/BUILD_DOCTRINE.md`](docs/BUILD_DOCTRINE.md) | Function-First Phase binding doctrine |
+| [`docs/CHRONIK_SCALE.md`](docs/CHRONIK_SCALE.md) | Concrete scale numbers per tier |
 | [`docs/DEEP_TECH_VISION.md`](docs/DEEP_TECH_VISION.md) | Deeper substrate vision (six languages of the Chronik) |
 | [`docs/COGNITIVE_ARCHITECTURE.md`](docs/COGNITIVE_ARCHITECTURE.md) | Cognitive model underlying the system |
-| [`notes/architecture/reading_agent_vision.md`](notes/architecture/reading_agent_vision.md) | Reading Agent vision (detailed) |
-| [`notes/architecture/vector_native_spreading_activation.md`](notes/architecture/vector_native_spreading_activation.md) | Tensor-Manifold and Spreading Activation design |
-| [`docs/IMMUNE_SYSTEM.md`](docs/IMMUNE_SYSTEM.md) | Defense and self-improvement architecture |
+| [`docs/etappes/kadmos_v2_brief.md`](docs/etappes/kadmos_v2_brief.md) | Kadmos v2 — the text translation layer |
+| [`docs/etappes/mesh_native_lm_brief.md`](docs/etappes/mesh_native_lm_brief.md) | MNLM architecture brief (Nous, Oneiros, Kalypso as MNLM-class instances) |
+| [`notes/architecture/reading_agent_vision.md`](notes/architecture/reading_agent_vision.md) | Reading-as-synthesis vision (historical context — informs Kadmos v2) |
+| [`notes/architecture/vector_native_spreading_activation.md`](notes/architecture/vector_native_spreading_activation.md) | MVP-level Spreading Activation note (historical; superseded by the MESH triplet) |
+| [`docs/IMMUNE_SYSTEM.md`](docs/IMMUNE_SYSTEM.md) | Defense and self-improvement architecture (claim-level; substrate-level continuation in MESH §"Agent-driven cleanup" + §"Pathology and therapy") |
 | [`docs/SELF_MODIFICATION.md`](docs/SELF_MODIFICATION.md) | Long-horizon self-modification principle |
-| [`docs/IMPLEMENTATION_PLAN_GEN1.md`](docs/IMPLEMENTATION_PLAN_GEN1.md) | Current generation implementation plan |
+| [`docs/IMPLEMENTATION_PLAN_GEN1.md`](docs/IMPLEMENTATION_PLAN_GEN1.md) | **Superseded** — Generation-1 implementation plan up to the Neural Vector Mesh Pivot (2026-05-01). Historical context only; not operative. Active plan: `MESH_MIGRATION_PLAN.md`. |
 | [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md) | Evolutionary ticket queue |

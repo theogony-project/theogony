@@ -4,6 +4,8 @@
 **Audience:** every agent — Pantheon, builder, or external — that touches ingestion, extraction, schemas, or the chronicle itself.
 **Companion docs:** [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md), [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md), [`PANTHEON_VISION.md`](PANTHEON_VISION.md), [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) (the binding shape of the data-structure-first step in §"Build mandate"), [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md), [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md).
 
+**Precedence note.** The MESH triplet (`MESH_SUBSTRATE.md` + `MESH_IMPLEMENTATION.md` + `MESH_RETRIEVAL.md`) is operative for substrate-layer behaviour, runtime, and use. This document remains operative for the *build phase* — engineering order, what counts as honest failure, what stays non-negotiable structurally — and is fully compatible with the MESH triplet: Function-First implements the substrate doctrine, it does not contradict it.
+
 ## Why this doc exists
 
 The Pantheon doctrine has always rejected the clinic model: pre-gates that judge content before it enters the chronicle are forbidden. [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md) spells out why — total coverage is unattainable, synchronous gates make the system slow and brittle, pre-filtering hides the system's actual epistemic state.

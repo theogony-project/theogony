@@ -2,13 +2,14 @@
 
 **Status:** canonical north-star document for long-horizon direction.  
 **Scope:** civilizational intent, not Gen 1 implementation detail.  
-**Companion:** [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — seven non-negotiables in short form.
+**Companion:** [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — ten non-negotiables in short form.  
+**Substrate doctrine (how this vision actually runs):** [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) + [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) + [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) — the operative behaviour, runtime, and use of the storage layer beneath all Pantheon cognition.
 
 ## How this relates to Theogony and the Chronik
 
 **Theogony** is the open project that builds the first real software toward this vision.
 
-**The Chronik** is the name of the living vector-graph knowledge system that Theogony implements *today* — ingestion, retrieval, reports, Oneiros, Neo4j. It is the operational core of Gen 1.
+**The Chronik** is the name of the living vector-graph knowledge system that Theogony implements *today* — ingestion, retrieval, run reports, Oneiros. Storage is migrating from the legacy in-memory / Neo4j layer to the target architecture (LanceDB columnar nodes + PyTorch sparse-CSR edge tensors); the substrate's behavioural doctrine is specified in the MESH triplet ([`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md), [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md), [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md)). The Chronik is the operational core of Gen 1.
 
 **The Pantheon** (in this document) means the **planetary knowledge substrate** the project aims at over time: a dominant chronicle of meaningful reality — public, private, and contested — with provenance, governance, and native identity at its root.
 

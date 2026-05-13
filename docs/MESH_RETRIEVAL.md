@@ -1,7 +1,7 @@
 # Mesh Retrieval
 
 **Status:** canonical doctrine for retrieval, learning, and cross-modal extension on the mesh substrate. Specifies how agents inject queries, how Spreading Activation diversifies, how the substrate learns from agent feedback, how the multi-agent ecology stays honest, and how non-textual modalities attach.
-**Companion docs:** [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) (the substrate this document operates on), [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) (the runtime that executes it), [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md) (the post-hoc verification framework that contains the multi-agent ecology), [`STRATEGY_GAME_ANALOGY.md`](STRATEGY_GAME_ANALOGY.md) (the operator-facing framing of the multi-agent dynamic), [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) §"Vector-Vector-Mesh" and §"Language is the Edge, Not the Substrate" (related general principles this document extends), [`etappes/mesh_native_lm_brief.md`](etappes/mesh_native_lm_brief.md) (the MNLM that uses the substrate as its native medium).
+**Companion docs:** [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) (the substrate this document operates on), [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) (the runtime that executes it), [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md) (older post-hoc verification doctrine — related concerns, the substrate triplet is operative for substrate-layer behaviour), [`STRATEGY_GAME_ANALOGY.md`](STRATEGY_GAME_ANALOGY.md) (older operator-facing framing of the multi-agent dynamic), [`etappes/mesh_native_lm_brief.md`](etappes/mesh_native_lm_brief.md) (the MNLM that uses the substrate as its native medium).
 **Audience:** every Pantheon agent that issues a query, every builder agent that implements one, the MNLM, and any future agent that consumes a Constellation.
 
 **Precedence.** Together with [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) and [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md), this document is the **operative substrate doctrine**. Where the substrate triplet conflicts with older doctrine documents on substrate-layer behaviour, runtime, or use, the substrate triplet is operative.
@@ -29,7 +29,7 @@ The rest of this document specifies what *honest* means in operational terms.
 
 ## Spreading Activation as the universal retrieval primitive
 
-Every retrieval against the mesh uses Spreading Activation. Per [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) §"Three Non-Negotiable Technical Decisions" §3 and the [`GLOSSARY.md`](GLOSSARY.md) entry, this is binding: there is no SQL, there is no Cypher, there is no "fast path" for simple lookups that bypasses Spreading Activation. The primitive is universal because the substrate's value comes from multi-hop, structural, frame-aware retrieval that flat similarity cannot produce.
+Every retrieval against the mesh uses Spreading Activation. This is binding: there is no SQL, there is no Cypher, there is no "fast path" for simple lookups that bypasses Spreading Activation. The primitive is universal because the substrate's value comes from multi-hop, structural, frame-aware retrieval that flat similarity cannot produce; bypassing Spreading Activation would mean reading the substrate as if it were a vector database with edges, which is exactly the architecture the substrate is built to surpass. (Special-purpose index lookups — e.g., temporal-anchor range queries for "what happened in 1819?" — are not "fast paths around" Spreading Activation; they are how the anchor-node class works per [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Splits in the wild — also: temporal nodes are special". Spreading Activation remains the only conceptual-retrieval primitive.)
 
 A query has the following lifecycle:
 
@@ -292,7 +292,7 @@ These are well-defined statistics on a Lance-versioned substrate. Mnemosyne's A/
 
 The strategy-game frame is not gamification — see [`STRATEGY_GAME_ANALOGY.md`](STRATEGY_GAME_ANALOGY.md) §"Non-Goals". It matters at the retrieval layer for one practical reason: **the substrate's defence against confirmation bias is structural diversity at the agent level, not algorithmic policing inside the substrate.** The substrate cannot defend itself against its own consumer's biases by being more careful. It can only do so by being consumed in parallel by multiple agents with structurally different incentives.
 
-This is the substrate-side instantiation of [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md): the immune system is sample-based and asynchronous *because* the substrate is multi-consumer and the consumers' diversity is the verification mechanism. Pre-validation gates fail because they pretend a single judge can replace the diversity of consumers.
+This is the substrate-side argument for why post-hoc verification is sample-based and asynchronous: it is so *because* the substrate is multi-consumer and the consumers' diversity is itself the verification mechanism. A pre-validation gate pretends a single judge can replace the diversity of consumers — which is exactly what the substrate's design rejects.
 
 ---
 
@@ -352,7 +352,7 @@ The point of multi-modal extension is that retrieval becomes inherently cross-mo
 - the metabolic pathway diagram showing thyroid hormone synthesis
 - a temporal anchor at 1820 (Coindet's first iodine therapy)
 
-The MNLM consuming this Constellation reasons across all of them in vector space, without anyone having converted images to text descriptions or chemicals to natural language. This is the fully-realised form of the [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) §10 *"Vector-Vector-Mesh"* principle: the substrate accepts whichever representation a domain naturally produces and reasons across them in their native form.
+The MNLM consuming this Constellation reasons across all of them in vector space, without anyone having converted images to text descriptions or chemicals to natural language. This is the substrate operating in its natural mode: it accepts whichever representation a domain produces, embeds it into vector form, and reasons across modalities in the same single space — no per-modality conversion to text, no lossy translation to a lingua franca, no privileged modality.
 
 This is not Gen 1 work. It is the affordance the substrate's design preserves so that Gen 2+ can build it.
 

@@ -165,7 +165,7 @@ For a single query, Spreading Activation is `x_{t+1} = damping · A · x_t + inj
 
 For K queries with K independent activation vectors, you can stack the vectors as a matrix `X` of shape `(N, K)` and execute `X_{t+1} = damping · A · X_t + Injection`. This is one SpMM (sparse matrix × dense matrix) per propagation step, regardless of K. Modern GPU sparse libraries (cuSPARSE on NVIDIA, MPS sparse ops on Apple, ROCm sparse on AMD) handle this efficiently.
 
-The practical consequence: **Spreading Activation latency is dominated by mesh size and propagation depth, not by the number of concurrent queries up to the GPU memory limit.** A modest production server with an 80 GB H100 can hold a multi-billion-edge tensor and serve hundreds of concurrent activations within single-digit-millisecond latency per pass. This is the architectural reason the substrate is preferable to pointer-chasing graph databases and reaffirms the [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) §"Three Non-Negotiable Technical Decisions" §2.
+The practical consequence: **Spreading Activation latency is dominated by mesh size and propagation depth, not by the number of concurrent queries up to the GPU memory limit.** A modest production server with an 80 GB H100 can hold a multi-billion-edge tensor and serve hundreds of concurrent activations within single-digit-millisecond latency per pass. This is the architectural reason the substrate is preferable to pointer-chasing graph databases: SpMV/SpMM scale, pointer chasing does not.
 
 ### Damping and stop conditions
 
