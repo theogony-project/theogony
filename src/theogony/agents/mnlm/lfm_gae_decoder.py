@@ -19,7 +19,7 @@ during training).  Both decoders share the same output shape: MeshDelta.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
@@ -67,7 +67,7 @@ class CFMVectorField(nn.Module):
         """
         c = conditioning if conditioning is not None else torch.zeros_like(z_t)
         inp = torch.cat([z_t, c, t], dim=-1)
-        return self.net(inp)
+        return cast(torch.Tensor, self.net(inp))
 
 
 class GAEDecoder(nn.Module):
@@ -182,7 +182,7 @@ class LFMGAEDecoder(nn.Module):
         self,
         call_id: str = "poc-smoke-test",
         run_id: str = "poc-run-001",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Produce a placeholder MeshDelta-compatible dict for smoke tests."""
         now = datetime.now(UTC).isoformat()
         return {

@@ -84,7 +84,7 @@ class MiniDBB20:
         self._rng = random.Random(seed)
         self._pairs: list[dict[str, Any]] = []
 
-    def generate(self) -> list[dict]:
+    def generate(self) -> list[dict[str, Any]]:
         """Generate 20 minimal pairs and return them as a list of dicts.
 
         Each dict::
@@ -185,9 +185,9 @@ class MiniDBB20:
 
     def evaluate(
         self,
-        runner: object,
+        runner: Any,
         output_path: str | Path = "docs/research/mnlm/poc/mini_dbb20_results.json",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Run the MNLM on all 20 pairs and compute per-direction accuracy.
 
         For the PoC, this evaluates the SubstrateResonantRunner and
@@ -245,7 +245,7 @@ class MiniDBB20:
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Serialize with MeshInput model_dump for JSON
-        def _serialize(obj):
+        def _serialize(obj: Any) -> Any:
             if hasattr(obj, "model_dump"):
                 return obj.model_dump()
             return str(obj)

@@ -14,9 +14,10 @@ from __future__ import annotations
 
 import random
 from pathlib import Path
+from typing import Any
 
 # The 10 Monkey-3 cross-domain pairs from §1.3 of the PoC brief
-MONKEY3_PAIRS: list[dict[str, str]] = [
+MONKEY3_PAIRS: list[dict[str, Any]] = [
     {
         "pair_id": 1,
         "domain_a": "Physics (fluid)",
@@ -117,9 +118,9 @@ class MiniMonkey3:
     def __init__(self, seed: int = 42):
         self._rng = random.Random(seed)
         self._pairs = MONKEY3_PAIRS
-        self._ratings: dict[str, list[dict]] = {}
+        self._ratings: dict[str, list[dict[str, Any]]] = {}
 
-    def pairs(self) -> list[dict]:
+    def pairs(self) -> list[dict[str, Any]]:
         return self._pairs
 
     def generate_rating_sheet(
@@ -204,7 +205,7 @@ class MiniMonkey3:
     def compute_summary(
         self,
         output_path: str | Path = "docs/research/mnlm/poc/mini_monkey3_results.md",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Compute inter-rater reliability and mean ratings.
 
         Returns dict with per-pair and aggregate scores.

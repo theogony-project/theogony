@@ -1,0 +1,462 @@
+{
+  "model": "Qwen/Qwen2.5-1.5B-Instruct (MNLM)",
+  "num_questions": 50,
+  "overall_accuracy": 0.66,
+  "overall_correct": 33,
+  "overall_total": 50,
+  "direction_critical_accuracy": 0.6667,
+  "direction_critical_correct": 18,
+  "direction_critical_total": 27,
+  "results": [
+    {
+      "question_id": 0,
+      "question": "What concept in physics is structurally isomorphic to Stabil",
+      "expected": "Concept-000",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 1,
+      "question": "In the context of philosophy, what is the relationship betwe",
+      "expected": "Concept-001",
+      "predicted": "Concept-001",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 2,
+      "question": "In the context of physics, what is the relationship between ",
+      "expected": "Concept-002",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 3,
+      "question": "How does Selection constrain behavior in history similarly t",
+      "expected": "Concept-003",
+      "predicted": "Concept-003",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 4,
+      "question": "In the context of biology, what is the relationship between ",
+      "expected": "Concept-004",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": true,
+      "hops": 3
+    },
+    {
+      "question_id": 5,
+      "question": "In the context of biology, what is the relationship between ",
+      "expected": "Concept-005",
+      "predicted": "Concept-005",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 6,
+      "question": "What concept in physics is structurally isomorphic to Stabil",
+      "expected": "Concept-006",
+      "predicted": "Concept-006",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 7,
+      "question": "In the context of mathematics, what is the relationship betw",
+      "expected": "Concept-007",
+      "predicted": "Concept-007",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 3
+    },
+    {
+      "question_id": 8,
+      "question": "In the context of philosophy, what is the relationship betwe",
+      "expected": "Concept-008",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": true,
+      "hops": 3
+    },
+    {
+      "question_id": 9,
+      "question": "How does feedback in physics compare to feedback in philosop",
+      "expected": "Concept-009",
+      "predicted": "Concept-009",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 3
+    },
+    {
+      "question_id": 10,
+      "question": "In the context of physics, what is the relationship between ",
+      "expected": "Concept-010",
+      "predicted": "Concept-010",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 11,
+      "question": "In the context of biology, what is the relationship between ",
+      "expected": "Concept-011",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 12,
+      "question": "What concept in physics is structurally isomorphic to Stabil",
+      "expected": "Concept-012",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": false,
+      "hops": 3
+    },
+    {
+      "question_id": 13,
+      "question": "In the context of philosophy, what is the relationship betwe",
+      "expected": "Concept-013",
+      "predicted": "Concept-013",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 14,
+      "question": "In the context of biology, what is the relationship between ",
+      "expected": "Concept-014",
+      "predicted": "Concept-014",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 15,
+      "question": "What concept in physics is structurally isomorphic to Stabil",
+      "expected": "Concept-015",
+      "predicted": "Concept-015",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 16,
+      "question": "In the context of history, what is the relationship between ",
+      "expected": "Concept-016",
+      "predicted": "Concept-016",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 3
+    },
+    {
+      "question_id": 17,
+      "question": "In the context of biology, what is the relationship between ",
+      "expected": "Concept-017",
+      "predicted": "Concept-017",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 3
+    },
+    {
+      "question_id": 18,
+      "question": "What concept in physics is structurally isomorphic to Stabil",
+      "expected": "Concept-018",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": false,
+      "hops": 3
+    },
+    {
+      "question_id": 19,
+      "question": "In the context of philosophy, what is the relationship betwe",
+      "expected": "Concept-019",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": true,
+      "hops": 3
+    },
+    {
+      "question_id": 20,
+      "question": "In the context of biology, what is the relationship between ",
+      "expected": "Concept-020",
+      "predicted": "Concept-020",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 21,
+      "question": "How does Selection constrain behavior in physics similarly t",
+      "expected": "Concept-021",
+      "predicted": "Concept-021",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 22,
+      "question": "In the context of philosophy, what is the relationship betwe",
+      "expected": "Concept-022",
+      "predicted": "Concept-022",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 3
+    },
+    {
+      "question_id": 23,
+      "question": "In the context of philosophy, what is the relationship betwe",
+      "expected": "Concept-023",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": false,
+      "hops": 3
+    },
+    {
+      "question_id": 24,
+      "question": "What force drives flow in physics that is analogous to volta",
+      "expected": "Concept-024",
+      "predicted": "Concept-024",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 25,
+      "question": "In the context of physics, what is the relationship between ",
+      "expected": "Concept-025",
+      "predicted": "Concept-025",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 3
+    },
+    {
+      "question_id": 26,
+      "question": "In the context of mathematics, what is the relationship betw",
+      "expected": "Concept-026",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 27,
+      "question": "What concept in physics is structurally isomorphic to Stabil",
+      "expected": "Concept-027",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 28,
+      "question": "In the context of mathematics, what is the relationship betw",
+      "expected": "Concept-028",
+      "predicted": "Concept-028",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 29,
+      "question": "In the context of philosophy, what is the relationship betwe",
+      "expected": "Concept-029",
+      "predicted": "Concept-029",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 30,
+      "question": "How does Entropy constrain behavior in biology similarly to ",
+      "expected": "Concept-030",
+      "predicted": "Concept-030",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 3
+    },
+    {
+      "question_id": 31,
+      "question": "In the context of physics, what is the relationship between ",
+      "expected": "Concept-031",
+      "predicted": "Concept-031",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 32,
+      "question": "In the context of biology, what is the relationship between ",
+      "expected": "Concept-032",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 33,
+      "question": "How does feedback in biology compare to feedback in mathemat",
+      "expected": "Concept-033",
+      "predicted": "Concept-033",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 34,
+      "question": "In the context of mathematics, what is the relationship betw",
+      "expected": "Concept-034",
+      "predicted": "Concept-034",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 35,
+      "question": "In the context of philosophy, what is the relationship betwe",
+      "expected": "Concept-035",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": true,
+      "hops": 3
+    },
+    {
+      "question_id": 36,
+      "question": "What force drives flow in biology that is analogous to volta",
+      "expected": "Concept-036",
+      "predicted": "Concept-036",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 37,
+      "question": "In the context of physics, what is the relationship between ",
+      "expected": "Concept-037",
+      "predicted": "Concept-037",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 38,
+      "question": "In the context of physics, what is the relationship between ",
+      "expected": "Concept-038",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 39,
+      "question": "Which mechanism explains both flow in biology and distributi",
+      "expected": "Concept-039",
+      "predicted": "Concept-039",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 40,
+      "question": "In the context of biology, what is the relationship between ",
+      "expected": "Concept-040",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": true,
+      "hops": 3
+    },
+    {
+      "question_id": 41,
+      "question": "In the context of history, what is the relationship between ",
+      "expected": "Concept-041",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 42,
+      "question": "What force drives flow in physics that is analogous to volta",
+      "expected": "Concept-042",
+      "predicted": "unknown",
+      "is_correct": false,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 43,
+      "question": "In the context of biology, what is the relationship between ",
+      "expected": "Concept-043",
+      "predicted": "Concept-043",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 44,
+      "question": "In the context of history, what is the relationship between ",
+      "expected": "Concept-044",
+      "predicted": "Concept-044",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 45,
+      "question": "How does feedback in history compare to feedback in mathemat",
+      "expected": "Concept-045",
+      "predicted": "Concept-045",
+      "is_correct": true,
+      "is_direction_critical": false,
+      "hops": 2
+    },
+    {
+      "question_id": 46,
+      "question": "In the context of physics, what is the relationship between ",
+      "expected": "Concept-046",
+      "predicted": "Concept-046",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 47,
+      "question": "In the context of biology, what is the relationship between ",
+      "expected": "Concept-047",
+      "predicted": "Concept-047",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 3
+    },
+    {
+      "question_id": 48,
+      "question": "What concept in history is structurally isomorphic to Stabil",
+      "expected": "Concept-048",
+      "predicted": "Concept-048",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 2
+    },
+    {
+      "question_id": 49,
+      "question": "In the context of biology, what is the relationship between ",
+      "expected": "Concept-049",
+      "predicted": "Concept-049",
+      "is_correct": true,
+      "is_direction_critical": true,
+      "hops": 3
+    }
+  ]
+}

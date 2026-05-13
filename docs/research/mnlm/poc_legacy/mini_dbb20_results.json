@@ -1,0 +1,411 @@
+{
+  "total_directions": 40,
+  "correct_directions": 22,
+  "accuracy": 0.55,
+  "thresholds": {
+    "above_chance_60pct": false,
+    "chance_50pct": 0.5
+  },
+  "results": [
+    {
+      "pair_id": 0,
+      "relation": "EXAMINED",
+      "name_a": "Hank",
+      "name_b": "Bob",
+      "direction": "a_to_b",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 0,
+      "relation": "EXAMINED",
+      "name_a": "Hank",
+      "name_b": "Bob",
+      "direction": "b_to_a",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 1,
+      "relation": "LOVES",
+      "name_a": "Olivia",
+      "name_b": "Iris",
+      "direction": "a_to_b",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 1,
+      "relation": "LOVES",
+      "name_a": "Olivia",
+      "name_b": "Iris",
+      "direction": "b_to_a",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 2,
+      "relation": "LOVES",
+      "name_a": "Luna",
+      "name_b": "Blake",
+      "direction": "a_to_b",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 2,
+      "relation": "LOVES",
+      "name_a": "Luna",
+      "name_b": "Blake",
+      "direction": "b_to_a",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 3,
+      "relation": "OWES",
+      "name_a": "Frank",
+      "name_b": "Noah",
+      "direction": "a_to_b",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 3,
+      "relation": "OWES",
+      "name_a": "Frank",
+      "name_b": "Noah",
+      "direction": "b_to_a",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 4,
+      "relation": "OUTRANKS",
+      "name_a": "Jade",
+      "name_b": "Mia",
+      "direction": "a_to_b",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 4,
+      "relation": "OUTRANKS",
+      "name_a": "Jade",
+      "name_b": "Mia",
+      "direction": "b_to_a",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 5,
+      "relation": "OUTRANKS",
+      "name_a": "Olivia",
+      "name_b": "Clara",
+      "direction": "a_to_b",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 5,
+      "relation": "OUTRANKS",
+      "name_a": "Olivia",
+      "name_b": "Clara",
+      "direction": "b_to_a",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 6,
+      "relation": "KILLED",
+      "name_a": "Alice",
+      "name_b": "Kate",
+      "direction": "a_to_b",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 6,
+      "relation": "KILLED",
+      "name_a": "Alice",
+      "name_b": "Kate",
+      "direction": "b_to_a",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 7,
+      "relation": "OWES",
+      "name_a": "Ruth",
+      "name_b": "Jack",
+      "direction": "a_to_b",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 7,
+      "relation": "OWES",
+      "name_a": "Ruth",
+      "name_b": "Jack",
+      "direction": "b_to_a",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 8,
+      "relation": "KILLED",
+      "name_a": "Grace",
+      "name_b": "Frank",
+      "direction": "a_to_b",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 8,
+      "relation": "KILLED",
+      "name_a": "Grace",
+      "name_b": "Frank",
+      "direction": "b_to_a",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 9,
+      "relation": "LOVES",
+      "name_a": "Miles",
+      "name_b": "Quinn",
+      "direction": "a_to_b",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 9,
+      "relation": "LOVES",
+      "name_a": "Miles",
+      "name_b": "Quinn",
+      "direction": "b_to_a",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 10,
+      "relation": "KILLED",
+      "name_a": "Isla",
+      "name_b": "Hank",
+      "direction": "a_to_b",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 10,
+      "relation": "KILLED",
+      "name_a": "Isla",
+      "name_b": "Hank",
+      "direction": "b_to_a",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 11,
+      "relation": "OUTRANKS",
+      "name_a": "Jade",
+      "name_b": "Sam",
+      "direction": "a_to_b",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 11,
+      "relation": "OUTRANKS",
+      "name_a": "Jade",
+      "name_b": "Sam",
+      "direction": "b_to_a",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 12,
+      "relation": "LOVES",
+      "name_a": "Kurt",
+      "name_b": "Mia",
+      "direction": "a_to_b",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 12,
+      "relation": "LOVES",
+      "name_a": "Kurt",
+      "name_b": "Mia",
+      "direction": "b_to_a",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 13,
+      "relation": "LOVES",
+      "name_a": "Olivia",
+      "name_b": "Sam",
+      "direction": "a_to_b",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 13,
+      "relation": "LOVES",
+      "name_a": "Olivia",
+      "name_b": "Sam",
+      "direction": "b_to_a",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 14,
+      "relation": "EXAMINED",
+      "name_a": "Grace",
+      "name_b": "Yara",
+      "direction": "a_to_b",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 14,
+      "relation": "EXAMINED",
+      "name_a": "Grace",
+      "name_b": "Yara",
+      "direction": "b_to_a",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 15,
+      "relation": "EXAMINED",
+      "name_a": "Xander",
+      "name_b": "Kate",
+      "direction": "a_to_b",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 15,
+      "relation": "EXAMINED",
+      "name_a": "Xander",
+      "name_b": "Kate",
+      "direction": "b_to_a",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 16,
+      "relation": "LOVES",
+      "name_a": "Noah",
+      "name_b": "Ruth",
+      "direction": "a_to_b",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 16,
+      "relation": "LOVES",
+      "name_a": "Noah",
+      "name_b": "Ruth",
+      "direction": "b_to_a",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 17,
+      "relation": "OWES",
+      "name_a": "Isla",
+      "name_b": "Paul",
+      "direction": "a_to_b",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 17,
+      "relation": "OWES",
+      "name_a": "Isla",
+      "name_b": "Paul",
+      "direction": "b_to_a",
+      "correct_direction": "b_to_a",
+      "predicted_direction": "a_to_b",
+      "is_correct": false
+    },
+    {
+      "pair_id": 18,
+      "relation": "OUTRANKS",
+      "name_a": "Yara",
+      "name_b": "Ruth",
+      "direction": "a_to_b",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 18,
+      "relation": "OUTRANKS",
+      "name_a": "Yara",
+      "name_b": "Ruth",
+      "direction": "b_to_a",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 19,
+      "relation": "OWES",
+      "name_a": "Uma",
+      "name_b": "Dave",
+      "direction": "a_to_b",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    },
+    {
+      "pair_id": 19,
+      "relation": "OWES",
+      "name_a": "Uma",
+      "name_b": "Dave",
+      "direction": "b_to_a",
+      "correct_direction": "a_to_b",
+      "predicted_direction": "a_to_b",
+      "is_correct": true
+    }
+  ]
+}

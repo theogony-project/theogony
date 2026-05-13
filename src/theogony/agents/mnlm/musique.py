@@ -37,7 +37,7 @@ class MiniMuSiQue:
         self._num_questions = num_questions
         self._questions: list[dict[str, Any]] = []
 
-    def generate(self, concepts: list[dict] | None = None) -> list[dict]:
+    def generate(self, concepts: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
         """Generate Mini-MuSiQue questions.
 
         Parameters
@@ -129,18 +129,18 @@ class MiniMuSiQue:
 
     def compute_baseline_accuracy(
         self,
-        results: list[dict],
+        results: list[dict[str, Any]],
         direction_critical_only: bool = False,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Compute accuracy from evaluation results.
-
+        
         Parameters
         ----------
         results:
             List of dicts with 'question_id', 'predicted', 'expected', 'is_correct'.
         direction_critical_only:
             If True, only count direction-critical questions.
-
+        
         Returns dict with accuracy metrics.
         """
         if direction_critical_only:
@@ -162,7 +162,7 @@ class MiniMuSiQue:
         self,
         runner: object,
         output_path: str | Path = "docs/research/mnlm/poc/mini_musique_results.json",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Evaluate MNLM on Mini-MuSiQue questions.
 
         For PoC: simulated results. In production, this runs the

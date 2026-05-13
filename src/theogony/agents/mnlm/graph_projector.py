@@ -12,7 +12,7 @@ Architecture (mesh_native_lm_brief.md §3.2):
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import torch
 import torch.nn as nn
@@ -176,20 +176,20 @@ class GraphProjector(nn.Module):
 
         # Final projection to LLM dimension
         prefix = self.to_llm(prefix)  # (B, M, llm_dim)
-        return prefix
+        return cast(torch.Tensor, prefix)
 
     @torch.no_grad()
-    def from_mesh_input(self, mesh_input: MeshInput) -> dict:
+    def from_mesh_input(self, mesh_input: MeshInput) -> dict[str, Any]:
         """Convert a MeshInput pydantic model to projector inputs.
 
         Returns dict with tensors for forward(). Useful for smoke tests.
         """
         import numpy as np
 
-        device = self._dummy.device
+        device: torch.device = cast(torch.device, self._dummy.device)
 
-        node_emb = np.array([n.embedding for n in mesh_input.nodes], dtype=np.float32)
-        node_emb = torch.from_numpy(node_emb).unsqueeze(0).to(device)
+        node_arr = np.array([n.embedding for n in mesh_input.nodes], dtype=np.float32)
+        node_emb = torch.from_numpy(node_arr).unsqueeze(0).to(device)
 
         N = node_emb.size(1)
         edge_src = []
