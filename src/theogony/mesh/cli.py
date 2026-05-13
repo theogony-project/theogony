@@ -15,40 +15,34 @@ from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 mesh_app = typer.Typer(
     name="mesh",
     no_args_is_help=True,
-    help="MESH substrate commands (migration Step S1 — parallel to legacy path).",
+    help="MESH substrate commands (Step S1 — parallel to legacy path).",
 )
 _console = Console()
 
-_MESH_ROOT_OPTION = typer.Option(
-    None,
-    "--root",
-    help="Mesh workspace directory (defaults to {data_dir}/mesh from settings).",
-)
+_MESH_ROOT_HELP = "Mesh workspace directory (defaults to {data_dir}/mesh from settings)."
+MESH_ROOT = typer.Option(None, "--root", help=_MESH_ROOT_HELP)
 
 
-def _default_mesh_root(settings: Settings) -> Path:
+def _default_root(settings: Settings) -> Path:
     return (settings.data_dir / "mesh").resolve()
 
 
 @mesh_app.command("status")
-def mesh_status(mesh_root: Path | None = _MESH_ROOT_OPTION) -> None:
-    """Print node/edge counts, Lance location, and last tick timestamp."""
+def mesh_status(
+    mesh_root: Path | None = MESH_ROOT,
+) -> None:
+    """Print node/edge counts, current Lance version, and last tick timestamp."""
     settings = Settings()
-    root = mesh_root.resolve() if mesh_root is not None else _default_mesh_root(settings)
+    root = mesh_root.resolve() if mesh_root is not None else _default_root(settings)
     rt = MeshRuntime.open(root)
-    chunks = rt.nodes.chunk_count()
-    consolidated = rt.nodes.consolidated_count()
-    edges = rt.edges.count_rows()
-    pending_delta = rt.edges.delta.pending()
-    st = rt.read_state()
-    last_tick = st.get("last_tick_at", "never")
     summary = {
         "mesh_root": str(root),
-        "chunk_nodes": chunks,
-        "consolidated_nodes": consolidated,
-        "mesh_edges": edges,
-        "delta_buffer_pending": pending_delta,
-        "last_tick_at": last_tick,
+        "chunk_nodes": rt.nodes.chunk_count(),
+        "consolidated_nodes": rt.nodes.consolidated_count(),
+        "mesh_edges": rt.edges.count_rows(),
+        "delta_buffer_pending": rt.edges.delta.pending(),
+        "lance_version": rt.current_lance_version(),
+        "last_tick_at": str(rt.last_tick_at()),
         "lance_uri": str(root / "lance"),
     }
     _console.print(Panel.fit(json.dumps(summary, indent=2), title="mesh status"))

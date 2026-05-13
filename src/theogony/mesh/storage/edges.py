@@ -1,4 +1,17 @@
-"""Edge storage: Lance quantitative rows, metadata sidecar, COO delta, CSR builder."""
+"""Edge storage: Lance ``mesh_edges`` table, COO delta buffer, CSR builder.
+
+Per MESH_IMPLEMENTATION.md §"Edges — PyTorch sparse + delta buffer + Lance
+metadata table":
+
+1. **Stable CSR sparse tensor** – built at Oneiros tick boundaries.
+2. **COO delta buffer** – lock-free append path for Hebbian updates.
+3. **Lance edge-metadata table** – off-hot-path rich descriptors (parallel).
+
+Edge insertion at S1 writes to both the quantitative Lance table and (when
+metadata is present) the metadata table. At Oneiros tick time the delta buffer
+is drained, merged, decayed, saturating the CSR is rebuilt, the quantitative
+table is atomically replaced, and the metadata table is resynced.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +25,14 @@ import pyarrow as pa
 import torch
 
 from theogony.mesh.schemas import Edge, EdgeMetadata
+
+
+def _have_table(db: lancedb.DBConnection, name: str) -> bool:
+    resp = db.list_tables()
+    return name in (resp.tables or [])
+
+
+# ---- Lance schemas ----
 
 _EDGE_SCHEMA = pa.schema(
     [
@@ -37,20 +58,25 @@ _METADATA_SCHEMA = pa.schema(
 )
 
 
+# ---- CSR container ----
+
+
 @dataclass(frozen=True)
 class EdgeCSR:
     """CSR adjacency for outgoing edges (row = source, col = target)."""
 
-    crow_indices: torch.Tensor
-    col_indices: torch.Tensor
-    values: torch.Tensor
+    crow_indices: torch.Tensor  # int64  (N+1,)
+    col_indices: torch.Tensor  # int64  (E,)
+    values: torch.Tensor  # float32  (E,)
     node_ids: list[str]
     id_to_index: dict[str, int]
-    size: tuple[int, int]
+
+
+# ---- Delta buffer ----
 
 
 class EdgeDeltaBuffer:
-    """In-memory append path merged at Oneiros tick boundaries."""
+    """Lock-free append path merged into the stable CSR at each Oneiros tick."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -68,7 +94,7 @@ class EdgeDeltaBuffer:
                 {
                     "source_id": source_id,
                     "target_id": target_id,
-                    "weight_delta": float(weight_delta),
+                    "weight_delta": weight_delta,
                 }
             )
 
@@ -83,19 +109,24 @@ class EdgeDeltaBuffer:
             return len(self._rows)
 
 
-def _edge_key(e: Edge) -> tuple[str, str]:
-    return (e.source_id, e.target_id)
+# ---- Merging helpers ----
 
 
 def merge_edge_deltas(
     base: list[Edge], deltas: list[dict[str, Any]], *, w_max: float
 ) -> list[Edge]:
+    """Apply weight deltas to existing edges; create synthetic edges for new pairs."""
+
+    def _key(e: Edge) -> tuple[str, str]:
+        return (str(e.source_id), str(e.target_id))
+
     by_key: dict[tuple[str, str], Edge] = {}
     for e in base:
-        by_key[_edge_key(e)] = e.model_copy(deep=True)
+        by_key[_key(e)] = e.model_copy(deep=True)
 
     for d in deltas:
-        s, t = d["source_id"], d["target_id"]
+        s = str(d["source_id"])
+        t = str(d["target_id"])
         dw = float(d["weight_delta"])
         if dw <= 0:
             continue
@@ -105,11 +136,10 @@ def merge_edge_deltas(
             nw = min(w_max, cur.weight + dw)
             by_key[k] = cur.model_copy(update={"weight": nw})
         else:
-            # Minimal synthetic edge for Hebbian-only delta (S1).
             now = datetime.now(UTC)
             by_key[k] = Edge(
-                source_id=s,
-                target_id=t,
+                source_id=s,  # type: ignore[arg-type]
+                target_id=t,  # type: ignore[arg-type]
                 weight=min(w_max, dw),
                 born_at=now,
                 last_fired_at=now,
@@ -117,10 +147,12 @@ def merge_edge_deltas(
     return list(by_key.values())
 
 
-def decay_edges_inplace(edges: list[Edge], *, lam: float, dt: float) -> None:
-    """Discrete super-linear decay ``dw/dt ≈ -λ w^k`` with tier-modulated *k*."""
+def decay_edges_inplace(edges: list[Edge], *, lam: float = 0.05, dt: float = 1.0) -> None:
+    """Discrete super-linear decay ``Δw = -λ · dt · w^k``, tier-modulated *k*.
+    Default: ``k = 2`` (tier 0), ``k = 1.5`` (tier 1), ``k = 1.2`` (tier 2+).
+    """
 
-    def k_for_tier(tier: int) -> float:
+    def _k(tier: int) -> float:
         if tier <= 0:
             return 2.0
         if tier == 1:
@@ -128,46 +160,45 @@ def decay_edges_inplace(edges: list[Edge], *, lam: float, dt: float) -> None:
         return 1.2
 
     for e in edges:
-        k = k_for_tier(e.decay_tier)
+        k = _k(e.decay_tier)
         w = float(e.weight)
         delta = lam * dt * (w**k)
         e.weight = max(0.0, w - delta)
 
 
-def enforce_saturation(edges: list[Edge], *, max_out_degree: int, w_max: float) -> list[Edge]:
-    """Per-source-node cap on outgoing edge count; drop lowest-weight edges first."""
+def enforce_saturation(
+    edges: list[Edge], *, max_out_degree: int = 64, w_max: float = 1.0
+) -> list[Edge]:
+    """Per-source-node cap on outgoing count; drop lowest-weight edges first."""
     by_source: dict[str, list[Edge]] = {}
     for e in edges:
-        by_source.setdefault(e.source_id, []).append(e)
+        key = str(e.source_id)
+        by_source.setdefault(key, []).append(e)
 
     survivors: list[Edge] = []
     for out_list in by_source.values():
-        out_list_sorted = sorted(out_list, key=lambda x: x.weight, reverse=True)
-        kept = out_list_sorted[:max_out_degree]
+        sorted_out = sorted(out_list, key=lambda x: x.weight, reverse=True)
+        kept = sorted_out[:max_out_degree]
         survivors.extend(kept)
-    # Renormalise weights that exceed w_max (defensive)
+
     for e in survivors:
-        e.weight = min(float(e.weight), w_max)
+        e.weight = min(e.weight, w_max)
     return survivors
 
 
-def build_csr_from_edges(edges: list[Edge], node_ids: list[str] | None = None) -> EdgeCSR:
-    """Build PyTorch sparse CSR from ``Edge`` rows (conductance = weight * frame_consistency)."""
+def build_csr_from_edges(edges: list[Edge]) -> EdgeCSR:
+    """Build a PyTorch CSR tensor where conductance = weight × frame_consistency."""
     endpoints: set[str] = set()
     for e in edges:
-        endpoints.add(e.source_id)
-        endpoints.add(e.target_id)
-    if node_ids is None:
-        ordered = sorted(endpoints)
-    else:
-        extra = endpoints - set(node_ids)
-        ordered = sorted(set(node_ids) | extra)
+        endpoints.add(str(e.source_id))
+        endpoints.add(str(e.target_id))
+    ordered = sorted(endpoints)
     id_to_index = {nid: i for i, nid in enumerate(ordered)}
     n = len(ordered)
 
     row_counts = [0] * n
     for e in edges:
-        si = id_to_index[e.source_id]
+        si = id_to_index[str(e.source_id)]
         row_counts[si] += 1
     crow = [0]
     for c in row_counts:
@@ -175,59 +206,63 @@ def build_csr_from_edges(edges: list[Edge], node_ids: list[str] | None = None) -
     nnz = crow[-1]
     col = [0] * nnz
     val = [0.0] * nnz
-    write = crow[:-1]
+    write = crow[:-1].copy()
 
     for e in edges:
-        si = id_to_index[e.source_id]
-        ti = id_to_index[e.target_id]
+        si = id_to_index[str(e.source_id)]
+        ti = id_to_index[str(e.target_id)]
         pos = write[si]
-        conductance = float(e.weight) * float(e.frame_consistency)
         col[pos] = ti
-        val[pos] = conductance
+        val[pos] = float(e.weight) * float(e.frame_consistency)
         write[si] += 1
 
-    crow_t = torch.tensor(crow, dtype=torch.int64)
-    col_t = torch.tensor(col, dtype=torch.int64)
-    val_t = torch.tensor(val, dtype=torch.float32)
     return EdgeCSR(
-        crow_indices=crow_t,
-        col_indices=col_t,
-        values=val_t,
+        crow_indices=torch.tensor(crow, dtype=torch.int64),
+        col_indices=torch.tensor(col, dtype=torch.int64),
+        values=torch.tensor(val, dtype=torch.float32),
         node_ids=ordered,
         id_to_index=id_to_index,
-        size=(n, n),
     )
 
 
-class MeshEdgeStore:
-    """Lance ``mesh_edges`` + ``edge_metadata`` with delta buffer."""
+# ---- Lance-backed edge store ----
+
+
+class EdgeStore:
+    """Lance ``mesh_edges`` table + parallel ``edge_metadata`` table + delta buffer."""
 
     def __init__(self, db: lancedb.DBConnection) -> None:
         self._db = db
         self.delta = EdgeDeltaBuffer()
-        if "mesh_edges" not in db.list_tables():
-            self.edge_table = db.create_table("mesh_edges", schema=_EDGE_SCHEMA)
-        else:
+
+        if _have_table(db, "mesh_edges"):
             self.edge_table = db.open_table("mesh_edges")
-        if "edge_metadata" not in db.list_tables():
-            self.meta_table = db.create_table("edge_metadata", schema=_METADATA_SCHEMA)
         else:
+            self.edge_table = db.create_table("mesh_edges", schema=_EDGE_SCHEMA)
+
+        if _have_table(db, "edge_metadata"):
             self.meta_table = db.open_table("edge_metadata")
+        else:
+            self.meta_table = db.create_table("edge_metadata", schema=_METADATA_SCHEMA)
 
     def append_edge(self, edge: Edge) -> None:
-        row = {
-            "source_id": edge.source_id,
-            "target_id": edge.target_id,
-            "weight": float(edge.weight),
-            "decay_tier": int(edge.decay_tier),
-            "frame_consistency": float(edge.frame_consistency),
-            "eligibility": float(edge.eligibility),
-            "feedback_modulated_strength": float(edge.feedback_modulated_strength),
-            "born_at": edge.born_at,
-            "last_fired_at": edge.last_fired_at,
-            "payload_json": edge.model_dump_json(),
-        }
-        self.edge_table.add([row])
+        """Write one edge to the quantitative table + optionally metadata."""
+        self.edge_table.add(
+            [
+                {
+                    "source_id": str(edge.source_id),
+                    "target_id": str(edge.target_id),
+                    "weight": float(edge.weight),
+                    "decay_tier": int(edge.decay_tier),
+                    "frame_consistency": float(edge.frame_consistency),
+                    "eligibility": float(edge.eligibility),
+                    "feedback_modulated_strength": float(edge.feedback_modulated_strength),
+                    "born_at": edge.born_at,
+                    "last_fired_at": edge.last_fired_at,
+                    "payload_json": edge.model_dump_json(),
+                }
+            ]
+        )
         meta = EdgeMetadata(
             source_id=edge.source_id,
             target_id=edge.target_id,
@@ -249,39 +284,39 @@ class MeshEdgeStore:
             self.meta_table.add(
                 [
                     {
-                        "source_id": meta.source_id,
-                        "target_id": meta.target_id,
+                        "source_id": str(meta.source_id),
+                        "target_id": str(meta.target_id),
                         "payload_json": meta.model_dump_json(),
                     }
                 ]
             )
 
-    def load_edges(self) -> list[Edge]:
-        arrow = self.edge_table.search().limit(10_000_000).to_arrow()
+    def load_all_edges(self) -> list[Edge]:
+        arrow = self.edge_table.search().to_arrow()
         out: list[Edge] = []
         for row in arrow.to_pylist():
             out.append(Edge.model_validate_json(row["payload_json"]))
         return out
 
     def replace_all_edges(self, edges: list[Edge]) -> None:
-        """Rewrite the quantitative edge table (Oneiros commit)."""
+        """Atomically replace the quantitative table (Oneiros commit)."""
         self.edge_table.delete("true")
         if not edges:
             return
         batch = []
-        for edge in edges:
+        for e in edges:
             batch.append(
                 {
-                    "source_id": edge.source_id,
-                    "target_id": edge.target_id,
-                    "weight": float(edge.weight),
-                    "decay_tier": int(edge.decay_tier),
-                    "frame_consistency": float(edge.frame_consistency),
-                    "eligibility": float(edge.eligibility),
-                    "feedback_modulated_strength": float(edge.feedback_modulated_strength),
-                    "born_at": edge.born_at,
-                    "last_fired_at": edge.last_fired_at,
-                    "payload_json": edge.model_dump_json(),
+                    "source_id": str(e.source_id),
+                    "target_id": str(e.target_id),
+                    "weight": float(e.weight),
+                    "decay_tier": int(e.decay_tier),
+                    "frame_consistency": float(e.frame_consistency),
+                    "eligibility": float(e.eligibility),
+                    "feedback_modulated_strength": float(e.feedback_modulated_strength),
+                    "born_at": e.born_at,
+                    "last_fired_at": e.last_fired_at,
+                    "payload_json": e.model_dump_json(),
                 }
             )
         self.edge_table.add(batch)
@@ -289,5 +324,5 @@ class MeshEdgeStore:
     def count_rows(self) -> int:
         return int(self.edge_table.count_rows())
 
-    def csr_from_store(self, node_ids: list[str] | None = None) -> EdgeCSR:
-        return build_csr_from_edges(self.load_edges(), node_ids=node_ids)
+    def csr_from_store(self) -> EdgeCSR:
+        return build_csr_from_edges(self.load_all_edges())

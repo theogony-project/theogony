@@ -1,18 +1,11 @@
-"""Pydantic substrate shapes for the MESH package (Step S1).
-
-Field names and nesting follow ``docs/MESH_SUBSTRATE.md`` §"Node anatomy" and
-§"Edge anatomy". ``SourceProvenance``, ``QIDTag``, and ``PIDTag`` are named in
-that section but not expanded as full class bodies there; the shapes below are
-the minimal faithful reading of the prose constraints ("who / where / when"
-for provenance; ``(id, confidence, attached_at)`` for Q-IDs and analogously for
-P-IDs).
-"""
+"""Pydantic substrate shapes — verbatim from MESH_SUBSTRATE.md §Node/Edge anatomy."""
 
 from __future__ import annotations
 
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
+from ulid import ULID
 
 
 class SourceProvenance(BaseModel):
@@ -20,11 +13,9 @@ class SourceProvenance(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    source_type: str = Field(description='Acquisition class, e.g. "gutenberg", "web".')
-    source_identifier: str = Field(
-        description="Opaque provider-native address (book id, URL stem, etc.).",
-    )
-    extracted_at: datetime = Field(description="Extraction timestamp (timezone-aware).")
+    source_type: str
+    source_identifier: str
+    extracted_at: datetime
 
 
 class QIDTag(BaseModel):
@@ -32,7 +23,7 @@ class QIDTag(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    qid: str = Field(description='Wikidata item id, e.g. "Q336997".')
+    qid: str
     confidence: float = Field(ge=0.0, le=1.0)
     attached_at: datetime
 
@@ -42,7 +33,7 @@ class PIDTag(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    pid: str = Field(description='Wikidata property id, e.g. "P19".')
+    pid: str
     confidence: float = Field(ge=0.0, le=1.0)
     attached_at: datetime
 
@@ -52,7 +43,7 @@ class ChunkNode(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str
+    id: ULID
     born_at: datetime
     last_fired_at: datetime
     fired_total: int = 0
@@ -70,7 +61,7 @@ class ConsolidatedNode(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str
+    id: ULID
     born_at: datetime
     last_fired_at: datetime
     fired_total: int = 0
@@ -91,7 +82,7 @@ class ConsolidatedNode(BaseModel):
 
     description: str | None = None
     description_generated_at: datetime | None = None
-    description_source_chunks: list[str] = Field(default_factory=list)
+    description_source_chunks: list[ULID] = Field(default_factory=list)
 
     tags: list[str] = Field(default_factory=list)
 
@@ -109,8 +100,8 @@ class Edge(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    source_id: str
-    target_id: str
+    source_id: ULID
+    target_id: ULID
     weight: float
     born_at: datetime
     last_fired_at: datetime
@@ -129,12 +120,16 @@ class Edge(BaseModel):
 
 
 class EdgeMetadata(BaseModel):
-    """Optional semantic descriptors stored off the SpMV hot path."""
+    """Optional semantic descriptors stored off the SpMV hot path.
+
+    Per MESH_IMPLEMENTATION.md §"Edges — PyTorch sparse + delta buffer + Lance
+    metadata table".
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    source_id: str
-    target_id: str
+    source_id: ULID
+    target_id: ULID
     relation_descriptor: str | None = None
     relation_kind: str | None = None
     description: str | None = None

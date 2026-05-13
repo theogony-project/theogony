@@ -1,4 +1,4 @@
-"""Schema JSON round-trip and ``extra`` forbid."""
+"""JSON round-trip and ``extra="forbid"`` enforcement for every schema."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
+from ulid import ULID
 
 from theogony.mesh.schemas import (
     ChunkNode,
@@ -20,13 +21,9 @@ from theogony.mesh.schemas import (
 
 def test_chunk_node_roundtrip() -> None:
     now = datetime.now(UTC)
-    src = SourceProvenance(
-        source_type="test",
-        source_identifier="fixture-1",
-        extracted_at=now,
-    )
+    src = SourceProvenance(source_type="test", source_identifier="fixture-1", extracted_at=now)
     n = ChunkNode(
-        id="01HZX8QZ7QZ7QZ7QZ7QZ7QZ7Q",
+        id=ULID(),
         born_at=now,
         last_fired_at=now,
         semantic_vector=[0.1] * 8,
@@ -37,12 +34,47 @@ def test_chunk_node_roundtrip() -> None:
     data = n.model_dump(mode="json")
     restored = ChunkNode.model_validate(data)
     assert restored == n
+    assert isinstance(restored.id, ULID)
+    assert str(restored.id) == str(n.id)
+
+
+def test_consolidated_node_roundtrip() -> None:
+    now = datetime.now(UTC)
+    n = ConsolidatedNode(
+        id=ULID(),
+        born_at=now,
+        last_fired_at=now,
+        semantic_vector=[0.0] * 8,
+        frame_vector=[0.0] * 4,
+        description="test entity",
+        tags=["chemistry", "19th-century"],
+    )
+    data = n.model_dump(mode="json")
+    restored = ConsolidatedNode.model_validate(data)
+    assert restored == n
+
+
+def test_edge_roundtrip() -> None:
+    now = datetime.now(UTC)
+    e = Edge(
+        source_id=ULID(),
+        target_id=ULID(),
+        weight=0.75,
+        born_at=now,
+        last_fired_at=now,
+        relation_descriptor="born_in",
+        relation_kind="attribute",
+        creation_context="kadmos_extraction",
+    )
+    restored = Edge.model_validate_json(e.model_dump_json())
+    assert restored == e
+    assert isinstance(restored.source_id, ULID)
 
 
 def test_edge_metadata_roundtrip() -> None:
     m = EdgeMetadata(
-        source_id="01HZX8QZ7QZ7QZ7QZ7QZ7QZ7Q",
-        target_id="01HZX8QZ7QZ7QZ7QZ7QZ7QZR",
+        source_id=ULID(),
+        target_id=ULID(),
         relation_kind="extraction",
         creation_context="kadmos_extraction",
     )
@@ -50,11 +82,13 @@ def test_edge_metadata_roundtrip() -> None:
     assert restored == m
 
 
-def test_qid_on_consolidated_node_roundtrip() -> None:
+def test_qid_pid_roundrip() -> None:
     now = datetime.now(UTC)
-    q = QIDTag(qid="Q336997", confidence=0.9, attached_at=now)
+    q = QIDTag(qid="Q336997", confidence=0.95, attached_at=now)
+    p = PIDTag(pid="P19", confidence=0.90, attached_at=now)
+
     node = ConsolidatedNode(
-        id="01HZX8QZ7QZ7QZ7QZ7QZ7QZ7S",
+        id=ULID(),
         born_at=now,
         last_fired_at=now,
         semantic_vector=[0.0] * 8,
@@ -64,20 +98,16 @@ def test_qid_on_consolidated_node_roundtrip() -> None:
     back = ConsolidatedNode.model_validate_json(node.model_dump_json())
     assert back.qids[0].qid == "Q336997"
 
-
-def test_pid_tag_on_edge_roundtrip() -> None:
-    now = datetime.now(UTC)
-    p = PIDTag(pid="P19", confidence=0.8, attached_at=now)
-    e = Edge(
-        source_id="a",
-        target_id="b",
+    edge = Edge(
+        source_id=ULID(),
+        target_id=ULID(),
         weight=1.0,
         born_at=now,
         last_fired_at=now,
         pids=[p],
     )
-    restored = Edge.model_validate_json(e.model_dump_json())
-    assert restored.pids[0].pid == "P19"
+    recovered = Edge.model_validate_json(edge.model_dump_json())
+    assert recovered.pids[0].pid == "P19"
 
 
 def test_extra_forbid() -> None:
@@ -85,11 +115,29 @@ def test_extra_forbid() -> None:
     with pytest.raises(ValidationError):
         Edge.model_validate(
             {
-                "source_id": "a",
-                "target_id": "b",
+                "source_id": str(ULID()),
+                "target_id": str(ULID()),
                 "weight": 1.0,
                 "born_at": now,
                 "last_fired_at": now,
-                "typo_field": 123,
+                "bogus_field": 42,
+            }
+        )
+
+    with pytest.raises(ValidationError):
+        ChunkNode.model_validate(
+            {
+                "id": str(ULID()),
+                "born_at": now,
+                "last_fired_at": now,
+                "semantic_vector": [0.0] * 8,
+                "frame_vector": [0.0] * 4,
+                "source": {
+                    "source_type": "x",
+                    "source_identifier": "y",
+                    "extracted_at": now,
+                    "extra": True,
+                },
+                "raw_text_ref": "ref",
             }
         )

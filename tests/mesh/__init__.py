@@ -1,1 +1,1 @@
-# Mesh substrate tests (MESH migration Step S1).
+"""Tests for the MESH substrate (Step S1)."""

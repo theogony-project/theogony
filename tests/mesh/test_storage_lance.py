@@ -1,64 +1,74 @@
-"""Lance node/edge storage and versioning smoke tests."""
+"""Lance node/edge storage, CSR construction, and version checkout."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from ulid import ULID
+
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
-from theogony.mesh.schemas import ChunkNode, Edge, SourceProvenance
-from theogony.mesh.storage.edges import MeshEdgeStore, build_csr_from_edges
+from theogony.mesh.schemas import ChunkNode, ConsolidatedNode, Edge, SourceProvenance
+from theogony.mesh.storage.edges import build_csr_from_edges
 
 
-def test_append_chunk_and_fetch(mesh_runtime: MeshRuntime) -> None:
+def test_append_and_fetch_chunk(mesh_runtime: MeshRuntime) -> None:
     now = datetime.now(UTC)
-    src = SourceProvenance(
-        source_type="test",
-        source_identifier="x",
-        extracted_at=now,
-    )
+    src = SourceProvenance(source_type="test", source_identifier="x", extracted_at=now)
+    nid = ULID()
     n = ChunkNode(
-        id="01HZX8QZ7QZ7QZ7QZ7QZ7QZ7Q",
+        id=nid,
         born_at=now,
         last_fired_at=now,
         semantic_vector=[0.25] * 8,
-        frame_vector=[0.5] * 4,
+        frame_vector=[0.50] * 4,
         source=src,
         raw_text_ref="ref://1",
     )
     mesh_runtime.nodes.append_chunk(n)
-    got = mesh_runtime.nodes.get_chunk(n.id)
+    got = mesh_runtime.nodes.get_chunk(str(nid))
     assert got is not None
-    assert got.id == n.id
+    assert got.id == nid
 
 
-def test_edge_csr_and_version_pin(mesh_runtime: MeshRuntime) -> None:
+def test_append_and_fetch_consolidated(mesh_runtime: MeshRuntime) -> None:
     now = datetime.now(UTC)
-    store = mesh_runtime.edges
-    assert isinstance(store, MeshEdgeStore)
-    e = Edge(
-        source_id="n0",
-        target_id="n1",
-        weight=1.0,
+    n = ConsolidatedNode(
+        id=ULID(),
         born_at=now,
         last_fired_at=now,
+        semantic_vector=[0.1] * 8,
+        frame_vector=[0.2] * 4,
+        description="test consolidated",
     )
-    store.append_edge(e)
-    csr = build_csr_from_edges(store.load_edges())
-    assert csr.size[0] == 2
-    assert csr.values.numel() == 1
+    mesh_runtime.nodes.append_consolidated(n)
+    assert mesh_runtime.nodes.consolidated_count() >= 1
 
-    tbl = store.edge_table
-    versions_after_first = tbl.list_versions()
-    v_one_edge = versions_after_first[-1]["version"]
-    e2 = Edge(
-        source_id="n1",
-        target_id="n2",
-        weight=0.5,
-        born_at=now,
-        last_fired_at=now,
-    )
-    store.append_edge(e2)
-    tbl.checkout(v_one_edge)
+
+def test_edge_csr_from_store(mesh_runtime: MeshRuntime) -> None:
+    now = datetime.now(UTC)
+    e1 = Edge(source_id=ULID(), target_id=ULID(), weight=1.0, born_at=now, last_fired_at=now)
+    e2 = Edge(source_id=ULID(), target_id=ULID(), weight=0.5, born_at=now, last_fired_at=now)
+    mesh_runtime.edges.append_edge(e1)
+    mesh_runtime.edges.append_edge(e2)
+
+    csr = build_csr_from_edges(mesh_runtime.edges.load_all_edges())
+    assert len(csr.node_ids) == 4  # 4 distinct nodes
+    assert csr.values.numel() == 2
+
+
+def test_version_checkout(mesh_runtime: MeshRuntime) -> None:
+    """Append an edge, note its version, append another, then read the old version."""
+    now = datetime.now(UTC)
+    e1 = Edge(source_id=ULID(), target_id=ULID(), weight=1.0, born_at=now, last_fired_at=now)
+    mesh_runtime.edges.append_edge(e1)
+    tbl = mesh_runtime.edges.edge_table
+    vers = tbl.list_versions()
+    v1 = vers[-1]["version"]
+
+    e2 = Edge(source_id=ULID(), target_id=ULID(), weight=0.5, born_at=now, last_fired_at=now)
+    mesh_runtime.edges.append_edge(e2)
+
+    tbl.checkout(v1)
     assert tbl.count_rows() == 1
     tbl.checkout_latest()
     assert tbl.count_rows() == 2

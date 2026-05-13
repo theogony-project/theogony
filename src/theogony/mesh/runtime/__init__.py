@@ -1,4 +1,4 @@
-"""Mesh runtime operators (Spreading Activation, Oneiros tick)."""
+"""Mesh runtime operators."""
 
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime, MinimalTickResult
 from theogony.mesh.runtime.spreading import spreading_activation

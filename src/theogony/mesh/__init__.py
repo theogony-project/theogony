@@ -1,4 +1,4 @@
-"""MESH doctrine substrate (strangler-fig layer; migration Step S1 skeleton)."""
+"""MESH doctrine substrate (strangler-fig layer at Step S1)."""
 
 from theogony.mesh.schemas import (
     ChunkNode,
