@@ -1,19 +1,20 @@
 # Mesh-Native Language Model — Architecture Brief
 
+> **Realignment status (2026-05-13):** this brief was filed on 2026-05-10, three days before the MESH-substrate pivot. The **core architectural commitments survive the pivot unchanged**: Llama-3-8B + LoRA, Graph-KV input, Latent Flow Matching output, Substrate-Resonant Recurrence, Spreading-Activation alignment via Graph-GRPO, three-stage falsifier (DBB-200 → MuSiQue → Monkey-3). What has been re-aligned in this realignment pass: §3.5 edge typing (codebook → MESH-doctrine edge descriptors), §4.1 / §4.2 Pydantic schemas (single embedding → multi-vector nodes, `layer` → `consolidation_tier`, AKA-IDs → ULIDs, codebook IDs → relation descriptors), §5 training references (Gen-1 store paths → MESH runtime paths), §7 Kadmos contract (re-anchored to the MESH eager-linking discipline), §8 sprint roadmap (re-anchored as the body of Migration-Plan Step S5 — depends on S1–S4 having landed first), §13 PoC-pass (executed pre-pivot under Gen-1 doctrine; results preserved in `docs/research/mnlm/poc_legacy/`; the post-pivot PoC track is `docs/research/mnlm/poc_mesh/`). Sections not edited are §0, §1, §2, §3.1–§3.4, §3.6, §6, §9, §10, §11, §12 — they were doctrinally compatible already.
+
 **Status:** BINDING architecture decision for the Mesh-Native Language Model. Partially research work — sections explicitly marked **[RESEARCH]** remain open and are resolved during implementation, not before.
 
-**Filed by:** Hesiod (architect)
-**Date:** 2026-05-10
+**Filed by:** Hesiod (architect) — 2026-05-10. Realigned to MESH doctrine 2026-05-13.
 **Inputs:** the five Round-1 research artifacts in docs/research/mnlm/{opus,codex,gemini,deepresearch,DeepSeek}.md plus the verified literature floor (Graph-KV, LatentRxnFlow, Graph-GRPO, Attention-as-Binding).
-**Doctrine:** [TARGET_ARCHITECTURE.md](../TARGET_ARCHITECTURE.md), [BUILD_DOCTRINE.md](../BUILD_DOCTRINE.md), [IMMUNE_SYSTEM.md](../IMMUNE_SYSTEM.md), [CHRONICLE_PRINCIPLES.md](../CHRONICLE_PRINCIPLES.md), [AGENTS.md](../../AGENTS.md).
+**Operative doctrine:** [MESH_SUBSTRATE.md](../MESH_SUBSTRATE.md), [MESH_IMPLEMENTATION.md](../MESH_IMPLEMENTATION.md), [MESH_RETRIEVAL.md](../MESH_RETRIEVAL.md), [MESH_MIGRATION_PLAN.md](../MESH_MIGRATION_PLAN.md). The MESH triplet is operative for substrate-layer behaviour, runtime, and use; the migration plan sequences this brief's implementation as the body of Step S5. Older doctrine kept as context: [TARGET_ARCHITECTURE.md](../TARGET_ARCHITECTURE.md) (the architectural floor), [BUILD_DOCTRINE.md](../BUILD_DOCTRINE.md), [IMMUNE_SYSTEM.md](../IMMUNE_SYSTEM.md), [CHRONICLE_PRINCIPLES.md](../CHRONICLE_PRINCIPLES.md), [AGENTS.md](../../AGENTS.md).
 **Supersedes:** [mesh_native_lm_research_brief.md](mesh_native_lm_research_brief.md) as the operative MNLM document. The research brief remains as the question source; this document is the answer.
-**Hand-off target:** Talos. The "three concrete next commits" list in §10 is the Sprint-1 candidate set.
+**Hand-off target:** Talos, once Migration-Plan Steps S1–S4 have landed. The "three concrete next commits" list in §10 is then the Step-S5 Sprint-1 candidate set.
 
 ---
 
 ## 0. Framing — this brief refuses to compromise
 
-Theogony is not building a graph-augmented LLM. It is building the substrate beneath AI systems — a knowledge mesh where meaning lives as vectors and weighted edges, where text is admitted only at the outermost ingress, and where reasoning happens **in** the substrate, not over a serialised representation of it. The Mesh-Native Language Model is the cognitive primitive that makes this real.
+Theogony is not building a graph-augmented LLM. It is building the substrate beneath AI systems — a knowledge mesh where meaning lives as vectors and weighted edges, where raw source text is not the retrieval primitive, and where reasoning happens **in** the substrate, not over a serialised representation of it. The Mesh-Native Language Model is the cognitive primitive that makes this real. (Per the MESH triplet that this brief was realigned to: short, regenerable summary metadata — node descriptions, edge relation descriptors, source-anchor URLs — *is* permitted as agent-readable annotation in the substrate; what is forbidden is raw source text as retrieval payload. The MNLM's input and output schemas in §4 honour this rule.)
 
 The temptation in any architecture-decision brief is to choose the smallest, most-precedented path forward — to ship something fast and grow it later. **Hesiod refuses this temptation here.** The MNLM as architecturally watered down to "GNP soft prompts + discrete mutation tokens + COCONUT-style latent CoT" is *just a slightly fancier RAG agent*. It works. It ships. It is not what the project is building.
 
@@ -46,8 +47,8 @@ Five artifacts; their consolidation into Hesiod's decisions:
 Cross-artifact consensus that locks immediately, with no further decision needed:
 
 1. **Frozen base model in the 7–8 B class** (Llama-3-8B-Instruct selected — see §3.1), LoRA-adapted on attention projections, never trained from scratch.
-2. **The 8-primitive mutation contract**: `ADD_NODE`, `ADD_EDGE`, `REVISE_NODE`, `MERGE_NODES`, `SPLIT_NODE`, `INVALIDATE`, `EMIT_FINDING`, `EMIT_ACTIVATION_PACKET`. **No `DELETE`** — that is Chronos's job, not the MNLM's.
-3. **No text inside the MNLM module boundary.** Enforced at three independent layers (Pydantic union shape; service interface; repo-level import-linter contract).
+2. **The 8-primitive mutation contract**: `ADD_NODE`, `ADD_EDGE`, `REVISE_NODE`, `MERGE_NODES`, `SPLIT_NODE`, `INVALIDATE`, `EMIT_FINDING`, `EMIT_ACTIVATION_PACKET`. The MNLM does not emit hard-delete primitives — destruction at the substrate level is decided by the agent-driven cleanup discipline in [MESH_SUBSTRATE.md](../MESH_SUBSTRATE.md) §"Agent-driven cleanup" (Argus, Athene, Chronos roles) and by Oneiros's pathology / therapy loop (§"Pathology and therapy"). The MNLM emits `Invalidate` and `EmitFinding`; the system decides post-hoc whether the supersession warrants demotion or removal, always with audit-ledger entries.
+3. **No raw source text inside the MNLM module boundary.** Enforced at three independent layers (Pydantic union shape; service interface; repo-level import-linter contract). Short summary metadata (a node's `description`, an edge's `relation_descriptor`, a source-anchor's `source_url`) is permitted and matches the MESH-substrate field discipline — these are agent-readable annotations, not the retrieval surface.
 4. **Stance C** on the systematicity question (§9.1) — typed edges *and* latent CoT, both necessary, neither sufficient alone.
 5. **The falsifier's primary axis is directional binding** (the Fodor / Pylyshyn challenge). The architecture stands or falls on whether typed edges + latent CoT + Substrate-Resonance preserve agent-patient direction across multi-hop reasoning.
 
@@ -148,38 +149,46 @@ What this gives us that nobody else proposed:
 - **Reuses the existing `src/theogony/core/tensor_engine.py` primitive.** No new substrate code; only a thin wrapper that exposes one-hop SA as a callable from inside the MNLM service.
 - **Bounds latency.** With K = 3, T = 16, max 5 SA calls per MNLM call, ~5–20 ms each at 1024-node scope, total resonance overhead ~25–100 ms per call. Acceptable for everything except very high-throughput Oneiros workloads (which can disable resonance via `MeshInputContext.sa_interleave_K = 0`).
 
-### 3.5 Edge typing — discrete codebook + continuous nuance
+### 3.5 Edge typing — MESH-doctrine edge anatomy
 
-**Locked: 512-entry discrete codebook of structural relations + 32-dimensional continuous nuance vector per edge.**
+**Locked: edges follow [MESH_SUBSTRATE.md](../MESH_SUBSTRATE.md) §"Edge anatomy" exactly. Quantitative core (`weight`, `decay_tier`, `frame_consistency`, `eligibility`) drives the SpMV hot path; optional semantic descriptors (`relation_descriptor`, `relation_kind`, `description`, `pids`, `creation_context`) carry agent-readable typing. There is no codebook ID and no separate "nuance" vector — those engineering choices from the pre-MESH version of this brief have been superseded by the MESH doctrine.**
 
-4-of-5 Round-1 consensus chose hybrid; deepresearch alone proposed pure-continuous-with-VSA-binding. The pure-continuous path is theoretically appealing but rests on Dhayalkar 2025, which has no scaled empirical demonstration. v1 takes the hybrid path; the VSA-binding-head approach moves to §9.1 [RESEARCH].
+The 4-of-5 Round-1 consensus chose a discrete codebook + 32-dim nuance hybrid. That decision was sensible against the pre-MESH single-embedding-per-node substrate, but it has been overtaken by the substrate doctrine: in the MESH triplet, edge typing is *not* the substrate's retrieval primitive (SpMV reads weights), and the descriptive characterisation of a relation (what kind of relation it is, in human / agent terms, with optional Wikidata P-ID anchors) is a free-form metadata surface, not an enum.
 
-The codebook is bootstrapped from:
+What this means for the MNLM:
 
-- The Run-9 internal codebook entries (`BINDS_TO`, `REINFORCES`, `CAUSED_BY`, `ABSTRACTION_OF`, `MODULATES`, `CONTRADICTS`).
-- Wikidata P-IDs for relations where they apply (`P31` instance_of, `P361` part_of, `P50` author, `P19` born_in, …). These are aliased via the existing `KnowledgeNode.external_ids` shape.
-- ~500 additional structural relations harvested from Kadmos's internal codebook during reading (the connection-description embeddings have been clustered in the run-11 / run-12 round to identify recurring relation classes).
+- **`relation_descriptor`** is a short string label set by Kadmos at edge creation (`"owns"`, `"located_in"`, `"contradicts"`, `"is_section_of"`, etc.). The MNLM can emit any short string here at `AddEdge` time. It is not constrained to a codebook.
+- **`relation_kind`** is a broader category string (`"attribute"`, `"ownership"`, `"hierarchy"`, `"temporal"`, `"causal"`, `"co-occurrence"`, `"extraction"`, `"attribution"`). Useful for cross-edge reasoning but not enum-validated.
+- **`pids`** is a list of Wikidata property identifiers (`P19` place of birth, `P31` instance of, `P50` author, `P276` location, `P585` point in time, `P580` start time, …). Each P-ID is a one-to-one identifier, exactly as Q-IDs are on nodes. The MNLM may emit zero, one, or several P-IDs per edge when it has high-confidence Wikidata alignment.
+- **`description`** is a longer free-text relation summary (up to ~512 chars) for the cases where the short label is too compressed. Like node descriptions, it is regenerable and authoritative for agent and human inspection but not the retrieval surface.
+- **The substrate's automatic dynamics ignore all of the above.** SpMV propagates over `(source, target, weight, decay_tier, frame_consistency)`. The descriptors travel for repair, deduplication, contradiction resolution, and consumer formatting — exactly the cleanup operations the immune system and Oneiros do post-hoc.
 
-The 32-dimensional nuance vector encodes intensity, temporal aspect, modality, etc. — the soft features the discrete codebook entry cannot carry. Edges in `MeshInput.edges[i].edge_embedding` are the concatenation `[codebook_entry_one_hot_embedding | nuance_vector]` projected to 384 dimensions.
+**Edge directionality and the binding question.** The §6 falsifier still tests whether the MNLM preserves agent-patient direction across multi-hop reasoning. Under the MESH edge model, direction lives in `(source_id, target_id)` ordering plus the asymmetric weight tensor — exactly the topology Graph-KV attends over. The pre-MESH worry was that without a discrete codebook the system would lose semantic distinctions like `LOVES` vs `FEARS`; under MESH, that semantic distinction lives in `relation_descriptor` + the directional weight, and the Graph-KV block-mask attention sees both. The architectural bet on Substrate-Resonance preserving binding is unchanged; what changes is how the relation type is *carried*, not what is carried.
+
+**Bootstrap.** Kadmos v2 produces relation descriptors during reading. The bootstrap vocabulary inherits the Round-9 internal codebook entries (`BINDS_TO`, `REINFORCES`, `CAUSED_BY`, `ABSTRACTION_OF`, `MODULATES`, `CONTRADICTS`, `is_section_of`, `extracted_from`, `subject`, `located_in`, `happened_in_year`, …) as starting strings, not as enum slots. The vocabulary grows as Kadmos encounters new relations. Oneiros consolidates near-synonymous descriptors over time when they consistently co-occur on equivalent structural positions; this is part of the agent-driven cleanup pass, not a separate codebook-maintenance subsystem.
+
+**Pure-continuous VSA approach.** The v2 research question (§9.1) remains: can VSA-binding heads in Graph-KV attention obviate even the relation_descriptor string, recovering all directionality from purely continuous edge embeddings? Open. The MESH-doctrine edge anatomy does not preclude this — `relation_descriptor` is optional. A future MNLM version that doesn't emit it can still produce valid MESH edges; the system's existing post-hoc descriptor surface would simply be empty for those edges.
 
 ### 3.6 Boundary text channel — three-layer machine-checkable enforcement
 
-**Locked: opus.md §G three-layer enforcement, adopted whole.**
+**Locked: three-layer enforcement, adapted to the MESH-doctrine field discipline.**
 
-The doctrine "no text inside the MNLM" is operationalised at three independent layers, all machine-checkable:
+The MNLM-internal rule is: **no raw source text crosses into the MNLM as retrieval payload, and the MNLM does not emit prose**. Short summary metadata permitted by the MESH substrate (node `description` up to ~512 chars; edge `relation_descriptor` short label; edge `description` up to ~512 chars; source-anchor descriptions) flows through the MNLM as bounded `str` fields with explicit length caps, exactly as MESH defines them. The three independent layers:
 
-- **Type-level (Pydantic):** the `MutationPrimitive` sealed union forbids any free-text field longer than 512 chars. The single allowed `str` field (`AddNode.label_for_provenance_only`) is name-marked, length-capped, and explicitly documented as not-a-primary-representation. Any future agent attempting to add a `RawTextNote` primitive cannot do so without editing the sealed union — which fails layer 3.
+- **Type-level (Pydantic):** the `MutationPrimitive` sealed union allows the bounded summary-metadata fields the MESH doctrine specifies (`AddNode.description`, `AddNode.tags`, `AddEdge.relation_descriptor`, `AddEdge.description`, etc.) with explicit `max_length` caps matching MESH §"Field discipline". Every other `str` field on a primitive is a typed enum, an ID pattern, or a hash. There is no free-form text payload. Any future agent attempting to add a `RawTextNote` primitive cannot do so without editing the sealed union — which fails layer 3.
 - **Service-level (Python):** the MNLM service exposes only `MeshInput → MeshDelta`. No `respond_in_natural_language`, no `summarize`, no `chat_completion`. The MNLM service's `__init__.py` imports nothing from `transformers.pipelines.text_generation` or any text-generation API. The Latent Flow Matching head decodes only into the constrained Pydantic union. This is structural, not policy.
-- **Repo-level (import-linter):** `pyproject.toml` carries an import-linter forbidden contract that prevents `theogony.agents.mnlm` from importing any text-generation pipeline from any source. Enforced in CI; violating it fails `pytest -q` even before any test runs. A separate optional package (`theogony-debug-peephole`, sibling repo) provides human-readable summaries of `MeshDelta`s for development debugging — its only purpose is debugging, and `theogony.agents.mnlm` is forbidden by import-linter from importing it.
+- **Repo-level (import-linter):** `pyproject.toml` carries an import-linter forbidden contract that prevents the MNLM module from importing any text-generation pipeline from any source. Enforced in CI; violating it fails `pytest -q` even before any test runs. A separate optional package (`theogony-debug-peephole`, sibling repo) provides human-readable summaries of `MeshDelta`s for development debugging — its only purpose is debugging, and the MNLM module is forbidden by import-linter from importing it.
 
-This is the difference between doctrine-by-convention and doctrine-by-contract. The MNLM cannot accidentally leak text by bug or by silent agent action — it would have to *fail CI* to do so.
+This is the difference between doctrine-by-convention and doctrine-by-contract. The MNLM cannot accidentally widen its text surface beyond what MESH explicitly permits — it would have to *fail CI* to do so.
 ---
 
 ## 4. The locked Pydantic schemas
 
-These schemas are the binding contract. They live, in implementation, at `src/theogony/agents/mnlm/dto.py`. Kadmos's post-embedding output must conform to `MeshInput`; the MNLM service's only output shape is `MeshDelta`. Talos may extend with sibling DTOs (e.g. `MnlmRunReport`) but may not modify the shapes below without a Phoenix-Backlog ticket and Daedalus review.
+These schemas are the binding contract. They live, in implementation, under the new substrate package introduced by Migration-Plan Step S1 (`src/theogony/mesh/`) — the exact module path inside that package is one of the §10 Sprint-1 decisions. Kadmos's post-embedding output must conform to `MeshInput`; the MNLM service's only output shape is `MeshDelta`. Talos may extend with sibling DTOs (e.g. `MnlmRunReport`) but may not modify the shapes below without a Phoenix-Backlog ticket (PHX-1000+) and Daedalus review.
 
-### 4.1 MeshInput — Kadmos↔MNLM contract
+These DTOs are **projection-views over the substrate's canonical types**: a `MeshInputNode` projects from a Tier-0 or Tier-1+ substrate node (see [`MESH_SUBSTRATE.md`](../MESH_SUBSTRATE.md) §"Node anatomy"); a `MeshInputEdge` projects from the substrate edge tensor + optional Lance metadata table (see [`MESH_SUBSTRATE.md`](../MESH_SUBSTRATE.md) §"Edge anatomy"). The DTOs carry exactly what the MNLM forward pass needs and no more — they are explicitly *not* the substrate's storage shape.
+
+### 4.1 MeshInput — substrate ↔ MNLM contract
 
 ```python
 from __future__ import annotations
@@ -187,37 +196,72 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-Vector384 = Annotated[list[float], Field(min_length=384, max_length=384)]
-Vector32 = Annotated[list[float], Field(min_length=32, max_length=32)]
+Vector1024 = Annotated[list[float], Field(min_length=1024, max_length=1024)]
+Vector128 = Annotated[list[float], Field(min_length=128, max_length=128)]
+Vector64 = Annotated[list[float], Field(min_length=64, max_length=64)]
+
+ULIDPattern = r"^[0-9A-HJKMNP-TV-Z]{26}$"  # Crockford base-32, 128-bit ULID
+QIDPattern = r"^Q[1-9][0-9]*$"
+PIDPattern = r"^P[1-9][0-9]*$"
 
 
 class MeshInputNode(BaseModel):
+    """Projection of a substrate node into the MNLM input.
+
+    Mirrors MESH_SUBSTRATE.md §"Node anatomy" (both Tier-0 ChunkNode and
+    Tier-1+ ConsolidatedNode collapse into this view; the difference is
+    visible via consolidation_tier and is_candidate / is_anchor /
+    is_source_anchor flags).
+    """
     model_config = ConfigDict(extra="forbid")
 
-    node_id: str = Field(pattern=r"^(AKA|TMP|UUID)-[A-Za-z0-9_-]{6,}$")
-    embedding: Vector384
-    activation_weight: float = Field(ge=0.0, le=1.0)
-    node_type: Literal[
-        "person", "place", "concept", "event", "claim", "work",
-        "organization", "time", "quantity", "source", "finding",
-        "experiment", "synthesis", "other",
-    ] = "other"
-    layer: Literal["ephemera", "mneme"] = "ephemera"
-    revision_depth: int = Field(default=0, ge=0, le=64)
-    source_anchor: str = Field(min_length=1, max_length=512)
+    node_id: str = Field(pattern=ULIDPattern)
+    consolidation_tier: int = Field(default=0, ge=0, le=8)
+    is_candidate: bool = False
+    is_anchor: bool = False
+    is_source_anchor: bool = False
+
+    # Per-substrate-doctrine multi-vector node representation.
+    semantic_vector: Vector1024
+    frame_vector: Vector64
+    structural_vector: Vector128 | None = None
+    temporal_vector: Annotated[list[float], Field(min_length=16, max_length=16)] | None = None
+    description_vector: Vector1024 | None = None
+
+    # Bounded summary metadata (per MESH §"Field discipline" point 4 / 5).
+    description: str | None = Field(default=None, max_length=512)
+    tags: list[str] = Field(default_factory=list, max_length=64)
+    qids: list[str] = Field(default_factory=list, max_length=8)
+    source_url: str | None = Field(default=None, max_length=512)
+
+    # Activation telemetry from the substrate's current state.
+    activation_weight: float = Field(default=0.0, ge=0.0, le=1.0)
+    node_potential: float | None = Field(default=None, ge=0.0)
 
 
 class MeshInputEdge(BaseModel):
+    """Projection of a substrate edge into the MNLM input.
+
+    Mirrors MESH_SUBSTRATE.md §"Edge anatomy". The quantitative core
+    drives Graph-KV's block-mask + edge-bias attention; the optional
+    descriptors are agent-readable metadata, never the retrieval primitive.
+    """
     model_config = ConfigDict(extra="forbid")
 
-    edge_id: str = Field(pattern=r"^(EDGE|TMPEDGE)-[A-Za-z0-9_-]{6,}$")
-    source_id: str = Field(pattern=r"^(AKA|TMP|UUID)-[A-Za-z0-9_-]{6,}$")
-    target_id: str = Field(pattern=r"^(AKA|TMP|UUID)-[A-Za-z0-9_-]{6,}$")
-    relation_codebook_id: int = Field(ge=0, lt=512)
-    nuance: Vector32
-    weight: float = Field(ge=0.0, le=1.0)
-    hebbian_strength: float = Field(default=0.0, ge=0.0)
-    bidirectional: bool = False
+    source_id: str = Field(pattern=ULIDPattern)
+    target_id: str = Field(pattern=ULIDPattern)
+
+    # Quantitative core (read by SpMV; mandatory).
+    weight: float = Field(ge=0.0)
+    decay_tier: int = Field(default=0, ge=0, le=8)
+    frame_consistency: float = Field(default=1.0, ge=0.0, le=1.0)
+
+    # Optional semantic descriptors (read by agents; ignored by SpMV).
+    relation_descriptor: str | None = Field(default=None, max_length=128)
+    relation_kind: str | None = Field(default=None, max_length=64)
+    description: str | None = Field(default=None, max_length=512)
+    pids: list[str] = Field(default_factory=list, max_length=8)
+    creation_context: str | None = Field(default=None, max_length=64)
 
 
 class MeshInputContext(BaseModel):
@@ -225,19 +269,25 @@ class MeshInputContext(BaseModel):
 
     role: Literal["nous", "oneiros", "kalypso", "generic"]
     role_config_id: str | None = Field(default=None, max_length=128)
-    intent_vector: Vector384 | None = None
+
+    # Query intent projected by the calling agent.
+    intent_semantic_vector: Vector1024 | None = None
+    intent_frame_vector: Vector64 | None = None
+
+    # Budget and recurrence configuration.
     mutation_budget: int = Field(default=64, ge=1, le=1024)
     latent_step_cap: int = Field(default=16, ge=1, le=64)
     sa_interleave_K: int = Field(default=3, ge=0, le=16)
     sa_recurrence_top_k: int = Field(default=8, ge=1, le=64)
     sa_recurrence_max_hops: Literal[1, 2] = 1
+
     embedding_model_id: str = Field(min_length=1, max_length=128)
 
 
 class MeshInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal["mnlm-input/1"] = "mnlm-input/1"
+    schema_version: Literal["mnlm-input/2"] = "mnlm-input/2"  # bumped at MESH realignment
     run_id: str = Field(min_length=1, max_length=64)
     call_id: str = Field(min_length=1, max_length=64)
     nodes: list[MeshInputNode] = Field(min_length=1, max_length=1024)
@@ -262,7 +312,9 @@ class MeshInput(BaseModel):
 
 The `aux: dict[str, Any]` lane is opus's layered-schema escape hatch. The base MNLM ignores it; role-specialised heads (Oneiros, Kalypso, future) may opt into specific keys without breaking the core schema.
 
-### 4.2 MeshDelta — MNLM→substrate contract, with LFM-trajectory metadata
+**Schema version bumped to `mnlm-input/2`** to reflect the MESH-doctrine realignment. The v1 shape (with `Vector384` single embedding, `layer` enum, `relation_codebook_id`, AKA-IDs) is retired with this brief; any pre-MESH artefact carrying `schema_version == "mnlm-input/1"` belongs to the legacy PoC track and is not consumed by post-S1 MNLM code.
+
+### 4.2 MeshDelta — MNLM → substrate contract, with LFM-trajectory metadata
 
 ```python
 from typing import Discriminator, Tag, Union
@@ -272,80 +324,130 @@ class _MutationBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
     op_id: str = Field(min_length=1, max_length=64)
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
-    rationale_embedding: Vector384 | None = None
+    rationale_embedding: Vector1024 | None = None
 
 
 class AddNode(_MutationBase):
+    """Propose a new node on the substrate. Created as Tier-0 chunk by default;
+    Oneiros decides post-hoc whether to consolidate into Tier-1+. See
+    MESH_SUBSTRATE.md §"Why two tiers — and how identity actually gets committed"."""
     kind: Literal["add_node"] = "add_node"
-    proposed_node_id: str = Field(pattern=r"^AKA-[A-Za-z0-9_-]{6,}$")
-    embedding: Vector384
-    node_type: Literal[
-        "person", "place", "concept", "event", "claim", "work",
-        "organization", "time", "quantity", "source", "finding",
-        "experiment", "synthesis", "other",
-    ]
-    layer: Literal["ephemera", "mneme"] = "ephemera"
-    parent_node_ids: list[str] = Field(default_factory=list, max_length=64)
-    label_for_provenance_only: str | None = Field(default=None, max_length=512)
-    source_anchor: str = Field(min_length=1, max_length=512)
+    proposed_node_id: str = Field(pattern=ULIDPattern)
+    proposed_tier: Literal[0, 1] = 0  # higher tiers are earned via Oneiros, not declared
+
+    # Per-substrate-doctrine multi-vector node payload.
+    semantic_vector: Vector1024
+    frame_vector: Vector64
+    structural_vector: Vector128 | None = None
+    description_vector: Vector1024 | None = None  # populate for entity-class Tier-1 candidates
+
+    # Bounded summary metadata.
+    description: str | None = Field(default=None, max_length=512)
+    tags: list[str] = Field(default_factory=list, max_length=64)
+    qids: list[str] = Field(default_factory=list, max_length=8)
+
+    # Eager-linking signal that motivated creation, if any (Q-ID match, description match,
+    # tag+structural match, or none → emergent path with is_candidate=True).
+    eager_link_signal: Literal["qid", "description", "tag_structural", "emergent"] = "emergent"
+
+    # Optional source-anchor reference (if the node references a Tier-1 source entity).
+    source_anchor_id: str | None = Field(default=None, pattern=ULIDPattern)
+
+    # Optional flag for the special node classes.
+    is_anchor: bool = False
+    is_source_anchor: bool = False
+    source_url: str | None = Field(default=None, max_length=512)  # only when is_source_anchor
 
 
 class AddEdge(_MutationBase):
+    """Propose a new edge on the substrate. Quantitative core is mandatory;
+    semantic descriptors are optional agent-readable metadata."""
     kind: Literal["add_edge"] = "add_edge"
-    edge_id: str = Field(pattern=r"^EDGE-[A-Za-z0-9_-]{6,}$")
-    source_id: str
-    target_id: str
-    relation_codebook_id: int = Field(ge=0, lt=512)
-    nuance: Vector32
-    weight: float = Field(default=0.5, ge=0.0, le=1.0)
-    bidirectional: bool = False
+    source_id: str = Field(pattern=ULIDPattern)
+    target_id: str = Field(pattern=ULIDPattern)
+
+    # Quantitative core (drives SpMV).
+    weight: float = Field(default=0.5, ge=0.0)
+    decay_tier: int = Field(default=0, ge=0, le=8)
+    frame_consistency: float = Field(default=1.0, ge=0.0, le=1.0)
+
+    # Optional semantic descriptors (agent / repair / human inspection).
+    relation_descriptor: str | None = Field(default=None, max_length=128)
+    relation_kind: str | None = Field(default=None, max_length=64)
+    description: str | None = Field(default=None, max_length=512)
+    pids: list[str] = Field(default_factory=list, max_length=8)
+    creation_context: str = Field(default="mnlm_proposal", max_length=64)
 
 
 class ReviseNode(_MutationBase):
+    """Update an existing node's vectors / description / tags. Oneiros decides
+    whether the revision warrants a supersession edge or in-place update."""
     kind: Literal["revise_node"] = "revise_node"
-    target_node_id: str
-    supersedes_node_id: str
-    new_embedding: Vector384
+    target_node_id: str = Field(pattern=ULIDPattern)
     revision_kind: Literal["update", "reinterpretation", "confidence_shift", "reweight"]
-    new_layer: Literal["ephemera", "mneme"] | None = None
+
+    new_semantic_vector: Vector1024 | None = None
+    new_frame_vector: Vector64 | None = None
+    new_description: str | None = Field(default=None, max_length=512)
+    new_tags: list[str] | None = None  # if set, replaces the tag list
 
 
 class MergeNodes(_MutationBase):
+    """Propose merging two-or-more Tier-1 candidates into one stable Tier-1 node.
+    The substrate's agent-driven cleanup path (MESH_SUBSTRATE.md §"Deduplication")
+    formally applies the merge via Oneiros on its next tick with full audit."""
     kind: Literal["merge_nodes"] = "merge_nodes"
-    surviving_id: str
+    surviving_id: str = Field(pattern=ULIDPattern)
     absorbed_ids: list[str] = Field(min_length=2, max_length=16)
-    merged_embedding: Vector384
+    merged_semantic_vector: Vector1024
+    merged_description: str | None = Field(default=None, max_length=512)
 
 
 class SplitNode(_MutationBase):
+    """Propose splitting one node into two-or-more children. Used when a
+    consolidated entity turns out to span distinct identities. Effective-resistance
+    preservation is the substrate's job (MESH_SUBSTRATE.md §"Sub-node splits"),
+    not the MNLM's — the MNLM only proposes the semantic split."""
     kind: Literal["split_node"] = "split_node"
-    original_id: str
+    original_id: str = Field(pattern=ULIDPattern)
     child_node_ids: list[str] = Field(min_length=2, max_length=16)
-    child_embeddings: list[Vector384] = Field(min_length=2, max_length=16)
+    child_semantic_vectors: list[Vector1024] = Field(min_length=2, max_length=16)
+    child_descriptions: list[str | None] = Field(default_factory=list, max_length=16)
 
 
 class Invalidate(_MutationBase):
+    """Mark a node as no longer reflecting the substrate's current best understanding.
+    The substrate writes a CONTRADICTS or SUPERSEDED_BY edge; Oneiros decides post-hoc
+    whether the topological weight pattern justifies further therapy."""
     kind: Literal["invalidate"] = "invalidate"
-    target_node_id: str
-    reason_embedding: Vector384
+    target_node_id: str = Field(pattern=ULIDPattern)
+    reason_embedding: Vector1024
     finding_code: Literal["contradiction", "unsupported", "stale", "schema_conflict", "structural_anomaly"]
 
 
 class EmitFinding(_MutationBase):
+    """Surface a structural / epistemic concern to the immune system as a first-class
+    Finding node (per MESH_SUBSTRATE.md §"Agent-driven cleanup" + the Pantheon
+    immune-system findings schema)."""
     kind: Literal["emit_finding"] = "emit_finding"
-    finding_node_id: str = Field(pattern=r"^FIND-[A-Za-z0-9_-]{6,}$")
+    finding_node_id: str = Field(pattern=ULIDPattern)
     finding_type: Literal[
         "internal_contradiction", "unsupported_claim",
         "echo_chamber", "pheromone_autobahn", "confidence_inflation",
+        "refutation_absorption", "saturation_lockout",
         "structural_anomaly", "other",
     ]
     target_node_ids: list[str] = Field(default_factory=list, max_length=64)
     severity: Literal["info", "low", "medium", "high", "critical"] = "info"
+    description: str | None = Field(default=None, max_length=512)
 
 
 class EmitActivationPacket(_MutationBase):
+    """Inject a per-node activation delta into the substrate, biasing future
+    Spreading Activation passes. The MNLM's primary mechanism for steering
+    the substrate's attention without committing structural mutations."""
     kind: Literal["emit_activation_packet"] = "emit_activation_packet"
-    packet_id: str = Field(pattern=r"^PKT-[A-Za-z0-9_-]{6,}$")
+    packet_id: str = Field(pattern=ULIDPattern)
     node_energy_deltas: list[tuple[str, float]] = Field(max_length=4096)
 
 
@@ -379,7 +481,7 @@ class TrajectoryMetadata(BaseModel):
 class MeshDelta(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal["mnlm-output/1"] = "mnlm-output/1"
+    schema_version: Literal["mnlm-output/2"] = "mnlm-output/2"  # bumped at MESH realignment
     run_id: str
     call_id: str
     model_id: str = Field(min_length=1, max_length=128)
@@ -398,10 +500,14 @@ class MeshDelta(BaseModel):
 
 Notes on what is and is not in the schema:
 
-- **No `DELETE_NODE` / `DELETE_EDGE`.** Chronos owns deletion ([IMMUNE_SYSTEM.md](../IMMUNE_SYSTEM.md) §"T-killer cells"). The MNLM emits `Invalidate` and lets the immune system decide later whether the supersession warrants hard delete.
-- **`label_for_provenance_only` is the only `str` field on a primitive that is not a typed enum or an ID.** It is name-marked, length-capped at 512 chars, and explicitly documented as not-a-primary-representation. It exists because Athene-Light needs *something* greppable when sampling; without it, post-hoc human audit is impossible. This is a pragmatic concession, not an architectural compromise.
+- **No hard-delete primitive.** Destruction is decided post-hoc by the substrate's agent-driven cleanup and therapy mechanisms — see [MESH_SUBSTRATE.md](../MESH_SUBSTRATE.md) §"Agent-driven cleanup" and §"Pathology and therapy". The MNLM emits `Invalidate` and `EmitFinding`; Oneiros and Argus then decide, at tick boundaries with audit, whether the topological evidence warrants demotion, removal, or staged therapy. This matches the MESH-doctrine principle that destruction is always permitted under audit, never silent.
+- **ULIDs everywhere.** All IDs are 26-character Crockford-base-32 ULIDs per [MESH_SUBSTRATE.md](../MESH_SUBSTRATE.md) §"Field discipline" point 2. AKA-IDs are a Gen-1 convention and do not appear in post-MESH schemas.
+- **Multi-vector AddNode payload.** A new node carries its semantic vector at minimum, frame vector mandatory (the substrate's polarity surface), structural and description vectors optional (recommended for entity-class Tier-1 candidates). This matches MESH_SUBSTRATE.md §"Node anatomy" and §"Field discipline" point 4.
+- **`description` field on AddNode / AddEdge / EmitFinding** is a bounded summary string (max 512 chars). It is read by agents and humans for repair and inspection; it is not the substrate's retrieval primitive. Length cap matches MESH §"Field discipline".
 - **`TrajectoryMetadata` is the LFM-specific telemetry surface.** It is read by the immune system, never by other agents. `trajectory_entropy`, `bifurcations_observed`, and `max_curvature` are the intrinsic uncertainty signals from §3.3.
-- **`provenance_hash`** is the OBF-style cryptographic trace of which input KV-cache slices, which Substrate-Resonance constellations, and which LFM trajectory produced this `MeshDelta`. The substrate write layer stores it alongside every committed primitive so the immune system can replay the call deterministically if a finding requires it.
+- **`provenance_hash`** is the cryptographic trace of which input KV-cache slices, which Substrate-Resonance constellations, and which LFM trajectory produced this `MeshDelta`. The substrate write layer stores it in the audit ledger alongside every committed primitive so the immune system can replay the call deterministically if a finding requires it.
+
+**Schema version bumped to `mnlm-output/2`** at the MESH realignment. The v1 shape (single embedding fields, `layer`, `relation_codebook_id`, `nuance`, AKA-IDs, `parent_node_ids`) is retired; pre-MESH artefacts carrying `schema_version == "mnlm-output/1"` belong to the legacy PoC track.
 
 ### 4.3 MnlmRunReport — sibling to existing RunReports
 
@@ -436,27 +542,29 @@ This composes with the existing `IngestRunReport` / `QueryRunReport` / `OneirosT
 
 ### 5.1 Phase A — Kadmos-imitation warmup
 
-Opus's contribution; adopted whole. The Kadmos v2 reading loop already produces, per `ReadingStep`, the exact pair the MNLM needs: `(prior ReadingState + hypothesis candidates) → (understanding update)`. After Kadmos's internal embedding pass, this pair is structurally identical to a `(MeshInput, MeshDelta)` tuple. Mapping:
+Opus's contribution; adopted whole. The Kadmos v2 reading loop already produces, per `ReadingStep`, the exact pair the MNLM needs: `(prior ReadingState + hypothesis candidates) → (understanding update)`. After Kadmos's internal embedding pass, this pair is structurally identical to a `(MeshInput, MeshDelta)` tuple in the post-MESH schema. Mapping:
 
 | Kadmos `understanding update` field | `MeshDelta.primitives[i].kind` |
 |---|---|
-| `new_concepts[i]` | `add_node` |
-| `new_connections[i]` | `add_edge` |
+| `new_concepts[i]` (entity or concept candidate; eager-linking signal recorded) | `add_node` (with `eager_link_signal` populated, `proposed_tier=1` for confidently-linked entity candidates, `proposed_tier=0` for chunk observations) |
+| `new_connections[i]` (reference edge from a Tier-0 chunk to a Tier-1 entity / concept / source-anchor; or between Tier-1 nodes) | `add_edge` (with `relation_descriptor` / `relation_kind` / `pids` populated when Kadmos has high confidence) |
 | `revisions[i].type == "update"` | `revise_node` |
 | `revisions[i].type == "split"` | `split_node` |
 | `revisions[i].type == "merge"` | `merge_nodes` |
 | `revisions[i].type == "invalidate"` | `invalidate` |
 | `confirmed_hypotheses[i]` | `emit_activation_packet` (positive energy delta) |
 | `rejected_hypotheses[i]` | `emit_activation_packet` (negative energy delta) |
-| `synthesis` | `add_node` with `node_type == "synthesis"` and `parent_node_ids` populated |
+| `synthesis` | `add_node` with `proposed_tier=1` and tags identifying the synthesis role |
 | `open_tensions[i]` | `emit_finding` with `finding_type == "structural_anomaly"` |
+| `source_extraction[i]` (Kadmos emitting / linking a source-anchor entity) | `add_node` with `is_source_anchor=True` and `source_url` populated |
 
 This means: every Kadmos run on every Wikipedia article generates ~hundreds of training pairs at zero marginal cost beyond what the project will pay anyway to run Kadmos. The training corpus is the Chronik's own bootstrap log.
 
 **Loss for Phase A:**
 
-- Cross-entropy on the LFM head's reconstruction of the discrete-codebook fields of each `MutationPrimitive` (kind, relation_codebook_id, node_type, etc.) — supervised against Kadmos's labels.
-- MSE on the continuous fields (`embedding`, `nuance`, `rationale_embedding`) against Kadmos's emitted vectors.
+- Cross-entropy on the LFM head's reconstruction of the discrete enum fields of each `MutationPrimitive` (`kind`, `proposed_tier`, `eager_link_signal`, `finding_code`, `finding_type`, etc.) — supervised against Kadmos's labels.
+- MSE on the continuous fields (`semantic_vector`, `frame_vector`, `structural_vector`, `description_vector`, `rationale_embedding`, edge `weight`, edge `frame_consistency`) against Kadmos's emitted vectors and substrate-state values.
+- Token-level cross-entropy (with a tokenized constrained-decoding head) on the short string descriptor fields (`description`, `tags`, `relation_descriptor`, `relation_kind`) against Kadmos's labels — these are bounded summary metadata, not free prose, so the loss surface is constrained.
 - A small auxiliary trajectory-stability loss on the LFM head: penalise solutions where the integration is unstable (high `max_curvature` without a meaningful bifurcation).
 
 **Cost:**
@@ -467,17 +575,18 @@ This means: every Kadmos run on every Wikipedia article generates ~hundreds of t
 
 ### 5.2 Phase B — Graph-GRPO with Spreading-Activation alignment **[primary]**
 
-This is the radical training signal. The MNLM is not optimised against an oracle's tokens or against Kadmos's labels. It is optimised against the substrate's own retrieval primitive: **the model is rewarded only when its proposed mesh delta improves the precision and recall of Spreading Activation on held-out probes.**
+This is the radical training signal. The MNLM is not optimised against an oracle's tokens or against Kadmos's labels. It is optimised against the substrate's own retrieval primitive: **the model is rewarded only when its proposed mesh delta improves the precision and recall of Spreading Activation on held-out probes.** This is the training-side instantiation of the three-factor reinforcement learning principle that lives in the substrate's own doctrine ([MESH_RETRIEVAL.md](../MESH_RETRIEVAL.md) §"Three-factor reinforcement learning"); the MNLM's Phase B and the substrate's runtime Hebbian feedback are two ends of the same loop.
 
 The Graph-GRPO mechanism (arXiv:2603.02701, adapted for mesh-delta synthesis):
 
 1. For each training query, sample a *group* of K = 8 distinct `MeshDelta` candidates from the current MNLM policy. Each is sampled with mild trajectory-noise injection in the LFM head to ensure diversity.
-2. For each candidate, apply it to a copy of the substrate, then run `TensorMeshEngine.spreading_activation` against a held-out probe vector. Compute the rank of the target node in the activation distribution.
-3. **Edge-level advantage:** for each `MutationPrimitive` `m` in candidate `i`, compute the marginal contribution of `m` to the group's relative reward (ablate `m` and re-run SA; difference in rank is `m`'s contribution).
+2. For each candidate, apply it to a copy of the substrate, then run the substrate's Spreading Activation primitive (post-MESH path: `src/theogony/mesh/runtime/spreading.py` per Migration-Plan Step S3; the Step-S3 implementation also brings in MESH-doctrine diversified injection — MMR + weight-class stratification + optional sub-mesh signature) against a held-out probe. Compute the rank of the target node in the resulting Constellation.
+3. **Edge-level advantage:** for each `MutationPrimitive` `m` in candidate `i`, compute the marginal contribution of `m` to the group's relative reward (ablate `m` and re-run SA; difference in rank is `m`'s contribution). The substrate's eligibility-trace mechanism ([MESH_RETRIEVAL.md](../MESH_RETRIEVAL.md) §"Eligibility traces") is the inference-time analogue of this training-time edge-level credit assignment.
 4. **GRPO update:** apply policy gradient to maximise group-relative reward, using edge-level advantages to assign credit to specific mutations rather than the whole delta.
 5. Auxiliary penalties:
    - **Mutation sparsity:** penalty proportional to `len(primitives) / mutation_budget`. Discourages graph inflation.
-   - **Directional consistency:** explicit penalty when `AddEdge` is emitted in a direction that the verified-truth probe rejects (agent/patient reversal). This is the loss-surface companion of the §6 falsifier.
+   - **Directional consistency:** explicit penalty when `AddEdge` is emitted in a direction (`source_id → target_id` ordering plus asymmetric weight) that the verified-truth probe rejects. This is the loss-surface companion of the §6 falsifier and matches the MESH-doctrine principle that direction lives in the topology, not in a separate type system.
+   - **Frame consistency:** penalty when an `AddEdge` emits with `frame_consistency` that is inconsistent with the endpoints' `frame_vector`s. Trains the model to be honest about polarity / refutation / hypothesis framing.
    - **Schema-validity:** any `MutationPrimitive` that fails Pydantic validation in the GAE reconstruction step is a hard reward-zero, not a soft penalty.
 
 **Why this is the primary signal:**
@@ -583,62 +692,60 @@ This is the test the project has named "Monkey 3" since `TARGET_ARCHITECTURE.md`
 Each stage is harder than the previous. Each cost is justified only if the previous stage passed. This is the discipline opus's micro-falsifier and DeepSeek's macro-falsifier together suggested — Hesiod adds the third stage that makes the falsifier stack *load-bearing for the project's identity*, not just for the architecture's quality.
 ---
 
-## 7. Kadmos contract — amendments to kadmos_v2_brief.md
+## 7. Kadmos contract — re-anchored against the MESH eager-linking discipline
 
-The `MeshInput` schema in §4.1 is the binding contract between Kadmos's post-embedding output and every MNLM-class agent. As anticipated in [`mesh_native_lm_research_brief.md`](mesh_native_lm_research_brief.md) §4.1, this requires a closing amendment to `kadmos_v2_brief.md`. Hesiod files the amendment here; Talos applies it as a §10 commit.
+The `MeshInput` schema in §4.1 is the binding contract between Kadmos's post-embedding output and every MNLM-class agent. Under the MESH realignment, Kadmos v2's responsibility is broader than it was in the pre-MESH version of this brief: Kadmos v2 is now Migration-Plan **Step S2** ([MESH_MIGRATION_PLAN.md](../MESH_MIGRATION_PLAN.md) §"Step S2"), and its job is to write Tier-0 chunks and Tier-1+ entity / concept / source-anchor candidates *directly into the substrate* via the eager-linking discipline ([MESH_SUBSTRATE.md](../MESH_SUBSTRATE.md) §"Why two tiers — and how identity actually gets committed"). The MNLM then *reads* that substrate state into its `MeshInput` projection — Kadmos no longer assembles a `MeshInput` directly; it populates the substrate, and the MNLM projects from the substrate when it queries.
 
-### 7.1 Required amendments to kadmos_v2_brief.md
+### 7.1 The substrate is the contract; `MeshInput` is the projection
 
-The Kadmos v2 brief currently describes the post-embedding output informally. After this Hesiod brief lands, Kadmos v2 must produce, at the end of its embedding pass, an artifact structurally identical to a `MeshInput` instance, with the following specific bindings:
+The previous version of this section asked Kadmos to "produce, at the end of its embedding pass, an artifact structurally identical to a `MeshInput` instance". The MESH realignment changes that flow:
 
-- **Concept nodes** become `MeshInputNode` entries. The Kadmos `activation_weight` flows directly to `MeshInputNode.activation_weight`. The `node_type` is mapped from Kadmos's existing concept classification.
-- **Understanding edges** become `MeshInputEdge` entries. Kadmos's free-form connection-description embeddings are clustered against the v1 codebook (§3.5) at the end of the embedding pass; the closest codebook entry becomes `relation_codebook_id`, and the residual (description embedding minus codebook centroid) becomes `nuance` (after PCA projection to 32 dimensions).
-- **Synthesis nodes** become `MeshInputNode` entries with `node_type = "synthesis"` and a corresponding `MeshInputEdge` of relation type "abstraction_of" linking each base concept to the synthesis.
-- **Open tensions** flow into `aux["kadmos_open_tensions"]`. The base MNLM ignores them; future role-specialised heads can opt in.
-- **Provenance** is preserved via the `source_anchor` field on each node — a URL + timestamp + Kadmos-call-id triple, sufficient for Athene-Light to retrieve the originating reading session.
+- Kadmos v2 writes to the substrate. Tier-0 chunks, Tier-1+ entity / concept / source-anchor candidates, reference edges with optional `relation_descriptor` / `relation_kind` / `pids`. Eager linking applies the three-signal hierarchy (Q-ID match / description match / tag+structural match) at insertion. See [MESH_MIGRATION_PLAN.md](../MESH_MIGRATION_PLAN.md) §"Step S2 — Kadmos v2 writes into the new substrate" for the binding deliverables.
+- When the MNLM is invoked, it constructs a `MeshInput` by *projecting* the currently-relevant substrate sub-graph: the active set plus its multi-hop neighbourhood, with per-node multi-vector representation and per-edge quantitative-plus-optional-descriptor shape.
+- The projection step is `src/theogony/mesh/runtime/...` (introduced by Step S1 / S3) plus the MNLM service wrapper. It is not part of Kadmos.
 
-### 7.2 What Kadmos does NOT need to change
+### 7.2 What Kadmos does NOT need to change beyond its MESH-doctrine deliverable
 
-- The reading loop, working memory, revision policy, and granularity choice (Kadmos v2 §3) are unchanged.
+- The reading loop, working memory, revision policy, and granularity choice (Kadmos v2 brief §3) are unchanged.
 - The labelled intermediate `ReadingState` shape is unchanged. Labels remain transitional debugging metadata.
-- The internal embedding pass already produces vectors of the right dimensionality (384 from `BAAI/bge-small-en-v1.5`).
+- The internal embedding pass already produces vectors of the right dimensionality (1024 from BGE-M3 class for the semantic vector; 64 for the frame vector; smaller for any auxiliary vectors).
 
-The amendment is structural-only: a final post-embedding projection step that emits `MeshInput`-shaped output. This is one Talos commit, ~200 LoC, and is one of the §10 Sprint-1 candidates.
+The amendment vs. the pre-MESH Kadmos brief is: where the pre-MESH version asked Kadmos to *emit* a `MeshInput`-shaped artefact, the post-MESH version asks Kadmos to *write into the substrate* using MESH-conformant schemas. The structural surface is the substrate's `ChunkNode` / `ConsolidatedNode` / `Edge` / `EdgeMetadata` Pydantic models from Step S1, not the MNLM's `MeshInput`.
 
 ### 7.3 Direction of compliance, restated
 
-The MNLM input schema is the contract. Kadmos conforms. Not the reverse. This is because:
+The substrate's `ChunkNode` / `ConsolidatedNode` / `Edge` types are the canonical truth. Kadmos writes them. The MNLM projects from them into `MeshInput`. Both Kadmos and the MNLM conform to the substrate; neither one is the substrate's source of truth.
 
-1. The MNLM is the harder, newer, more constraining end of the interface.
-2. Every MNLM-class agent (Nous, Oneiros, Kalypso, future) reads from the same substrate and therefore needs the same input shape.
-3. There is *one* mesh schema in the system. Kadmos is one producer of it; Spreading-Activation pulls are another. Both produce the same shape.
-
-If a future Kadmos extension produces structure the v1 `MeshInput` schema cannot represent, that is a Phoenix Backlog ticket against `mesh_native_lm_brief.md` §4.1, routed to Daedalus, not a silent schema drift.
+If a future Kadmos extension produces structure the substrate's schemas cannot represent, that is a Phoenix Backlog ticket (PHX-1000+) against `MESH_SUBSTRATE.md`, routed to whoever owns substrate doctrine at that point, not a silent schema drift. If the MNLM needs a projection that the substrate cannot produce, that is a Phoenix Backlog ticket against this brief.
 ---
 
-## 8. Talos sprint roadmap — 12 weeks, with research checkpoints
+## 8. Talos sprint roadmap — the body of Migration-Plan Step S5
 
-The roadmap is dense. Each week has explicit deliverables. Three research checkpoints (weeks 4, 8, 12) gate progression with concrete go/no-go decisions.
+The roadmap below is the body of [Migration-Plan Step S5](../MESH_MIGRATION_PLAN.md#step-s5--full-oneiros-tick-consolidation-splits-pathology-surveillance-therapy-three-factor-rl) — the full Oneiros tick, three-factor reinforcement learning, and the MNLM as its training-time loop. It is **not executable before Migration-Plan Steps S1, S2, S3, S4 have landed**: S1 produces the substrate skeleton this work targets, S2 produces the Kadmos-v2 ingest the training corpus needs, S3 produces the diversified-injection Spreading Activation the GRPO reward function calls, S4 wires the surfaces (CLI, MCP, Cockpit) so a trained MNLM can be observed.
 
-### Weeks 1–2: Schemas and scaffolding
+This 12-week roadmap is therefore "Step S5, expanded". When Talos picks up S5, the roadmap below tells them what S5 contains in detail. Until then, this roadmap is binding *as a plan* but not actionable *as the next step*.
 
-- **W1 commit 1:** `feat(mnlm): add MeshInput, MeshDelta, MutationPrimitive, TrajectoryMetadata Pydantic v2 schemas under src/theogony/agents/mnlm/dto.py with extra="forbid", model_validator graph-integrity check, import-linter rule forbidding text-generation imports, and round-trip tests against KnowledgeNode/KnowledgeEdge.`
+Three research checkpoints (weeks 4, 8, 12 of S5, *not* of the overall project) gate progression with concrete go/no-go decisions.
+
+### Weeks 1–2: Schemas and scaffolding (within Step S5)
+
+- **W1 commit 1:** `feat(mesh-mnlm): add MeshInput, MeshDelta, MutationPrimitive, TrajectoryMetadata Pydantic v2 schemas under src/theogony/mesh/mnlm/dto.py with extra="forbid", model_validator graph-integrity check, ULID-pattern IDs, multi-vector node payload per MESH_SUBSTRATE.md §"Node anatomy", and import-linter rule forbidding text-generation imports.` (Round-trip tests are now against the MESH-substrate ChunkNode / ConsolidatedNode / Edge types from Step S1, not against KnowledgeNode / KnowledgeEdge.)
 - **W1 commit 2:** `feat(reporting): add MnlmRunReport sibling under src/theogony/reporting/models.py with verdict heuristics that flag mutation_budget_exhaustion as 'partial' and lfm_failed_convergence as 'failed'.`
-- **W2 commit 1:** `feat(mnlm): scaffold GraphProjector (subgraph → continuous prefix tokens) + Graph-KV adapter (block-mask attention + edge-type bias injection) over a vendored copy of Graph-COM/GraphKV reference impl, no training, smoke test against Llama-3-8B-Instruct.`
-- **W2 commit 2:** `feat(mnlm): scaffold LFM-GAE decoder head (Conditional Flow Matching + Graph-Autoencoder reconstruction) targeting MutationPrimitive sealed-union output, no training, parametric type-safe constrained decoding test.`
+- **W2 commit 1:** `feat(mesh-mnlm): scaffold GraphProjector (subgraph → continuous prefix tokens) + Graph-KV adapter (block-mask attention + edge-type bias injection) over a vendored copy of Graph-COM/GraphKV reference impl, no training, smoke test against Llama-3-8B-Instruct.`
+- **W2 commit 2:** `feat(mesh-mnlm): scaffold LFM-GAE decoder head (Conditional Flow Matching + Graph-Autoencoder reconstruction) targeting MutationPrimitive sealed-union output, no training, parametric type-safe constrained decoding test.`
 
-### Weeks 3–4: Substrate-Resonant Recurrence and Kadmos contract
+### Weeks 3–4: Substrate-Resonant Recurrence and the MeshInput projector
 
-- **W3:** wire `TensorMeshEngine.spreading_activation` into the LLM forward pass as the K-th-step interleave (§3.4). Implement `sa_interleave_K`, `sa_recurrence_top_k`, `sa_recurrence_max_hops` from `MeshInputContext`. Smoke-test against an in-memory store with a 100-node toy mesh; assert latency budget (~25–100 ms added per call).
-- **W4 commit 1:** `feat(kadmos): add post-embedding-pass MeshInput export step per mesh_native_lm_brief.md §7. Codebook-clustering of connection-description embeddings to relation_codebook_id; PCA-32 nuance projection. Provenance preservation.`
-- **W4 commit 2:** integration test: Kadmos v2 reads a Wikipedia article, emits `MeshInput`, MNLM ingests it (no training yet), produces a deterministic `MeshDelta`. End-to-end shape check.
+- **W3:** wire the MESH-substrate Spreading Activation primitive (`src/theogony/mesh/runtime/spreading.py` from Step S3) into the LLM forward pass as the K-th-step interleave (§3.4). Implement `sa_interleave_K`, `sa_recurrence_top_k`, `sa_recurrence_max_hops` from `MeshInputContext`. Smoke-test against a small in-substrate toy mesh; assert latency budget (~25–100 ms added per call). Note: this step depends on Step S3's diversified injection landing; the K-th-step interleave inside the MNLM uses the substrate's `spreading_activation` interface, which already includes MMR + weight-class stratification.
+- **W4 commit 1:** `feat(mesh-mnlm): MeshInput projector that constructs a MeshInput instance from a substrate sub-graph. Reads ChunkNode / ConsolidatedNode rows from Lance, edges from the sparse CSR tensor + Lance metadata table, projects into the multi-vector MeshInput shape from §4.1.`
+- **W4 commit 2:** integration test: Kadmos v2 (from Step S2) reads a Wikipedia article, the substrate accumulates Tier-0 chunks plus eager Tier-1 entities, the MeshInput projector pulls a sub-graph, the MNLM ingests it (no training yet), produces a deterministic `MeshDelta`. End-to-end shape check.
 
 **Research checkpoint W4:**
-- Does Graph-KV adaptation work mechanically against the frozen Llama-3-8B (forward pass produces non-degenerate outputs)? If not, fall back to GNP soft-prompts (`opus.md` §4.1 path) and re-time the roadmap. Decision binary, recorded in a `MnlmRunReport(verdict="failed", notes=...)` artifact committed to `docs/research/mnlm/checkpoints/W4.md`.
+- Does Graph-KV adaptation work mechanically against the frozen Llama-3-8B over a real MESH-substrate sub-graph (forward pass produces non-degenerate outputs; multi-vector input is handled correctly; edge descriptors flow through as attention biases)? If not, fall back to GNP soft-prompts and re-time the roadmap. Decision binary, recorded in a `MnlmRunReport(verdict="failed", notes=...)` artifact committed to `docs/research/mnlm/poc_mesh/checkpoints/W4.md`.
 
 ### Weeks 5–6: Phase-A Kadmos-imitation training and DBB-200
 
-- **W5:** prepare the Phase-A training corpus (10 k Wikipedia articles run through Kadmos, ~5 M `(MeshInput, MeshDelta)` pairs harvested from Kadmos's reading-step output stream). Sanity-check the mapping table (§5.1) on 100 random pairs.
+- **W5:** prepare the Phase-A training corpus (10 k Wikipedia articles run through Kadmos v2 against the MESH substrate, ~5 M `(MeshInput, MeshDelta)` pairs harvested from Kadmos's reading-step output stream — reformulated against the post-MESH eager-linking discipline per §5.1's updated mapping table). Sanity-check the mapping on 100 random pairs.
 - **W5 commit:** Phase-A training loop — supervised cross-entropy on discrete fields + MSE on continuous fields + auxiliary trajectory-stability loss. Configured for 1 epoch on one 80 GB H100. Reproducible config in `configs/mnlm/phase_a.yaml`.
 - **W6 day 1–4:** run Phase-A. ~80–120 GPU-hours.
 - **W6 day 5–7:** **DBB-200 evaluation (Stage-1 falsifier).** Build the 200 minimal pairs synthesizer. Run the trained MNLM. Compute per-direction accuracy.
@@ -740,17 +847,17 @@ The LFM head's risk profile (§3.3 [RESEARCH] flag) includes mode collapse: if G
 **The v2 experiment:** measure the empirical primitive distribution on 10 k unseen `MeshInput`s; compare to the corpus's natural primitive distribution; flag mismatches > 2× as collapse signal.
 ---
 
-## 10. Three concrete next commits — Sprint-1 candidates for Talos
+## 10. Three concrete next commits — Step-S5 Sprint-1 candidates for Talos
 
-These are the three commits Hesiod recommends as the first Sprint-1 PRs. They are atomic, single-coherent-document by design, and each one lands without depending on training results.
+These are the three commits Hesiod recommends as the first Sprint-1 PRs **within Step S5 of the migration plan**. They are atomic, each one lands without depending on training results, and they require Migration-Plan Steps S1–S4 to have merged on `main` first. Until S1–S4 land, this list is the post-S4 to-do; it is not the next immediate work.
 
-1. `feat(mnlm): add MeshInput, MeshDelta, MutationPrimitive, TrajectoryMetadata Pydantic v2 schemas under src/theogony/agents/mnlm/dto.py with extra="forbid", model_validator graph-integrity check, sealed mutation union via Discriminator+Tag, round-trip tests against KnowledgeNode/KnowledgeEdge, and import-linter contract in pyproject.toml forbidding text-generation imports from src/theogony/agents/mnlm/.`
+1. `feat(mesh-mnlm): add MeshInput, MeshDelta, MutationPrimitive, TrajectoryMetadata Pydantic v2 schemas under src/theogony/mesh/mnlm/dto.py with extra="forbid", ULID-pattern IDs, multi-vector node payload per MESH_SUBSTRATE.md §"Node anatomy", quantitative-core-plus-optional-descriptor edge shape per MESH_SUBSTRATE.md §"Edge anatomy", model_validator graph-integrity check, sealed mutation union via Discriminator+Tag, round-trip tests against the MESH-substrate ChunkNode / ConsolidatedNode / Edge types from Step S1, and import-linter contract in pyproject.toml forbidding text-generation imports from src/theogony/mesh/mnlm/.`
 
-2. `feat(reporting): add MnlmRunReport sibling under src/theogony/reporting/models.py with verdict heuristics (mutation_budget_exhaustion → 'partial'; lfm_failed_convergence → 'failed'; primitive distribution telemetry; trajectory_entropy aggregates).`
+2. `feat(reporting): add MnlmRunReport sibling under src/theogony/reporting/models.py with verdict heuristics (mutation_budget_exhaustion → 'partial'; lfm_failed_convergence → 'failed'; primitive distribution telemetry; trajectory_entropy aggregates; substrate-write counts so the immune system can correlate MNLM activity with downstream agent-cleanup events).`
 
-3. `feat(mnlm): scaffold GraphProjector + Graph-KV adapter + LFM-GAE decoder head + SubstrateResonantRunner wrapping a Qwen-class or Llama-3-8B-Instruct base with rank-16 LoRA on q/k/v/o, no training in this commit — just shape, smoke test, and a minimal reproducible inference example with the in-memory store. Include a Phase-A training stub that loads (MeshInput, MeshDelta) pairs from a Kadmos export.`
+3. `feat(mesh-mnlm): scaffold GraphProjector + Graph-KV adapter + LFM-GAE decoder head + SubstrateResonantRunner wrapping Llama-3-8B-Instruct with rank-16 LoRA on q/k/v/o, no training in this commit — just shape, smoke test against an in-substrate toy mesh, and a minimal reproducible inference example. Include a Phase-A training stub that loads (MeshInput, MeshDelta) pairs from the post-MESH Kadmos-v2 substrate-write stream.`
 
-After these three: weeks 3–4 (substrate-resonant recurrence wiring + Kadmos export amendment) per §8.
+After these three: weeks 3–4 of S5 (substrate-resonant recurrence wiring + MeshInput projector) per §8.
 ---
 
 ## 11. What this brief is NOT
@@ -761,7 +868,7 @@ After these three: weeks 3–4 (substrate-resonant recurrence wiring + Kadmos ex
 
 - **It is not an egress-agent brief.** Egress (the language-out boundary) is explicitly out of scope for this brief and for v1. If the MNLM works, egress is downstream and tractable. If it doesn't, egress is irrelevant. The project is not thinking about egress now.
 
-- **It is not a substrate redesign.** TARGET_ARCHITECTURE.md remains binding. LanceDB + PyTorch CSR + Spreading Activation are not under review. The MNLM extends the substrate; it does not replace it.
+- **It is not a substrate redesign.** The MESH triplet ([MESH_SUBSTRATE.md](../MESH_SUBSTRATE.md) + [MESH_IMPLEMENTATION.md](../MESH_IMPLEMENTATION.md) + [MESH_RETRIEVAL.md](../MESH_RETRIEVAL.md)) is operative; TARGET_ARCHITECTURE.md is the architectural floor underneath it. LanceDB columnar nodes + PyTorch sparse CSR edges + batched-SpMV Spreading Activation are not under review by this brief. The MNLM uses the substrate; it does not replace it.
 
 - **It is not a Kadmos rewrite.** The §7 amendment is structural-only: a final post-embedding projection step. Kadmos's reading-loop architecture is unchanged.
 
@@ -772,21 +879,23 @@ After these three: weeks 3–4 (substrate-resonant recurrence wiring + Kadmos ex
 
 ## 12. Hand-off to Talos
 
-This brief is the binding architecture decision. Talos's job:
+This brief is the binding architecture decision. Talos's job, **once Migration-Plan Steps S1–S4 have landed**:
 
-1. Read this document. Read [AGENTS.md](../../AGENTS.md), [BUILD_DOCTRINE.md](../BUILD_DOCTRINE.md), [IMMUNE_SYSTEM.md](../IMMUNE_SYSTEM.md), and the Round-1 artifacts in `docs/research/mnlm/`.
-2. Open a branch `feat/mnlm-v1-scaffolding` and land the three §10 commits as separate atomic PRs against `main`.
-3. Proceed week-by-week per §8. At each research checkpoint (W4, W6, W8, W10, W12), commit a `MnlmRunReport(verdict=...)` artifact to `docs/research/mnlm/checkpoints/W<N>.md` documenting the outcome and the decision taken.
-4. If a checkpoint triggers a fall-back (W6 < 80 %, W8 LFM divergence, W10 MuSiQue failure), do not silently re-architect. File a Phoenix Backlog ticket against this brief, escalate to Daedalus, and wait for an amended brief before continuing. Honest-failure ([BUILD_DOCTRINE.md](../BUILD_DOCTRINE.md)) is non-negotiable here.
-5. When the W12 Stage-3 falsifier passes (or fails), file the result and stop. Hesiod will write the Nous brief next on top of the now-empirically-grounded MNLM primitive.
+1. Read this document. Read [AGENTS.md](../../AGENTS.md), [MESH_SUBSTRATE.md](../MESH_SUBSTRATE.md), [MESH_IMPLEMENTATION.md](../MESH_IMPLEMENTATION.md), [MESH_RETRIEVAL.md](../MESH_RETRIEVAL.md), [MESH_MIGRATION_PLAN.md](../MESH_MIGRATION_PLAN.md), [BUILD_DOCTRINE.md](../BUILD_DOCTRINE.md), and the Round-1 artifacts in `docs/research/mnlm/`.
+2. Open a branch `feat/mesh-s5-mnlm-scaffolding` and land the three §10 commits as separate atomic PRs against `main`.
+3. Proceed week-by-week per §8. At each research checkpoint (W4, W6, W8, W10, W12 of S5), commit a `MnlmRunReport(verdict=...)` artifact to `docs/research/mnlm/poc_mesh/checkpoints/W<N>.md` documenting the outcome and the decision taken.
+4. If a checkpoint triggers a fall-back (W6 < 80 %, W8 LFM divergence, W10 MuSiQue failure), do not silently re-architect. File a Phoenix Backlog ticket (PHX-1000+) against this brief, escalate to Daedalus, and wait for an amended brief before continuing. Honest-failure ([BUILD_DOCTRINE.md](../BUILD_DOCTRINE.md)) is non-negotiable here.
+5. When the W12 Stage-3 falsifier passes (or fails), file the result and stop. The Nous brief comes next on top of the now-empirically-grounded MNLM primitive.
 
-This brief lives at `docs/etappes/mesh_native_lm_brief.md`. It is the operative MNLM document. The research brief that triggered this work ([mesh_native_lm_research_brief.md](mesh_native_lm_research_brief.md)) remains as the question source; this document is the answer.
+This brief lives at `docs/etappes/mesh_native_lm_brief.md`. It is the operative MNLM document, realigned to the MESH triplet on 2026-05-13. The research brief that triggered this work ([mesh_native_lm_research_brief.md](mesh_native_lm_research_brief.md)) remains as the question source; this document is the answer.
 
-The five Round-1 artifacts in `docs/research/mnlm/` are preserved as input. They are not superseded; they are inputs to this synthesis. Future agents auditing this decision can replay the synthesis from those artifacts plus the verified literature floor in §2.
+The five Round-1 artifacts in `docs/research/mnlm/` are preserved as input. They are not superseded; they are inputs to this synthesis. Future agents auditing this decision can replay the synthesis from those artifacts plus the verified literature floor in §2, *with the MESH-doctrine realignment applied per the banner at the top of this brief*.
 
 ---
 
 ## 13. Sponsor-Track: Minimal PoC Pass
+
+> **Status: pre-MESH PoC executed; post-MESH PoC pending Steps S1–S3.** The PoC defined in this section was executed against the Gen-1 substrate before the 2026-05-13 MESH pivot. Its artefacts — Phase-A loss curve, Phase-B Micro-GRPO reward curve, Mini-DBB-20 / Mini-MuSiQue / Mini-Monkey-3 evaluations, end-to-end pipeline trace — are preserved at `docs/research/mnlm/poc_legacy/` and remain valid as an *existence proof for the Gen-1 stack*. They do **not** validate the post-MESH architecture, because the substrate they ran against (single embedding per node, no frame vectors, no eager linking, no source-anchor entities, "no text in mesh" misread as "no text at all") is the substrate the migration plan is replacing. The post-MESH PoC track lives at `docs/research/mnlm/poc_mesh/` and is awaiting Steps S1–S3 of the migration plan; its README spells out what carries forward and what must be re-run. The subsections below define the *shape* of a minimal-PoC pass; the post-MESH PoC follows that shape with substrate-appropriate substitutions.
 
 **Purpose:** Before the full §8 sprint is feasible, the project needs to demonstrate that the architecture is buildable and that the key signals exist. This section defines a minimal, budget-constrained pass through the entire pipeline — not to produce a trained MNLM, but to produce evidence sufficient for a compute-sponsor pitch.
 
@@ -835,18 +944,19 @@ If the PoC uses a 1 B model, the Mini-DBB-20 result must be reported as "1B-clas
 
 ### 13.4 Output artifacts the PoC must produce
 
-Talos commits the following to `docs/research/mnlm/poc/` after the PoC pass:
+Talos commits the following to `docs/research/mnlm/poc_mesh/` after the post-MESH PoC pass (the pre-MESH Gen-1 PoC artefacts of the same name are at `docs/research/mnlm/poc_legacy/`):
 
-1. `poc_run_report.md` — a `MnlmRunReport`-structured narrative covering: which model was used, how many training steps, Mini-DBB-20 accuracy, Phase B reward curve (start vs end), Mini-MuSiQue result, Mini-Monkey-3 qualitative notes, honest failure modes observed, and an explicit statement of what the PoC does and does not prove.
-2. `poc_pipeline_trace.json` — one end-to-end trace: a single Kadmos article ingested, a single `MeshInput` produced, a single `MeshDelta` emitted, a single SA result returned. Stored as a reproducible fixture for sponsor demonstrations.
-3. `poc_reward_curve.png` — the Phase B micro-GRPO reward curve (1 000 episodes). A rising curve is the signal; a flat or falling curve is a finding that requires investigation before the sponsor pitch.
+1. `mesh_run_report.md` — a `MnlmRunReport`-structured narrative covering: which model was used, how many training steps, Mini-DBB-20 accuracy, Phase B reward curve (start vs end), Mini-MuSiQue result, Mini-Monkey-3 qualitative notes, honest failure modes observed, comparison vs. the Gen-1 baseline at `docs/research/mnlm/poc_legacy/poc_run_report.md`, and an explicit statement of what the PoC does and does not prove.
+2. `mesh_pipeline_trace.json` — one end-to-end trace: a single Kadmos-v2 article ingested into the MESH substrate, a single `MeshInput` projected, a single `MeshDelta` emitted, a single Spreading-Activation result returned. Stored as a reproducible fixture for sponsor demonstrations.
+3. `mesh_reward_curve.png` — the Phase B micro-GRPO reward curve (1 000 episodes) against the MESH substrate's SA primitive. A rising curve is the signal; a flat or falling curve is a finding that requires investigation before the sponsor pitch.
+4. `comparison_vs_legacy.md` — explicit before-and-after numbers vs. the Gen-1 baseline. This is the document that demonstrates the MESH-substrate's superiority for MNLM training (or, honestly, its parity / inferiority, if the signals are weaker).
 
 ### 13.5 Sponsor handoff
 
-After the PoC artifacts are committed, the human commander reviews `poc_run_report.md`. If the pipeline ran and the signals are directionally positive (loss fell in Phase A, reward rose in Phase B, Mini-DBB-20 > 60 %), file a Phoenix Backlog ticket `PHX-####: sponsor compute acquisition for MNLM §8 full run` with the PoC artifacts attached as evidence. Then wait for compute access before executing §8.
+After the PoC artifacts are committed, the human commander reviews `mesh_run_report.md`. If the pipeline ran and the signals are directionally positive (loss fell in Phase A, reward rose in Phase B, Mini-DBB-20 > 60 % on the post-MESH substrate, comparison-vs-legacy shows at least parity), file a Phoenix Backlog ticket (PHX-1000+) `PHX-####: sponsor compute acquisition for MNLM §8 full run` with the PoC artifacts attached as evidence. Then wait for compute access before executing §8.
 
-If the PoC produces a negative signal (loss does not fall, reward is flat, Mini-DBB-20 ≈ 50 %), do not pitch the sponsor. File a Phoenix Backlog ticket against this brief and escalate to Daedalus. The PoC has done its job: it found the failure cheaply, before spending 1 600 EUR on a broken design.
+If the post-MESH PoC produces a negative signal (loss does not fall, reward is flat, Mini-DBB-20 ≈ 50 %, comparison-vs-legacy shows regression), do not pitch the sponsor. File a Phoenix Backlog ticket against this brief and escalate to Daedalus. The PoC has done its job: it found the failure cheaply, before spending 1 600 EUR on a broken design.
 
 ---
 
-*Hesiod withdraws. The architecture belongs to Talos and to the experiments that decide §8 W6, W10, W12 — and, before those, to the PoC pass in §13 that earns the right to run them.*
+*Hesiod withdraws. The architecture belongs to Talos and to the experiments that decide §8 W6, W10, W12 — and, before those, to Migration-Plan Steps S1–S4 that produce the substrate the experiments run against, and to the post-MESH PoC pass in §13 that earns the right to run them.*
