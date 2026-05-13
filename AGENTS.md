@@ -33,7 +33,7 @@ Before any non-trivial contribution:
 13. [`docs/VISION.md`](docs/VISION.md)
 14. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 15. [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — **especially** the Pantheon-substrate vs Pantheon-agents vs builder-agents distinction, and the new "Mesh Substrate" section that locks the substrate vocabulary.
-16. [`docs/IMPLEMENTATION_PLAN_GEN1.md`](docs/IMPLEMENTATION_PLAN_GEN1.md) — the binding plan for current work
+16. [`docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md`](docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md) — the **superseded** Gen-1 implementation plan. Historical context only; the binding plan for current work is [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md) (item 11 above).
 17. [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md) — the structured queue you may pick from
 
 For deeper concepts, [`docs/INDEX.md`](docs/INDEX.md) lists the reading paths by intent.
@@ -93,7 +93,7 @@ CI runs the same matrix. Red CI does not merge.
 
 ### 6. Plan adherence is the default
 
-The architecture is decided by Daedalus in [`docs/IMPLEMENTATION_PLAN_GEN1.md`](docs/IMPLEMENTATION_PLAN_GEN1.md). If the plan is silent, propose the minimal interpretation in the PR body. If the plan is wrong, do not silently route around it — flag the contradiction in the PR body and file a Phoenix Backlog ticket.
+The architecture is decided by the MESH triplet ([`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md) + [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md) + [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md)); the migration to it is sequenced by [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md). If those documents are silent on a question, propose the minimal interpretation in the PR body. If they are wrong, do not silently route around them — flag the contradiction in the PR body and file a new (PHX-1000+) Phoenix Backlog ticket per [`phoenix-backlog/README.md`](phoenix-backlog/README.md).
 
 ### 7. YAGNI is a hard rule
 

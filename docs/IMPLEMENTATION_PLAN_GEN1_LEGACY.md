@@ -1,8 +1,22 @@
-# Implementation Plan — Generation 1
+# Implementation Plan — Generation 1 (LEGACY)
+
+> **Status: superseded.** This plan reflects the Generation-1 implementation
+> sequence as it stood up to the Neural Vector Mesh Pivot (2026-05-01) and
+> the W5 reconciliation. It is **no longer operative**. The active plan is
+> [`MESH_MIGRATION_PLAN.md`](MESH_MIGRATION_PLAN.md), which describes the
+> strangler-fig migration of this codebase to the MESH-triplet substrate
+> doctrine ([`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) +
+> [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) +
+> [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md)).
+>
+> This file is preserved as historical context for the W1–W5 reconciliation
+> record and for the catalogued pre-migration design decisions. The
+> reconciliation blocks below are the audit trail of how the project got
+> here and **must not be edited**.
 
 Architect: Daedalus  
 Mandate: [`prompts/daedalus.md`](../prompts/daedalus.md)  
-Status: **Draft v6 — Neural Vector Mesh Pivot (post-Run8)**  
+Status: **Draft v6 — Neural Vector Mesh Pivot (post-Run8)** — superseded 2026-05-13 by [`MESH_MIGRATION_PLAN.md`](MESH_MIGRATION_PLAN.md)  
 Date: 2026-05-01
 
 This document translates the existing vision (`README.md`, `PANTHEON_VISION.md`, `CHRONICLE_PRINCIPLES.md`, `BUILD_DOCTRINE.md`, `ARCHITECTURE.md`) into a concrete, buildable plan for the first four weeks of work.

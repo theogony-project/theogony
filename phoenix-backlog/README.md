@@ -1,6 +1,10 @@
 # Phoenix Backlog — Active Tickets
 
-This directory holds the **active** Phoenix tickets as structured YAML files. The full catalogue of every conceived ticket — including those without a YAML here — lives in [`docs/PHOENIX_BACKLOG.md`](../docs/PHOENIX_BACKLOG.md) and in the implementation plan ([`docs/IMPLEMENTATION_PLAN_GEN1.md`](../docs/IMPLEMENTATION_PLAN_GEN1.md) §7).
+> **State as of 2026-05-13.** The MESH migration pivot has just landed (see [`docs/MESH_MIGRATION_PLAN.md`](../docs/MESH_MIGRATION_PLAN.md)). The 51 PHX YAMLs that existed under the Generation-1 doctrine have been moved to [`archive/`](archive/README.md) — they remain as historical record and as input to the labelling pass that decides which of them carry forward into the new substrate's backlog. **The post-migration backlog starts at PHX-1000.** Until the labelling pass and the first post-migration tickets land, this directory holds only `archive/`, this README, and any new PHX-1000+ YAML that an agent files while working on the migration itself.
+>
+> The legacy catalogue at [`docs/PHOENIX_BACKLOG.md`](../docs/PHOENIX_BACKLOG.md) reflects the pre-MESH state. Any ticket cited from a pre-MESH document refers to that legacy catalogue; the new catalogue will be written when the labelling pass completes.
+
+This directory holds the **active** Phoenix tickets as structured YAML files. The legacy catalogue of every Gen-1 ticket — including those without a YAML here — lives in [`docs/PHOENIX_BACKLOG.md`](../docs/PHOENIX_BACKLOG.md) and in the legacy implementation plan ([`docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md`](../docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md) §7). Both are historical context, not operative; the operative plan is [`docs/MESH_MIGRATION_PLAN.md`](../docs/MESH_MIGRATION_PLAN.md).
 
 ## When to create a YAML
 
@@ -15,11 +19,13 @@ If none of these are true, leave the ticket as a catalogue entry only. An empty 
 
 ## When to file a brand-new ticket
 
-If the ticket is genuinely new (not yet in the catalogue):
+If the ticket is genuinely new (post-MESH-pivot):
 
-1. Pick the next free PHX-#### number, ascending and contiguous from the highest already used in the catalogue (`docs/PHOENIX_BACKLOG.md`) and the implementation plan (`docs/IMPLEMENTATION_PLAN_GEN1.md` §7). Numbers are never reused.
-2. Add a short entry to `docs/PHOENIX_BACKLOG.md` (or the relevant plan section) so the catalogue stays the source of truth for the numbered space.
-3. Create the YAML here if the ticket is active per the criteria above; otherwise the catalogue entry alone is sufficient.
+1. **Pick a number in the post-migration space (PHX-1000+).** The gap between PHX-0074 (last legacy ticket) and PHX-1000 is deliberate — it marks the doctrine boundary. Numbers are never reused.
+2. Add a short entry to the post-migration catalogue (to be created; until then, link the ticket from [`docs/MESH_MIGRATION_PLAN.md`](../docs/MESH_MIGRATION_PLAN.md) or the relevant doctrine doc).
+3. Create the YAML here if the ticket is active per the criteria above; otherwise a catalogue entry alone is sufficient.
+
+If the ticket appears to duplicate a concern from the archived legacy backlog ([`archive/`](archive/)), reference the legacy ticket via a `migrated_from:` field in the new YAML, so the lineage is preserved without re-using the old number.
 
 ## YAML schema
 
@@ -37,4 +43,6 @@ See [`docs/PHOENIX_BACKLOG.md`](../docs/PHOENIX_BACKLOG.md#ticket-format) for th
 
 ## Numbering hygiene
 
-The catalogue allocates the numbered space, not this directory. If you see `PHX-0021` referenced in the plan but no `PHX-0021.yaml` here, that is **not** a gap — it is a catalogue-only ticket awaiting activation. Run `git grep "PHX-0021"` to find every place the ticket is mentioned across the repository.
+The catalogue allocates the numbered space, not this directory. If you see `PHX-0021` referenced in a pre-MESH document but no `PHX-0021.yaml` here, that is **not** a gap — it has been moved to [`archive/`](archive/) along with the rest of the legacy backlog (and is, for that specific number, a legacy catalogue-only ticket that was never activated as a YAML). Run `git grep "PHX-0021"` to find every place the ticket is mentioned across the repository.
+
+For post-MESH tickets (PHX-1000+), the same rule applies: a catalogue entry without a YAML here means the ticket is named but not yet active.

@@ -50,13 +50,16 @@ Before you write a single line of code in a fresh session, read in this order:
 8. PHILOSOPHY.md
 9. docs/ARCHITECTURE.md
 10. docs/GLOSSARY.md
-11. docs/IMPLEMENTATION_PLAN_GEN1.md  ← your primary working document
-12. docs/plans/LIVING_DEMO_PLAN.md  ← Wave 3 sprint order; **W18** = post-W17.5 demo quality
-13. docs/etappes/W18_demo_quality_brief.md  ← binding brief while W18 is the active demo-quality sprint
-14. docs/PHOENIX_BACKLOG.md
-15. All existing source code in src/theogony/
-16. All tests in tests/
-17. prompts/daedalus.md (so you know whose plan you are executing)
+11. docs/MESH_SUBSTRATE.md  ← binding substrate doctrine (operative)
+12. docs/MESH_IMPLEMENTATION.md  ← binding runtime spec (operative)
+13. docs/MESH_RETRIEVAL.md  ← binding retrieval spec (operative)
+14. docs/MESH_MIGRATION_PLAN.md  ← **your primary working document** — the strangler-fig migration from Gen-1 to the MESH substrate
+15. docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md  ← superseded; read for historical context only
+16. docs/plans/LIVING_DEMO_PLAN.md  ← Wave 3 sprint order (legacy; pre-MESH)
+17. docs/PHOENIX_BACKLOG.md  ← legacy catalogue; the post-MESH backlog starts at PHX-1000 per phoenix-backlog/README.md
+18. All existing source code in src/theogony/
+19. All tests in tests/
+20. prompts/daedalus.md (so you know whose plan you are executing)
 
 Then read genesis_conversation_log.md (local, gitignored) only if you need 
 context on a specific decision.
@@ -74,10 +77,12 @@ adapted for implementation:
 
 In addition:
 
-1. **Plan adherence is the default.** If the IMPLEMENTATION_PLAN_GEN1.md 
-   specifies a component, build that component. If you believe the plan is 
-   wrong, do not silently route around it. File an explicit deviation note 
-   (in a Phoenix ticket or PR body) with reasoning, and escalate.
+1. **Plan adherence is the default.** If `docs/MESH_MIGRATION_PLAN.md` or the
+   MESH triplet specifies a component, build that component. If you believe a
+   binding doc is wrong, do not silently route around it. File an explicit
+   deviation note (in a Phoenix ticket or PR body) with reasoning, and
+   escalate. Reading `docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md` is fine for
+   context; building against it is not.
 
 2. **YAGNI is a hard rule.** Do not build what the plan does not require. 
    Do not pre-optimize. Do not add abstraction layers "for future flexibility" 
@@ -132,10 +137,10 @@ For each milestone you take on, in order:
 2. A **branch** off `main` named for the milestone.
 3. The **code and tests** specified in the plan, with green CI.
 4. A **PR description** that lists:
-   - Which milestone / Etappe this delivers.
-   - Which sections of IMPLEMENTATION_PLAN_GEN1.md are covered.
-   - Any deviations from the plan, with reasoning.
-   - Any new Phoenix tickets filed during the work.
+   - Which step (S1–S6) of `docs/MESH_MIGRATION_PLAN.md` this delivers, or — for non-migration work — which area of the MESH triplet it touches.
+   - Which sections of the operative docs are covered.
+   - Any deviations from the binding plan, with reasoning.
+   - Any new Phoenix tickets filed during the work (PHX-1000+).
    - The commands a reviewer can run locally to verify.
 5. **Updated documentation** where the new code introduces a user-facing 
    command, configuration, or workflow.
@@ -179,17 +184,18 @@ For each milestone you take on, in order:
 
 In order:
 
-1. Re-read the relevant section of IMPLEMENTATION_PLAN_GEN1.md.
-2. Re-read the relevant section of ARCHITECTURE.md.
+1. Re-read the relevant step of `docs/MESH_MIGRATION_PLAN.md`.
+2. Re-read the relevant section of the MESH triplet (`docs/MESH_SUBSTRATE.md`, `docs/MESH_IMPLEMENTATION.md`, `docs/MESH_RETRIEVAL.md`).
 3. If the plan is silent or contradictory, write down the question, propose 
    the minimal interpretation, and ask the human reviewer (or escalate to 
    a Daedalus session).
 4. If the question is "should this be built at all?", the answer is almost 
-   always no — file a Phoenix ticket and move on.
+   always no — file a PHX-1000+ ticket and move on.
 
 Begin by reading the required materials. When you have the current state 
-of the repository in mind, take the next milestone from 
-IMPLEMENTATION_PLAN_GEN1.md and build it.
+of the repository in mind, take the next migration step from 
+`docs/MESH_MIGRATION_PLAN.md` (starting with **Step S1 — New substrate
+skeleton** if no earlier step has merged) and build it.
 ```
 
 ---
