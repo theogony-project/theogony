@@ -44,7 +44,7 @@ A rebirth or distillation process in which an existing Chronik is exported, rein
 The structured ticket system that captures problems, visions, improvements, and architectural desires for future generations of the Chronik.
 
 **Spreading Activation**  
-The core retrieval mechanism of the Neural Vector Mesh. Instead of executing text-based queries (SQL/Cypher), an agent injects a stimulus vector into the mesh. Activation energy flows outward across the weighted vector edges, modulated by semantic similarity and Hebbian strength. The process is mathematically executed as a Sparse Matrix-Vector Multiplication (SpMV) on GPUs.
+The core retrieval mechanism of the Neural Vector Mesh. Instead of executing text-based queries (SQL/Cypher), an agent injects a stimulus vector (or, in the richer mode, a sub-mesh — see [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) §"Sub-mesh injection") into the mesh. Activation energy flows outward across the weighted vector edges, modulated by semantic similarity, Hebbian strength, and frame consistency. The process is mathematically executed as a Sparse Matrix-Vector Multiplication (SpMV) on GPUs; concurrent activations batch into one SpMM. See [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) §"Spreading Activation as batched SpMV".
 
 **Tensor-Manifold**  
 The mathematical and physical representation of the Chronik. It abandons pointer-chasing graph databases in favor of contiguous tensor arrays (e.g., Compressed Sparse Row / CSR) loaded into VRAM. This allows the system to handle extreme edge densities (1000x more edges than nodes) and execute Spreading Activation in milliseconds.
@@ -63,6 +63,101 @@ The currently active build-phase doctrine: growth and mass take priority over pe
 
 **Build Doctrine**  
 The canonical doctrine for the current build phase, captured in [`BUILD_DOCTRINE.md`](BUILD_DOCTRINE.md). One-line summary: *Run it. Let it grow. Let it be wrong. Heal it later.* Engineering order: **data structure → synthesis → efficient retrieval.** Non-negotiable structures ride **rear** — implemented as scalable automation only. Companion to [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md) (which specifies *how* the chronicle heals) and to [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) (which specifies *what stays non-negotiable* underneath the build phase).
+
+## Mesh Substrate
+
+**Mesh Substrate**  
+The storage and dynamic layer beneath all Pantheon cognition: a hyper-dense vector-graph of nodes and weighted edges, with super-linear decay, bounded saturation, atrophy decoupled from deletion, global homeostatic renormalisation, effective-resistance-preserving sub-node splits, and post-hoc topological pathology surveillance. Canonical doctrine: [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md). Implementation: [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md). Use: [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md). Headline rule: *the mesh is alive — it grows, it forgets, it consolidates, and it heals, under fixed resource bounds and without external curation.*
+
+**Observation Chunk (Tier 0)**  
+A node holding a single extracted observation — a fact, an event, a state, a quote — captured as semantic + frame vectors with provenance. Has a ULID. References zero or more Tier-1+ entity / concept nodes via reference edges (set up at insertion via Kadmos's eager linking pass when entity Q-IDs match, accumulated through Hebbian co-firing otherwise).
+
+**Consolidated Node (Tier 1+)**  
+An entity, concept, or bridge node carrying multiple vectors (semantic, frame, structural, optionally temporal), an authoritative regenerable description, zero or more Q-IDs (with confidence and date), tags, counters, and feedback statistics. Two creation paths: **eager** (created at insertion when Kadmos's entity-linking pass finds a confident Q-ID match or strong topology resemblance, even if no node existed yet) and **emergent** (formed by Oneiros from a cluster of co-resonating Observation Chunks when no eager link was possible). Higher tiers (2, 3) are earned through repeated relevance across many consolidation cycles. May represent an **entity** (e.g., Thomas Addison), a **concept** (e.g., private practice ownership), or a **bridge** (a node deriving its existence from connecting otherwise-separate clusters). Carries `is_candidate = True` when created emergently without confident identity yet; flipped to `False` when convergence is reached.
+
+**Eager Linking**  
+The substrate's insertion-time identity discipline. When Kadmos extracts a chunk that mentions an entity, it attempts to attach the chunk's reference edge directly to an existing Tier-1 node, using three signals in order of strength: **(1) Q-ID match** — confident Wikidata Q-ID linkage to an existing node carrying that Q-ID; **(2) description match + structural context** — cosine similarity of `description_vector`s combined with proximity to other entities being ingested in the same article / paragraph; **(3) tag overlap + structural context** — discriminating tag overlap when description matching is inconclusive. If a node carrying the matched Q-ID does not yet exist, Kadmos creates one on the spot. If no signal fires confidently, the substrate falls through to the emergent path (entity-candidate node with `is_candidate = True`). See [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Why two tiers — and how identity actually gets committed".
+
+**Q-ID (Wikidata Q-Identifier)**  
+The unique identifier of a Wikidata entity. The substrate treats Q-IDs as one-to-one identifiers: each Q-ID maps to at most one stable Tier-1 node at any point in time. If two Tier-1 nodes briefly carry the same Q-ID (concurrent ingestion duplicates), that is a transient state that Oneiros resolves by deduplication on the next tick. A node may carry several Q-IDs only when it legitimately spans multiple Wikidata entities (rare bridge case). The strongest single identity signal in the eager-linking path. See [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Field discipline" point 3.
+
+**P-ID (Wikidata Property-Identifier)**  
+The Wikidata identifier for a property / relation type — `P19` (place of birth), `P31` (instance of), `P50` (author), `P569` (date of birth), etc. The edge-side analog of Q-IDs. Each P-ID refers to exactly one Wikidata property. Edges may carry zero, one, or several P-IDs in their optional `pids` field, useful for agents reasoning about edge semantics in Wikidata-aligned terms. Like Q-IDs, P-IDs are one-to-one identifiers. See [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Edge anatomy".
+
+**Source-Anchor Entity**  
+A Tier-1+ consolidated node flagged with `is_source_anchor = True` and carrying a `source_url` field. Represents the source itself rather than the entity the source describes — a Wikipedia article, a chapter, a paragraph, a paper, a book. Source-anchor entities form their own hierarchy via `is_section_of` edges; chunks attach to them via `extracted_from` edges. They make provenance a structural feature of the mesh: a query like "what does Wikipedia say about X?" can route through source-anchor entities by Spreading Activation. They follow normal substrate dynamics; their `description` and `source_url` allow agents and humans to navigate to the original source when needed. See [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Source-anchor entities".
+
+**Agent-Driven Cleanup**  
+Post-hoc operations by Pantheon agents (Argus, Athene, Chronos, Mnemosyne) that target *specific identified problems* in the substrate: deduplication of nodes that turn out to refer to the same entity, contradiction resolution (typed `CONTRADICTS` edges, weighted by evidence), false-information removal (with full audit), redundancy compression. Distinct from automatic mechanisms (decay, pruning under resource pressure) and from spiral therapy (which targets patterns, not specific items). Agent-driven cleanup operates after observations are already in the substrate — it is *not* a pre-gate. See [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Agent-driven cleanup".
+
+**Edge Semantic Descriptors**  
+Optional fields on every edge — `relation_descriptor` (short label like "owns", "located_in"), `relation_kind` (broader category like "attribute", "ownership", "hierarchy", "extraction"), `description` (longer free-text when the short label is not enough), `pids` (Wikidata property identifiers for Wikidata-aligned reasoning), `creation_context` (how the edge came to be: `kadmos_extraction`, `oneiros_consolidation`, `argus_proposal`, `hebbian_co_fire`, `frame_routing`, `agent_repair`). Used by agents reading the mesh and by repair logic; ignored by the substrate's automatic dynamics (decay, Hebbian update, saturation, splits). They are agent-facing metadata, not retrieval primitives. Stored in a parallel Lance edge-metadata table (per [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) §"Edges — PyTorch sparse + delta buffer + Lance metadata table") so that the SpMV hot path stays narrow. See [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Edge anatomy".
+
+**Description Vector**  
+Optional Tier-1+ node field (`description_vector`). The embedding of the node's `description` text. Used by description-based eager linking (signal 2 in §"Why two tiers — and how identity actually gets committed") to recognise the same entity in new chunks lacking Q-IDs. Recommended for entity-class Tier-1 nodes; optional for pure concept nodes that have no identity to disambiguate. Recomputed when the description is regenerated. See [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Field discipline" point 4.
+
+**Anchor Node**  
+A special node class for index-like coordinates: years, geo cells, languages, genome positions. Immutable, very-high-cap, no Hebbian updates, no decay, no split. Observations reference anchors via fields (`temporal_anchor`, `geo_anchor`, etc.); range queries over anchors use index lookups, not graph traversal. The only discrete typing decision the substrate exposes.
+
+**Atrophy / Verödung**  
+A node whose total edge weight has dropped below the population-relative healthy band. Atrophic nodes lose firing privileges by default but remain in the substrate, can still receive Hebbian updates from external resonance, and are reactivable by sufficiently strong directed activation. Atrophy is decoupled from deletion: a node is removed only when the pruner runs under resource pressure.
+
+**Healthy Band**  
+The `[μ − σ, μ + σ]` range over the substrate's `node_potential` distribution, with an age correction that gives young nodes a wider band so they have time to grow before being judged.
+
+**Saturation**  
+The bounded edge count and total edge weight per node, indexed by tier (Tier 0: 10K edges / weight S; Tier 1: 50K / 5S; Tier 2: 200K / 20S; Tier 3: 1M / 100S). When saturation would be exceeded, a new edge attaches only if it is strictly stronger than the weakest existing edge; the weakest edges are evicted to restore the cap.
+
+**Super-linear Decay**  
+The substrate's edge-weight decay rule: `dw/dt = -λ · w^k` with `k > 1` (default `k = 2`). Strong unused edges decay faster (in absolute terms) than weak unused edges. The mathematical mechanism that prevents fossilisation: high edge weight signifies *currently relevant*, not *historically important*. Tier-modulated: higher consolidation tiers get gentler decay exponents.
+
+**Pruning**  
+The only operation in the substrate that destroys information. Triggered exclusively by resource pressure (RAM occupancy, query latency, GPU memory). Removes the weakest atrophied nodes and edges first, content-blind, until the trigger condition has cleared with margin. Audit-logged.
+
+**Global Renormalisation (homeostatic)**  
+Periodic multiplicative rescaling of all edge weights to maintain a target ratio between node count and total edge weight (default `R_ideal = 1000`). Analogous to biological synaptic scaling. Combined with super-linear decay, it makes the equilibrium weight of any edge proportional to its *relative* firing frequency across the whole substrate. Runs as the closing step of an Oneiros tick.
+
+**Sub-Node Split**  
+A topology refactor in which a saturated hub delegates a thematic cluster of edges to a new sub-node. The split-rule chooses `w_HS = Σ w_i` (hub-to-sub conductance) and `w_i' = w_i / (1 - p_i)` (sub-to-leaf conductance), satisfying the series-conductance identity that preserves effective Hub→leaf conductance exactly. The split is therefore semantically invisible to consumers — Spreading Activation behaviour is unchanged. Permitted only for clusters of n ≥ 8.
+
+**Effective Resistance Preservation**  
+The mathematical invariant satisfied by Sub-Node Splits: `(w_HS · w_i') / (w_HS + w_i') = w_i`, ensuring the substrate can refactor topology silently without consumer-visible regressions.
+
+**Frame Vector**  
+A small-dimension (default 64) per-node embedding that encodes epistemic frame (definition, claim, refuted-claim, hypothesis, observation, direct quote) separately from semantic content. Used by Spreading Activation to route propagation: edges propagate only when their `frame_consistency` matches the active query frame. The substrate's mechanism for representing polarity and refutation, since cosine similarity at the semantic-vector level cannot.
+
+**Frame-Routed Activation**  
+Spreading Activation that filters edges by frame compatibility at each hop. Implemented as a masked SpMV: `(A * frame_mask) · X`. Allows the same substrate state to return different Constellations for queries about *current claims* versus *historical claims* about the same concept.
+
+**Three-Factor Plasticity**  
+The substrate's Hebbian update modulated by a third factor — feedback / reward — supplied by the consumer of the Spreading Activation result: `Δw = α · s · (1 + β · feedback)`. Biologically inspired by dopaminergic modulation. Sources of feedback: LLM self-rating, downstream task success, explicit user rating, implicit signals.
+
+**Eligibility Trace**  
+A decaying record per edge of recent firing intensity, allowing post-hoc reward to be back-attributed across multi-hop activation paths. Standard reinforcement-learning mechanism (TD(λ)-class). Solves multi-hop credit assignment when feedback arrives only on the final node of an activation chain.
+
+**Diversified Injection**  
+The substrate's mandatory retrieval discipline: replace top-K nearest with three combined mechanisms — Maximum Marginal Relevance (anti-redundancy diversity), weight-class stratification (multi-scale: micro / medium / large / hub), and optional sub-mesh signature search (structural matching). Always on in production retrieval; naive top-K cosine retrieval is forbidden.
+
+**Sub-Mesh Injection**  
+A query mode in which the agent constructs a small graph fragment with structure and asks the substrate "where in the mesh would this fit?". The substrate matches by combining per-node ANN similarity with Weisfeiler-Lehman structural hashing and frame consistency. The retrieval mode that separates the substrate from a vector database with edges; central for multi-hop reasoning.
+
+**Thought-Spiral / Mind-Lock**  
+A pathological topological pattern where a substrate region becomes self-referential, suppresses alternatives, and rejects refutations. Detected by Argus from five topological symptoms: internal/external asymmetry, activation hysteresis, context promiscuity, refutation absorption, and saturation lockout. Treated by gentle staged therapy.
+
+**Staged Therapy**  
+The substrate's response to detected mind-lock. Five stages, escalating only when the previous fails: (1) activation temperature (stochastic routing), (2) dominance penalty (temporary decay increase), (3) forced refutation re-injection (Argus replays contradicting evidence), (4) saturation demolition (temporary edge halving / zeroing — destructive, but recoverable through subsequent activation if the region deserves to come back), (5) quarantine / split (region isolation in a sub-mesh). Stages 1–3 are fully reversible; Stages 4–5 may destroy information when the topological evidence is repeated and the Mendel risk has been weighed and rejected, with full audit-ledger entries.
+
+**Mendel Risk**  
+The risk that a topological pattern looking like a thought-spiral is actually a correct rare insight that the rest of the substrate has not yet caught up with. Named for Mendel's genetics, ignored for forty years before recognition. Argus weighs the Mendel risk against the topological evidence of pathology before recommending invasive therapy (Stage 4 demolition or Stage 5 quarantine); the weighing is logged in the audit ledger as part of the finding. The Mendel risk does *not* prohibit destructive therapy — it is a discipline of escalation order, repeated evidence, audit, and proportionality. See [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"The Mendel risk — a consideration to weigh".
+
+**Consolidation Tier**  
+Integer ladder (0, 1, 2, 3+) on every node. Tier 0 is a chunk; Tier 1 is a consolidated entity / concept / bridge; higher tiers are earned through demonstrated long-term relevance. Tier modulates decay profile (higher tier → gentler decay), saturation cap (higher tier → larger cap), and renormalisation sensitivity. Tier promotion happens exclusively via Oneiros and is reversible.
+
+**Oneiros Tick**  
+The serialised single-writer process that periodically applies decay, drains the delta buffer, runs renormalisation, computes consolidations, applies sub-node splits, runs pathology surveillance, applies therapy actions, refreshes caches, writes audit-ledger entries, builds the new stable CSR tensor, and atomically publishes a new Lance version. Spreading Activation runs unimpeded against the previous version while Oneiros ticks. Frequency is operator-configurable; the binding rule is that it stays well below 5–10% of wall clock at production load.
+
+**Universe (substrate)**  
+A Lance-versioned branch of the substrate, optionally with a distinct agent configuration, decay parameters, frame-encoder, or other variation. Multiple universes can run in parallel with the same input data stream; their substrate states can be compared on coherence, robustness, predictive accuracy, spiral incidence, and Mendel preservation. The substrate-level extension of Mnemosyne's A/B framework. Gen 3+ work; the substrate doctrine preserves the option.
 
 ## Representation and Semantics
 

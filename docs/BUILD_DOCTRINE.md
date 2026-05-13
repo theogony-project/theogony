@@ -2,7 +2,7 @@
 
 **Status:** canonical doctrine for the current build phase ("Function-First Phase").
 **Audience:** every agent — Pantheon, builder, or external — that touches ingestion, extraction, schemas, or the chronicle itself.
-**Companion docs:** [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md), [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md), [`PANTHEON_VISION.md`](PANTHEON_VISION.md).
+**Companion docs:** [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md), [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md), [`PANTHEON_VISION.md`](PANTHEON_VISION.md), [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) (the binding shape of the data-structure-first step in §"Build mandate"), [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md), [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md).
 
 ## Why this doc exists
 

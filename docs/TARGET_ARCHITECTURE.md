@@ -172,4 +172,16 @@ Whether this claim is true is an empirical question. The architecture is designe
 
 ---
 
-*This document is binding. When in doubt about the direction of implementation, return here.*
+## Substrate-Level Doctrine (the operative companions)
+
+This document specifies *what* the substrate must be. Three companion documents specify *how it behaves*, *how it is implemented*, and *how it is used*:
+
+- [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) — canonical doctrine for the storage layer beneath all Pantheon cognition. Two-tier nodes (eager identity when clear, emergent when not), edge dynamics (super-linear decay, saturation, atrophy ≠ death, homeostatic renormalisation, effective-resistance-preserving sub-node splits), agent-driven cleanup (deduplication, contradiction resolution, false-information removal, redundancy compression), pathology surveillance and staged therapy with Mendel-weighed escalation. **Binds every agent that reads or writes a node, an edge, or a tick.** Where its substrate-layer doctrine differs from this document, that document is operative.
+- [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) — implementation guidance: Hot/Warm/Cold tiering, Lance MVCC, batched-SpMV runtime, Oneiros tick order, hardware tier targets, migration from the current PoC.
+- [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) — retrieval doctrine: diversified injection (MMR + weight-class stratification + sub-mesh signature search), three-factor reinforcement learning with eligibility traces, frame-sensitive resonance, multi-agent strategy-game framing with parallel-universe experimentation, multi-modal extension as substrate affordance.
+
+The Three Non-Negotiable Technical Decisions in this document — no text storage, LanceDB + PyTorch, Spreading Activation as primitive — set the architectural floor. The MESH_* triplet builds the structure that stands on that floor.
+
+---
+
+*This document is binding. When in doubt about the direction of implementation, return here. When the question is about substrate behaviour, runtime, or use, continue into [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md), [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md), and [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md).*

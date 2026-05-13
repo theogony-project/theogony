@@ -1,7 +1,7 @@
 # The Immune System
 
 **Status:** canonical doctrine for defense and self-improvement in Pantheon.
-**Companion docs:** [`PANTHEON_VISION.md`](PANTHEON_VISION.md) (long-horizon north star), [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) (compact non-negotiables), [`SELF_MODIFICATION.md`](SELF_MODIFICATION.md) (the ultimate horizon — Pantheon writing its own next version).
+**Companion docs:** [`PANTHEON_VISION.md`](PANTHEON_VISION.md) (long-horizon north star), [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) (compact non-negotiables), [`SELF_MODIFICATION.md`](SELF_MODIFICATION.md) (the ultimate horizon — Pantheon writing its own next version), [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Agent-driven cleanup" and §"Pathology and therapy" (the substrate-level continuation of this doctrine: post-hoc topological pathology surveillance, agent-driven cleanup of contradictions / false information / redundancies / duplicates, staged therapy with Mendel-weighed escalation).
 **Audience:** every agent that touches the Chronik. Read this before designing or implementing anything that filters, verifies, removes, or audits content.
 
 ## Why this doc exists
