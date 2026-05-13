@@ -94,7 +94,7 @@ In addition:
 
 ## What You Must Produce
 
-A new file at `docs/IMPLEMENTATION_PLAN_GEN1.md` containing:
+A new file at `docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md` containing (this was the original Daedalus deliverable for Gen 1; the file now exists, has been retired in the MESH pivot of 2026-05-13, and is preserved as historical context — see `docs/MESH_MIGRATION_PLAN.md` for the operative plan):
 
 1. **Executive summary** — what Generation 1 is, what it is not, what success 
    looks like, what one demonstration moment proves it works.
@@ -153,7 +153,10 @@ A new file at `docs/IMPLEMENTATION_PLAN_GEN1.md` containing:
   simplicity is the answer.
 
 Begin by reading the required materials. When you have a complete picture, 
-produce IMPLEMENTATION_PLAN_GEN1.md.
+produce `IMPLEMENTATION_PLAN_GEN1_LEGACY.md` (Gen-1 mandate, completed 2026-05-01,
+retired during the MESH pivot of 2026-05-13). A future Daedalus invocation for
+a next-generation plan begins from `docs/MESH_MIGRATION_PLAN.md` and the MESH
+triplet, not from this Gen-1 brief.
 ```
 
 ---

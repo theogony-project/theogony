@@ -343,5 +343,5 @@ purely preparatory. The Chronik grows at every step.
 | [`notes/architecture/vector_native_spreading_activation.md`](notes/architecture/vector_native_spreading_activation.md) | MVP-level Spreading Activation note (historical; superseded by the MESH triplet) |
 | [`docs/IMMUNE_SYSTEM.md`](docs/IMMUNE_SYSTEM.md) | Defense and self-improvement architecture (claim-level; substrate-level continuation in MESH §"Agent-driven cleanup" + §"Pathology and therapy") |
 | [`docs/SELF_MODIFICATION.md`](docs/SELF_MODIFICATION.md) | Long-horizon self-modification principle |
-| [`docs/IMPLEMENTATION_PLAN_GEN1.md`](docs/IMPLEMENTATION_PLAN_GEN1.md) | **Superseded** — Generation-1 implementation plan up to the Neural Vector Mesh Pivot (2026-05-01). Historical context only; not operative. Active plan: `MESH_MIGRATION_PLAN.md`. |
+| [`docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md`](docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md) | **Superseded** — Generation-1 implementation plan up to the Neural Vector Mesh Pivot (2026-05-01). Historical context only; not operative. Active plan: `MESH_MIGRATION_PLAN.md`. |
 | [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md) | Evolutionary ticket queue |

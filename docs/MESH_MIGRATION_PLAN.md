@@ -7,7 +7,7 @@
 
 This document specifies *how* the current Generation-1 codebase walks to the substrate described in [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md), [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md), and [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) — without a blackout, without throwing away functioning surface code, and without leaving the codebase in a permanent half-migrated state.
 
-It supersedes [`IMPLEMENTATION_PLAN_GEN1.md`](IMPLEMENTATION_PLAN_GEN1.md) as the active implementation plan. That document is being renamed to `IMPLEMENTATION_PLAN_GEN1_LEGACY.md` and kept as historical context only; it is no longer operative.
+It supersedes [`IMPLEMENTATION_PLAN_GEN1_LEGACY.md`](IMPLEMENTATION_PLAN_GEN1_LEGACY.md) as the active implementation plan. That document has been renamed and is kept as historical context only; it is no longer operative.
 
 ---
 
@@ -36,7 +36,7 @@ Skipping any of items 2–4 will result in implementing the wrong substrate. Ski
 - `src/theogony/` — ~38,500 LOC across ~20 subsystems (acquisition, agents, api, chronicle, clustering, cockpit, config, core, curiosity, docs_ingest, extraction, kadmos, mcp, memory, phoenix, reporting, retrieval, seeds, stores, viz)
 - `tests/` — ~30,000 LOC across ~173 test files
 - `phoenix-backlog/` — 52 active PHX YAMLs (PHX-0001 to PHX-0074, with gaps)
-- `docs/IMPLEMENTATION_PLAN_GEN1.md` — 2,168 lines with reconciliation blocks up to the "Neural Vector Mesh Pivot" of 2026-05-01
+- `docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md` — 2,168 lines with reconciliation blocks up to the "Neural Vector Mesh Pivot" of 2026-05-01; superseded by this plan
 - `docs/PHOENIX_BACKLOG.md` — 516-line catalogue
 
 ### Where the code is in the right direction
@@ -337,24 +337,15 @@ The Phoenix Backlog migration runs in parallel with the strangler-fig steps abov
 
 ---
 
-## `IMPLEMENTATION_PLAN_GEN1.md` retirement
+## `IMPLEMENTATION_PLAN_GEN1.md` retirement (done)
 
-Concurrent with S1 of the migration:
+Completed alongside the landing of this plan (2026-05-13):
 
-1. Rename the file to `docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md`.
-2. Add a banner at the top:
-   ```
-   > **Status: superseded.** This plan reflects the Generation-1 implementation
-   > sequence as it stood up to the Neural Vector Mesh Pivot (2026-05-01) and
-   > the W5 reconciliation. It is no longer operative. The active plan is
-   > [`MESH_MIGRATION_PLAN.md`](MESH_MIGRATION_PLAN.md), which describes the
-   > strangler-fig migration of this codebase to the MESH-triplet substrate
-   > doctrine. This file is preserved as historical context for the W1–W5
-   > reconciliation record and the catalogued pre-migration design decisions.
-   ```
-3. No content changes below the banner. The reconciliation blocks are the audit trail of how the project got here and must not be edited.
+1. ✅ Renamed to [`IMPLEMENTATION_PLAN_GEN1_LEGACY.md`](IMPLEMENTATION_PLAN_GEN1_LEGACY.md). Git history follows the rename via `git mv`.
+2. ✅ A "superseded" banner has been added at the top pointing every reader at this migration plan.
+3. ✅ Nothing below the banner has been edited. The reconciliation blocks are the audit trail of how the project got here.
 
-Every reference to `IMPLEMENTATION_PLAN_GEN1.md` in other documents either gets updated to `MESH_MIGRATION_PLAN.md` (when the doc is about the active plan) or to `IMPLEMENTATION_PLAN_GEN1_LEGACY.md` (when the doc is genuinely referring to the historical record).
+Every reference to `IMPLEMENTATION_PLAN_GEN1.md` from operative documents (AGENTS, ROADMAP, prompts) has been updated to point either at this plan (for active guidance) or at the legacy file (for historical reference). References from already-archived contexts — `docs/etappes/*_brief.md`, `docs/HISTORICAL_MD_INTENTIONALLY_UNTOUCHED.md`, `phoenix-backlog/archive/*.yaml` — have been left intact, because they document the project at a moment when the old name was correct.
 
 ---
 

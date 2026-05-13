@@ -1,16 +1,20 @@
-# Phoenix Backlog
+# Phoenix Backlog (LEGACY catalogue)
+
+> **Status as of 2026-05-13: legacy.** This catalogue reflects the **pre-MESH-migration** ticket space (PHX-0001 through PHX-0074, with gaps). Its 51 active YAMLs have been moved to [`phoenix-backlog/archive/`](../phoenix-backlog/archive/README.md) as part of the migration pivot. The operative substrate doctrine is now the MESH triplet ([`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) + [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) + [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md)); the operative implementation plan is [`MESH_MIGRATION_PLAN.md`](MESH_MIGRATION_PLAN.md). The **post-migration backlog will start at PHX-1000** once the labelling pass (carry-forward / obsolete / absorbed) over the archived YAMLs completes. Tickets in *this* catalogue remain referenceable as historical context — they captured the Gen-1 design discourse — but they are no longer the live work queue.
+>
+> Do not file new tickets in the PHX-0001–0999 range. New tickets go to PHX-1000+; see [`phoenix-backlog/README.md`](../phoenix-backlog/README.md).
 
 The Phoenix Backlog is the evolutionary memory of the Chronik. It captures problems, improvements, visions, and architectural decisions that should be considered in future generations — specifically regarding the Chronik's knowledge organization, not peripherals like GUI or client interfaces.
 
 Tickets are filed by agents or humans during operation. They are evaluated when planning a Phoenix process (distillation and rebirth of the Chronik).
 
-**W5 / PR #32 reality (2026-04):** two catalogue entries became central to demo truth and reliability: **PHX-0033** (pre-curated Wikidata / offline subset — unblocks full-book ingest vs live SPARQL throttle) and **PHX-0055** (CI smoke-test against the **live** default LLM so retired model IDs cannot ship green again). **PHX-0034** (entity-resolution gold benchmark) remains the quality companion. Active YAMLs exist in [`phoenix-backlog/`](../phoenix-backlog/).
+**W5 / PR #32 reality (2026-04):** two catalogue entries became central to demo truth and reliability: **PHX-0033** (pre-curated Wikidata / offline subset — unblocks full-book ingest vs live SPARQL throttle) and **PHX-0055** (CI smoke-test against the **live** default LLM so retired model IDs cannot ship green again). **PHX-0034** (entity-resolution gold benchmark) remains the quality companion. Active YAMLs existed in `phoenix-backlog/` and have since been moved to `phoenix-backlog/archive/` per the migration pivot.
 
 ## Two Layers: Catalogue and Active YAMLs
 
 The Phoenix Backlog has two layers, deliberately:
 
-1. **The catalogue** — this document (`docs/PHOENIX_BACKLOG.md`) and the implementation plan (`docs/IMPLEMENTATION_PLAN_GEN1.md` §7). This is the authoritative list of every PHX ticket that has ever been conceived. The numbered space `PHX-####` is allocated here.
+1. **The catalogue** — this document (`docs/PHOENIX_BACKLOG.md`, now legacy) and the legacy implementation plan (`docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md` §7). This is the authoritative list of every PHX ticket that was conceived under the Gen-1 doctrine. The numbered space `PHX-0001`–`PHX-0999` was allocated here. The post-MESH-migration numbered space starts at `PHX-1000` per [`phoenix-backlog/README.md`](../phoenix-backlog/README.md).
 2. **Active YAMLs** — the files in [`phoenix-backlog/`](../phoenix-backlog/). These are the structured, machine-readable working copies of tickets that are currently being acted on, referenced from a PR or RunReport, or otherwise "warm".
 
 A YAML file is created **only when a ticket becomes active**. Absent YAML files are not gaps — they are intentional lazy materialization. A ticket that lives only in the catalogue is real; it just has no active workspace yet.
