@@ -22,13 +22,16 @@ def main() -> None:
 
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    print("Loading Qwen2.5-1.5B-Instruct (4-bit)...")
+    print("Loading Qwen2.5-1.5B-Instruct on MPS...")
+    # Load model directly from hub, place on MPS explicitly.
+    # bfloat16 fits in 48 GB unified memory (~3 GB).
+    from transformers import BitsAndBytesConfig
+
     model = AutoModelForCausalLM.from_pretrained(
         "Qwen/Qwen2.5-1.5B-Instruct",
-        load_in_4bit=True,
-        device_map=device_name,
-        torch_dtype=torch.float16 if device_name == "mps" else torch.float32,
-    )
+        torch_dtype=torch.float16,
+        low_cpu_mem_usage=True,
+    ).to(device_name)
     tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-1.5B-Instruct")
     print(f"Model loaded. Parameters: {model.num_parameters():,}")
 

@@ -130,7 +130,7 @@ class SubstrateResonantRunner:
                 # One-hop SA (structurally documented, actual call succeeds
                 # if TensorMeshEngine has data loaded)
                 try:
-                    node_energies = self._sa_engine.forward(
+                    node_energies = self._sa_engine.forward(  # type: ignore[attr-defined]
                         stimulus.cpu().numpy().tolist(),
                         max_hops=1,
                     )

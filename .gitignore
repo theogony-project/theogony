@@ -65,3 +65,14 @@ neo4j_data/
 # Runtime data: audit log, run reports, ingested artefacts.
 # Reports that document project state live under docs/run_reports/.
 data/
+
+# MNLM PoC transient outputs.
+# Persistent research evidence (training curves, evaluation JSONs, run reports,
+# crawler audit log) is committed in docs/research/mnlm/poc_*/.
+# Excluded: per-run scratch directories of Kadmos-emitted chunks, raw stdout
+# logs, and smoke-test output. These can be regenerated from the source corpora
+# (see docs/research/mnlm/poc_legacy/README.md for the Gen-1 rationale and
+# docs/research/mnlm/poc_mesh/README.md for the post-MESH PoC).
+docs/research/mnlm/poc_*/mesh_inputs/
+docs/research/mnlm/poc_*/crawl_output.log
+docs/research/mnlm/poc_*/smoke_test_output.log

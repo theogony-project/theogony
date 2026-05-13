@@ -1,0 +1,9 @@
+{
+  "schema_version": "mnlm-smoke/1",
+  "model_id": "Qwen/Qwen2.5-1.5B-Instruct",
+  "device": "mps",
+  "num_parameters": 1543714304,
+  "prompt": "Explain the relationship between entropy and information theory.",
+  "response": "Explain the relationship between entropy and information theory. Information theory is a branch of mathematics that deals with the quantification, storage, and communication of information. It was developed by Claude Shannon in the 1940s to solve problems related to telecommunication.\n\nEntropy is a measure of uncertainty or",
+  "forward_pass_no_nan": true
+}

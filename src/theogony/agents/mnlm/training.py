@@ -17,7 +17,7 @@ import json
 import math
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
@@ -100,7 +100,7 @@ class PhaseADataset:
             "num_nodes": 0,
         }
 
-    def get_batch(self, indices: list[int], device: torch.device) -> tuple[dict, dict]:
+    def get_batch(self, indices: list[int], device: torch.device) -> tuple[dict[str, Any], dict[str, Any]]:
         """Collect a batch of (model_inputs, targets) tensors."""
         batch_mi = [self._samples[i]["mesh_input"] for i in indices]
         batch_targets = [self._samples[i]["target"] for i in indices]
@@ -218,7 +218,7 @@ class PhaseATrainer:
         self._num_steps = num_steps
         self._batch_size = batch_size
         self._log_interval = log_interval
-        self._loss_history: list[dict] = []
+        self._loss_history: list[dict[str, Any]] = []
 
     @staticmethod
     def _cosine_lr(step: int, num_steps: int, min_lr_ratio: float = 0.1) -> float:
@@ -231,7 +231,7 @@ class PhaseATrainer:
         dataset: PhaseADataset,
         device: torch.device | None = None,
         output_path: str | Path = "docs/research/mnlm/poc/phase_a_loss.jsonl",
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Run the training loop.
 
         Uses a proper Linear layer for kind_logits (not torch.randn)
@@ -246,7 +246,7 @@ class PhaseATrainer:
         self._projector.train()
 
         # Proper trainable prediction heads (not recreated per step)
-        llm_dim = self._projector._llm_dim
+        llm_dim: int = cast(int, self._projector._llm_dim)
         self._kind_head = nn.Linear(llm_dim, 8).to(device)
         self._emb_head = nn.Linear(llm_dim, 384).to(device)
         self._optimizer.add_param_group({"params": self._kind_head.parameters()})
@@ -290,7 +290,7 @@ class PhaseATrainer:
 
             # Backward
             self._optimizer.zero_grad()
-            total_loss.backward()
+            total_loss.backward()  # type: ignore[no-untyped-call]
             torch.nn.utils.clip_grad_norm_(self._projector.parameters(), max_norm=1.0)
             self._optimizer.step()
 
@@ -316,12 +316,10 @@ class PhaseATrainer:
                     f"{elapsed:.0f}s"
                 )
 
-        # Write loss log
-        out_path = Path(output_path)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path, "w") as f:
-            for entry in self._loss_history:
-                f.write(json.dumps(entry) + "\n")
-        print(f"Loss log written to {out_path}")
+                # Write to loss log immediately (safe against crashes)
+                out_path = Path(output_path)
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(out_path, "a") as f:
+                    f.write(json.dumps(entry) + "\n")
 
         return self._loss_history

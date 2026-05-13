@@ -20,6 +20,7 @@ import json
 import random
 import time
 from pathlib import Path
+from typing import Any
 
 import torch
 
@@ -56,12 +57,12 @@ class MicroGRPOTrainer:
         self._num_episodes = num_episodes
         self._k = k_samples
         self._log_interval = log_interval
-        self._reward_history: list[dict] = []
+        self._reward_history: list[dict[str, Any]] = []
 
         # Dummy policy parameters (placeholder for LoRA weights)
         self._policy_params = torch.nn.Parameter(torch.randn(8) * 0.1)
 
-    def _sample_candidate(self, mesh_input: MeshInput) -> dict:
+    def _sample_candidate(self, mesh_input: MeshInput) -> dict[str, Any]:
         """Sample one MeshDelta candidate from the policy.
 
         For PoC: random primitive selection. In production this runs
@@ -89,7 +90,7 @@ class MicroGRPOTrainer:
             ],
         }
 
-    def _compute_sa_rank(self, candidate: dict, probe_vector: list[float]) -> float:
+    def _compute_sa_rank(self, candidate: dict[str, Any], probe_vector: list[float]) -> float:
         """Compute Spreading Activation rank improvement.
 
         For PoC: simulated rank based on candidate quality heuristics.
@@ -105,7 +106,7 @@ class MicroGRPOTrainer:
         base_rank = 50 - (n_edges * 3 + mean_conf * 10)
         return max(1, base_rank)
 
-    def _compute_aux_penalties(self, candidate: dict) -> dict[str, float]:
+    def _compute_aux_penalties(self, candidate: dict[str, Any]) -> dict[str, float]:
         """Compute three auxiliary penalties.
 
         1. Mutation sparsity: penalty proportional to len(primitives)/budget
@@ -130,19 +131,7 @@ class MicroGRPOTrainer:
         probe_set: list[tuple[MeshInput, list[float]]],
         device: torch.device | None = None,
         output_path: str | Path = "docs/research/mnlm/poc/phase_b_reward.jsonl",
-    ) -> list[dict]:
-        """Run the GRPO training loop.
-
-        Parameters
-        ----------
-        probe_set:
-            List of (MeshInput, probe_vector) pairs. For PoC, generate
-            random probes.
-        output_path:
-            Path for reward log JSONL.
-
-        Returns reward history.
-        """
+    ) -> list[dict[str, Any]]:
         if device is None:
             device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
@@ -190,7 +179,7 @@ class MicroGRPOTrainer:
             # Policy gradient (simplified for PoC)
             pg_loss = -(advantages[: len(candidates)] * self._policy_params[: len(candidates)])
             pg_loss = pg_loss.sum() * 0.01
-            pg_loss.backward()
+            pg_loss.backward()  # type: ignore[no-untyped-call]
             optimizer.step()
             optimizer.zero_grad()
 
@@ -231,9 +220,9 @@ class MicroGRPOTrainer:
 
 
 def compute_start_vs_end_reward(
-    reward_history: list[dict],
+    reward_history: list[dict[str, Any]],
     window: int = 100,
-) -> dict:
+) -> dict[str, Any]:
     """Compare mean reward in first window vs last window episodes."""
     if len(reward_history) < window * 2:
         return {"note": "not enough episodes", "rising": None}
