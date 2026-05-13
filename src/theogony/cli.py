@@ -76,13 +76,13 @@ from theogony.extraction.wikidata_client import WikidataClient
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.oneiros import OneirosWorker
 from theogony.memory.relevance import RelevanceTracker
+from theogony.mesh.cli import mesh_app
 from theogony.reporting.writer import RUN_REPORT_TYPE_SUBDIRS, RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.pipeline import QueryPipeline
 from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
 from theogony.retrieval.synthesizer_factory import build_synthesizer
 from theogony.stores.memory import InMemoryKnowledgeStore
-from theogony.mesh.cli import mesh_app
 
 if TYPE_CHECKING:
     from theogony.acquisition.base import RawContent
