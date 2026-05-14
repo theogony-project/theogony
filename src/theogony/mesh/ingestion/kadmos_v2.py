@@ -1,7 +1,7 @@
-"""MESH ingestion pipeline — Kadmos v2 writes into the new substrate (Step S2).
+"""MESH ingestion pipeline (Step S2).
 
-Takes raw text + entity metadata, emits ``ChunkNode`` s, reference ``Edge`` s,
-and eager-linked Tier-1 nodes into the new MESH substrate.
+Takes raw text + provenance metadata, emits ``ChunkNode`` s and reference
+``Edge`` s into the new substrate.
 """
 
 from __future__ import annotations
@@ -11,23 +11,20 @@ from typing import Any
 
 from ulid import ULID
 
+from theogony.config.logging import get_logger
 from theogony.mesh.ingestion.linker import EagerLinker
 from theogony.mesh.ingestion.source_anchor import build_source_anchor_description
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.schemas import ChunkNode, ConsolidatedNode, Edge, SourceProvenance
 
+log = get_logger("mesh.ingestion")
+
 
 class MeshIngestionPipeline:
-    """Text + entity metadata → MESH substrate.
+    """Text + provenance → MESH substrate.
 
-    In S2 this pipeline:
-    1. Splits text into sentence chunks.
-    2. Embeds each sentence as a ``ChunkNode``.
-    3. Creates a ``SourceProvenance`` on each chunk.
-    4. Creates/retrieves the source-anchor entity.
-    5. For each chunk, runs the eager linker on any **entity references**
-       present in the input data (Q-ID, description, tag).
-    6. Writes edges (chunk → source-anchor, chunk → entity).
+    Splits text into sentence chunks, embeds each, creates source-anchor
+    entity, runs eager linker on NER-like entity references, writes edges.
     """
 
     def __init__(
@@ -38,8 +35,8 @@ class MeshIngestionPipeline:
         frame_dim: int | None = None,
     ) -> None:
         self.mesh = mesh
-        self.semantic_dim = semantic_dim or mesh.semantic_dim
-        self.frame_dim = frame_dim or mesh.frame_dim
+        self.semantic_dim = mesh.semantic_dim if semantic_dim is None else semantic_dim
+        self.frame_dim = mesh.frame_dim if frame_dim is None else frame_dim
         self.linker = EagerLinker(
             mesh.nodes, frame_dim=self.frame_dim, semantic_dim=self.semantic_dim
         )
@@ -48,28 +45,23 @@ class MeshIngestionPipeline:
         self,
         *,
         text: str,
-        entities: list[dict[str, Any]] | None = None,
+        entities: list[list[dict[str, Any]]] | None = None,
         source_type: str = "text",
         source_identifier: str = "inline",
         title: str = "Untitled",
         anchor: str = "",
     ) -> dict[str, Any]:
-        """Run the ingestion pipeline for a text with optional entity references.
+        """Run ingestion for a block of text with optional entity references.
 
-        *entities* is a list parallel to sentences (by index) or a flat list of
-        all entity references. Each entry supports:
+        *entities* is a list parallel to sentences (by index), each entry a
+        list of entity-reference dicts with ``qids``, ``label``, ``tags``,
+        ``semantic_vector``.
 
-            ``qids``: list[dict] with keys ``qid``, ``confidence``, ``attached_at``
-            ``label``: str
-            ``tags``: list[str]
-            ``semantic_vector``: list[float] | None (auto-generated if missing)
-            ``description_vector``: list[float] | None
-
-        Returns a structured summary.
+        Returns summary dict with counts.
         """
         now = datetime.now(UTC)
 
-        # 1. Create or retrieve source-anchor entity.
+        # 1. Source-anchor entity
         sa_node = ConsolidatedNode(
             id=ULID(),
             born_at=now,
@@ -88,19 +80,18 @@ class MeshIngestionPipeline:
         )
         self.mesh.nodes.append_consolidated(sa_node)
 
-        # 2. Split text into sentences.
-        raw_sentences = _split_sentences(text)
+        # 2. Split text into sentence-like units
+        sentences = _split_sentences(text)
         chunk_count = 0
         edge_count = 0
 
-        for i, raw in enumerate(raw_sentences):
+        for i, raw in enumerate(sentences):
             s = raw.strip()
             if not s:
                 continue
 
-            # Embed this sentence.
             sem_vec = _mock_vec(s, self.semantic_dim)
-            frm_vec = _mock_vec(s, self.frame_dim)
+            frm_vec = [0.0] * self.frame_dim
 
             src = SourceProvenance(
                 source_type=source_type,
@@ -134,16 +125,17 @@ class MeshIngestionPipeline:
             )
             edge_count += 1
 
-            # 3. Run eager linker on entity references that belong to this chunk.
+            # 3. Eager link entity references for this chunk
             if entities and i < len(entities) and entities[i]:
-                ref_results = self.linker.link_chunk_entities(chunk_entities=entities[i])
+                ref_results = self.linker.link_chunk_entities(
+                    chunk_entities=entities[i]
+                )
                 for ref in ref_results:
-                    target_id = ref["node_id"]
                     self.mesh.edges.append_edge(
                         Edge(
                             source_id=chunk.id,
-                            target_id=target_id,
-                            weight=1.0,
+                            target_id=ref["node_id"],
+                            weight=0.8,
                             born_at=now,
                             last_fired_at=now,
                             relation_kind="co_occurrence",
@@ -161,11 +153,8 @@ class MeshIngestionPipeline:
         }
 
 
-# ---- Internal helpers ----
-
-
 def _split_sentences(text: str) -> list[str]:
-    """Simple sentence splitter — production should use spaCy sentencizer."""
+    """Simple sentence splitter — production uses Sentencizer (spaCy)."""
     import re
 
     parts = re.split(r"(?<=[.!?])\s+", text)

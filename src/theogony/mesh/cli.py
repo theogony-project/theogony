@@ -51,23 +51,57 @@ def mesh_status(
 
 @mesh_app.command("ingest")
 def mesh_ingest(
-    sentences: str = typer.Argument(..., help="Comma-separated list of sentences."),
-    source_type: str = typer.Option("text", "--source-type", help="Source type label."),
-    source_id: str = typer.Option("inline", "--source-id", help="Source identifier."),
-    title: str = typer.Option("Untitled", "--title", help="Source title."),
-    anchor: str = typer.Option("", "--anchor", help="Source anchor (URL, ISBN, etc.)."),
+    book_id: str = typer.Argument(..., help="Project Gutenberg book id (e.g. 43497)."),
+    sentence_count: int = typer.Option(
+        0, "--sentences", "-n", help="Max sentences to ingest (0 = all)."
+    ),
     mesh_root: Path | None = MESH_ROOT,
 ) -> None:
-    """Ingest sentences into the MESH substrate (Step S2)."""
+    """Ingest a Gutenberg book into the MESH substrate (Step S2).
+
+    This command fetches the book via Gutendex API, extracts ~sentence_count
+    sentences, and writes them as ChunkNodes into the mesh.
+    """
+    import httpx
+
     settings = Settings()
     root = mesh_root.resolve() if mesh_root is not None else _default_root(settings)
+
+    # Fetch book metadata
+    api_url = f"https://gutendex.com/books/{book_id}"
+    r = httpx.get(api_url, timeout=15, follow_redirects=True)
+    r.raise_for_status()
+    meta = r.json()
+    book_title = meta.get("title", f"Project Gutenberg Book {book_id}")
+    formats = meta.get("formats", {})
+    text_url = (
+        formats.get("text/plain; charset=utf-8")
+        or formats.get("text/plain")
+        or formats.get("text/plain; charset=us-ascii")
+        or next((v for k, v in formats.items() if "text/plain" in k), None)
+    )
+    if not text_url:
+        _console.print("[red]No plain-text format for this book[/red]")
+        raise typer.Exit(1)
+
+    cr = httpx.get(str(text_url), timeout=90, follow_redirects=True)
+    cr.raise_for_status()
+    text = cr.text
+
+    # Truncate to sentence_count sentences
+    if sentence_count > 0:
+        import re
+
+        parts = re.split(r"(?<=[.!?])\s+", text)
+        text = " ".join(parts[:sentence_count])
+
     rt = MeshRuntime.open(root)
     pipeline = MeshIngestionPipeline(rt)
-    result = pipeline.ingest_sentences(
-        sentences=[s.strip() for s in sentences.split(",") if s.strip()],
-        source_type=source_type,
-        source_identifier=source_id,
-        title=title,
-        anchor=anchor,
+    result = pipeline.ingest(
+        text=text,
+        source_type="gutenberg",
+        source_identifier=f"gutenberg_{book_id}",
+        title=book_title,
+        anchor=f"https://www.gutenberg.org/ebooks/{book_id}",
     )
     _console.print(Panel.fit(json.dumps(result, indent=2), title="mesh ingest result"))
