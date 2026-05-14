@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -9,8 +10,9 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
+from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
-from theogony.mesh.ingestion.kadmos_v2 import MeshIngestionPipeline
+from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 
 mesh_app = typer.Typer(
@@ -51,23 +53,25 @@ def mesh_status(
 
 @mesh_app.command("ingest")
 def mesh_ingest(
-    sentences: str = typer.Argument(..., help="Comma-separated list of sentences."),
-    source_type: str = typer.Option("text", "--source-type", help="Source type label."),
-    source_id: str = typer.Option("inline", "--source-id", help="Source identifier."),
-    title: str = typer.Option("Untitled", "--title", help="Source title."),
-    anchor: str = typer.Option("", "--anchor", help="Source anchor (URL, ISBN, etc.)."),
+    book_id: str = typer.Argument(..., help="Project Gutenberg book id (e.g. 43497)."),
+    paragraphs: int = typer.Option(
+        0,
+        "--paragraphs",
+        "-p",
+        help="Number of paragraphs to read (0 = all).",
+    ),
     mesh_root: Path | None = MESH_ROOT,
 ) -> None:
-    """Ingest sentences into the MESH substrate (Step S2)."""
+    """Read a Gutenberg book paragraph by paragraph — extracts concepts,
+    named relations, and syntheses via LLM and writes them directly into
+    the MESH substrate as a fully connected knowledge network.
+    """
     settings = Settings()
     root = mesh_root.resolve() if mesh_root is not None else _default_root(settings)
     rt = MeshRuntime.open(root)
-    pipeline = MeshIngestionPipeline(rt)
-    result = pipeline.ingest_sentences(
-        sentences=[s.strip() for s in sentences.split(",") if s.strip()],
-        source_type=source_type,
-        source_identifier=source_id,
-        title=title,
-        anchor=anchor,
-    )
+    llm = build_llm_from_settings(settings)
+    reader = MeshParagraphReader(rt, llm=llm, max_paragraphs=paragraphs if paragraphs > 0 else 0)
+
+    result = asyncio.run(reader.read_book(book_id))
+
     _console.print(Panel.fit(json.dumps(result, indent=2), title="mesh ingest result"))

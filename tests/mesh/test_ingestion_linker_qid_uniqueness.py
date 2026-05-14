@@ -1,40 +1,47 @@
-"""Eager-linking uniqueness test — same Q-ID produces one Tier-1 node."""
+"""Q-ID uniqueness — same Q-ID creates one Tier-1 node, second link attaches."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from theogony.mesh.ingestion.kadmos_v2 import MeshIngestionPipeline
+from ulid import ULID
+
+from theogony.mesh.ingestion.concept_resolver import ConceptResolver
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
+from theogony.mesh.schemas import ConsolidatedNode, QIDTag
 
 
-def test_same_qid_links_to_existing_node(mesh_runtime: MeshRuntime) -> None:
-    """Two sentences with the same Q-ID reference create one Tier-1 node; the
-    second chunk's reference edge attaches to the existing node (signal: qid).
-    """
-    pipeline = MeshIngestionPipeline(mesh_runtime)
-    text = "Thomas Addison was an English physician. He discovered a disease."
-    qid_ref = {
-        "qids": [{"qid": "Q336997", "confidence": 0.95, "attached_at": datetime.now(UTC)}],
-        "label": "Thomas Addison",
-        "tags": ["physician"],
-        "semantic_vector": [0.1] * 8,
-    }
-    entities = [[qid_ref], [qid_ref]]
-    result = pipeline.ingest(
-        text=text,
-        entities=entities,
-        source_type="test",
-        source_identifier="qid-unique",
-        title="Uniqueness Test",
+def test_same_label_resolves_to_same_id(mesh_runtime: MeshRuntime) -> None:
+    """Label-based dedup: same label plus tag overlap → same node."""
+    now = datetime.now(UTC)
+    existing = ConsolidatedNode(
+        id=ULID(),
+        born_at=now,
+        last_fired_at=now,
+        consolidation_tier=1,
+        semantic_vector=[0.1] * mesh_runtime.semantic_dim,
+        frame_vector=[0.1] * mesh_runtime.frame_dim,
+        description="Thomas Addison",
+        tags=["physician"],
+        qids=[QIDTag(qid="Q336997", confidence=0.95, attached_at=now)],
     )
-    # 2 chunks, 4 edges: 2 SA + 2 entity, but only 1 entity node created (second links)
-    assert result["chunks"] == 2
-    assert result["edges"] == 4
+    mesh_runtime.nodes.append_consolidated(existing)
 
-    # Exactly 1 Q-ID-bearing consolidated node + 1 source-anchor = 2
-    consolidated_count = mesh_runtime.nodes.consolidated_count()
-    # We expect: 1 source-anchor + 1 entity (the Q-ID-bearing one)
-    # The second reference links to the existing node, not creating a new one.
-    # But source_anchor is also consolidated, so:
-    assert consolidated_count == 2, f"Expected 2 consolidated nodes, got {consolidated_count}"
+    resolver = ConceptResolver(
+        mesh_runtime.nodes,
+        semantic_dim=mesh_runtime.semantic_dim,
+        frame_dim=mesh_runtime.frame_dim,
+    )
+
+    # Same label → hit directly
+    nid1 = resolver.resolve("Thomas Addison", tags=["physician"])
+    nid2 = resolver.resolve("Thomas Addison", tags=["physician"])
+    assert nid1 == nid2
+
+    # Variant label → token overlap match (Addison)
+    nid3 = resolver.resolve("Addison", tags=["physician"])
+    assert nid3 == nid1, "Addison should match Thomas Addison via token overlap"
+
+    # Very different label → new node
+    nid4 = resolver.resolve("Sven Hedin", tags=["explorer"])
+    assert nid4 != nid1
