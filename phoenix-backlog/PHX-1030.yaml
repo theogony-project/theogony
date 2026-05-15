@@ -84,8 +84,41 @@ description: >
   - pytest -q tests/mesh green; pytest -q green (no regression).
   - Q-ID uniqueness invariant holds.
 
+  Smoke-1 result (2026-05-15) — PASS:
+  - Seed: 1000 entities streamed, 1000 entities upserted, 0 duplicates,
+    10 entities_missing_text (1%), 2 inter-slice edges upserted,
+    0 loader_malformed_lines, MeshSeedRunReport written
+    (data/run_reports/mesh_seed/01KRMZX2TNYZX1M65XN901Y6AV.json,
+    verdict=good).
+  - Handoff: `theogony mesh ingest` against the operator-aligned embedder
+    config (THEOGONY_EMBEDDING__MODEL_ID=BAAI/bge-m3,
+    THEOGONY_EMBEDDING__DIM=1024) and the new
+    tests/mesh/seeds/fixtures/paragraph_smoke1_handoff.txt fixture
+    (Q947890 / Renan Barao, picked from the real 1000-entity slice via
+    the deterministic _build_handoff_fixture.py helper) produced
+    tier_counts = {"4": 1, "1": 4} — one signal-1 (Q-ID) match against
+    the seeded Tier-1 node, plus four expected emergent candidates for
+    concepts outside the seeded slice.
+  - Operator note: the Kadmos ingest path defaults to bge-small-en-v1.5
+    at 384-d via Settings.embedding; without the BAAI/bge-m3 +
+    THEOGONY_EMBEDDING__DIM=1024 override, MeshTextVectorizer silently
+    falls back to deterministic hash-projection, which makes Tier-2 and
+    Tier-3 linking structurally unable to match seeded nodes (only the
+    vectorless Tier-4 QID path survives). Tracked as PHX-1031 (mesh
+    ingest --embedder CLI flag).
+  - Performance: 476s for 1000 bge-m3 embeddings (~0.48s/entity). MPS-vs-CPU
+    not provable from the run logs; tracked as PHX-1032
+    (device-info logging in MESH embedders).
+  - Smoke-2..N (10k, 100k, 500k, 4.81M entities) remain pending; status
+    stays `open` until at least Smoke-2 (PHX-1033) has been run.
+
 resolution: ""
 linked_prs:
   - "https://github.com/theogony-project/theogony/pull/156"  # doctrine clarification (no raw text)
   - "https://github.com/theogony-project/theogony/pull/157"  # S2.5 step in migration plan
-linked_runreports: []
+  - "https://github.com/theogony-project/theogony/pull/160"  # implementation brief for Talos
+  - "https://github.com/theogony-project/theogony/pull/161"  # S2.5 prep — lazy lookups + Lance indexes + bulk methods
+  - "https://github.com/theogony-project/theogony/pull/162"  # S2.5 Smoke-1 PASS — wikidata5m bulk seed importer
+linked_runreports:
+  - "data/run_reports/mesh_seed/01KRMZX2TNYZX1M65XN901Y6AV.json"  # Smoke-1 seed
+  - "data/run_reports/ingest/01KRMZXZBY104KTPTFTG3XY9CJ.json"     # Smoke-1 handoff (initial — wrong fixture, Q336997 not in slice)
