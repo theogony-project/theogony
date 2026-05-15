@@ -245,24 +245,23 @@ class EdgeStore:
         else:
             self.meta_table = db.create_table("edge_metadata", schema=_METADATA_SCHEMA)
 
-    def append_edge(self, edge: Edge) -> None:
-        """Write one edge to the quantitative table + optionally metadata."""
-        self.edge_table.add(
-            [
-                {
-                    "source_id": str(edge.source_id),
-                    "target_id": str(edge.target_id),
-                    "weight": float(edge.weight),
-                    "decay_tier": int(edge.decay_tier),
-                    "frame_consistency": float(edge.frame_consistency),
-                    "eligibility": float(edge.eligibility),
-                    "feedback_modulated_strength": float(edge.feedback_modulated_strength),
-                    "born_at": edge.born_at,
-                    "last_fired_at": edge.last_fired_at,
-                    "payload_json": edge.model_dump_json(),
-                }
-            ]
-        )
+    @staticmethod
+    def _edge_row(edge: Edge) -> dict[str, Any]:
+        return {
+            "source_id": str(edge.source_id),
+            "target_id": str(edge.target_id),
+            "weight": float(edge.weight),
+            "decay_tier": int(edge.decay_tier),
+            "frame_consistency": float(edge.frame_consistency),
+            "eligibility": float(edge.eligibility),
+            "feedback_modulated_strength": float(edge.feedback_modulated_strength),
+            "born_at": edge.born_at,
+            "last_fired_at": edge.last_fired_at,
+            "payload_json": edge.model_dump_json(),
+        }
+
+    @staticmethod
+    def _metadata_row(edge: Edge) -> dict[str, Any] | None:
         meta = EdgeMetadata(
             source_id=edge.source_id,
             target_id=edge.target_id,
@@ -272,7 +271,7 @@ class EdgeStore:
             pids=edge.pids,
             creation_context=edge.creation_context,
         )
-        if any(
+        if not any(
             [
                 meta.relation_descriptor,
                 meta.relation_kind,
@@ -281,15 +280,19 @@ class EdgeStore:
                 meta.creation_context,
             ]
         ):
-            self.meta_table.add(
-                [
-                    {
-                        "source_id": str(meta.source_id),
-                        "target_id": str(meta.target_id),
-                        "payload_json": meta.model_dump_json(),
-                    }
-                ]
-            )
+            return None
+        return {
+            "source_id": str(meta.source_id),
+            "target_id": str(meta.target_id),
+            "payload_json": meta.model_dump_json(),
+        }
+
+    def append_edge(self, edge: Edge) -> None:
+        """Write one edge to the quantitative table + optionally metadata."""
+        self.edge_table.add([self._edge_row(edge)])
+        meta_row = self._metadata_row(edge)
+        if meta_row is not None:
+            self.meta_table.add([meta_row])
 
     def load_all_edges(self) -> list[Edge]:
         arrow = self.edge_table.search().to_arrow()
@@ -299,27 +302,15 @@ class EdgeStore:
         return out
 
     def replace_all_edges(self, edges: list[Edge]) -> None:
-        """Atomically replace the quantitative table (Oneiros commit)."""
+        """Atomically replace the quantitative and metadata tables (Oneiros commit)."""
         self.edge_table.delete("true")
+        self.meta_table.delete("true")
         if not edges:
             return
-        batch = []
-        for e in edges:
-            batch.append(
-                {
-                    "source_id": str(e.source_id),
-                    "target_id": str(e.target_id),
-                    "weight": float(e.weight),
-                    "decay_tier": int(e.decay_tier),
-                    "frame_consistency": float(e.frame_consistency),
-                    "eligibility": float(e.eligibility),
-                    "feedback_modulated_strength": float(e.feedback_modulated_strength),
-                    "born_at": e.born_at,
-                    "last_fired_at": e.last_fired_at,
-                    "payload_json": e.model_dump_json(),
-                }
-            )
-        self.edge_table.add(batch)
+        self.edge_table.add([self._edge_row(edge) for edge in edges])
+        meta_rows = [row for edge in edges if (row := self._metadata_row(edge)) is not None]
+        if meta_rows:
+            self.meta_table.add(meta_rows)
 
     def count_rows(self) -> int:
         return int(self.edge_table.count_rows())

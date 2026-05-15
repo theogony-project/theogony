@@ -53,25 +53,60 @@ def mesh_status(
 
 @mesh_app.command("ingest")
 def mesh_ingest(
-    book_id: str = typer.Argument(..., help="Project Gutenberg book id (e.g. 43497)."),
+    source: str = typer.Argument(..., help="Project Gutenberg book id or local text file path."),
     paragraphs: int = typer.Option(
         0,
         "--paragraphs",
         "-p",
         help="Number of paragraphs to read (0 = all).",
     ),
+    text_file: bool = typer.Option(
+        False,
+        "--text-file",
+        help="Treat source as a local text file path instead of a Gutenberg id.",
+    ),
+    source_type: str = typer.Option(
+        "text",
+        "--source-type",
+        help="Source type label used when ingesting a local text file.",
+    ),
+    title: str | None = typer.Option(
+        None,
+        "--title",
+        help="Override title for local text ingestion.",
+    ),
+    anchor: str | None = typer.Option(
+        None,
+        "--anchor",
+        help="Override anchor for local text ingestion.",
+    ),
     mesh_root: Path | None = MESH_ROOT,
 ) -> None:
-    """Read a Gutenberg book paragraph by paragraph — extracts concepts,
-    named relations, and syntheses via LLM and writes them directly into
-    the MESH substrate as a fully connected knowledge network.
-    """
+    """Read a source into the MESH substrate with dense paragraph topology."""
     settings = Settings()
     root = mesh_root.resolve() if mesh_root is not None else _default_root(settings)
     rt = MeshRuntime.open(root)
     llm = build_llm_from_settings(settings)
-    reader = MeshParagraphReader(rt, llm=llm, max_paragraphs=paragraphs if paragraphs > 0 else 0)
+    reader = MeshParagraphReader(
+        rt,
+        llm=llm,
+        max_paragraphs=paragraphs if paragraphs > 0 else 0,
+        settings=settings,
+    )
 
-    result = asyncio.run(reader.read_book(book_id))
+    if text_file:
+        path = Path(source).resolve()
+        raw_text = path.read_text(encoding="utf-8")
+        result = asyncio.run(
+            reader.read_text(
+                text=raw_text,
+                source_type=source_type,
+                source_identifier=str(path),
+                title=title or path.stem,
+                anchor=anchor or str(path),
+            )
+        )
+    else:
+        result = asyncio.run(reader.read_book(source))
 
     _console.print(Panel.fit(json.dumps(result, indent=2), title="mesh ingest result"))

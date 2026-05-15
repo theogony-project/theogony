@@ -1,20 +1,11 @@
-"""Entity registry — deduplicates concepts by label across paragraphs.
-
-Per MESH_SUBSTRATE.md §"Why two tiers — and how identity actually gets committed":
-the same real-world entity should map to exactly one Tier-1 node, regardless
-of how many paragraphs mention it.  This module provides a case-insensitive
-label → node_id mapping that holds across a single ingestion run.
-"""
+"""Bootstrap cache for eager-linking over existing consolidated nodes."""
 
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
-from typing import Any
+from dataclasses import dataclass, field
 
-from ulid import ULID
-
-from theogony.mesh.schemas import ConsolidatedNode
+from theogony.mesh.schemas import ConsolidatedNode, QIDTag
 from theogony.mesh.storage.nodes import MeshNodeStore
 
 _STOP_WORDS = frozenset(
@@ -23,141 +14,100 @@ _STOP_WORDS = frozenset(
 
 
 def _normalize(label: str) -> str:
-    """Lowercase, strip possessives and punctuation."""
     raw = label.lower().strip()
-    # Strip possessive 's
     raw = re.sub(r"'s\b", "", raw)
-    # Remove punctuation
     raw = re.sub(r"[^a-z0-9\s]", "", raw)
     return raw.strip()
 
 
 def _tokens(label: str) -> set[str]:
-    """Return significant tokens for matching."""
     return {t for t in _normalize(label).split() if t not in _STOP_WORDS and len(t) > 1}
 
 
+@dataclass
+class CachedConcept:
+    node: ConsolidatedNode
+    labels: set[str] = field(default_factory=set)
+    qids: set[str] = field(default_factory=set)
+
+
 class ConceptResolver:
-    """Label-based entity registry that persists new entities to the mesh.
+    """In-memory cache of consolidated-node aliases and Q-IDs for one ingest run."""
 
-    Usage::
-
-        resolver = ConceptResolver(mesh.nodes, semantic_dim=384, frame_dim=64)
-        node_id = resolver.resolve("Tibet", tags=["gpe"])
-        # same call again → same node_id; no second node created.
-    """
-
-    def __init__(
-        self,
-        node_store: MeshNodeStore,
-        *,
-        semantic_dim: int,
-        frame_dim: int,
-    ) -> None:
+    def __init__(self, node_store: MeshNodeStore) -> None:
         self._store = node_store
-        self._semantic_dim = semantic_dim
-        self._frame_dim = frame_dim
-        # In-memory registry: normalised label → node_id
-        self._registry: dict[str, str] = {}
-        # Boot: scan existing consolidated nodes
+        self._nodes_by_id: dict[str, CachedConcept] = {}
+        self._label_to_id: dict[str, str] = {}
+        self._qid_to_id: dict[str, str] = {}
         self._bootstrap()
 
     def _bootstrap(self) -> None:
-        """Pre-populate registry from already-stored consolidated nodes."""
         try:
-            rows = self._store.consolidated_table.search().limit(10_000).to_arrow().to_pylist()
-            for r in rows:
-                payload = ConsolidatedNode.model_validate_json(r["payload_json"])
-                if payload.description:
-                    key = payload.description.lower().strip()
-                    if key not in self._registry:
-                        self._registry[key] = str(payload.id)
-                    for tag in payload.tags:
-                        tag_key = tag.lower().strip()
-                        if tag_key not in self._registry:
-                            self._registry[tag_key] = str(payload.id)
-        except Exception:  # noqa: BLE001  — table might be empty; that is fine
+            for node in self._store.load_all_consolidated():
+                self.remember(node)
+        except Exception:  # noqa: BLE001
             pass
 
-    def resolve(
+    def remember(
         self,
-        label: str,
+        node: ConsolidatedNode,
         *,
-        tags: list[str] | None = None,
-        entity_type: str = "concept",
-    ) -> str:
-        """Return the node id for *label* — with token-based fuzzy matching.
+        aliases: list[str] | None = None,
+        qids: list[QIDTag] | None = None,
+    ) -> None:
+        node_id = str(node.id)
+        cached = self._nodes_by_id.get(node_id)
+        if cached is None:
+            cached = CachedConcept(node=node)
+            self._nodes_by_id[node_id] = cached
+        else:
+            cached.node = node
 
-        Matches by:
-        1. Exact label match (case-insensitive)
-        2. Token overlap — if all words in the label appear in an existing
-           description (or vice versa), they are the same entity.
-        3. Tag match fallback.
+        alias_values = list(aliases or [])
+        if node.description:
+            alias_values.append(node.description)
+        alias_values.extend(node.tags)
 
-        If nothing matches, create a new entity candidate.
-        """
-        key = _normalize(label)
-        if not key:
-            return ""
+        for alias in alias_values:
+            norm = _normalize(alias)
+            if not norm:
+                continue
+            cached.labels.add(norm)
+            self._label_to_id.setdefault(norm, node_id)
 
-        # Direct hit
-        if key in self._registry:
-            return self._registry[key]
+        qid_values = list(qids or []) + list(node.qids)
+        for qid_tag in qid_values:
+            cached.qids.add(qid_tag.qid)
+            self._qid_to_id.setdefault(qid_tag.qid, node_id)
 
-        # Token overlap: any common significant token = match
-        # (LLM labels vary in wording but "Hedin" in any form is the same person)
-        key_tokens = _tokens(label)
-        for reg_key, reg_id in list(self._registry.items()):
-            reg_tokens = _tokens(reg_key)
-            if len(reg_tokens) > 6 or len(key_tokens) > 6:
-                continue  # skip synthesis-length descriptors
-            common = key_tokens & reg_tokens
-            if common:
-                self._registry[key] = reg_id
-                return reg_id
+    def get_by_id(self, node_id: str) -> ConsolidatedNode | None:
+        cached = self._nodes_by_id.get(node_id)
+        return cached.node if cached is not None else None
 
-        # Tag hit
-        if tags:
-            for t in tags:
-                tkey = t.lower().strip()
-                if tkey in self._registry:
-                    self._registry[key] = self._registry[tkey]
-                    return self._registry[tkey]
+    def get_by_label(self, label: str) -> ConsolidatedNode | None:
+        node_id = self._label_to_id.get(_normalize(label))
+        return self.get_by_id(node_id) if node_id is not None else None
 
-        # Miss — create a new entity candidate
-        now = datetime.now(UTC)
-        node = ConsolidatedNode(
-            id=ULID(),
-            born_at=now,
-            last_fired_at=now,
-            consolidation_tier=1,
-            is_candidate=True,
-            semantic_vector=[0.0] * self._semantic_dim,
-            frame_vector=[0.0] * self._frame_dim,
-            description=label,
-            tags=tags or [entity_type.lower()],
-        )
-        self._store.append_consolidated(node)
-        nid = str(node.id)
-        self._registry[key] = nid
-        return nid
+    def get_by_qid(self, qid: str) -> ConsolidatedNode | None:
+        node_id = self._qid_to_id.get(qid)
+        return self.get_by_id(node_id) if node_id is not None else None
 
-    def resolve_bulk(
-        self,
-        concepts: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
-        """Resolve multiple concept references and return augmented entries.
+    def iter_nodes(self) -> list[ConsolidatedNode]:
+        return [cached.node for cached in self._nodes_by_id.values()]
 
-        Each input dict may have ``label``, ``tags``, ``entity_type``, and
-        optional ``description``.  Each output dict adds an ``id`` field.
-        """
-        results: list[dict[str, Any]] = []
-        for c in concepts:
-            label = str(c.get("label", ""))
-            tags = list(c.get("tags", []))
-            etype = str(c.get("entity_type", "concept"))
-            nid = self.resolve(label, tags=tags, entity_type=etype)
-            out = dict(c)
-            out["id"] = nid
-            results.append(out)
-        return results
+    def known_labels(self, node_id: str) -> set[str]:
+        cached = self._nodes_by_id.get(node_id)
+        return set(cached.labels) if cached is not None else set()
+
+    def score_token_overlap(self, label: str, node: ConsolidatedNode) -> float:
+        query_tokens = _tokens(label)
+        if not query_tokens:
+            return 0.0
+        best = 0.0
+        for alias in self.known_labels(str(node.id)):
+            alias_tokens = _tokens(alias)
+            if not alias_tokens:
+                continue
+            overlap = len(query_tokens & alias_tokens) / max(len(query_tokens), len(alias_tokens))
+            best = max(best, overlap)
+        return best

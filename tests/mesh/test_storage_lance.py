@@ -39,9 +39,13 @@ def test_append_and_fetch_consolidated(mesh_runtime: MeshRuntime) -> None:
         semantic_vector=[0.1] * 8,
         frame_vector=[0.2] * 4,
         description="test consolidated",
+        description_vector=[0.3] * 8,
     )
     mesh_runtime.nodes.append_consolidated(n)
     assert mesh_runtime.nodes.consolidated_count() >= 1
+    restored = mesh_runtime.nodes.get_consolidated(str(n.id))
+    assert restored is not None
+    assert restored.description_vector == [0.3] * 8
 
 
 def test_edge_csr_from_store(mesh_runtime: MeshRuntime) -> None:
@@ -72,3 +76,26 @@ def test_version_checkout(mesh_runtime: MeshRuntime) -> None:
     assert tbl.count_rows() == 1
     tbl.checkout_latest()
     assert tbl.count_rows() == 2
+
+
+def test_tick_resyncs_edge_metadata(mesh_runtime: MeshRuntime) -> None:
+    now = datetime.now(UTC)
+    source_id = ULID()
+    for descriptor in ("mentions", "co_mentions_in_paragraph"):
+        mesh_runtime.edges.append_edge(
+            Edge(
+                source_id=source_id,
+                target_id=ULID(),
+                weight=1.0,
+                born_at=now,
+                last_fired_at=now,
+                relation_descriptor=descriptor,
+                relation_kind="co_occurrence",
+                creation_context="test",
+            )
+        )
+
+    mesh_runtime.run_minimal_tick(lam=0.0, dt=1.0, max_out_degree=1, w_max=1.0)
+
+    assert mesh_runtime.edges.edge_table.count_rows() == 1
+    assert mesh_runtime.edges.meta_table.count_rows() == 1
