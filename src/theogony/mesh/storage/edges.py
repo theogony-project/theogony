@@ -322,16 +322,8 @@ class EdgeStore:
         return int(self.edge_table.count_rows())
 
     def neighbor_ids(self, node_id: str) -> set[str]:
-        outgoing = (
-            self.edge_table.search()
-            .where(f'source_id = "{node_id}"')
-            .to_list()
-        )
-        incoming = (
-            self.edge_table.search()
-            .where(f'target_id = "{node_id}"')
-            .to_list()
-        )
+        outgoing = self.edge_table.search().where(f'source_id = "{node_id}"').to_list()
+        incoming = self.edge_table.search().where(f'target_id = "{node_id}"').to_list()
         neighbours = {str(row["target_id"]) for row in outgoing}
         neighbours.update(str(row["source_id"]) for row in incoming)
         return neighbours
