@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -9,8 +10,9 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
+from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
-from theogony.mesh.ingestion.kadmos_v2 import MeshIngestionPipeline
+from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 
 mesh_app = typer.Typer(
@@ -51,23 +53,60 @@ def mesh_status(
 
 @mesh_app.command("ingest")
 def mesh_ingest(
-    sentences: str = typer.Argument(..., help="Comma-separated list of sentences."),
-    source_type: str = typer.Option("text", "--source-type", help="Source type label."),
-    source_id: str = typer.Option("inline", "--source-id", help="Source identifier."),
-    title: str = typer.Option("Untitled", "--title", help="Source title."),
-    anchor: str = typer.Option("", "--anchor", help="Source anchor (URL, ISBN, etc.)."),
+    source: str = typer.Argument(..., help="Project Gutenberg book id or local text file path."),
+    paragraphs: int = typer.Option(
+        0,
+        "--paragraphs",
+        "-p",
+        help="Number of paragraphs to read (0 = all).",
+    ),
+    text_file: bool = typer.Option(
+        False,
+        "--text-file",
+        help="Treat source as a local text file path instead of a Gutenberg id.",
+    ),
+    source_type: str = typer.Option(
+        "text",
+        "--source-type",
+        help="Source type label used when ingesting a local text file.",
+    ),
+    title: str | None = typer.Option(
+        None,
+        "--title",
+        help="Override title for local text ingestion.",
+    ),
+    anchor: str | None = typer.Option(
+        None,
+        "--anchor",
+        help="Override anchor for local text ingestion.",
+    ),
     mesh_root: Path | None = MESH_ROOT,
 ) -> None:
-    """Ingest sentences into the MESH substrate (Step S2)."""
+    """Read a source into the MESH substrate with dense paragraph topology."""
     settings = Settings()
     root = mesh_root.resolve() if mesh_root is not None else _default_root(settings)
     rt = MeshRuntime.open(root)
-    pipeline = MeshIngestionPipeline(rt)
-    result = pipeline.ingest_sentences(
-        sentences=[s.strip() for s in sentences.split(",") if s.strip()],
-        source_type=source_type,
-        source_identifier=source_id,
-        title=title,
-        anchor=anchor,
+    llm = build_llm_from_settings(settings)
+    reader = MeshParagraphReader(
+        rt,
+        llm=llm,
+        max_paragraphs=paragraphs if paragraphs > 0 else 0,
+        settings=settings,
     )
+
+    if text_file:
+        path = Path(source).resolve()
+        raw_text = path.read_text(encoding="utf-8")
+        result = asyncio.run(
+            reader.read_text(
+                text=raw_text,
+                source_type=source_type,
+                source_identifier=str(path),
+                title=title or path.stem,
+                anchor=anchor or str(path),
+            )
+        )
+    else:
+        result = asyncio.run(reader.read_book(source))
+
     _console.print(Panel.fit(json.dumps(result, indent=2), title="mesh ingest result"))

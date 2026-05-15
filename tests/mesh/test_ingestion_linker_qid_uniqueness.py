@@ -1,40 +1,52 @@
-"""Eager-linking uniqueness test — same Q-ID produces one Tier-1 node."""
+"""Q-ID uniqueness — same Q-ID creates one Tier-1 node across paragraphs."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import asyncio
+import json
 
-from theogony.mesh.ingestion.kadmos_v2 import MeshIngestionPipeline
+from theogony.agents.llm import StubLLMProvider
+from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 
 
-def test_same_qid_links_to_existing_node(mesh_runtime: MeshRuntime) -> None:
-    """Two sentences with the same Q-ID reference create one Tier-1 node; the
-    second chunk's reference edge attaches to the existing node (signal: qid).
-    """
-    pipeline = MeshIngestionPipeline(mesh_runtime)
-    text = "Thomas Addison was an English physician. He discovered a disease."
-    qid_ref = {
-        "qids": [{"qid": "Q336997", "confidence": 0.95, "attached_at": datetime.now(UTC)}],
-        "label": "Thomas Addison",
-        "tags": ["physician"],
-        "semantic_vector": [0.1] * 8,
-    }
-    entities = [[qid_ref], [qid_ref]]
-    result = pipeline.ingest(
-        text=text,
-        entities=entities,
-        source_type="test",
-        source_identifier="qid-unique",
-        title="Uniqueness Test",
+def test_same_qid_creates_one_tier1_node(mesh_runtime: MeshRuntime) -> None:
+    response = json.dumps(
+        {
+            "concepts": [
+                {
+                    "label": "Thomas Addison",
+                    "entity_type": "person",
+                    "tags": ["physician"],
+                    "description": "English physician who described Addison's disease",
+                    "qids": [{"qid": "Q336997", "confidence": 0.98}],
+                }
+            ],
+            "relations": [],
+            "paragraph_concept": None,
+        }
     )
-    # 2 chunks, 4 edges: 2 SA + 2 entity, but only 1 entity node created (second links)
-    assert result["chunks"] == 2
-    assert result["edges"] == 4
+    llm = StubLLMProvider(
+        responses={
+            "PARAGRAPH:\nThomas Addison was an English physician.": response,
+            "PARAGRAPH:\nAddison studied disease in London.": response,
+        }
+    )
+    reader = MeshParagraphReader(mesh_runtime, llm=llm, max_paragraphs=10)
 
-    # Exactly 1 Q-ID-bearing consolidated node + 1 source-anchor = 2
-    consolidated_count = mesh_runtime.nodes.consolidated_count()
-    # We expect: 1 source-anchor + 1 entity (the Q-ID-bearing one)
-    # The second reference links to the existing node, not creating a new one.
-    # But source_anchor is also consolidated, so:
-    assert consolidated_count == 2, f"Expected 2 consolidated nodes, got {consolidated_count}"
+    asyncio.run(
+        reader.read_text(
+            text=("Thomas Addison was an English physician.\n\nAddison studied disease in London."),
+            source_type="test",
+            source_identifier="qid-unique",
+            title="QID Uniqueness",
+            anchor="fixture://qid-unique",
+        )
+    )
+
+    qid_nodes = [
+        node
+        for node in mesh_runtime.nodes.load_all_consolidated()
+        if any(qid.qid == "Q336997" for qid in node.qids)
+    ]
+    assert len(qid_nodes) == 1

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from theogony.mesh.ingestion.source_anchor import (
+    build_paragraph_anchor_title,
     build_source_anchor_description,
+    build_source_anchor_node,
 )
 
 
@@ -34,3 +36,25 @@ def test_source_anchor_description_web() -> None:
         anchor="https://example.org/about",
     )
     assert desc == "Web page: Pantheon Project (https://example.org/about)"
+
+
+def test_paragraph_anchor_title() -> None:
+    assert (
+        build_paragraph_anchor_title(title="Trans-Himalaya", paragraph_number=3)
+        == "Trans-Himalaya paragraph 3"
+    )
+
+
+def test_source_anchor_node_marks_anchor() -> None:
+    node = build_source_anchor_node(
+        source_type="Book",
+        title="Trans-Himalaya",
+        anchor="gutenberg_43497",
+        semantic_vector=[0.1] * 8,
+        frame_vector=[0.2] * 4,
+        description_vector=[0.3] * 8,
+        tags=["gutenberg", "source_anchor", "text"],
+    )
+    assert node.is_source_anchor is True
+    assert node.source_url == "gutenberg_43497"
+    assert node.description_vector == [0.3] * 8

@@ -64,6 +64,8 @@ neo4j_data/
 
 # Runtime data: audit log, run reports, ingested artefacts.
 # Reports that document project state live under docs/run_reports/.
+# data/raw/ holds third-party datasets (e.g. data/raw/wikidata5m/ —
+# https://deepgraphlearning.github.io/project/wikidata5m).
 data/
 
 # MNLM PoC transient outputs.

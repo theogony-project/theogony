@@ -1,203 +1,210 @@
-"""Eager-linking pass — three-signal hierarchy for identity matching.
-
-Per MESH_SUBSTRATE.md §"Why two tiers — and how identity actually gets committed":
-
-- Signal 1: Q-ID match (strongest)
-- Signal 2: description + structural context (nearly as strong)
-- Signal 3: tag overlap + structural context (weaker, fast disambiguation)
-- Path 2: entity-candidate creation when no signal fires
-"""
+"""Three-signal eager linker for doctrine-conformant Tier-1 identity."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
 
-from theogony.mesh.schemas import ConsolidatedNode, QIDTag
+from ulid import ULID
+
+from theogony.mesh.ingestion.concept_resolver import ConceptResolver, _normalize
+from theogony.mesh.schemas import ConsolidatedNode, Edge, QIDTag
+from theogony.mesh.storage.edges import EdgeStore
 from theogony.mesh.storage.nodes import MeshNodeStore
 
 
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    """Simple cosine similarity between two vectors."""
+def _cosine_similarity(a: list[float] | None, b: list[float] | None) -> float:
+    if a is None or b is None or not a or not b:
+        return 0.0
     dot = sum(x * y for x, y in zip(a, b, strict=False))
     na = sum(x * x for x in a) ** 0.5
     nb = sum(x * x for x in b) ** 0.5
-    if na == 0 or nb == 0:
+    if na == 0.0 or nb == 0.0:
         return 0.0
-    return dot / (na * nb)
+    return float(dot / (na * nb))
 
 
-def _default_vector(dim: int) -> list[float]:
-    return [0.0] * dim
+@dataclass(frozen=True)
+class LinkDecision:
+    node: ConsolidatedNode
+    signal: str
+    is_new: bool
+    score: float
 
 
 class EagerLinker:
-    """Three-signal eager-linking pass over incoming chunks against existing Tier-1 nodes."""
+    """Q-ID, description+context, then tag+context matching."""
 
     def __init__(
         self,
         node_store: MeshNodeStore,
+        edge_store: EdgeStore,
         *,
-        frame_dim: int = 64,
-        semantic_dim: int = 384,
+        semantic_dim: int,
+        frame_dim: int,
+        registry: ConceptResolver | None = None,
     ) -> None:
         self._store = node_store
-        self._frame_dim = frame_dim
+        self._edge_store = edge_store
         self._semantic_dim = semantic_dim
+        self._frame_dim = frame_dim
+        self._registry = registry or ConceptResolver(node_store)
+        self._adjacency: dict[str, set[str]] = {}
+        self._bootstrap_adjacency()
 
-    def link_chunk_entities(
+    def _bootstrap_adjacency(self) -> None:
+        for edge in self._edge_store.load_all_edges():
+            self.remember_edge(edge)
+
+    def remember_edge(self, edge: Edge) -> None:
+        source_id = str(edge.source_id)
+        target_id = str(edge.target_id)
+        self._adjacency.setdefault(source_id, set()).add(target_id)
+        self._adjacency.setdefault(target_id, set()).add(source_id)
+
+    def _context_score(self, candidate_id: str, context_node_ids: set[str]) -> float:
+        if not context_node_ids:
+            return 0.0
+        neighbours = self._adjacency.get(candidate_id, set())
+        if not neighbours:
+            return 0.0
+        overlap = len(neighbours & context_node_ids)
+        return overlap / max(1, len(context_node_ids))
+
+    def _best_description_match(
         self,
         *,
-        chunk_entities: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
-        """For each entity reference in a chunk, return the linked Tier-1 node id or create one.
+        label: str,
+        description_vector: list[float] | None,
+        tags: list[str],
+        context_node_ids: set[str],
+    ) -> tuple[ConsolidatedNode | None, float]:
+        best_node: ConsolidatedNode | None = None
+        best_score = 0.0
+        tag_set = {tag.lower().strip() for tag in tags}
+        norm_label = _normalize(label)
 
-        Each entry in *chunk_entities* must have:
-            - ``qids``: list of QIDTag-like dicts (may be empty)
-            - ``label``: str (entity name / description for matching)
-            - ``tags``: list of str
-            - ``description_vector``: list[float] | None
-            - ``semantic_vector``: list[float] (fallback when no description_vector)
+        for candidate in self._registry.iter_nodes():
+            if candidate.is_source_anchor:
+                continue
+            desc_score = _cosine_similarity(description_vector, candidate.description_vector)
+            if desc_score <= 0.0:
+                continue
+            context_score = self._context_score(str(candidate.id), context_node_ids)
+            tag_overlap = len(tag_set & {tag.lower().strip() for tag in candidate.tags})
+            tag_score = tag_overlap / max(1, len(tag_set)) if tag_set else 0.0
+            known_labels = self._registry.known_labels(str(candidate.id))
+            label_score = 1.0 if norm_label in known_labels else 0.0
+            score = desc_score + (0.20 * context_score) + (0.08 * tag_score) + (0.05 * label_score)
+            if score > best_score:
+                best_node = candidate
+                best_score = score
 
-        Returns a list with the same cardinality. Each result dict has:
-            - ``node_id``: str (existing or freshly created Tier-1 id)
-            - ``is_new``: bool
-            - ``signal``: "qid" | "description" | "tag" | "emergent"
-        """
+        return best_node, best_score
+
+    def _best_tag_match(
+        self,
+        *,
+        label: str,
+        tags: list[str],
+        context_node_ids: set[str],
+    ) -> tuple[ConsolidatedNode | None, float]:
+        best_node: ConsolidatedNode | None = None
+        best_score = 0.0
+        tag_set = {tag.lower().strip() for tag in tags}
+
+        for candidate in self._registry.iter_nodes():
+            if candidate.is_source_anchor:
+                continue
+            candidate_tags = {tag.lower().strip() for tag in candidate.tags}
+            overlap = len(tag_set & candidate_tags)
+            if overlap <= 0:
+                continue
+            tag_score = overlap / max(len(tag_set), len(candidate_tags), 1)
+            context_score = self._context_score(str(candidate.id), context_node_ids)
+            token_score = self._registry.score_token_overlap(label, candidate)
+            score = tag_score + (0.25 * context_score) + (0.15 * token_score)
+            if score > best_score:
+                best_node = candidate
+                best_score = score
+
+        return best_node, best_score
+
+    def _create_candidate(
+        self,
+        *,
+        label: str,
+        description: str,
+        tags: list[str],
+        qids: list[QIDTag],
+        semantic_vector: list[float],
+        frame_vector: list[float],
+        description_vector: list[float] | None,
+    ) -> ConsolidatedNode:
         now = datetime.now(UTC)
-        results: list[dict[str, Any]] = []
+        node = ConsolidatedNode(
+            id=ULID(),
+            born_at=now,
+            last_fired_at=now,
+            consolidation_tier=1,
+            is_candidate=True,
+            semantic_vector=semantic_vector,
+            frame_vector=frame_vector,
+            description=description or label,
+            description_vector=description_vector,
+            tags=tags,
+            qids=qids,
+        )
+        self._store.append_consolidated(node)
+        self._registry.remember(node, aliases=[label, description], qids=qids)
+        return node
 
-        for ref in chunk_entities:
-            qids_raw = ref.get("qids", [])
-            label = str(ref.get("label", ""))
-            tags = list(ref.get("tags", []))
-            desc_v = ref.get("description_vector")
-            sem_v = ref.get("semantic_vector", _default_vector(self._semantic_dim))
+    def link_reference(
+        self,
+        *,
+        label: str,
+        description: str,
+        tags: list[str],
+        qids: list[QIDTag],
+        semantic_vector: list[float],
+        frame_vector: list[float],
+        description_vector: list[float] | None,
+        context_node_ids: set[str] | None = None,
+    ) -> LinkDecision:
+        context_ids = set(context_node_ids or set())
 
-            # Signal 1: Q-ID match
-            matched_signal: str | None = None
-            matched_node_id: str | None = None
+        for qid_tag in qids:
+            node = self._registry.get_by_qid(qid_tag.qid)
+            if node is not None:
+                self._registry.remember(node, aliases=[label, description], qids=qids)
+                return LinkDecision(node=node, signal="qid", is_new=False, score=1.0)
 
-            for qr in qids_raw:
-                qid = qr.get("qid", "") if isinstance(qr, dict) else str(qr)
-                if not qid:
-                    continue
-                # Scan existing consolidated nodes for a matching Q-ID.
-                existing = self._find_by_qid(qid)
-                if existing is not None:
-                    matched_signal = "qid"
-                    matched_node_id = existing
-                    break
+        matched, score = self._best_description_match(
+            label=label,
+            description_vector=description_vector,
+            tags=tags,
+            context_node_ids=context_ids,
+        )
+        if matched is not None and score >= 0.72:
+            self._registry.remember(matched, aliases=[label, description], qids=qids)
+            return LinkDecision(node=matched, signal="description", is_new=False, score=score)
 
-            if matched_node_id is not None:
-                results.append(
-                    {"node_id": matched_node_id, "is_new": False, "signal": matched_signal}
-                )
-                continue
+        matched, score = self._best_tag_match(
+            label=label,
+            tags=tags,
+            context_node_ids=context_ids,
+        )
+        if matched is not None and score >= 0.55:
+            self._registry.remember(matched, aliases=[label, description], qids=qids)
+            return LinkDecision(node=matched, signal="tag", is_new=False, score=score)
 
-            # Signal 2: description-based match
-            if desc_v is not None and any(x != 0.0 for x in desc_v):
-                candidate = self._find_by_description(desc_v, threshold=0.75)
-                if candidate is not None:
-                    matched_signal = "description"
-                    matched_node_id = candidate
-
-            if matched_node_id is not None:
-                results.append(
-                    {"node_id": matched_node_id, "is_new": False, "signal": matched_signal}
-                )
-                continue
-
-            # Signal 3: tag overlap
-            if tags:
-                candidate = self._find_by_tags(tags)
-                if candidate is not None:
-                    matched_signal = "tag"
-                    matched_node_id = candidate
-
-            if matched_node_id is not None:
-                results.append(
-                    {"node_id": matched_node_id, "is_new": False, "signal": matched_signal}
-                )
-                continue
-
-            # Path 2: create candidate
-            from ulid import ULID
-
-            candidate_node = ConsolidatedNode(
-                id=ULID(),
-                born_at=now,
-                last_fired_at=now,
-                semantic_vector=sem_v,
-                frame_vector=_default_vector(self._frame_dim),
-                description=label if label else None,
-                tags=tags,
-                is_candidate=True,
-                qids=[QIDTag.model_validate(q) for q in qids_raw] if qids_raw else [],
-            )
-            self._store.append_consolidated(candidate_node)
-            results.append(
-                {"node_id": str(candidate_node.id), "is_new": True, "signal": "emergent"}
-            )
-
-        return results
-
-    def _find_by_qid(self, qid: str) -> str | None:
-        """Scan consolidated_nodes for a node whose payload contains this QID.
-
-        Since Lance doesn't support JSON sub-field queries in the free tier,
-        we load payloads for known ids (small initial corpus).  In production
-        this would use a secondary index.
-        """
-        try:
-            tbl = self._store.consolidated_table
-            rows = tbl.search().limit(10_000).to_arrow().to_pylist()
-            for r in rows:
-                payload = ConsolidatedNode.model_validate_json(r["payload_json"])
-                for q in payload.qids:
-                    if q.qid == qid:
-                        return str(payload.id)
-        except Exception:  # noqa: BLE001 — read-only best-effort
-            pass
-        return None
-
-    def _find_by_description(self, vector: list[float], threshold: float = 0.75) -> str | None:
-        """Find a consolidated node whose description_vector is close to the query."""
-        try:
-            tbl = self._store.consolidated_table
-            rows = tbl.search().limit(1_000).to_arrow().to_pylist()
-            best_id: str | None = None
-            best_score = 0.0
-            for r in rows:
-                payload = ConsolidatedNode.model_validate_json(r["payload_json"])
-                if payload.description_vector is None:
-                    continue
-                score = _cosine_similarity(vector, payload.description_vector)
-                if score > best_score:
-                    best_score = score
-                    best_id = str(payload.id)
-            if best_id is not None and best_score >= threshold:
-                return best_id
-        except Exception:  # noqa: BLE001 — read-only best-effort
-            pass
-        return None
-
-    def _find_by_tags(self, tags: list[str]) -> str | None:
-        """Find a consolidated node with the most overlapping tags."""
-        try:
-            tbl = self._store.consolidated_table
-            rows = tbl.search().limit(1_000).to_arrow().to_pylist()
-            best_id: str | None = None
-            best_overlap = 0
-            tag_set = set(tags)
-            for r in rows:
-                payload = ConsolidatedNode.model_validate_json(r["payload_json"])
-                overlap = len(tag_set & set(payload.tags))
-                if overlap > best_overlap:
-                    best_overlap = overlap
-                    best_id = str(payload.id)
-            if best_id is not None and best_overlap >= 2:
-                return best_id
-        except Exception:  # noqa: BLE001 — read-only best-effort
-            pass
-        return None
+        node = self._create_candidate(
+            label=label,
+            description=description,
+            tags=tags,
+            qids=qids,
+            semantic_vector=semantic_vector,
+            frame_vector=frame_vector,
+            description_vector=description_vector,
+        )
+        return LinkDecision(node=node, signal="emergent", is_new=True, score=0.0)
