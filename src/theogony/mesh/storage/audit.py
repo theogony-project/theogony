@@ -36,21 +36,30 @@ class MeshAuditLog:
         else:
             self._table = db.open_table("mesh_audit")
 
-    def append(self, *, action: str, detail: dict[str, Any]) -> str:
-        """Write one audit row; returns the row id (ULID string)."""
+    @staticmethod
+    def _row(action: str, detail: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         row_id = str(ULID())
         now = datetime.now(UTC)
-        self._table.add(
-            [
-                {
-                    "id": row_id,
-                    "recorded_at": now,
-                    "action": action,
-                    "payload_json": json.dumps(detail, default=str),
-                }
-            ]
-        )
+        return row_id, {
+            "id": row_id,
+            "recorded_at": now,
+            "action": action,
+            "payload_json": json.dumps(detail, default=str),
+        }
+
+    def append(self, *, action: str, detail: dict[str, Any]) -> str:
+        """Write one audit row; returns the row id (ULID string)."""
+        row_id, row = self._row(action, detail)
+        self._table.add([row])
         return row_id
+
+    def append_many(self, entries: list[tuple[str, dict[str, Any]]]) -> list[str]:
+        """Write many audit rows and return their ids."""
+        if not entries:
+            return []
+        built = [self._row(action, detail) for action, detail in entries]
+        self._table.add([row for _, row in built])
+        return [row_id for row_id, _ in built]
 
     def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
         """Return the most recent audit rows (newest first)."""

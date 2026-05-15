@@ -87,7 +87,13 @@ class MeshRuntime:
         self._state_path = root / "mesh_state.json"
 
     @classmethod
-    def open(cls, root: Path) -> MeshRuntime:
+    def open(
+        cls,
+        root: Path,
+        *,
+        semantic_dim: int | None = None,
+        frame_dim: int | None = None,
+    ) -> MeshRuntime:
         """Open an existing workspace or initialise a new one.
 
         When the workspace already contains ``chunk_nodes`` the vector
@@ -98,13 +104,21 @@ class MeshRuntime:
         db = lancedb.connect(str(root / "lance"))
         resp = db.list_tables()
         tables = resp.tables or []
-        if "chunk_nodes" not in tables:
-            return cls(root, semantic_dim=384, frame_dim=64)
-
-        chunk = db.open_table("chunk_nodes")
-        sem = int(chunk.schema.field("semantic_vector").type.list_size)
-        frm = int(chunk.schema.field("frame_vector").type.list_size)
-        return cls(root, semantic_dim=sem, frame_dim=frm)
+        if "chunk_nodes" in tables:
+            chunk = db.open_table("chunk_nodes")
+            sem = int(chunk.schema.field("semantic_vector").type.list_size)
+            frm = int(chunk.schema.field("frame_vector").type.list_size)
+            return cls(root, semantic_dim=sem, frame_dim=frm)
+        if "consolidated_nodes" in tables:
+            consolidated = db.open_table("consolidated_nodes")
+            sem = int(consolidated.schema.field("semantic_vector").type.list_size)
+            frm = int(consolidated.schema.field("frame_vector").type.list_size)
+            return cls(root, semantic_dim=sem, frame_dim=frm)
+        return cls(
+            root,
+            semantic_dim=semantic_dim or 384,
+            frame_dim=frame_dim or 64,
+        )
 
     # ---- state persistence ------------------------------------------
 

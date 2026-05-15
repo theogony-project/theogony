@@ -127,6 +127,22 @@ _PARAGRAPH_WITH_STRING_QIDS = json.dumps(
     }
 )
 
+_PARAGRAPH_WITHOUT_QIDS = json.dumps(
+    {
+        "concepts": [
+            {
+                "label": "Brahmaputra River",
+                "entity_type": "place",
+                "tags": ["river", "asia"],
+                "description": "Major river flowing from the Tibetan Plateau",
+                "qids": [],
+            }
+        ],
+        "relations": [],
+        "paragraph_concept": None,
+    }
+)
+
 
 def test_paragraph_reader_builds_dense_connected_mesh(
     mesh_runtime: MeshRuntime,
@@ -200,3 +216,39 @@ def test_paragraph_reader_accepts_string_qids(mesh_runtime: MeshRuntime) -> None
     assert result["paragraph_concept_nodes"] == 0
     qids = {qid.qid for node in mesh_runtime.nodes.load_all_consolidated() for qid in node.qids}
     assert {"Q44114", "Q172"} <= qids
+
+
+def test_paragraph_reader_reuses_unqid_concept_via_candidate_search(
+    mesh_runtime: MeshRuntime,
+) -> None:
+    llm = StubLLMProvider(
+        responses={
+            (
+                "PARAGRAPH:\nThe Brahmaputra River flows from the Tibetan Plateau."
+            ): _PARAGRAPH_WITHOUT_QIDS,
+            "PARAGRAPH:\nBrahmaputra River is a major river in Asia.": _PARAGRAPH_WITHOUT_QIDS,
+        }
+    )
+    reader = MeshParagraphReader(mesh_runtime, llm=llm, max_paragraphs=10)
+
+    result = asyncio.run(
+        reader.read_text(
+            text=(
+                "The Brahmaputra River flows from the Tibetan Plateau.\n\n"
+                "Brahmaputra River is a major river in Asia."
+            ),
+            source_type="test",
+            source_identifier="fixture-unqid-reuse",
+            title="Unqid Reuse",
+            anchor="fixture://unqid-reuse",
+        )
+    )
+
+    river_nodes = [
+        node
+        for node in mesh_runtime.nodes.load_all_consolidated()
+        if node.description == "Major river flowing from the Tibetan Plateau"
+    ]
+
+    assert result["concepts"] == 2
+    assert len(river_nodes) == 1
