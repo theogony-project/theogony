@@ -82,7 +82,7 @@ The strangler pattern is named for the strangler fig (*Ficus aurea*), which germ
 
 ---
 
-## The six migration steps
+## The six migration steps (plus one interpolated bootstrap)
 
 Each step is a PR-sized unit of work. Each has:
 
@@ -93,6 +93,8 @@ Each step is a PR-sized unit of work. Each has:
 - **Scope cap** — what the step explicitly does *not* include.
 
 The steps are ordered. Step N+1 must not be started until step N is merged. Within a step, smaller PRs are encouraged as long as each smaller PR is itself green and reviewable.
+
+**Interpolated step S2.5** was added on 2026-05-15 between S2 and S3 — a one-shot bulk seed of the substrate from Wikidata5m to give the mesh an identity backbone before retrieval (S3) is built. S2.5 complements S2 (does not replace it) and respects the same step-ordering invariant: it must not start before S2 is merged, and S3 must not start before S2.5 is merged.
 
 ### Step S1 — New substrate skeleton
 
@@ -174,6 +176,69 @@ The steps are ordered. Step N+1 must not be started until step N is merged. With
 - No consolidation. Eager-Tier-1 nodes accumulate evidence but Oneiros does not yet promote candidates or merge duplicates beyond Q-ID-driven eager linkage.
 
 **PR title:** `feat(mesh): Kadmos v2 ingestion with eager linking + source-anchor entities (S2)`
+
+### Step S2.5 — Wikidata5m bulk seed (interpolated bootstrap step)
+
+**Status:** interpolated between S2 and S3 in 2026-05-15 to give the substrate an identity backbone before S3 retrieval is built. Does **not** replace S2 (Kadmos v2 cognitive reading); it complements it. Filed under the post-MESH backlog as **PHX-1030**.
+
+**Why this step exists.** Kadmos v2 (S2) is the right shape for *cognitive reading* of new external texts — it produces Tier-0 chunks, identity decisions, and audited mentions per paragraph at LLM cost. It is the wrong shape for *bootstrapping the identity backbone*: at €0.0001–€0.001 per paragraph and 5–15 s of latency, building a 1M-node substrate via Kadmos v2 alone is months of LLM time and three-figure euro cost. The substrate needs Q-ID-anchored Tier-1 nodes *before* it has cognitive load, so that every later Kadmos v2 reference fires signal 1 (Q-ID match) of the eager-linker hierarchy ([`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Why two tiers — and how identity actually gets committed") instead of creating candidates that never converge. S2.5 supplies that backbone in one structured bulk pass, with no LLM call and no NER pass.
+
+**Goal:** populate the new substrate with ~4.81M Q-ID-anchored Tier-1 `ConsolidatedNode`s and ~21.35M relational `Edge`s from the [Wikidata5m](https://deepgraphlearning.github.io/project/wikidata5m) KEPLER dataset (transductive split, 2019/2020 snapshot). For each Q-ID, embed the Wikipedia first-paragraph **off-substrate** into `semantic_vector` and `description_vector`; keep `description = None` (or the entity name only) — **never store the paragraph body**. Triplets become typed `Edge`s with `creation_context = "wikidata5m_seed"`. The end state is a substrate that Kadmos v2 ingestion (S2 path) and S3 retrieval can both attach to via Q-ID.
+
+**Pre-conditions:**
+- S2 merged. The new substrate is operational with the dense paragraph topology + IngestRunReport path.
+- The doctrine clarification PR (`docs(mesh): clarify "no raw text in substrate" and bound description size`) merged so that "no paragraph body in `description`" is unambiguous.
+- The four Wikidata5m files staged at `data/raw/wikidata5m/` (gitignored under `data/`):
+  - `wikidata5m_entity.txt` — 4.81M Q-ID + alias rows
+  - `wikidata5m_text.txt` — 4.81M Q-ID + Wikipedia first-paragraph rows (input to off-substrate embedding; **not** loaded into the mesh as text)
+  - `wikidata5m_relation.txt` — 825 P-ID + alias rows
+  - `wikidata5m_all_triplet.txt` — 21.35M `(subject_qid, predicate_pid, object_qid)` rows
+- The operator decides on the embedding model for the seed run (recommended: BGE-M3 class, 1024-d, doctrine default per [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Node anatomy"). Cost band: workstation-feasible (~19 GB embeddings + ~few hundred MB CSR for the full dataset).
+
+**Deliverables:**
+- New package: `src/theogony/mesh/seeds/` (sibling to `mesh/ingestion/`, `mesh/runtime/`, `mesh/storage/`).
+  - `src/theogony/mesh/seeds/__init__.py`
+  - `src/theogony/mesh/seeds/wikidata5m/__init__.py`
+  - `src/theogony/mesh/seeds/wikidata5m/loader.py` — streaming readers for the four files. Pure iteration — no batch buffering of millions of lines in RAM. Yield typed records.
+  - `src/theogony/mesh/seeds/wikidata5m/relations.py` — small registry mapping P-IDs to default `(relation_kind, relation_descriptor)`. P-IDs unmapped at run time fall through with `relation_kind = "semantic"`, `relation_descriptor = first_alias`, and the P-ID is added to `pids` on the edge for later registry expansion. Counters track unmapped P-IDs in the seed report.
+  - `src/theogony/mesh/seeds/wikidata5m/embedder.py` — batched description embedding using `MeshTextVectorizer` (or a leaner local-only equivalent if vectorizer overhead dominates). Embedding stream is decoupled from the loader stream so embedding can be parallelised.
+  - `src/theogony/mesh/seeds/wikidata5m/importer.py` — orchestrator. Streams entities → embeddings → `ConsolidatedNode` upserts (idempotent on Q-ID); then triplets → `Edge` upserts. Writes one audit record per entity creation and per edge creation. Emits a `MeshSeedRunReport` at the end.
+- Extend `src/theogony/reporting/models.py` with a `MeshSeedRunReport` Pydantic v2 model (`extra="forbid"`) — counters: `entities_streamed`, `entities_upserted`, `entities_skipped_duplicate_qid`, `edges_streamed`, `edges_upserted`, `edges_skipped_duplicate`, `pids_unmapped`, `embedding_model_id`, `embedding_duration_s`, `import_duration_s`, `audit_run_id`, `verdict`.
+- New CLI command `theogony mesh seed wikidata5m` with flags:
+  - `--max-entities N` (default 0 = all)
+  - `--max-triplets N` (default 0 = all)
+  - `--batch-size N` (embedding batch)
+  - `--dry-run` (parse + report without writing)
+  - `--root <path>` (mesh workspace)
+  - `--data-root <path>` (defaults to `data/raw/wikidata5m/`)
+- Tests in `tests/mesh/seeds/`:
+  - `test_wikidata5m_loader.py` — stream parsers handle real-format lines from a small fixture (~50 entities, ~10 triplets, ~5 P-IDs); aliases parsed correctly, malformed lines yield structured error records, no whole-file buffering.
+  - `test_wikidata5m_relations.py` — known P-IDs map to defaults, unknown P-IDs fall through cleanly with `pids` populated.
+  - `test_wikidata5m_importer.py` — small fixture run produces expected node + edge counts, Q-ID uniqueness invariant holds, audit ledger written, `MeshSeedRunReport` emitted with sensible counters.
+  - `test_wikidata5m_no_raw_text.py` — assert via direct LanceDB inspection that the `description` column on every imported `ConsolidatedNode` is either `None` or ≤ 100 chars (entity name only). **No Wikipedia paragraph body anywhere in the mesh.**
+  - `test_wikidata5m_idempotent.py` — second run on the same fixture is a no-op (matches by Q-ID), counters reflect this.
+  - `test_wikidata5m_eager_linking_handoff.py` — after the seed, run a small Kadmos v2 paragraph that mentions a seeded Q-ID; assert that the IngestRunReport's `resolution.tier_counts` shows a signal-1 (Q-ID match) link to the seeded node, not a new candidate.
+
+**Definition of Done:**
+- `theogony mesh seed wikidata5m --max-entities 1000 --max-triplets 5000` produces a substrate with 1000 Q-ID-anchored Tier-1 nodes and ≤ 5000 edges (some triplets may reference Q-IDs outside the 1000-entity slice and are skipped with audit). Audit ledger has one entry per insertion. `MeshSeedRunReport` written. `description` column spot-check is empty or entity-name-only on every node.
+- `theogony mesh status` after the seed shows the expected counts.
+- A subsequent `theogony mesh ingest --text-file <fixture-with-seeded-qid>` (Kadmos v2) eager-links via signal 1 to the seeded Tier-1 node — no candidate created. Verifiable in the IngestRunReport.
+- `pytest -q tests/mesh` is green (S2 tests still pass, S2.5 tests pass).
+- `pytest -q` is green (no regression elsewhere).
+- All new files pass `ruff format --check`, `ruff check`, `mypy src/theogony/mesh`.
+- Q-ID uniqueness invariant holds: no two Tier-1 nodes carry the same Q-ID after import.
+
+**Scope cap (does NOT include):**
+- No retrieval beyond `theogony mesh status`. The retrieval path is S3.
+- No description regeneration or re-embedding. A future "Wikidata freshening pass" PHX ticket pulls fresh Wikipedia first-paragraphs via Q-ID and re-embeds; that is a separate step, not S2.5.
+- No coupling to Kadmos v2 internals beyond using the same `MeshTextVectorizer` (or a leaner equivalent) for embedding consistency.
+- No Cockpit / MCP integration. Those remain S4.
+- No consolidation, splits, pathology, therapy. Those remain S5.
+- No deletion of the legacy path. That remains S6.
+- The seed dataset (`data/raw/wikidata5m/`, ~3.4 GB) stays in `data/raw/` (gitignored). Operators are responsible for their own copy. The README pointer to the project page is enough.
+- **No raw text storage anywhere.** The `wikidata5m_text.txt` paragraphs are read off-substrate, embedded, and discarded from the import path; they remain on disk in `data/raw/wikidata5m/` for later refresh runs but never enter the mesh's stored fields. This invariant is asserted by `test_wikidata5m_no_raw_text.py`.
+
+**PR title convention:** `feat(mesh): wikidata5m bulk seed — Q-ID-anchored Tier-1 backbone (S2.5)`
 
 ### Step S3 — Diversified-injection retrieval over the new substrate
 
