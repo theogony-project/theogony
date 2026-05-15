@@ -198,9 +198,5 @@ def test_paragraph_reader_accepts_string_qids(mesh_runtime: MeshRuntime) -> None
     assert result["concepts"] == 2
     assert result["relations"] == 1
     assert result["paragraph_concept_nodes"] == 0
-    qids = {
-        qid.qid
-        for node in mesh_runtime.nodes.load_all_consolidated()
-        for qid in node.qids
-    }
+    qids = {qid.qid for node in mesh_runtime.nodes.load_all_consolidated() for qid in node.qids}
     assert {"Q44114", "Q172"} <= qids
