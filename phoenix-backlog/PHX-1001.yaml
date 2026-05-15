@@ -17,12 +17,17 @@ description: >
   - S2 (Kadmos v2 ingestion): merged via #151 (initial eager linking +
     source-anchor entities) and #154 (dense paragraph topology +
     IngestRunReport) ✅
-  - S2.5 (Wikidata5m bulk seed, interpolated bootstrap): in flight, tracked
-    by PHX-1030. Doc-PRs landed 2026-05-15: #156 (doctrine clarification —
-    no raw text in substrate, description size bound), #157 (S2.5 step
-    added to migration plan), #158 (PHX-1030 filed). Implementation PR
-    pending hand-off to Talos.
-  - S3 (diversified-injection retrieval): blocked on S2.5 merge.
+  - S2.5 (Wikidata5m bulk seed, interpolated bootstrap): Smoke-1 PASS,
+    tracked by PHX-1030. Substrate prep merged via #161 (lazy lookups +
+    Lance indexes + bulk methods + iter_consolidated); seed importer
+    merged via #162 with verified Tier-4 QID handoff
+    (tier_counts = {"4": 1, "1": 4} on Q947890 / Renan Barao). Doc-PRs
+    landed 2026-05-15: #156 (doctrine clarification — no raw text in
+    substrate), #157 (S2.5 step added to migration plan), #158 (PHX-1030
+    filed), #160 (Talos implementation brief). Smoke-2..N (10k → 4.81M)
+    remain pending under PHX-1033. ✅ for Smoke-1; ⏳ for full bootstrap.
+  - S3 (diversified-injection retrieval): unblocked by S2.5 Smoke-1 PASS;
+    not started.
   - S4 (Cockpit/CLI/MCP backend abstraction): not started.
   - S5 (full Oneiros tick): not started.
   - S6 (legacy removal): not started.
@@ -34,3 +39,6 @@ linked_prs:
   - "https://github.com/theogony-project/theogony/pull/156"  # doctrine clarification (no raw text)
   - "https://github.com/theogony-project/theogony/pull/157"  # S2.5 step in migration plan
   - "https://github.com/theogony-project/theogony/pull/158"  # PHX-1030 filed
+  - "https://github.com/theogony-project/theogony/pull/160"  # S2.5 implementation brief for Talos
+  - "https://github.com/theogony-project/theogony/pull/161"  # S2.5 prep — lazy lookups + Lance indexes + bulk methods
+  - "https://github.com/theogony-project/theogony/pull/162"  # S2.5 Smoke-1 PASS — wikidata5m bulk seed importer
