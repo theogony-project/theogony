@@ -289,10 +289,16 @@ class EdgeStore:
 
     def append_edge(self, edge: Edge) -> None:
         """Write one edge to the quantitative table + optionally metadata."""
-        self.edge_table.add([self._edge_row(edge)])
-        meta_row = self._metadata_row(edge)
-        if meta_row is not None:
-            self.meta_table.add([meta_row])
+        self.append_edges([edge])
+
+    def append_edges(self, edges: list[Edge]) -> None:
+        """Write many edges to the quantitative table + optional metadata."""
+        if not edges:
+            return
+        self.edge_table.add([self._edge_row(edge) for edge in edges])
+        meta_rows = [row for edge in edges if (row := self._metadata_row(edge)) is not None]
+        if meta_rows:
+            self.meta_table.add(meta_rows)
 
     def load_all_edges(self) -> list[Edge]:
         arrow = self.edge_table.search().to_arrow()
@@ -314,6 +320,13 @@ class EdgeStore:
 
     def count_rows(self) -> int:
         return int(self.edge_table.count_rows())
+
+    def neighbor_ids(self, node_id: str) -> set[str]:
+        outgoing = self.edge_table.search().where(f'source_id = "{node_id}"').to_list()
+        incoming = self.edge_table.search().where(f'target_id = "{node_id}"').to_list()
+        neighbours = {str(row["target_id"]) for row in outgoing}
+        neighbours.update(str(row["source_id"]) for row in incoming)
+        return neighbours
 
     def csr_from_store(self) -> EdgeCSR:
         return build_csr_from_edges(self.load_all_edges())

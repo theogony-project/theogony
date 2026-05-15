@@ -39,14 +39,6 @@ class ConceptResolver:
         self._nodes_by_id: dict[str, CachedConcept] = {}
         self._label_to_id: dict[str, str] = {}
         self._qid_to_id: dict[str, str] = {}
-        self._bootstrap()
-
-    def _bootstrap(self) -> None:
-        try:
-            for node in self._store.load_all_consolidated():
-                self.remember(node)
-        except Exception:  # noqa: BLE001
-            pass
 
     def remember(
         self,
@@ -82,18 +74,57 @@ class ConceptResolver:
 
     def get_by_id(self, node_id: str) -> ConsolidatedNode | None:
         cached = self._nodes_by_id.get(node_id)
-        return cached.node if cached is not None else None
+        if cached is not None:
+            return cached.node
+        node = self._store.get_consolidated(node_id)
+        if node is not None:
+            self.remember(node)
+        return node
 
     def get_by_label(self, label: str) -> ConsolidatedNode | None:
-        node_id = self._label_to_id.get(_normalize(label))
-        return self.get_by_id(node_id) if node_id is not None else None
+        normalized = _normalize(label)
+        node_id = self._label_to_id.get(normalized)
+        if node_id is not None:
+            return self.get_by_id(node_id)
+        node = self._store.get_consolidated_by_label(normalized)
+        if node is not None:
+            self.remember(node)
+        return node
 
     def get_by_qid(self, qid: str) -> ConsolidatedNode | None:
         node_id = self._qid_to_id.get(qid)
-        return self.get_by_id(node_id) if node_id is not None else None
+        if node_id is not None:
+            return self.get_by_id(node_id)
+        node = self._store.get_consolidated_by_qid(qid)
+        if node is not None:
+            self.remember(node)
+        return node
 
     def iter_nodes(self) -> list[ConsolidatedNode]:
         return [cached.node for cached in self._nodes_by_id.values()]
+
+    def find_by_description_vector(
+        self,
+        description_vector: list[float] | None,
+        *,
+        limit: int = 16,
+    ) -> list[ConsolidatedNode]:
+        if description_vector is None:
+            return []
+        nodes = self._store.search_consolidated_by_vector(
+            description_vector,
+            vector_column_name="description_vector",
+            limit=limit,
+        )
+        for node in nodes:
+            self.remember(node)
+        return nodes
+
+    def find_by_labels(self, labels: list[str], *, limit: int = 32) -> list[ConsolidatedNode]:
+        nodes = self._store.find_consolidated_by_labels(labels, limit=limit)
+        for node in nodes:
+            self.remember(node)
+        return nodes
 
     def known_labels(self, node_id: str) -> set[str]:
         cached = self._nodes_by_id.get(node_id)

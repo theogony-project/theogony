@@ -35,6 +35,9 @@ class LinkDecision:
 class EagerLinker:
     """Q-ID, description+context, then tag+context matching."""
 
+    DESCRIPTION_CANDIDATE_LIMIT = 24
+    TAG_CANDIDATE_LIMIT = 48
+
     def __init__(
         self,
         node_store: MeshNodeStore,
@@ -50,11 +53,6 @@ class EagerLinker:
         self._frame_dim = frame_dim
         self._registry = registry or ConceptResolver(node_store)
         self._adjacency: dict[str, set[str]] = {}
-        self._bootstrap_adjacency()
-
-    def _bootstrap_adjacency(self) -> None:
-        for edge in self._edge_store.load_all_edges():
-            self.remember_edge(edge)
 
     def remember_edge(self, edge: Edge) -> None:
         source_id = str(edge.source_id)
@@ -65,7 +63,10 @@ class EagerLinker:
     def _context_score(self, candidate_id: str, context_node_ids: set[str]) -> float:
         if not context_node_ids:
             return 0.0
-        neighbours = self._adjacency.get(candidate_id, set())
+        neighbours = self._adjacency.get(candidate_id)
+        if neighbours is None:
+            neighbours = self._edge_store.neighbor_ids(candidate_id)
+            self._adjacency[candidate_id] = neighbours
         if not neighbours:
             return 0.0
         overlap = len(neighbours & context_node_ids)
@@ -79,12 +80,17 @@ class EagerLinker:
         tags: list[str],
         context_node_ids: set[str],
     ) -> tuple[ConsolidatedNode | None, float]:
+        if description_vector is None:
+            return None, 0.0
         best_node: ConsolidatedNode | None = None
         best_score = 0.0
         tag_set = {tag.lower().strip() for tag in tags}
         norm_label = _normalize(label)
 
-        for candidate in self._registry.iter_nodes():
+        for candidate in self._registry.find_by_description_vector(
+            description_vector,
+            limit=self.DESCRIPTION_CANDIDATE_LIMIT,
+        ):
             if candidate.is_source_anchor:
                 continue
             desc_score = _cosine_similarity(description_vector, candidate.description_vector)
@@ -113,7 +119,10 @@ class EagerLinker:
         best_score = 0.0
         tag_set = {tag.lower().strip() for tag in tags}
 
-        for candidate in self._registry.iter_nodes():
+        for candidate in self._registry.find_by_labels(
+            [label, *tags],
+            limit=self.TAG_CANDIDATE_LIMIT,
+        ):
             if candidate.is_source_anchor:
                 continue
             candidate_tags = {tag.lower().strip() for tag in candidate.tags}
