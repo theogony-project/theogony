@@ -58,6 +58,7 @@ class RunReportBase(BaseModel):
     run_id: str = Field(default_factory=new_run_id)
     report_type: Literal[
         "ingest",
+        "mesh_seed",
         "query",
         "oneiros",
         "clustering",
@@ -76,7 +77,7 @@ class RunReportBase(BaseModel):
     finished_at: datetime
     duration_s: float = Field(ge=0.0)
     status: Literal["completed", "partial", "failed", "aborted"]
-    verdict: Literal["good", "partial", "poor", "failed"]
+    verdict: Literal["good", "partial", "poor", "failed", "completed"]
     verdict_reasoning: str = ""
     anomalies: list[str] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
@@ -193,6 +194,35 @@ class IngestRunReport(RunReportBase):
     embedding: EmbeddingSummary
     store: StoreSummary
     quality_flags: QualityFlags
+
+
+# ---------------------------------------------------------------------------
+# Mesh seed report
+# ---------------------------------------------------------------------------
+
+
+class MeshSeedRunReport(RunReportBase):
+    report_type: Literal["mesh_seed"] = "mesh_seed"
+    data_root: str
+    embedder_requested: str | None = None
+    embedding_model_id: str
+    max_entities: int = Field(default=0, ge=0)
+    max_triplets: int = Field(default=0, ge=0)
+    batch_size: int = Field(default=64, ge=1)
+    dry_run: bool = False
+    entities_streamed: int = Field(default=0, ge=0)
+    entities_upserted: int = Field(default=0, ge=0)
+    entities_skipped_duplicate_qid: int = Field(default=0, ge=0)
+    entities_missing_text: int = Field(default=0, ge=0)
+    edges_streamed: int = Field(default=0, ge=0)
+    edges_upserted: int = Field(default=0, ge=0)
+    edges_skipped_duplicate: int = Field(default=0, ge=0)
+    edges_skipped_missing_endpoint: int = Field(default=0, ge=0)
+    loader_malformed_lines: int = Field(default=0, ge=0)
+    pids_unmapped: dict[str, int] = Field(default_factory=dict)
+    embedding_duration_s: float = Field(default=0.0, ge=0.0)
+    import_duration_s: float = Field(default=0.0, ge=0.0)
+    audit_run_id: str | None = None
 
 
 # ---------------------------------------------------------------------------

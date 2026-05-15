@@ -1,0 +1,6 @@
+Q336997	Thomas Addison was an English physician and scientist known for describing Addison's disease and studying the suprarenal capsules.
+Q1289672	Edward Calvin Kendall was an American chemist whose work helped isolate thyroid hormones and adrenal compounds.
+Q186437	Thyroxine is a thyroid hormone that became central to modern endocrinology and hormone chemistry.
+Q190454	The adrenal gland is an endocrine gland positioned above the kidneys and associated with adrenaline research.
+Q44114	Sven Hedin was a Swedish explorer, geographer, and travel writer known for expeditions across Central Asia.
+Q45973	The Tibetan Plateau is a high plateau in Asia that features prominently in exploration and hydrology narratives.
