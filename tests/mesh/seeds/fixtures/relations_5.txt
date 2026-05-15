@@ -1,0 +1,5 @@
+P31	instance of
+P279	subclass of
+P361	part of
+P527	has part
+P19	place of birth

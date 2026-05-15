@@ -1,0 +1,6 @@
+Q336997	Thomas Addison	Addison	English physician
+Q1289672	Edward Calvin Kendall	Kendall	American chemist
+Q186437	Thyroxine	T4	hormone
+Q190454	Adrenal gland	Adrenal glands	endocrine gland
+Q44114	Sven Hedin	Hedin	Swedish explorer
+Q45973	Tibetan Plateau	Plateau of Tibet	high plateau

@@ -14,20 +14,43 @@ from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
 from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
+from theogony.mesh.seeds.wikidata5m import (
+    Wikidata5mSeedImporter,
+    build_default_embedder,
+    build_embedder,
+)
+from theogony.reporting.writer import RunReportWriter
 
 mesh_app = typer.Typer(
     name="mesh",
     no_args_is_help=True,
     help="MESH substrate commands (Step S1 — parallel to legacy path).",
 )
+seed_app = typer.Typer(
+    name="seed",
+    no_args_is_help=True,
+    help="Bootstrap seed pipelines for the MESH substrate.",
+)
 _console = Console()
 
 _MESH_ROOT_HELP = "Mesh workspace directory (defaults to {data_dir}/mesh from settings)."
 MESH_ROOT = typer.Option(None, "--root", help=_MESH_ROOT_HELP)
+DATA_ROOT = typer.Option(
+    None,
+    "--data-root",
+    help=(
+        "Path containing wikidata5m_entity.txt, wikidata5m_text.txt, "
+        "wikidata5m_relation.txt, and wikidata5m_all_triplet.txt."
+    ),
+)
 
 
 def _default_root(settings: Settings) -> Path:
     return (settings.data_dir / "mesh").resolve()
+
+
+def _default_seed_data_root(settings: Settings) -> Path:
+    return (settings.data_dir / "raw" / "wikidata5m").resolve()
 
 
 @mesh_app.command("status")
@@ -110,3 +133,76 @@ def mesh_ingest(
         result = asyncio.run(reader.read_book(source))
 
     _console.print(Panel.fit(json.dumps(result, indent=2), title="mesh ingest result"))
+
+
+@seed_app.command("wikidata5m")
+def mesh_seed_wikidata5m(
+    max_entities: int = typer.Option(
+        0,
+        "--max-entities",
+        help="Cap streamed entity/text pairs (0 = all).",
+    ),
+    max_triplets: int = typer.Option(
+        0,
+        "--max-triplets",
+        help="Cap streamed triplets (0 = all).",
+    ),
+    batch_size: int = typer.Option(
+        64,
+        "--batch-size",
+        help="Embedding batch size.",
+    ),
+    embedder_name: str | None = typer.Option(
+        None,
+        "--embedder",
+        help="Embedder id: bge-m3 or bge-small-en. Default = auto-select.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Parse and report without writing nodes, edges, or audit rows.",
+    ),
+    mesh_root: Path | None = MESH_ROOT,
+    data_root: Path | None = DATA_ROOT,
+) -> None:
+    """Seed the mesh from the wikidata5m KEPLER dataset."""
+    settings = Settings()
+    root = mesh_root.resolve() if mesh_root is not None else _default_root(settings)
+    resolved_data_root = (
+        data_root.resolve() if data_root is not None else _default_seed_data_root(settings)
+    )
+
+    async def _run() -> dict[str, object]:
+        if embedder_name is None:
+            requested_name, embedder = await build_default_embedder()
+        else:
+            requested_name = embedder_name
+            embedder = build_embedder(embedder_name)
+            await embedder.embed_many(["mesh seed smoke probe"], batch_size=1)
+
+        runtime = MeshRuntime.open(root, semantic_dim=embedder.dim, frame_dim=64)
+        if runtime.semantic_dim != embedder.dim:
+            raise ValueError(
+                f"mesh workspace uses semantic_dim={runtime.semantic_dim}, "
+                f"but embedder {embedder.model_id} produces dim={embedder.dim}"
+            )
+
+        importer = Wikidata5mSeedImporter(
+            runtime,
+            data_root=resolved_data_root,
+            embedder=embedder,
+            embedder_requested=requested_name,
+            batch_size=batch_size,
+            report_writer=RunReportWriter(settings.run_reports_dir),
+        )
+        return await importer.run(
+            max_entities=max_entities,
+            max_triplets=max_triplets,
+            dry_run=dry_run,
+        )
+
+    result = asyncio.run(_run())
+    _console.print(Panel.fit(json.dumps(result, indent=2), title="mesh seed wikidata5m"))
+
+
+mesh_app.add_typer(seed_app, name="seed")
