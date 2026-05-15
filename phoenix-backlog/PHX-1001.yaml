@@ -8,16 +8,29 @@ filed_by: Daedalus (via Meson AI agent)
 created_at: 2026-05-13
 description: >
   The MESH migration (Strangler-fig replacement of the Gen-1 substrate) is
-  tracked by the six-step plan in MESH_MIGRATION_PLAN.md. This ticket is a
+  tracked by the six-step plan in MESH_MIGRATION_PLAN.md, plus one
+  interpolated bootstrap step (S2.5) added 2026-05-15. This ticket is a
   meta-ticket for the migration's lifecycle; individual steps are their own
   PRs.
   Progress:
   - S1 (substrate skeleton): PR #149, merged 2026-05-13 ✅
-  - S2 (Kadmos v2 ingestion): not started
-  - S3 (diversified-injection retrieval): not started
-  - S4 (Cockpit/CLI/MCP backend abstraction): not started
-  - S5 (full Oneiros tick): not started
-  - S6 (legacy removal): not started
+  - S2 (Kadmos v2 ingestion): merged via #151 (initial eager linking +
+    source-anchor entities) and #154 (dense paragraph topology +
+    IngestRunReport) ✅
+  - S2.5 (Wikidata5m bulk seed, interpolated bootstrap): in flight, tracked
+    by PHX-1030. Doc-PRs landed 2026-05-15: #156 (doctrine clarification —
+    no raw text in substrate, description size bound), #157 (S2.5 step
+    added to migration plan), #158 (PHX-1030 filed). Implementation PR
+    pending hand-off to Talos.
+  - S3 (diversified-injection retrieval): blocked on S2.5 merge.
+  - S4 (Cockpit/CLI/MCP backend abstraction): not started.
+  - S5 (full Oneiros tick): not started.
+  - S6 (legacy removal): not started.
   - PHX backlog migration: MIGRATION_AUDIT.csv created 2026-05-13 ✅
 linked_prs:
-  - "https://github.com/theogony-project/theogony/pull/149"
+  - "https://github.com/theogony-project/theogony/pull/149"  # S1 substrate skeleton
+  - "https://github.com/theogony-project/theogony/pull/151"  # S2 initial Kadmos v2 ingestion
+  - "https://github.com/theogony-project/theogony/pull/154"  # S2 dense paragraph topology
+  - "https://github.com/theogony-project/theogony/pull/156"  # doctrine clarification (no raw text)
+  - "https://github.com/theogony-project/theogony/pull/157"  # S2.5 step in migration plan
+  - "https://github.com/theogony-project/theogony/pull/158"  # PHX-1030 filed
