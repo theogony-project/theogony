@@ -17,6 +17,7 @@ See [`phoenix-backlog/README.md`](../phoenix-backlog/README.md) for lifecycle ru
 | ID | Title | Status | Priority | Notes |
 |---|---|---|---|---|
 | PHX-1001 | MESH migration in progress | open | critical | Meta-ticket: the Strangler-fig plan. Tracks S1–S6 completion. |
+| PHX-1030 | Wikidata5m bulk seed (S2.5) | open | high | Interpolated bootstrap step between S2 and S3. Bulk-imports ~4.81M Q-ID-anchored Tier-1 nodes + ~21.35M edges from the Wikidata5m KEPLER dataset; embeds Wikipedia first-paragraphs off-substrate so the source body never enters the mesh. Spec: [`MESH_MIGRATION_PLAN.md`](MESH_MIGRATION_PLAN.md) §"Step S2.5". |
 
 ### Carry-forward tickets from the legacy backlog
 

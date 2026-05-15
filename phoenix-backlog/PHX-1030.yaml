@@ -1,0 +1,91 @@
+id: PHX-1030
+category: substrate-bootstrap
+priority: high
+status: open
+generation_target: MESH migration (interpolated bootstrap)
+title: Wikidata5m bulk seed (S2.5)
+filed_by: Chaos (via Cursor AI agent, operator-directed)
+created_at: 2026-05-15
+description: >
+  Interpolated bootstrap step S2.5 between S2 (Kadmos v2 cognitive reading)
+  and S3 (diversified-injection retrieval) in MESH_MIGRATION_PLAN.md.
+
+  Goal: populate the new substrate with ~4.81M Q-ID-anchored Tier-1
+  ConsolidatedNodes and ~21.35M relational Edges from the Wikidata5m
+  KEPLER dataset (https://deepgraphlearning.github.io/project/wikidata5m,
+  transductive split, 2019/2020 snapshot). For each Q-ID, embed the
+  Wikipedia first-paragraph off-substrate into semantic_vector and
+  description_vector; keep description = None or entity-name only. The
+  source paragraph body never enters the mesh — asserted by a dedicated
+  test_wikidata5m_no_raw_text.py invariant.
+
+  Why this step exists: S2 (Kadmos v2) is the right shape for cognitive
+  reading of new external texts but the wrong shape for bootstrapping the
+  identity backbone. At LLM cost per paragraph, building a 1M-node
+  substrate via Kadmos v2 alone is months of LLM time and three-figure
+  euro cost. The substrate needs Q-ID-anchored Tier-1 nodes before it has
+  cognitive load, so that every later Kadmos v2 reference fires signal 1
+  (Q-ID match) of the eager-linker hierarchy
+  (MESH_SUBSTRATE.md §"Why two tiers — and how identity actually gets
+  committed") instead of creating candidates that never converge.
+
+  Doctrine alignment:
+  - MESH_SUBSTRATE.md §"Why two tiers" signal 1 — Q-ID is the strongest
+    identity signal; wikidata5m is the doctrine-preferred bootstrap.
+  - BUILD_DOCTRINE.md engineering order — data structure first, synthesis
+    second, retrieval third; wikidata5m is data structure first.
+  - PR #156 (clarified "no raw text in substrate") makes the S2.5
+    invariant unambiguous: paragraph bodies are embedded off-substrate;
+    only the two resulting vectors land on ConsolidatedNode.
+
+  Non-goals (hard scope cap):
+  - No retrieval beyond `theogony mesh status`. The retrieval path is S3.
+  - No description regeneration or re-embedding. A future "Wikidata
+    freshening pass" PHX ticket pulls fresh first-paragraphs via Q-ID
+    and re-embeds; that is a separate step, not S2.5.
+  - No coupling to Kadmos v2 internals beyond using the same
+    MeshTextVectorizer (or a leaner equivalent) for embedding consistency.
+  - No Cockpit / MCP integration. Those remain S4.
+  - No consolidation, splits, pathology, therapy. Those remain S5.
+  - No deletion of the legacy path. That remains S6.
+  - No raw text storage anywhere. The wikidata5m_text.txt paragraphs are
+    read off-substrate, embedded, and discarded from the import path;
+    they remain on disk in data/raw/wikidata5m/ for later refresh runs
+    but never enter the mesh's stored fields.
+
+  Pre-conditions:
+  - S2 merged (PR #154 dense paragraph topology) ✅
+  - Doctrine clarification merged (PR #156) ✅
+  - S2.5 step added to migration plan (PR #157) ✅
+  - The four wikidata5m files staged at data/raw/wikidata5m/
+    (wikidata5m_entity.txt, wikidata5m_text.txt, wikidata5m_relation.txt,
+    wikidata5m_all_triplet.txt) — already moved into place 2026-05-15.
+  - Operator decision on the embedding model (recommended: BGE-M3 class,
+    1024-d, doctrine default).
+
+  Deliverables (per MESH_MIGRATION_PLAN.md §"Step S2.5"):
+  - New package src/theogony/mesh/seeds/wikidata5m/ with loader.py,
+    relations.py, embedder.py, importer.py.
+  - MeshSeedRunReport extension to src/theogony/reporting/models.py.
+  - New CLI subcommand `theogony mesh seed wikidata5m` with
+    --max-entities, --max-triplets, --batch-size, --dry-run, --root,
+    --data-root flags.
+  - Six tests in tests/mesh/seeds/ including the
+    test_wikidata5m_no_raw_text.py invariant.
+
+  Definition of Done:
+  - `theogony mesh seed wikidata5m --max-entities 1000 --max-triplets 5000`
+    produces 1000 Q-ID-anchored Tier-1 nodes + ≤ 5000 edges, audit ledger
+    entry per insertion, MeshSeedRunReport written, description column is
+    empty or entity-name-only on every node (verified via direct LanceDB
+    inspection).
+  - Subsequent `theogony mesh ingest --text-file <fixture-with-seeded-qid>`
+    eager-links via signal 1 to the seeded Tier-1 node (no candidate).
+  - pytest -q tests/mesh green; pytest -q green (no regression).
+  - Q-ID uniqueness invariant holds.
+
+resolution: ""
+linked_prs:
+  - "https://github.com/theogony-project/theogony/pull/156"  # doctrine clarification (no raw text)
+  - "https://github.com/theogony-project/theogony/pull/157"  # S2.5 step in migration plan
+linked_runreports: []
