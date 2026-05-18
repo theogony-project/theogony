@@ -16,14 +16,22 @@ from theogony.mesh.ingestion.concept_resolver import ConceptResolver
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.schemas import ConsolidatedNode, Edge, PIDTag, QIDTag
 from theogony.mesh.seeds.wikidata5m.embedder import MeshEmbedder
+from theogony.mesh.seeds.wikidata5m.limits import (
+    DEFAULT_SEED_EMBEDDING_BATCH_SIZE,
+    DEFAULT_SEED_EMBEDDING_MAX_CHARS,
+    seed_write_batch_size,
+    truncate_seed_embedding_text,
+)
 from theogony.mesh.seeds.wikidata5m.loader import (
     EntityRecord,
     TextRecord,
     TripletRecord,
     iter_entity_text_pairs,
     iter_entity_text_pairs_bounded,
+    iter_entity_text_pairs_for_qids,
     iter_triplet_records,
     iter_triplet_records_for_qids,
+    load_qid_selection_file,
     load_relation_aliases,
 )
 from theogony.mesh.seeds.wikidata5m.relations import resolve_relation_mapping
@@ -50,6 +58,7 @@ class _SeedCounters:
     entities_upserted: int = 0
     entities_skipped_duplicate_qid: int = 0
     entities_missing_text: int = 0
+    entities_embedding_text_truncated: int = 0
     edges_streamed: int = 0
     edges_upserted: int = 0
     edges_skipped_duplicate: int = 0
@@ -67,7 +76,8 @@ class Wikidata5mSeedImporter:
         data_root: Path,
         embedder: MeshEmbedder,
         embedder_requested: str | None = None,
-        batch_size: int = 64,
+        batch_size: int = DEFAULT_SEED_EMBEDDING_BATCH_SIZE,
+        max_embedding_chars: int = DEFAULT_SEED_EMBEDDING_MAX_CHARS,
         report_writer: RunReportWriter | None = None,
     ) -> None:
         self.runtime = runtime
@@ -75,7 +85,8 @@ class Wikidata5mSeedImporter:
         self.embedder = embedder
         self.embedder_requested = embedder_requested
         self.batch_size = batch_size
-        self.write_batch_size = max(batch_size * 16, 256)
+        self.max_embedding_chars = max_embedding_chars
+        self.write_batch_size = seed_write_batch_size(batch_size)
         self.report_writer = report_writer or RunReportWriter(Path("data/run_reports"))
         self.resolver = ConceptResolver(runtime.nodes)
         self.counters = _SeedCounters()
@@ -150,9 +161,19 @@ class Wikidata5mSeedImporter:
         if not new_pairs:
             return
 
+        embed_texts: list[str] = []
+        for _entity, text in new_pairs:
+            clipped, truncated = truncate_seed_embedding_text(
+                text.description_text,
+                max_chars=self.max_embedding_chars,
+            )
+            if truncated:
+                self.counters.entities_embedding_text_truncated += 1
+            embed_texts.append(clipped)
+
         embed_started = time.monotonic()
         semantic_vectors = await self.embedder.embed_many(
-            [text.description_text for _, text in new_pairs],
+            embed_texts,
             batch_size=self.batch_size,
         )
         embedding_duration_s = time.monotonic() - embed_started
@@ -205,10 +226,19 @@ class Wikidata5mSeedImporter:
         self,
         *,
         max_entities: int,
+        qid_file: Path | None,
         dry_run: bool,
     ) -> None:
         batch: list[tuple[EntityRecord, TextRecord]] = []
-        if max_entities > 0:
+        if qid_file is not None:
+            pair_iter = iter_entity_text_pairs_for_qids(
+                self.entity_path,
+                self.text_path,
+                load_qid_selection_file(qid_file),
+                on_malformed=self._on_malformed,
+                on_missing_text=self._on_missing_text,
+            )
+        elif max_entities > 0:
             lookup_window_size = max(
                 self.write_batch_size * 16,
                 max_entities - self.counters.entities_upserted,
@@ -236,8 +266,15 @@ class Wikidata5mSeedImporter:
         if batch:
             await self._flush_entity_batch(batch, dry_run=dry_run)
 
-    def _seeded_qids(self) -> set[str]:
-        return {qid.qid for node in self.resolver.iter_nodes() for qid in node.qids}
+    def _seeded_qids(self, *, qid_file: Path | None = None) -> set[str]:
+        if qid_file is not None:
+            return set(load_qid_selection_file(qid_file))
+        remembered = {qid.qid for node in self.resolver.iter_nodes() for qid in node.qids}
+        if remembered:
+            return remembered
+        return {
+            qid_tag.qid for node in self.runtime.nodes.iter_consolidated() for qid_tag in node.qids
+        }
 
     def _iter_limited_triplets(
         self,
@@ -270,11 +307,12 @@ class Wikidata5mSeedImporter:
         self,
         *,
         max_triplets: int,
+        qid_file: Path | None,
         dry_run: bool,
     ) -> None:
         edge_batch: list[Edge] = []
         audit_entries: list[tuple[str, dict[str, object]]] = []
-        seeded_qids = self._seeded_qids()
+        seeded_qids = self._seeded_qids(qid_file=qid_file)
         relation_aliases = load_relation_aliases(
             self.relation_path, on_malformed=self._on_malformed
         )
@@ -344,14 +382,25 @@ class Wikidata5mSeedImporter:
         *,
         max_entities: int = 0,
         max_triplets: int = 0,
+        qid_file: Path | None = None,
+        edges_only: bool = False,
         dry_run: bool = False,
     ) -> dict[str, object]:
         started_at = datetime.now(UTC)
         started_monotonic = time.monotonic()
         self._embedding_duration_s = 0.0
 
-        await self._seed_entities(max_entities=max_entities, dry_run=dry_run)
-        self._seed_edges(max_triplets=max_triplets, dry_run=dry_run)
+        if not edges_only:
+            await self._seed_entities(
+                max_entities=max_entities,
+                qid_file=qid_file,
+                dry_run=dry_run,
+            )
+        self._seed_edges(
+            max_triplets=max_triplets,
+            qid_file=qid_file,
+            dry_run=dry_run,
+        )
 
         finished_at = datetime.now(UTC)
         import_duration_s = time.monotonic() - started_monotonic
@@ -404,12 +453,17 @@ class Wikidata5mSeedImporter:
             embedding_model_id=self.embedder.model_id,
             max_entities=max_entities,
             max_triplets=max_triplets,
+            qid_file=str(qid_file) if qid_file is not None else None,
+            edges_only=edges_only,
             batch_size=self.batch_size,
+            write_batch_size=self.write_batch_size,
+            embedding_text_max_chars=self.max_embedding_chars,
             dry_run=dry_run,
             entities_streamed=self.counters.entities_streamed,
             entities_upserted=self.counters.entities_upserted,
             entities_skipped_duplicate_qid=self.counters.entities_skipped_duplicate_qid,
             entities_missing_text=self.counters.entities_missing_text,
+            entities_embedding_text_truncated=self.counters.entities_embedding_text_truncated,
             edges_streamed=self.counters.edges_streamed,
             edges_upserted=self.counters.edges_upserted,
             edges_skipped_duplicate=self.counters.edges_skipped_duplicate,

@@ -19,6 +19,7 @@ from theogony.mesh.seeds.wikidata5m import (
     build_default_embedder,
     build_embedder,
 )
+from theogony.mesh.seeds.wikidata5m.embedder import EdgesOnlyEmbedder, MeshEmbedder
 from theogony.reporting.writer import RunReportWriter
 
 mesh_app = typer.Typer(
@@ -35,6 +36,14 @@ _console = Console()
 
 _MESH_ROOT_HELP = "Mesh workspace directory (defaults to {data_dir}/mesh from settings)."
 MESH_ROOT = typer.Option(None, "--root", help=_MESH_ROOT_HELP)
+QID_FILE = typer.Option(
+    None,
+    "--qid-file",
+    help=(
+        "Seed only Q-IDs listed in this file (one per line; optional degree column). "
+        "Overrides --max-entities file-order selection."
+    ),
+)
 DATA_ROOT = typer.Option(
     None,
     "--data-root",
@@ -147,10 +156,16 @@ def mesh_seed_wikidata5m(
         "--max-triplets",
         help="Cap streamed triplets (0 = all).",
     ),
+    qid_file: Path | None = QID_FILE,
     batch_size: int = typer.Option(
-        64,
+        8,
         "--batch-size",
-        help="Embedding batch size.",
+        help="Embedding batch size (lower = less peak RAM on Apple Silicon).",
+    ),
+    max_embedding_chars: int = typer.Option(
+        2048,
+        "--max-embedding-chars",
+        help="Clip wikipedia paragraphs before embedding (raw text is not stored on mesh).",
     ),
     embedder_name: str | None = typer.Option(
         None,
@@ -161,6 +176,11 @@ def mesh_seed_wikidata5m(
         False,
         "--dry-run",
         help="Parse and report without writing nodes, edges, or audit rows.",
+    ),
+    edges_only: bool = typer.Option(
+        False,
+        "--edges-only",
+        help="Skip entity embedding; append edges to an existing seeded workspace.",
     ),
     mesh_root: Path | None = MESH_ROOT,
     data_root: Path | None = DATA_ROOT,
@@ -173,19 +193,25 @@ def mesh_seed_wikidata5m(
     )
 
     async def _run() -> dict[str, object]:
-        if embedder_name is None:
-            requested_name, embedder = await build_default_embedder()
+        embedder: MeshEmbedder
+        if edges_only:
+            runtime = MeshRuntime.open(root)
+            requested_name = "edges-only"
+            embedder = EdgesOnlyEmbedder(runtime.semantic_dim)
         else:
-            requested_name = embedder_name
-            embedder = build_embedder(embedder_name)
-            await embedder.embed_many(["mesh seed smoke probe"], batch_size=1)
+            if embedder_name is None:
+                requested_name, embedder = await build_default_embedder()
+            else:
+                requested_name = embedder_name
+                embedder = build_embedder(embedder_name)
+                await embedder.embed_many(["mesh seed smoke probe"], batch_size=1)
 
-        runtime = MeshRuntime.open(root, semantic_dim=embedder.dim, frame_dim=64)
-        if runtime.semantic_dim != embedder.dim:
-            raise ValueError(
-                f"mesh workspace uses semantic_dim={runtime.semantic_dim}, "
-                f"but embedder {embedder.model_id} produces dim={embedder.dim}"
-            )
+            runtime = MeshRuntime.open(root, semantic_dim=embedder.dim, frame_dim=64)
+            if runtime.semantic_dim != embedder.dim:
+                raise ValueError(
+                    f"mesh workspace uses semantic_dim={runtime.semantic_dim}, "
+                    f"but embedder {embedder.model_id} produces dim={embedder.dim}"
+                )
 
         importer = Wikidata5mSeedImporter(
             runtime,
@@ -193,11 +219,14 @@ def mesh_seed_wikidata5m(
             embedder=embedder,
             embedder_requested=requested_name,
             batch_size=batch_size,
+            max_embedding_chars=max_embedding_chars,
             report_writer=RunReportWriter(settings.run_reports_dir),
         )
         return await importer.run(
             max_entities=max_entities,
             max_triplets=max_triplets,
+            qid_file=qid_file.resolve() if qid_file is not None else None,
+            edges_only=edges_only,
             dry_run=dry_run,
         )
 

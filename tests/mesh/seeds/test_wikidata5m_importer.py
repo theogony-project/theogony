@@ -192,3 +192,124 @@ def test_wikidata5m_importer_collects_relevant_triplets_not_first_rows(
     assert result["edges_streamed"] == 2
     assert result["edges_upserted"] == 2
     assert result["edges_skipped_missing_endpoint"] == 0
+
+
+def test_wikidata5m_importer_seeds_qid_file_selection(
+    mesh_runtime: MeshRuntime,
+    seed_embedder: object,
+    seed_report_writer: RunReportWriter,
+    tmp_path: Path,
+) -> None:
+    import asyncio
+
+    fixture_root = tmp_path / "wikidata5m_qid_file"
+    fixture_root.mkdir()
+    (fixture_root / "wikidata5m_entity.txt").write_text(
+        "\n".join(["Q1\tAlpha", "Q2\tBeta", "Q3\tGamma"]) + "\n",
+        encoding="utf-8",
+    )
+    (fixture_root / "wikidata5m_text.txt").write_text(
+        "\n".join(
+            [
+                "Q1\tAlpha description",
+                "Q2\tBeta description",
+                "Q3\tGamma description",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (fixture_root / "wikidata5m_relation.txt").write_text("P31\tinstance of\n", encoding="utf-8")
+    (fixture_root / "wikidata5m_all_triplet.txt").write_text(
+        "\n".join(["Q9\tP31\tQ10", "Q1\tP31\tQ2", "Q1\tP31\tQ3"]) + "\n",
+        encoding="utf-8",
+    )
+    qid_file = fixture_root / "selection.txt"
+    qid_file.write_text("# ordered\nQ3\nQ1\n", encoding="utf-8")
+
+    importer = Wikidata5mSeedImporter(
+        mesh_runtime,
+        data_root=fixture_root,
+        embedder=seed_embedder,  # type: ignore[arg-type]
+        embedder_requested="dummy",
+        batch_size=2,
+        report_writer=seed_report_writer,
+    )
+    result = asyncio.run(importer.run(qid_file=qid_file, max_triplets=0))
+    report = MeshSeedRunReport.model_validate_json(
+        Path(result["report_path"]).read_text(encoding="utf-8")
+    )
+    imported_qids = [
+        qid.qid for node in mesh_runtime.nodes.load_all_consolidated() for qid in node.qids
+    ]
+
+    assert result["entities_upserted"] == 2
+    assert imported_qids == ["Q3", "Q1"]
+    assert result["edges_upserted"] == 1
+    assert report.qid_file == str(qid_file)
+
+
+def test_wikidata5m_importer_edges_only_appends_without_reembedding(
+    mesh_runtime: MeshRuntime,
+    seed_embedder: object,
+    seed_report_writer: RunReportWriter,
+    tmp_path: Path,
+) -> None:
+    import asyncio
+
+    from theogony.mesh.seeds.wikidata5m.embedder import EdgesOnlyEmbedder
+    from theogony.mesh.seeds.wikidata5m.loader import load_qid_selection_file
+
+    fixture_root = tmp_path / "wikidata5m_edges_only"
+    fixture_root.mkdir()
+    (fixture_root / "wikidata5m_entity.txt").write_text(
+        "\n".join(["Q1\tAlpha", "Q2\tBeta", "Q3\tGamma"]) + "\n",
+        encoding="utf-8",
+    )
+    (fixture_root / "wikidata5m_text.txt").write_text(
+        "\n".join(
+            [
+                "Q1\tAlpha description",
+                "Q2\tBeta description",
+                "Q3\tGamma description",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (fixture_root / "wikidata5m_relation.txt").write_text("P31\tinstance of\n", encoding="utf-8")
+    (fixture_root / "wikidata5m_all_triplet.txt").write_text(
+        "\n".join(["Q1\tP31\tQ2", "Q2\tP31\tQ3", "Q1\tP31\tQ3"]) + "\n",
+        encoding="utf-8",
+    )
+    qid_file = fixture_root / "selection.txt"
+    qid_file.write_text("Q1\nQ2\nQ3\n", encoding="utf-8")
+
+    base = Wikidata5mSeedImporter(
+        mesh_runtime,
+        data_root=fixture_root,
+        embedder=seed_embedder,  # type: ignore[arg-type]
+        embedder_requested="dummy",
+        batch_size=2,
+        report_writer=seed_report_writer,
+    )
+    first = asyncio.run(base.run(qid_file=qid_file, max_triplets=1, edges_only=False))
+    assert first["entities_upserted"] == 3
+    assert first["edges_upserted"] == 1
+
+    top_up = Wikidata5mSeedImporter(
+        mesh_runtime,
+        data_root=fixture_root,
+        embedder=EdgesOnlyEmbedder(mesh_runtime.semantic_dim),
+        embedder_requested="edges-only",
+        batch_size=2,
+        report_writer=seed_report_writer,
+    )
+    second = asyncio.run(top_up.run(qid_file=qid_file, max_triplets=0, edges_only=True))
+
+    assert second["entities_upserted"] == 0
+    assert second["entities_skipped_duplicate_qid"] == 0
+    assert second["edges_upserted"] == 2
+    assert second["edges_skipped_duplicate"] == 1
+    assert mesh_runtime.edges.count_rows() == 3
+    assert load_qid_selection_file(qid_file) == ["Q1", "Q2", "Q3"]

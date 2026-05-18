@@ -208,12 +208,17 @@ class MeshSeedRunReport(RunReportBase):
     embedding_model_id: str
     max_entities: int = Field(default=0, ge=0)
     max_triplets: int = Field(default=0, ge=0)
-    batch_size: int = Field(default=64, ge=1)
+    qid_file: str | None = None
+    edges_only: bool = False
+    batch_size: int = Field(default=8, ge=1)
+    write_batch_size: int = Field(default=32, ge=1)
+    embedding_text_max_chars: int = Field(default=2048, ge=128)
     dry_run: bool = False
     entities_streamed: int = Field(default=0, ge=0)
     entities_upserted: int = Field(default=0, ge=0)
     entities_skipped_duplicate_qid: int = Field(default=0, ge=0)
     entities_missing_text: int = Field(default=0, ge=0)
+    entities_embedding_text_truncated: int = Field(default=0, ge=0)
     edges_streamed: int = Field(default=0, ge=0)
     edges_upserted: int = Field(default=0, ge=0)
     edges_skipped_duplicate: int = Field(default=0, ge=0)
