@@ -264,6 +264,83 @@ def load_relation_aliases(
     }
 
 
+def load_qid_selection_file(path: Path) -> list[str]:
+    """Load Q-IDs from a smoke selection file (comments and optional degree column)."""
+    qids: list[str] = []
+    with path.open(encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            qid = line.split("\t", 1)[0].strip()
+            if qid.startswith("Q"):
+                qids.append(qid)
+    return qids
+
+
+def load_entity_lookup(
+    path: Path,
+    qids: Iterable[str],
+    *,
+    on_malformed: MalformedCallback | None = None,
+) -> dict[str, EntityRecord]:
+    requested_qids = {qid.strip() for qid in qids if qid.strip()}
+    if not requested_qids:
+        return {}
+
+    matches: dict[str, EntityRecord] = {}
+    for record in iter_entity_records(path, on_malformed=on_malformed):
+        if record.qid not in requested_qids or record.qid in matches:
+            continue
+        matches[record.qid] = record
+        if len(matches) >= len(requested_qids):
+            break
+    return matches
+
+
+def iter_entity_text_pairs_for_qids(
+    entity_path: Path,
+    text_path: Path,
+    qids: Iterable[str],
+    *,
+    on_malformed: MalformedCallback | None = None,
+    on_missing_text: MissingTextCallback | None = None,
+) -> Iterator[tuple[EntityRecord, TextRecord]]:
+    ordered_qids = [qid.strip() for qid in qids if qid.strip()]
+    if not ordered_qids:
+        return
+
+    requested_qids = set(ordered_qids)
+    entity_lookup = load_entity_lookup(
+        entity_path,
+        requested_qids,
+        on_malformed=on_malformed,
+    )
+    text_lookup = load_text_lookup(
+        text_path,
+        requested_qids,
+        on_malformed=on_malformed,
+    )
+    for qid in ordered_qids:
+        entity = entity_lookup.get(qid)
+        if entity is None:
+            _emit_malformed(
+                file_name=entity_path.name,
+                line_number=0,
+                reason=f"entity row missing for selected {qid}",
+                raw_line=qid,
+                on_malformed=on_malformed,
+                log_warning=False,
+            )
+            continue
+        text_record = text_lookup.get(qid)
+        if text_record is None:
+            if on_missing_text is not None:
+                on_missing_text(qid)
+            continue
+        yield entity, text_record
+
+
 def load_text_lookup(
     path: Path,
     qids: Iterable[str],

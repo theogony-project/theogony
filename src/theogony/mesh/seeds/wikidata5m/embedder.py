@@ -25,6 +25,23 @@ class MeshEmbedder(Protocol):
     ) -> list[list[float]]: ...
 
 
+class EdgesOnlyEmbedder:
+    """Placeholder when topping up edges on an existing workspace (no encoding)."""
+
+    model_id = "edges-only"
+
+    def __init__(self, dim: int) -> None:
+        self.dim = dim
+
+    async def embed_many(
+        self,
+        texts: list[str],
+        *,
+        batch_size: int = 64,
+    ) -> list[list[float]]:
+        raise RuntimeError("edges-only seed pass must not embed text")
+
+
 def _detect_device() -> str:
     if torch.backends.mps.is_available():
         return "mps"

@@ -5,10 +5,12 @@ from pathlib import Path
 from theogony.mesh.seeds.wikidata5m.loader import (
     iter_entity_records,
     iter_entity_text_pairs,
+    iter_entity_text_pairs_for_qids,
     iter_relation_records,
     iter_text_records,
     iter_triplet_records,
     iter_triplet_records_for_qids,
+    load_qid_selection_file,
 )
 
 
@@ -56,6 +58,48 @@ def test_wikidata5m_loader_reports_malformed_lines(tmp_path: Path) -> None:
     assert len(seen) == 2
     assert any("missing Q-ID" in item[2] for item in seen)
     assert any("missing aliases" in item[2] for item in seen)
+
+
+def test_wikidata5m_loader_reads_qid_selection_file(tmp_path: Path) -> None:
+    selection = tmp_path / "selection.txt"
+    selection.write_text(
+        "# smoke-2\nQ3\t99\nQ1\t10\n\nQ4\t5\n",
+        encoding="utf-8",
+    )
+
+    assert load_qid_selection_file(selection) == ["Q3", "Q1", "Q4"]
+
+
+def test_wikidata5m_loader_pairs_selected_qids_in_file_order(tmp_path: Path) -> None:
+    entity_path = tmp_path / "entities.txt"
+    text_path = tmp_path / "text.txt"
+    entity_path.write_text(
+        "\n".join(["Q1\tAlpha", "Q2\tBeta", "Q3\tGamma"]) + "\n",
+        encoding="utf-8",
+    )
+    text_path.write_text(
+        "\n".join(
+            [
+                "Q3\tGamma description",
+                "Q1\tAlpha description",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    pairs = list(
+        iter_entity_text_pairs_for_qids(
+            entity_path,
+            text_path,
+            ["Q3", "Q1", "Q2"],
+        )
+    )
+
+    assert [(entity.qid, text.qid) for entity, text in pairs] == [
+        ("Q3", "Q3"),
+        ("Q1", "Q1"),
+    ]
 
 
 def test_wikidata5m_loader_filters_triplets_to_seeded_qids(tmp_path: Path) -> None:
