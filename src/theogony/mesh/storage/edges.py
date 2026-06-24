@@ -15,7 +15,10 @@ table is atomically replaced, and the metadata table is resynced.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import threading
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -56,6 +59,11 @@ _METADATA_SCHEMA = pa.schema(
         ("payload_json", pa.string()),
     ]
 )
+
+# Edge-identity index for O(1) deduplication without materialising Edge objects
+# (PHX-1033). One short hashed key per directed (source, target, relation)
+# edge — the lightweight analogue of MeshNodeStore's consolidated_qid_index.
+_DEDUP_INDEX_SCHEMA = pa.schema([("dedup_key", pa.string())])
 
 
 # ---- CSR container ----
@@ -245,6 +253,77 @@ class EdgeStore:
         else:
             self.meta_table = db.create_table("edge_metadata", schema=_METADATA_SCHEMA)
 
+        if _have_table(db, "edge_dedup_index"):
+            self.dedup_index = db.open_table("edge_dedup_index")
+        else:
+            self.dedup_index = db.create_table("edge_dedup_index", schema=_DEDUP_INDEX_SCHEMA)
+        self._ensure_dedup_index()
+
+    @staticmethod
+    def dedup_key(source_id: str, target_id: str, relation_descriptor: str | None) -> str:
+        """Stable 128-bit hash identifying a directed (source, target, relation) edge.
+
+        Hashing keeps the index key fixed-width, control-character-free, and
+        safe to compare, regardless of what a free-form ``relation_descriptor``
+        contains.  Collisions are astronomically unlikely; a collision would at
+        worst skip one legitimate edge as a duplicate (a benign, audited loss).
+        """
+        raw = f"{source_id}\x1f{target_id}\x1f{relation_descriptor or ''}".encode()
+        return hashlib.blake2b(raw, digest_size=16).hexdigest()
+
+    def _dedup_rows(self, edges: list[Edge]) -> list[dict[str, str]]:
+        return [
+            {
+                "dedup_key": self.dedup_key(
+                    str(edge.source_id), str(edge.target_id), edge.relation_descriptor
+                )
+            }
+            for edge in edges
+        ]
+
+    def _iter_existing_dedup_keys(self, *, page_size: int = 4096) -> Iterator[str]:
+        """Yield dedup keys for already-stored edges without building Edge objects."""
+        offset = 0
+        while True:
+            rows = self.edge_table.search().limit(page_size).offset(offset).to_list()
+            if not rows:
+                return
+            for row in rows:
+                relation_descriptor: str | None = None
+                payload = row.get("payload_json")
+                if payload:
+                    try:
+                        relation_descriptor = json.loads(payload).get("relation_descriptor")
+                    except (ValueError, TypeError):
+                        relation_descriptor = None
+                yield self.dedup_key(
+                    str(row["source_id"]), str(row["target_id"]), relation_descriptor
+                )
+            offset += len(rows)
+
+    def _ensure_dedup_index(self) -> None:
+        """Backfill the dedup index for a workspace whose edges predate it (once)."""
+        if self.edge_table.count_rows() == 0:
+            return
+        if self.dedup_index.count_rows() > 0:
+            return
+        batch: list[dict[str, str]] = []
+        for key in self._iter_existing_dedup_keys():
+            batch.append({"dedup_key": key})
+            if len(batch) >= 4096:
+                self.dedup_index.add(batch)
+                batch = []
+        if batch:
+            self.dedup_index.add(batch)
+
+    def load_dedup_keys(self) -> set[str]:
+        """Return all stored edge dedup keys — the cheap replacement for a
+        ``load_all_edges()`` scan when only edge identity is needed."""
+        arrow = self.dedup_index.search().to_arrow()
+        if arrow.num_rows == 0:
+            return set()
+        return set(arrow.column("dedup_key").to_pylist())
+
     @staticmethod
     def _edge_row(edge: Edge) -> dict[str, Any]:
         return {
@@ -299,6 +378,7 @@ class EdgeStore:
         meta_rows = [row for edge in edges if (row := self._metadata_row(edge)) is not None]
         if meta_rows:
             self.meta_table.add(meta_rows)
+        self.dedup_index.add(self._dedup_rows(edges))
 
     def load_all_edges(self) -> list[Edge]:
         arrow = self.edge_table.search().to_arrow()
@@ -311,12 +391,14 @@ class EdgeStore:
         """Atomically replace the quantitative and metadata tables (Oneiros commit)."""
         self.edge_table.delete("true")
         self.meta_table.delete("true")
+        self.dedup_index.delete("true")
         if not edges:
             return
         self.edge_table.add([self._edge_row(edge) for edge in edges])
         meta_rows = [row for edge in edges if (row := self._metadata_row(edge)) is not None]
         if meta_rows:
             self.meta_table.add(meta_rows)
+        self.dedup_index.add(self._dedup_rows(edges))
 
     def count_rows(self) -> int:
         return int(self.edge_table.count_rows())

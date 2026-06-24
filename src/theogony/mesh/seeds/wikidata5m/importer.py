@@ -91,9 +91,9 @@ class Wikidata5mSeedImporter:
         self.resolver = ConceptResolver(runtime.nodes)
         self.counters = _SeedCounters()
         self.pid_unmapped: Counter[str] = Counter()
-        self._edge_keys = {
-            self._edge_key_from_edge(edge) for edge in self.runtime.edges.load_all_edges()
-        }
+        # Edge dedup keys come from the lightweight Lance edge_dedup_index, not a
+        # full load_all_edges() materialisation of every Edge object (PHX-1033).
+        self._edge_keys = self.runtime.edges.load_dedup_keys()
 
     @property
     def entity_path(self) -> Path:
@@ -133,15 +133,6 @@ class Wikidata5mSeedImporter:
         if dry_run or not entries:
             return
         self.runtime.audit.append_many(entries)
-
-    @staticmethod
-    def _edge_key(
-        source_id: str, target_id: str, relation_descriptor: str | None
-    ) -> tuple[str, str, str]:
-        return (source_id, target_id, relation_descriptor or "")
-
-    def _edge_key_from_edge(self, edge: Edge) -> tuple[str, str, str]:
-        return self._edge_key(str(edge.source_id), str(edge.target_id), edge.relation_descriptor)
 
     async def _flush_entity_batch(
         self,
@@ -332,7 +323,7 @@ class Wikidata5mSeedImporter:
             )
             if not mapping.mapped:
                 self.pid_unmapped[triplet.predicate_pid] += 1
-            edge_key = self._edge_key(
+            edge_key = self.runtime.edges.dedup_key(
                 str(source_node.id),
                 str(target_node.id),
                 mapping.relation_descriptor,
