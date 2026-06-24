@@ -102,6 +102,13 @@ class RankerContext:
     sem_unit: torch.Tensor  # (N, D) float32, L2-normalised semantic vectors
 
 
+def l2_normalize_rows(matrix: torch.Tensor) -> torch.Tensor:
+    """Row-wise L2 normalisation (safe for zero rows)."""
+    norms = matrix.norm(dim=1, keepdim=True).clamp_min(1e-12)
+    normalized: torch.Tensor = matrix / norms
+    return normalized
+
+
 def build_adjacency(csr: EdgeCSR, device: torch.device) -> torch.Tensor:
     """Construct the weighted sparse CSR adjacency (row = source, col = target)."""
     n = len(csr.node_ids)
