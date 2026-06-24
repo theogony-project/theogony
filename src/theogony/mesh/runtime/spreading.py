@@ -30,17 +30,17 @@ def spreading_activation(
     """
     if device is None:
         device = torch.device("cpu")
-        n = len(csr.node_ids)
-        if n == 0:
-            return torch.zeros(0, dtype=torch.float32, device=device)
-        adj = torch.sparse_csr_tensor(
-            csr.crow_indices.to(device),
-            csr.col_indices.to(device),
-            csr.values.to(device),
-            size=(n, n),
-            dtype=torch.float32,
-            device=device,
-        )
+    n = len(csr.node_ids)
+    if n == 0:
+        return torch.zeros(0, dtype=torch.float32, device=device)
+    adj = torch.sparse_csr_tensor(
+        csr.crow_indices.to(device),
+        csr.col_indices.to(device),
+        csr.values.to(device),
+        size=(n, n),
+        dtype=torch.float32,
+        device=device,
+    )
     x = torch.zeros(n, dtype=torch.float32, device=device)
     x[seed_index] = 1.0
     for _ in range(hops):
