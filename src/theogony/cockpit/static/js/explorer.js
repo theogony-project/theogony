@@ -508,6 +508,18 @@
             </div>`;
   }
 
+  function renderMeshRetrievalNote(retrieval) {
+    const strat = retrieval.strategy || "mesh:ppr";
+    const seeds = retrieval.seed_count ?? "?";
+    const k = retrieval.k ?? "?";
+    return (
+      `<div class="text-slate-400 text-xs mb-2 border-l-2 border-violet-600/55 pl-2 leading-snug">` +
+      `Retrieval: <strong>Spreading Activation</strong> via <code class="text-slate-400">${escapeHtml(strat)}</code> ` +
+      `with <strong>${seeds}</strong> ANN seed(s), working set <strong>${k}</strong> node(s). ` +
+      `The d3 view shows the activated sub-graph (edges between hits), not Gen-1 hop rings.</div>`
+    );
+  }
+
   function renderRetrievalHopNote(retrieval) {
     const hops = retrieval.hops ?? "?";
     const strat = retrieval.strategy ?? "?";
@@ -545,22 +557,38 @@
 
   function buildAssistantDetailHtml(payload) {
     const meta = payload.synthesis_meta || {};
-    const isOffline = meta.mode === "offline_citations" || meta.stub_llm === true;
-    const banner = isOffline
-      ? `<div class="mb-2 rounded border border-sky-600/40 bg-sky-950/35 px-2 py-1.5 text-xs text-sky-100/95 leading-snug">
-           <strong>Offline answer</strong> — citations are real vector hits from the Chronicle seed.
-           For Claude synthesis: set <code class="text-sky-200/90">ANTHROPIC_API_KEY</code> and restart
-           <code class="text-sky-200/90">theogony cockpit serve</code> or <code class="text-sky-200/90">theogony serve</code>.
-         </div>`
-      : `<div class="mb-2 rounded border border-emerald-600/45 bg-emerald-950/30 px-2 py-1.5 text-xs text-emerald-100/95 leading-snug">
-           <strong>LLM synthesis</strong> — provider <code class="text-emerald-200/90">${escapeHtml(meta.llm_provider || "?")}</code>
-           ${meta.llm_model_id ? `· <code class="text-emerald-200/90">${escapeHtml(meta.llm_model_id)}</code>` : ""}
-         </div>`;
+    const isMesh = meta.mode === "mesh_constellation";
+    const isOffline =
+      !isMesh && (meta.mode === "offline_citations" || meta.stub_llm === true);
+    let banner;
+    if (isMesh) {
+      banner =
+        `<div class="mb-2 rounded border border-violet-600/45 bg-violet-950/35 px-2 py-1.5 text-xs text-violet-100/95 leading-snug">` +
+        `<strong>Mesh constellation</strong> — Spreading Activation over the Wikidata subnet ` +
+        `(embedder <code class="text-violet-200/90">${escapeHtml(meta.llm_model_id || "bge-m3")}</code>). ` +
+        `No LLM synthesis; answer text summarizes the activated working set.</div>`;
+    } else if (isOffline) {
+      banner =
+        `<div class="mb-2 rounded border border-sky-600/40 bg-sky-950/35 px-2 py-1.5 text-xs text-sky-100/95 leading-snug">` +
+        `<strong>Offline answer</strong> — citations are real vector hits from the Chronicle seed. ` +
+        `For Claude synthesis: set <code class="text-sky-200/90">ANTHROPIC_API_KEY</code> and restart ` +
+        `<code class="text-sky-200/90">theogony cockpit serve</code> or <code class="text-sky-200/90">theogony serve</code>.</div>`;
+    } else {
+      banner =
+        `<div class="mb-2 rounded border border-emerald-600/45 bg-emerald-950/30 px-2 py-1.5 text-xs text-emerald-100/95 leading-snug">` +
+        `<strong>LLM synthesis</strong> — provider <code class="text-emerald-200/90">${escapeHtml(meta.llm_provider || "?")}</code> ` +
+        `${meta.llm_model_id ? `· <code class="text-emerald-200/90">${escapeHtml(meta.llm_model_id)}</code>` : ""}` +
+        `</div>`;
+    }
     const gaps =
       payload.constellation.gaps && payload.constellation.gaps.length
         ? `<div class="text-amber-300/90 text-xs mb-2">gaps: ${payload.constellation.gaps.join(", ")}</div>`
         : "";
-    const hopNote = payload.retrieval ? renderRetrievalHopNote(payload.retrieval) : "";
+    const hopNote = payload.retrieval
+      ? isMesh
+        ? renderMeshRetrievalNote(payload.retrieval)
+        : renderRetrievalHopNote(payload.retrieval)
+      : "";
     const ep = payload.entry_plan;
     const qRaw = String(payload.query || "").trim();
     const subs =
@@ -665,15 +693,25 @@
     const nNodes = (payload.constellation.nodes || []).length;
     const nConstEdges = (payload.constellation.edges || []).length;
     const nSpokes = Math.min(nNodes, 32);
-    const hops = payload.retrieval && payload.retrieval.hops != null ? payload.retrieval.hops : "?";
-    const tm =
-      payload.retrieval && payload.retrieval.thinking_max != null
-        ? payload.retrieval.thinking_max
-        : "?";
-    setStatus(
-      `verdict=${payload.verdict} · ${nNodes} nodes · ${nConstEdges} graph edges · ${nSpokes} query links · hops≤${hops} · think≤${tm}`,
-      "ok",
-    );
+    const meta = payload.synthesis_meta || {};
+    if (meta.mode === "mesh_constellation") {
+      const strat = (payload.retrieval && payload.retrieval.strategy) || "mesh";
+      const seeds = (payload.retrieval && payload.retrieval.seed_count) || 0;
+      setStatus(
+        `${strat} · ${nNodes} nodes · ${nConstEdges} edges · ${seeds} seeds`,
+        "ok",
+      );
+    } else {
+      const hops = payload.retrieval && payload.retrieval.hops != null ? payload.retrieval.hops : "?";
+      const tm =
+        payload.retrieval && payload.retrieval.thinking_max != null
+          ? payload.retrieval.thinking_max
+          : "?";
+      setStatus(
+        `verdict=${payload.verdict} · ${nNodes} nodes · ${nConstEdges} graph edges · ${nSpokes} query links · hops≤${hops} · think≤${tm}`,
+        "ok",
+      );
+    }
     renderVector(payload.query_embedding_preview);
     renderTiming(payload.timing_ms, payload.retrieval);
     renderGraph(payload);
@@ -704,6 +742,9 @@
             if (obj.phase === "embed") setPhase("embed", true);
             if (obj.phase === "retrieve") setPhase("retrieve", true);
             if (obj.phase === "synthesize") setPhase("synth", true);
+          }
+          if (obj.type === "status" && obj.message) {
+            setStatus(String(obj.message));
           }
           if (obj.type === "complete") {
             finalPayload = obj.payload;
@@ -948,6 +989,36 @@
     } else {
       workerBtn.addEventListener("click", runWorkerTick);
     }
+  }
+
+  function syncBackendControls() {
+    const backendEl = document.getElementById("explorer-backend");
+    const operatorLabel = document.getElementById("explorer-operator-label");
+    const hopsLabel = document.querySelector('label:has(#explorer-hops)');
+    const thinkLabel = document.querySelector('label:has(#explorer-thinking-max)');
+    const mesh = backendEl && backendEl.value === "mesh";
+    if (hopsLabel) hopsLabel.classList.toggle("hidden", !!mesh);
+    if (thinkLabel) thinkLabel.classList.toggle("hidden", !!mesh);
+    if (operatorLabel) operatorLabel.classList.toggle("hidden", !mesh);
+  }
+
+  const backendEl = document.getElementById("explorer-backend");
+  if (backendEl) {
+    try {
+      const saved = localStorage.getItem("theogony-explorer-backend");
+      if (saved === "mesh" || saved === "gen1") backendEl.value = saved;
+    } catch (_e) {
+      /* private browsing */
+    }
+    backendEl.addEventListener("change", () => {
+      try {
+        localStorage.setItem("theogony-explorer-backend", backendEl.value);
+      } catch (_e) {
+        /* private browsing */
+      }
+      syncBackendControls();
+    });
+    syncBackendControls();
   }
 
   form.addEventListener("submit", ask);

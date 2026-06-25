@@ -16,6 +16,7 @@ loop responsive.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import time
 from collections.abc import AsyncIterator
@@ -321,6 +322,97 @@ class MeshExplorerService:
         )
         return MeshAskOutcome(payload=payload, report=report)
 
+    async def ask_streaming(
+        self,
+        query: str,
+        *,
+        top_k: int = 30,
+        k_seeds: int = 8,
+        operator: str = "ppr",
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Step through embed → index → retrieve with incremental status events for SSE."""
+        started_at = datetime.now(UTC)
+        q = (query or "").strip()
+        if not q:
+            yield {"type": "error", "message": "query must be non-empty"}
+            return
+
+        yield {"type": "status", "message": "embedding query (bge-m3)…"}
+        t = time.perf_counter()
+        query_vector = await self.embed(query)
+        embed_ms = int((time.perf_counter() - t) * 1000.0)
+        yield {"type": "phase", "phase": "embed", "ms": embed_ms}
+
+        if self._propagator is None:
+            yield {
+                "type": "status",
+                "message": "building activation index (one-time, ~30s on 100k)…",
+            }
+        index_ms = await self.ensure_index()
+        if index_ms > 0:
+            yield {
+                "type": "status",
+                "message": f"activation index ready ({index_ms // 1000}s one-time build)",
+            }
+        yield {"type": "phase", "phase": "chat_compact", "ms": index_ms}
+
+        yield {"type": "status", "message": "spreading activation (PPR)…"}
+        result = await asyncio.to_thread(
+            self._run_retrieval,
+            query_vector,
+            top_k=top_k,
+            k_seeds=k_seeds,
+            operator=operator,
+            query=q,
+        )
+        verdict, reasoning = _verdict(result)
+        finished_at = datetime.now(UTC)
+        report = MeshQueryRunReport(
+            started_at=started_at,
+            finished_at=finished_at,
+            duration_s=(finished_at - started_at).total_seconds(),
+            status="completed",
+            verdict=cast(Any, verdict),
+            verdict_reasoning=f"{reasoning} (cockpit mesh explorer)",
+            query=q,
+            query_length_chars=len(q),
+            embedding_duration_ms=embed_ms,
+            operator=result.operator,
+            frame_routed=result.frame_routed,
+            ann_hit_count=result.ann_hit_count,
+            seed_count=len(result.seed_node_ids),
+            seed_node_ids=result.seed_node_ids,
+            constellation_node_count=len(result.constellation.nodes),
+            constellation_edge_count=len(result.constellation.edges),
+            source_anchor_count=len(result.constellation.source_anchor_ids),
+            gaps_identified=len(result.constellation.gaps),
+            csr_duration_ms=index_ms,
+            ann_duration_ms=int(result.timings_ms.get("ann_ms", 0.0)),
+            propagate_duration_ms=int(result.timings_ms.get("propagate_ms", 0.0)),
+            assemble_duration_ms=int(result.timings_ms.get("assemble_ms", 0.0)),
+            cited_node_ids=[n.node_id for n in result.constellation.nodes],
+        )
+        payload = self._payload(
+            query=q,
+            query_vector=query_vector,
+            result=result,
+            run_id=report.run_id,
+            verdict=verdict,
+            embed_ms=embed_ms,
+            index_ms=index_ms,
+        )
+        yield {
+            "type": "phase",
+            "phase": "retrieve",
+            "ms": int(result.timings_ms.get("propagate_ms", 0.0)),
+        }
+        yield {
+            "type": "phase",
+            "phase": "synthesize",
+            "ms": int(result.timings_ms.get("assemble_ms", 0.0)),
+        }
+        yield {"type": "complete", "payload": payload, "report": report}
+
 
 def _sse(chunk: dict[str, Any]) -> bytes:
     return ("data: " + json.dumps(chunk, allow_nan=False) + "\n\n").encode()
@@ -335,27 +427,19 @@ async def stream_mesh_ask_sse(
     operator: str,
     report_writer: Any | None = None,
 ) -> AsyncIterator[bytes]:
-    """SSE phases (embed → retrieve(+one-time index build) → synthesize → complete).
-
-    Phase names reuse the Explorer's existing pills so the frontend needs no phase changes.
-    """
-    q = (query or "").strip()
-    if not q:
-        yield _sse({"type": "error", "message": "query must be non-empty"})
-        return
+    """SSE with incremental status during embed, index build, and retrieval."""
     try:
-        yield _sse({"type": "phase", "phase": "embed", "ms": 0})
-        outcome = await service.ask(q, top_k=top_k, k_seeds=k_seeds, operator=operator)
+        async for event in service.ask_streaming(
+            query, top_k=top_k, k_seeds=k_seeds, operator=operator
+        ):
+            if event.get("type") == "complete":
+                report = event.get("report")
+                if report_writer is not None and report is not None:
+                    with contextlib.suppress(Exception):
+                        report_writer.write(report)
+                yield _sse({"type": "complete", "payload": event["payload"]})
+            else:
+                yield _sse(event)
     except Exception as exc:  # noqa: BLE001 - surfaced to the UI
         log.exception("mesh explorer ask failed")
         yield _sse({"type": "error", "message": f"mesh retrieval failed: {exc}"})
-        return
-    if report_writer is not None:
-        try:
-            report_writer.write(outcome.report)
-        except Exception:  # noqa: BLE001 - report write is best-effort
-            log.warning("mesh explorer: failed to write run report", exc_info=True)
-    timing = outcome.payload["timing_ms"]
-    yield _sse({"type": "phase", "phase": "retrieve", "ms": int(timing.get("multi_hop_ms", 0))})
-    yield _sse({"type": "phase", "phase": "synthesize", "ms": int(timing.get("synthesis_ms", 0))})
-    yield _sse({"type": "complete", "payload": outcome.payload})
