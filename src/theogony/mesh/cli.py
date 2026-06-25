@@ -4,15 +4,20 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 
 from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
 from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
+from theogony.mesh.retrieval import RetrievalResult, retrieve
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.seeds.wikidata5m import (
     Wikidata5mSeedImporter,
@@ -20,6 +25,7 @@ from theogony.mesh.seeds.wikidata5m import (
     build_embedder,
 )
 from theogony.mesh.seeds.wikidata5m.embedder import EdgesOnlyEmbedder, MeshEmbedder
+from theogony.reporting.models import MeshQueryRunReport
 from theogony.reporting.writer import RunReportWriter
 
 mesh_app = typer.Typer(
@@ -232,6 +238,178 @@ def mesh_seed_wikidata5m(
 
     result = asyncio.run(_run())
     _console.print(Panel.fit(json.dumps(result, indent=2), title="mesh seed wikidata5m"))
+
+
+async def _query_embedder(target_dim: int, requested: str | None) -> MeshEmbedder:
+    """Pick an embedder whose dimension matches the workspace's semantic_dim."""
+    names = [requested] if requested else ["bge-m3", "bge-small-en"]
+    for name in names:
+        embedder = build_embedder(name)
+        await embedder.embed_many(["mesh ask probe"], batch_size=1)
+        if embedder.dim == target_dim:
+            return embedder
+        if requested is not None:
+            raise ValueError(
+                f"embedder {embedder.model_id} produces dim={embedder.dim}, "
+                f"but mesh workspace uses semantic_dim={target_dim}"
+            )
+    raise ValueError(
+        f"no known embedder matches workspace semantic_dim={target_dim}; pass --embedder explicitly"
+    )
+
+
+def _mesh_query_verdict(
+    result: RetrievalResult,
+) -> tuple[Literal["good", "partial", "poor"], str]:
+    c = result.constellation
+    if not c.nodes:
+        return "poor", "no nodes activated"
+    if not c.edges and c.operator != "vector-only":
+        return "partial", "nodes activated but no edges in working set"
+    if not c.source_anchor_ids:
+        return "partial", "no source-anchored provenance reached"
+    return "good", "connected, provenance-anchored working set"
+
+
+def _render_constellation(result: RetrievalResult, *, max_nodes: int = 20) -> None:
+    c = result.constellation
+    node_table = Table(title="Constellation — activated nodes", show_lines=False)
+    node_table.add_column("#", justify="right", style="dim")
+    node_table.add_column("name", overflow="fold")
+    node_table.add_column("qid", style="cyan")
+    node_table.add_column("tier", justify="right")
+    node_table.add_column("activation", justify="right")
+    node_table.add_column("flags")
+    for i, node in enumerate(c.nodes[:max_nodes], start=1):
+        flags = []
+        if node.is_seed:
+            flags.append("seed")
+        if node.is_source_anchor:
+            flags.append("src")
+        if node.is_candidate:
+            flags.append("cand")
+        node_table.add_row(
+            str(i),
+            node.name,
+            node.qid or "-",
+            str(node.tier),
+            f"{node.activation:.4f}",
+            ",".join(flags) or "-",
+        )
+    _console.print(node_table)
+
+    if c.edges:
+        edge_table = Table(title="Constellation — edges in working set")
+        edge_table.add_column("source", overflow="fold")
+        edge_table.add_column("relation", style="magenta")
+        edge_table.add_column("target", overflow="fold")
+        edge_table.add_column("weight", justify="right")
+        for edge in c.edges[:max_nodes]:
+            edge_table.add_row(
+                edge.source_name,
+                edge.relation_descriptor or "~",
+                edge.target_name,
+                f"{edge.weight:.3f}",
+            )
+        _console.print(edge_table)
+
+    summary = {
+        "operator": c.operator,
+        "frame_routed": c.frame_routed,
+        "seeds": len(c.seed_node_ids),
+        "nodes": len(c.nodes),
+        "edges": len(c.edges),
+        "source_anchors": len(c.source_anchor_ids),
+        "gaps": c.gaps,
+        "timings_ms": {k: round(v, 1) for k, v in result.timings_ms.items()},
+    }
+    _console.print(Panel.fit(json.dumps(summary, indent=2), title="mesh ask summary"))
+
+
+@mesh_app.command("ask")
+def mesh_ask(
+    query: str = typer.Argument(
+        ..., help="Natural-language query (embedded, then SA over the mesh)."
+    ),
+    operator: str = typer.Option(
+        "ppr", "--operator", help="Propagation operator: ppr | degnorm | raw."
+    ),
+    top_k: int = typer.Option(30, "--top-k", help="Max nodes in the returned Constellation."),
+    k_seeds: int = typer.Option(8, "--seeds", help="Diversified seed count (MMR + weight-class)."),
+    hops: int = typer.Option(3, "--hops", help="Hops for raw/degnorm operators."),
+    ann_limit: int = typer.Option(64, "--ann-limit", help="Vector-search candidates before MMR."),
+    embedder_name: str | None = typer.Option(
+        None, "--embedder", help="bge-m3 | bge-small-en (default: match workspace dim)."
+    ),
+    vector_column: str = typer.Option(
+        "semantic_vector",
+        "--vector-column",
+        help="ANN column: semantic_vector | description_vector.",
+    ),
+    json_out: bool = typer.Option(
+        False, "--json", help="Emit the Constellation as JSON instead of tables."
+    ),
+    mesh_root: Path | None = MESH_ROOT,
+) -> None:
+    """Query the MESH substrate: embed -> diversified injection -> Spreading Activation."""
+    settings = Settings()
+    root = mesh_root.resolve() if mesh_root is not None else _default_root(settings)
+    rt = MeshRuntime.open(root)
+    started_at = datetime.now(UTC)
+
+    async def _embed() -> tuple[str, list[float], int]:
+        embedder = await _query_embedder(rt.semantic_dim, embedder_name)
+        t = time.perf_counter()
+        vector = (await embedder.embed_many([query], batch_size=1))[0]
+        return embedder.model_id, vector, int((time.perf_counter() - t) * 1000.0)
+
+    model_id, query_vector, embed_ms = asyncio.run(_embed())
+
+    result = retrieve(
+        rt,
+        query_vector,
+        operator=operator,
+        top_k=top_k,
+        k_seeds=k_seeds,
+        hops=hops,
+        ann_limit=ann_limit,
+        vector_column=vector_column,
+        query=query,
+    )
+    finished_at = datetime.now(UTC)
+    verdict, reasoning = _mesh_query_verdict(result)
+    c = result.constellation
+    report = MeshQueryRunReport(
+        started_at=started_at,
+        finished_at=finished_at,
+        duration_s=(finished_at - started_at).total_seconds(),
+        status="completed",
+        verdict=verdict,
+        verdict_reasoning=f"{reasoning} (embedder={model_id})",
+        query=query,
+        query_length_chars=len(query),
+        embedding_duration_ms=embed_ms,
+        operator=result.operator,
+        frame_routed=result.frame_routed,
+        ann_hit_count=result.ann_hit_count,
+        seed_count=len(result.seed_node_ids),
+        seed_node_ids=result.seed_node_ids,
+        constellation_node_count=len(c.nodes),
+        constellation_edge_count=len(c.edges),
+        source_anchor_count=len(c.source_anchor_ids),
+        gaps_identified=len(c.gaps),
+        csr_duration_ms=int(result.timings_ms.get("csr_ms", 0.0)),
+        ann_duration_ms=int(result.timings_ms.get("ann_ms", 0.0)),
+        propagate_duration_ms=int(result.timings_ms.get("propagate_ms", 0.0)),
+        assemble_duration_ms=int(result.timings_ms.get("assemble_ms", 0.0)),
+        cited_node_ids=[node.node_id for node in c.nodes],
+    )
+    RunReportWriter(settings.run_reports_dir).write(report)
+
+    if json_out:
+        _console.print_json(c.model_dump_json())
+    else:
+        _render_constellation(result)
 
 
 mesh_app.add_typer(seed_app, name="seed")
