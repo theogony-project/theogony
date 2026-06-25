@@ -729,19 +729,36 @@
     lastPayload = null;
     let resp;
     try {
-      resp = await fetch("/cockpit/api/ask-stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-        body: JSON.stringify({
+      const backendEl = document.getElementById("explorer-backend");
+      const backend = backendEl ? backendEl.value : "gen1";
+      const operatorEl = document.getElementById("explorer-operator");
+      const k = parseInt(kEl.value, 10) || 10;
+      let url = "/cockpit/api/ask-stream";
+      let body;
+      if (backend === "mesh") {
+        url = "/cockpit/api/mesh/ask-stream";
+        body = {
           q,
-          k: parseInt(kEl.value, 10) || 10,
+          top_k: k,
+          seeds: 8,
+          operator: operatorEl ? operatorEl.value : "ppr",
+        };
+      } else {
+        body = {
+          q,
+          k,
           hops: parseInt(hopsEl.value, 10) || 2,
           thinking_max: thinkingMaxEl
             ? Math.max(0, Math.min(8, parseInt(thinkingMaxEl.value, 10) || 0))
             : 2,
           conversation_summary: rollingSummary || "",
           conversation_messages: priorForApi,
-        }),
+        };
+      }
+      resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+        body: JSON.stringify(body),
       });
     } catch (err) {
       setStatus("network error: " + err, "error");

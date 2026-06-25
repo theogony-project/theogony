@@ -137,6 +137,21 @@
           placeholder="Type a message…"
           maxlength="1000"></textarea>
         <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+          {% if mesh_available %}
+          <label class="flex items-center gap-1" title="Gen-1 Chronicle (LLM synthesis) or the new MESH substrate (Spreading Activation over the seeded Wikidata subnet).">backend
+            <select id="explorer-backend"
+              class="bg-slate-950/80 border border-slate-600 rounded px-1 py-0.5 text-slate-100">
+              <option value="gen1">Gen-1 (Chronicle)</option>
+              <option value="mesh">Mesh (Wikidata)</option>
+            </select></label>
+          <label class="flex items-center gap-1" title="Mesh propagation operator (Mesh backend only).">op
+            <select id="explorer-operator"
+              class="bg-slate-950/80 border border-slate-600 rounded px-1 py-0.5 text-slate-100">
+              <option value="ppr">ppr</option>
+              <option value="degnorm">degnorm</option>
+              <option value="raw">raw</option>
+            </select></label>
+          {% endif %}
           <label class="flex items-center gap-1">k
             <input id="explorer-k" type="number" value="10" min="1" max="25"
               class="w-14 bg-slate-950/80 border border-slate-600 rounded px-1 text-slate-100"></label>
