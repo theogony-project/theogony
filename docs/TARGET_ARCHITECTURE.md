@@ -89,7 +89,9 @@ The pipeline above describes a single mesh tier. The Chronik is designed to host
 
 ## The Three Non-Negotiable Technical Decisions
 
-These are decided. They are not under discussion.
+These three are the **current architectural floor** — the best answers we have to *how* the vision is realised, each with strong reasons given below. **Within the current generation they are binding:** a contributor does not quietly abandon them mid-task, and code that contradicts them is building the wrong thing (see [`../AGENTS.md`](../AGENTS.md)).
+
+But they are *implementation*, not *vision*. The vision and the [twelve non-negotiable principles](CHRONICLE_PRINCIPLES.md) are the invariant; these technical decisions are a **replaceable proposal in its service** — the best floor we currently know how to build, held to a standard of maximal scalability and efficiency. They change only through the deliberate Phoenix / self-modification process ([`SELF_MODIFICATION.md`](SELF_MODIFICATION.md)), with evidence that a different floor serves the vision better — never by casual drift inside a task. "Non-negotiable" here means *not casually re-litigated*, not *true forever*.
 
 **1. No raw text storage after Kadmos.**  
 Once Kadmos has translated a source, the raw source text is not stored in the Chronik as retrieval payload. SpMV reads vectors, not strings. A minimal `raw_text_ref` pointer exists per chunk so the immune system can re-derive from the source when needed; source-anchor entities (Tier-1+ nodes flagged with `is_source_anchor`) carry URLs, DOIs, ISBNs as structured anchors. Short text fields — `description` on nodes and edges, `relation_descriptor`, `tags`, `source_url` — are summary metadata, *not* raw source text, and they are explicitly permitted; they are how agents and humans read the mesh. See [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Field discipline" and §"Source-anchor entities".
