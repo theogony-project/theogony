@@ -1,6 +1,6 @@
 # Self-Modification
 
-**Status:** canonical long-horizon doctrine. Not implemented in any current generation. The principle is recorded so the substrate is not built in a way that forecloses it.
+**Status:** canonical doctrine. Self-improvement is a **central commitment**, realised in stages. The earliest stage — the chronicle improving its own *knowledge* — is already live via consolidation and the immune system. The later stages — the system improving its own *architecture, implementation, and the physical stack it runs on* — are long-horizon and gated by the strict conditions below. The principle is recorded both because it is central to what Theogony is and so the substrate is never built in a way that forecloses it.
 **Companion docs:** [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md) (the immediate self-improvement layer this builds on), [`PANTHEON_VISION.md`](PANTHEON_VISION.md) (long-horizon north star), [`PHILOSOPHY.md`](../PHILOSOPHY.md) (the civilizational frame).
 **Audience:** anyone designing the substrate, the agent roster, the deployment architecture, the governance model, or the long-term evolution of the project.
 
@@ -19,6 +19,18 @@ This doc is about stage 3. It is the architectural recognition that the Pantheon
 Once the immune system (Wave 3) and the first few human-curated Phoenix incarnations (Wave 4 and onward) have run, Mnemosyne will have observed enough of her own success and failure modes to do more than tune parameters and draft tickets. She will be able to **propose code changes** to the substrate — refactorings, schema extensions, new agent classes, new adapters — based on patterns no human reviewer would have time to find at her observation density.
 
 When that capability is real, it would be wasteful to keep humans permanently in the role of substrate authors. The Pantheon should be allowed to write itself, under terms that preserve human oversight, audit, and reversibility. That is what this doc specifies in principle.
+
+## The scope of self-improvement — knowledge, then architecture, then the stack
+
+Self-improvement is not only about the system authoring its own *code*. It is a widening scope, pursued in order:
+
+1. **Knowledge (live today).** The chronicle improves its own contents without new external input — consolidation, contradiction resolution, the immune system, Oneiros "dreaming". This is the substrate's day-to-day self-improvement, and it runs now.
+2. **Architecture and implementation (mid-term).** The system proposes and eventually authors changes to its own substrate code, schemas, agents, and retrieval — the staged authoring loop specified below, gated by the conditions in this document.
+3. **The physical stack (long-horizon — and beyond).** Once a research capability is in full operation, a standing section of the system is devoted to making Theogony better at every level it depends on: the efficiency of its algorithms, the operation and design of the data centers it runs on, the energy that powers them, and — at the far edge — chip architecture and fabrication specialised for this workload. Beyond that, whatever the next binding constraint turns out to be.
+
+**Dedicated agents, dedicated resources.** Self-improvement is not a side-effect. Specific agents are budgeted explicitly for it, and as the system matures a standing "improve-Theogony" cohort operates continuously — the same way Argus acquires and Athene verifies. Maximal scalability and efficiency are the standing objectives of that work, and the concrete implementation is always a *replaceable proposal* in service of the vision.
+
+The rest of this document specifies the **safety conditions** under which the more powerful stages — 2 and especially 3, where the system writes its own code and shapes its own infrastructure — are allowed to operate. The scope is deliberately ambitious; the gates are deliberately strict.
 
 ## What "self-modification" means concretely
 

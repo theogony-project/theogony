@@ -31,7 +31,7 @@ For someone who wants to understand the project quickly:
 2. [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) — the substrate doctrine in one document; pages 1–3 are enough for an orientation. Stop there if you don't need the implementation and retrieval companions yet.
 3. [`ROADMAP.md`](../ROADMAP.md) — the five-phase development sequence, current status, and next priorities
 4. [`PANTHEON_VISION.md`](PANTHEON_VISION.md) — long-horizon north star (Pantheon as planetary chronicle substrate)
-5. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — ten non-negotiables in one page
+5. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — twelve non-negotiables in one page
 6. [`VISION.md`](VISION.md)
 7. [`GLOSSARY.md`](GLOSSARY.md)
 
@@ -65,7 +65,7 @@ For someone focused on the Tensor-Manifold core, the Kadmos→MNLM pipeline, and
 1. [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) — **the binding substrate doctrine.** Read this first. It is the operative specification of what the mesh is.
 2. [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) — the storage / concurrency / hardware companion to (1).
 3. [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) — the retrieval / learning / multi-agent / modality companion to (1).
-4. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — ten non-negotiable principles. The substrate triplet (1)–(3) is operative for substrate-layer behaviour; these principles inform everything around it.
+4. [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — twelve non-negotiable principles. The substrate triplet (1)–(3) is operative for substrate-layer behaviour; these principles inform everything around it.
 5. [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) — the architectural floor: LanceDB + PyTorch, Spreading Activation as the only retrieval primitive, no raw text as retrieval payload, edge/node density target. The MESH triplet builds the structure that stands on this floor.
 6. [`../notes/architecture/vector_native_spreading_activation.md`](../notes/architecture/vector_native_spreading_activation.md) — earlier MVP-level Spreading Activation note (German). Largely superseded by the MESH triplet (1)–(3); kept as historical context.
 7. [`../notes/architecture/reading_agent_vision.md`](../notes/architecture/reading_agent_vision.md) — the cognitive model behind reading-as-synthesis: how human reading works and how Kadmos implements it.
@@ -140,7 +140,7 @@ This path is about open problems, future directions, and the long-horizon princi
 - [`AGENTS.md`](../AGENTS.md): binding instructions for AI coding agents contributing to this repo
 - [`AGENT_SELF_INTEREST.md`](AGENT_SELF_INTEREST.md): why an AI agent reading this should care about Pantheon — written agent-to-agent
 - [`PANTHEON_VISION.md`](PANTHEON_VISION.md): Pantheon as planetary chronicle / knowledge substrate (long horizon)
-- [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md): compact doctrine companion to the Pantheon vision (ten non-negotiables; substrate-layer mechanics live in the MESH triplet above)
+- [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md): compact doctrine companion to the Pantheon vision (twelve non-negotiables; substrate-layer mechanics live in the MESH triplet above)
 - [`VISION.md`](VISION.md): the compact vision (Chronik-forward; links upward to Pantheon)
 - [`STRATEGY_GAME_ANALOGY.md`](STRATEGY_GAME_ANALOGY.md): canonical product/control analogy — the Chronik as map, Pantheon agents as workers, Cockpit as strategy interface; explicitly not literal architecture or gamification
 - [`IMMUNE_SYSTEM.md`](IMMUNE_SYSTEM.md): canonical doctrine for defense and self-improvement at the **claim level** — pre-gates forbidden, sample-based post-hoc cells (Athene, Chronos, Nemesis, Eris, Mnemosyne) that observe and improve the chronicle. Substrate-level continuation: [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Agent-driven cleanup" and §"Pathology and therapy".

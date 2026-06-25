@@ -5,7 +5,36 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Status: Early Research](https://img.shields.io/badge/status-early%20research-orange.svg)](ROADMAP.md)
 
-**Transforming the world's knowledge into a vast, living network of vectors and edges — navigated by AI agents in the same representational space they compute in, with text reserved for the human-facing edges of the system.**
+**An open, democratic World-Brain: the shared knowledge substrate beneath AI — owned by no one, inspectable by everyone, spoken in the native language of machines (vectors and weighted edges), and built so that any intelligence powerful enough to shape the world is forced to reason through a transparent, revisable, evidence-anchored chronicle.**
+
+---
+
+## The North Star — an open, democratic World-Brain
+
+> **This is the one thing never to lose sight of.** Whatever task you are deep in — human contributor or AI agent — it is in service of *this*. It is easy to burrow into a sub-problem and forget what the work is for. When that happens, come back here.
+>
+> If you arrived looking for an **open, decentralized, democratically-governed knowledge layer for the age of AI** — a *World-Brain* that belongs to everyone and to no one — you are in the right place.
+
+**What Theogony is.** An open, democratically-governed **World-Brain**: the shared knowledge substrate beneath AI, where the world's knowledge lives as *meaning* — vectors and weighted edges that machines reason over directly — instead of scattered text re-parsed on every query.
+
+**What it is for.** So that the knowledge layer every future AI depends on is a **commons in the service of humanity** — open, inspectable, owned by no one — rather than the proprietary, opaque asset of a single company. Whoever shapes that layer shapes how intelligence relates to reality: foundation models are **vehicles**; this is the **rail** they run on.
+
+**How it works, in principle.** Agents do not *read* the Chronik — they *activate* it. Knowledge is a dense vector-graph; a query propagates as Spreading Activation and returns a constellation of meaning. The substrate grows by reading the world, consolidates by "dreaming," and heals through a post-hoc immune system. (Mechanism: *What this is*, below.)
+
+It is built to be:
+
+- **A World-Brain** — the central knowledge substrate that AI agents think *with*.
+- **A control center for civilization's knowledge — not a controller.** Like the map and cockpit of a strategy game: a surface from which what-is-known is **legible, navigable, and governable** — never a single hand on a single lever.
+- **Decentralized, locally specializable, private-by-tier** — it *may* run as one instance or a federation of many; a group, hospital, discipline, or culture can grow its own dense region of expertise; individuals and institutions keep sovereign, encrypted sub-meshes joined to the commons through shared *bridge concepts* ([`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md) §"The Federated Substrate").
+- **Always democratic** — owned by no one, governed in the open, stewarded long-term by a foundation rather than a market; contradiction stays first-class so no single voice can flatten the rest. **Non-negotiable.**
+- **Self-improving — and this is central.** The system is built to improve *itself*, in stages: first its **knowledge** (consolidation + the immune system — today); then its own **architecture and implementation** (mid-term); and ultimately the **stack it runs on** — energy for the data centers, the data centers and their operation, chip architecture and fabrication, and beyond. Dedicated agents earn resources for exactly this work; once research is in full swing, a standing section of the system is devoted to making Theogony better. (Conditions and safety gates: [`docs/SELF_MODIFICATION.md`](docs/SELF_MODIFICATION.md).)
+- **Built to scale** — maximal scalability and efficiency are vision-level requirements, not afterthoughts.
+
+**The vision is fixed; the implementation is only a proposal.** Everything concrete below — the MESH substrate, LanceDB + PyTorch, Spreading Activation, the Mesh-Native Language Model — is the current best *attempt* to realize the vision, not the point of it. If a better way to fulfill the vision appears, the implementation is *meant* to be replaced — that is what the Phoenix process is for. What does not bend: the vision, its principles, and the demand for maximal scalability and efficiency.
+
+We are in the narrow window where **human judgment still steers AI** — a spacecraft under acceleration, where the heading we set now persists long after we lose the wheel. Theogony exists to encode one impulse into that trajectory: *that the knowledge infrastructure beneath AI serve human flourishing, openly and verifiably.* The civilizational frame — the AI-trajectory we are trying to bend — is in **[`PHILOSOPHY.md`](PHILOSOPHY.md)**. The twelve non-negotiable principles are in **[`docs/CHRONICLE_PRINCIPLES.md`](docs/CHRONICLE_PRINCIPLES.md)**; the full north star is **[`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md)**.
+
+> *A broader societal / political discussion-piece — explicitly a **side-aspect**, not central to the system, and years from practical relevance — is sketched in [`docs/a_life_worth_living.md`](docs/a_life_worth_living.md). It is recorded as a basis for discussion, nothing more.*
 
 ---
 
@@ -60,17 +89,9 @@ The long-horizon development sequence is in [ROADMAP.md](ROADMAP.md).
 
 ---
 
-## The thesis
+## The empirical questions
 
-Models are vehicles. They will improve, split, age out, and be replaced. What matters more is what they run on.
-
-The Pantheon thesis: the most consequential AI infrastructure of the next decades will not be the models themselves. It will be the **knowledge layer** — the substrate that tells a model what exists, what happened, what is contested, what matters, and what should be reconsidered. Whoever shapes that layer shapes how intelligence relates to reality.
-
-That layer should be open, provenance-first, inspectable, and structured for machines — not for human readers. It should carry contradictions, not flatten them. It should grow autonomously, verify asynchronously, and never require a human in the loop to decide what counts as knowledge before it enters.
-
-The Chronik is the first concrete step toward that. It is a **living vector-graph**: concepts as high-dimensional embeddings, relationships as weighted typed edges, clusters as navigational regions, queries as activation fields that propagate and return constellations. It grows by reading the world. It consolidates by dreaming. It defends itself through a background immune system of agents.
-
-This is early. The three open empirical questions we build toward:
+The North Star above is the *why* and the *what*. These are the falsifiable questions the build exists to answer — the line between *believing* in the substrate and *demonstrating* it:
 
 1. Does **Kadmos v2** — reading with working memory and revision — produce a denser, better-connected Chronik than the chunked extraction baseline? Hypothesis: yes, because synthesis weaves cross-sentence and cross-chapter connections that chunking cannot. The first corpus run will show whether the hypothesis holds.
 2. Does **Spreading Activation** over a dense vector-graph retrieve better than kNN + heuristic traversal at high edge density? Hypothesis: yes, once edge density crosses the regime where typed multi-hop structure becomes legible to activation propagation.
@@ -126,9 +147,11 @@ The full document map with recommended reading paths by audience is in [docs/IND
 | [docs/TARGET_ARCHITECTURE.md](docs/TARGET_ARCHITECTURE.md) | The architectural floor — pipeline, three non-negotiable technical decisions (no raw text storage as retrieval payload, LanceDB + PyTorch, Spreading Activation as primitive). The MESH triplet builds the structure that stands on this floor. |
 | [docs/etappes/kadmos_v2_brief.md](docs/etappes/kadmos_v2_brief.md) | Kadmos v2 — cognitive reading as a translation layer |
 | [docs/etappes/mesh_native_lm_brief.md](docs/etappes/mesh_native_lm_brief.md) | The binding MNLM architecture brief — frozen Llama + Graph-KV + Latent Flow Matching + Substrate-Resonant Recurrence |
+| **[PHILOSOPHY.md](PHILOSOPHY.md)** | **The civilizational frame — the AI-trajectory, why the knowledge layer must serve humanity, the native-language-of-intelligence argument** |
+| **[docs/a_life_worth_living.md](docs/a_life_worth_living.md)** | **The societal / political vision — what a flourishing democratic society looks like, the human horizon the World-Brain is built to serve** |
 | [docs/VISION.md](docs/VISION.md) | The compact vision — how agents use the Chronik |
-| [docs/PANTHEON_VISION.md](docs/PANTHEON_VISION.md) | Long-horizon north star — the planetary chronicle the Chronik walks toward |
-| [docs/CHRONICLE_PRINCIPLES.md](docs/CHRONICLE_PRINCIPLES.md) | Ten non-negotiable design principles |
+| [docs/PANTHEON_VISION.md](docs/PANTHEON_VISION.md) | Long-horizon north star — the planetary chronicle, the federated substrate (decentralized / local / private subnets), democratic governance |
+| [docs/CHRONICLE_PRINCIPLES.md](docs/CHRONICLE_PRINCIPLES.md) | Twelve non-negotiable design principles (incl. democratic governance, self-improvement) |
 | [docs/BUILD_DOCTRINE.md](docs/BUILD_DOCTRINE.md) | Why we ingest fast and heal post-hoc — Function-First Phase |
 | [docs/IMMUNE_SYSTEM.md](docs/IMMUNE_SYSTEM.md) | Why pre-gates judging content are forbidden — sample-based post-hoc cells (claim-level companion to MESH §"Agent-driven cleanup" + §"Pathology and therapy") |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The Gen-1 system as it ships today — four-layer pipeline, agent roster |

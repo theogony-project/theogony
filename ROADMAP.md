@@ -268,14 +268,31 @@ that is visible to orchestrators.
 
 ### Self-modification
 
-The long-horizon goal: Mnemosyne observes enough to propose the next
-version of the system — new thresholds, new agent configurations, new
-Phoenix process parameters. These proposals land in the Phoenix Backlog
-as first-class tickets. The Pantheon writes its own next incarnation.
+Self-improvement is **central**, not incidental, and it widens in scope
+over time:
 
-This is documented in [`docs/SELF_MODIFICATION.md`](docs/SELF_MODIFICATION.md).
-It is not a goal for current phases. It is the horizon that current
-architecture must not accidentally block.
+1. **Knowledge** — the chronicle already improves its own contents
+   without new external input (consolidation, the immune system, Oneiros
+   "dreaming"). Live today.
+2. **Architecture and implementation** — Mnemosyne observes enough to
+   propose, and eventually author, the next version of the system: new
+   thresholds, agent configurations, schemas, substrate code. Proposals
+   land in the Phoenix Backlog as first-class tickets; the Pantheon walks
+   toward writing its own next incarnation.
+3. **The stack it runs on** — long-horizon: the efficiency of the
+   algorithms, the operation and design of the data centers, the energy
+   that powers them, and chip architecture and fabrication specialised
+   for this workload — and beyond.
+
+Dedicated agents are budgeted for this work; as research reaches full
+operation, a standing "improve-Theogony" section runs continuously
+(the same way Argus acquires and Athene verifies). The dangerous stages
+— the system authoring its own code and shaping its own infrastructure —
+are gated by the strict conditions in
+[`docs/SELF_MODIFICATION.md`](docs/SELF_MODIFICATION.md): hard CI wall,
+bot-account separation, human-review default, reversibility, audit. The
+principle is recorded both because it is central and so current
+architecture never accidentally forecloses it.
 
 ---
 
@@ -332,7 +349,7 @@ purely preparatory. The Chronik grows at every step.
 | **[`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md)** | **Operative migration plan — strangler-fig replacement of Gen-1 with the MESH substrate. Six PR-sized steps + parallel Phoenix-backlog migration + the first concrete PR.** |
 | [`docs/TARGET_ARCHITECTURE.md`](docs/TARGET_ARCHITECTURE.md) | The architectural floor: no raw text as retrieval payload, LanceDB + PyTorch, Spreading Activation as the only retrieval primitive. The MESH triplet builds on this. |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Gen-1 system as it ships today — four-layer pipeline, agent roster, KnowledgeStore interface. For substrate-layer questions the MESH triplet is operative. |
-| [`docs/CHRONICLE_PRINCIPLES.md`](docs/CHRONICLE_PRINCIPLES.md) | Ten non-negotiable doctrines |
+| [`docs/CHRONICLE_PRINCIPLES.md`](docs/CHRONICLE_PRINCIPLES.md) | Twelve non-negotiable doctrines |
 | [`docs/BUILD_DOCTRINE.md`](docs/BUILD_DOCTRINE.md) | Function-First Phase binding doctrine |
 | [`docs/CHRONIK_SCALE.md`](docs/CHRONIK_SCALE.md) | Concrete scale numbers per tier |
 | [`docs/DEEP_TECH_VISION.md`](docs/DEEP_TECH_VISION.md) | Deeper substrate vision (six languages of the Chronik) |
