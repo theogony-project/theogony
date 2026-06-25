@@ -7,6 +7,10 @@ This file exists because Theogony is a deliberately **AI-first codebase**: the s
 
 The human-oriented sibling is [`CONTRIBUTING.md`](CONTRIBUTING.md). It is not a substitute for this file. AI agents should read both, but this is the binding one for autonomous work.
 
+## The North Star — do not lose it
+
+Before the discipline below, the direction. Theogony is building an **open, democratic, self-improving World-Brain**: the shared, decentralization-capable, federated knowledge substrate beneath AI — owned by no one, governed in the open, with private subnets and local specializations as first-class citizens, in service of human flourishing, and built to improve itself (knowledge → architecture → the stack it runs on) at maximal scale and efficiency. **The vision is fixed; this implementation is only a replaceable proposal** — serve the vision, not the current code. It is easy to burrow into a sub-problem and lose sight of this. **When you are deep in a task, re-read the "North Star" section at the top of [`README.md`](README.md).** If a change serves the immediate task but betrays the vision (closes the commons, hides provenance, centralizes control, pre-gates content, flattens contradiction), stop and escalate — vision-coherence outranks local cleverness. The deeper frame is [`PHILOSOPHY.md`](PHILOSOPHY.md).
+
 ## What Theogony Is, in Two Sentences
 
 Theogony builds the **Chronik**, today's vector-graph implementation of a long-horizon **Pantheon** — the planetary chronicle / knowledge substrate beneath AI systems. The thesis is that models are vehicles and Pantheon is the rail layer: identity, provenance, contradiction, time, access, audit, and disciplined agent write-back.

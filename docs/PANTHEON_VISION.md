@@ -2,7 +2,7 @@
 
 **Status:** canonical north-star document for long-horizon direction.  
 **Scope:** civilizational intent, not Gen 1 implementation detail.  
-**Companion:** [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — ten non-negotiables in short form.  
+**Companion:** [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md) — twelve non-negotiables in short form.  
 **Substrate doctrine (how this vision actually runs):** [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) + [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) + [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) — the operative behaviour, runtime, and use of the storage layer beneath all Pantheon cognition.
 
 ## How this relates to Theogony and the Chronik

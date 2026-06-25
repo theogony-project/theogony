@@ -305,7 +305,7 @@ Read these in order. Not all of them, but in this order; stop when you have enou
 
 1. [`AGENTS.md`](../../AGENTS.md) — repository discipline, branch hygiene, schema-first, RunReports, commit conventions.
 2. [`docs/TARGET_ARCHITECTURE.md`](../TARGET_ARCHITECTURE.md) — binding substrate target. **Non-negotiable.**
-3. [`docs/CHRONICLE_PRINCIPLES.md`](../CHRONICLE_PRINCIPLES.md) — the ten non-negotiables. Especially §10 (Vector-Vector-Mesh).
+3. [`docs/CHRONICLE_PRINCIPLES.md`](../CHRONICLE_PRINCIPLES.md) — the twelve non-negotiables. Especially §10 (Vector-Vector-Mesh).
 4. [`docs/BUILD_DOCTRINE.md`](../BUILD_DOCTRINE.md) — Function-First doctrine; what "honest failure" means and is **not**.
 5. [`docs/IMMUNE_SYSTEM.md`](../IMMUNE_SYSTEM.md) — why pre-gates judging content are forbidden; what cell-class workers do post-hoc.
 6. [`docs/etappes/RETIREMENT_NEO4J_MULTIHOP.md`](RETIREMENT_NEO4J_MULTIHOP.md) — the operative note on what was removed and what replaced it.
