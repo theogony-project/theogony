@@ -17,28 +17,35 @@ description: >
   - S2 (Kadmos v2 ingestion): merged via #151 (initial eager linking +
     source-anchor entities) and #154 (dense paragraph topology +
     IngestRunReport) ✅
-  - S2.5 (Wikidata5m bulk seed, interpolated bootstrap): Smoke-1 PASS,
-    tracked by PHX-1030. Substrate prep merged via #161 (lazy lookups +
-    Lance indexes + bulk methods + iter_consolidated); seed importer
-    merged via #162 with verified Tier-4 QID handoff
-    (tier_counts = {"4": 1, "1": 4} on Q947890 / Renan Barao). Doc-PRs
-    landed 2026-05-15: #156 (doctrine clarification — no raw text in
-    substrate), #157 (S2.5 step added to migration plan), #158 (PHX-1030
-    filed), #160 (Talos implementation brief). Smoke-2..N (10k → 4.81M)
-    remain pending under PHX-1033. ✅ for Smoke-1; ⏳ for full bootstrap.
-  - S3 (diversified-injection retrieval): unblocked by S2.5 Smoke-1 PASS;
-    not started.
+  - S2.5 (Wikidata5m bulk seed, interpolated bootstrap): tracked by PHX-1030.
+    Smoke-1 PASS (#162), Smoke-2 (#164). The predicted `_edge_keys` dedup
+    engpass (PHX-1033) is FIXED via a Lance edge_dedup_index (#165). Operator-
+    driven subnets built and bge-m3-embedded: 10k (mesh-smoke2-safe), 15k
+    (mesh-wiki-v1), 100k (mesh-wiki-100k, ~984k edges). Full 4.81M bootstrap
+    blocked on a SeedConceptResolver RAM fix (100k OOM'd — the resolver caches
+    full node vectors, ~50–100 KB/node). ✅ for smoke scales; ⏳ for full.
+  - S3 (diversified-injection retrieval): retrieval-quality groundwork ACTIVE
+    under PHX-1034. Eval harnesses landed (#166, #167). Measured: phase
+    transition (SA > kNN past mean-degree ~3, gap widens with density),
+    relation-conditioned propagation (MRR 0.110 → 0.254), Oneiros "dreaming"
+    (+8.5% with no new data), PPR energy concentration (~4×). The full S3
+    retrieval/ module (MMR + weight-class + sub-mesh + frame routing +
+    constellation + `mesh ask`) is not yet built.
   - S4 (Cockpit/CLI/MCP backend abstraction): not started.
-  - S5 (full Oneiros tick): not started.
+  - S5 (full Oneiros tick + MNLM training): not started. MNLM substrate-as-
+    weights training is PHX-1035 (blocked on GPU, not effort).
   - S6 (legacy removal): not started.
+  - Vision anchoring (World-Brain / MNLM-as-core / self-improvement central /
+    implementation-as-proposal): #168, #169.
   - PHX backlog migration: MIGRATION_AUDIT.csv created 2026-05-13 ✅
 linked_prs:
   - "https://github.com/theogony-project/theogony/pull/149"  # S1 substrate skeleton
   - "https://github.com/theogony-project/theogony/pull/151"  # S2 initial Kadmos v2 ingestion
   - "https://github.com/theogony-project/theogony/pull/154"  # S2 dense paragraph topology
-  - "https://github.com/theogony-project/theogony/pull/156"  # doctrine clarification (no raw text)
-  - "https://github.com/theogony-project/theogony/pull/157"  # S2.5 step in migration plan
-  - "https://github.com/theogony-project/theogony/pull/158"  # PHX-1030 filed
-  - "https://github.com/theogony-project/theogony/pull/160"  # S2.5 implementation brief for Talos
-  - "https://github.com/theogony-project/theogony/pull/161"  # S2.5 prep — lazy lookups + Lance indexes + bulk methods
   - "https://github.com/theogony-project/theogony/pull/162"  # S2.5 Smoke-1 PASS — wikidata5m bulk seed importer
+  - "https://github.com/theogony-project/theogony/pull/164"  # S2.5 Smoke-2 + memory-safe seeding
+  - "https://github.com/theogony-project/theogony/pull/165"  # PHX-1033 fix — Lance edge_dedup_index
+  - "https://github.com/theogony-project/theogony/pull/166"  # eval harnesses (link-prediction, scaling)
+  - "https://github.com/theogony-project/theogony/pull/167"  # eval suite (KGE baseline, dreaming, relation-conditioned retrieval)
+  - "https://github.com/theogony-project/theogony/pull/168"  # vision anchoring
+  - "https://github.com/theogony-project/theogony/pull/169"  # inside-out framing + MNLM-as-core

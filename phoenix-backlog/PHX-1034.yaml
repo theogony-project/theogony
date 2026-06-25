@@ -1,0 +1,56 @@
+id: PHX-1034
+category: substrate-retrieval
+priority: high
+status: open
+generation_target: MESH migration — S3 (retrieval)
+title: "S3 retrieval quality: production propagation operator"
+filed_by: Chaos (vision/reflection role, via Cursor AI agent)
+created_at: 2026-06-25
+description: >
+  Tier-1 of the performance plan. Choose and ship the production-default
+  Spreading-Activation propagation operator, and use it as the empirical floor
+  for the full S3 retrieval module (MMR + weight-class stratification + sub-mesh
+  signature + frame routing + constellation; MESH_MIGRATION_PLAN.md §"Step S3").
+
+  This is the single most powerful + central near-term lever: it is what turns a
+  graph that *looks* like a language model into one that *computes* like one —
+  conditioned, normalised propagation instead of raw damped SpMV.
+
+  Measured groundwork (10k / 15k / 100k Wikidata5m subnets, this substrate):
+  - Phase transition — Spreading Activation overtakes kNN past mean out-degree
+    ~3; the gap WIDENS with density (+0.024 @10k -> +0.051 @100k).
+    scripts/mesh_scaling_curve.py.
+  - Relation-conditioned + symmetric-normalised propagation more than DOUBLES
+    untrained MRR (0.110 -> 0.254), beats trained TransE (0.145), reaches ~89%
+    of trained RotatE (0.285) — with no training.
+    scripts/mesh_relation_retrieval.py.
+  - PPR (personalised PageRank) concentrates activation energy ~4x vs raw SA
+    (participation ratio 39 vs 150; top-100 mass 0.83 vs 0.63 on the 15k smoke)
+    — fixes hub-collapse AND is the precondition for expert-sharding
+    (PHX-1019 / PHX-1020). scripts/mesh_tonight_experiments.py.
+
+  Deliverables:
+  - Promote a normalised / relation-conditioned operator (degree-norm or PPR,
+    relation-routed where a query relation is available) to the substrate's
+    default propagation path; raw damped SpMV is no longer the production default.
+  - Keep the operator menu (raw / degnorm / ppr / relation-conditioned) in the
+    eval harness so the choice stays measurable and A/B-able (Mnemosyne later).
+  - The full S3 retrieval/ module builds on the chosen operator.
+
+  Non-goals (separate tickets):
+  - MNLM weight training against SA quality — PHX-1035 (needs GPU).
+  - Expert-MNLM fragmentation / activation planner — PHX-1019 + PHX-1020 (Tier-2).
+  - Incremental CSR + quantization — PHX-1037 (Tier-2).
+  - The full S3 module surfaces (mesh ask, constellation assembly) — later in S3.
+
+  Hardware note: all groundwork above runs on the reference MacBook (no training);
+  it produces the evidence that justifies the GPU spend for PHX-1035.
+
+linked_prs:
+  - "https://github.com/theogony-project/theogony/pull/166"  # eval harnesses (link-prediction, scaling)
+  - "https://github.com/theogony-project/theogony/pull/167"  # eval suite (KGE baseline, dreaming, relation-conditioned retrieval)
+linked_scripts:
+  - scripts/mesh_relation_retrieval.py
+  - scripts/mesh_tonight_experiments.py
+  - scripts/mesh_scaling_curve.py
+  - scripts/mesh_link_prediction_eval.py

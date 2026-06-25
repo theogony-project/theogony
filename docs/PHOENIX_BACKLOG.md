@@ -16,11 +16,15 @@ See [`phoenix-backlog/README.md`](../phoenix-backlog/README.md) for lifecycle ru
 
 | ID | Title | Status | Priority | Notes |
 |---|---|---|---|---|
-| PHX-1001 | MESH migration in progress | open | critical | Meta-ticket: the Strangler-fig plan. Tracks S1–S6 completion. |
-| PHX-1030 | Wikidata5m bulk seed (S2.5) | open | high | Interpolated bootstrap step between S2 and S3. Bulk-imports ~4.81M Q-ID-anchored Tier-1 nodes + ~21.35M edges from the Wikidata5m KEPLER dataset; embeds Wikipedia first-paragraphs off-substrate so the source body never enters the mesh. Spec: [`MESH_MIGRATION_PLAN.md`](MESH_MIGRATION_PLAN.md) §"Step S2.5". **Smoke-1 PASS as of 2026-05-15** (1000 entities, Q-ID handoff verified via #161 + #162); Smoke-2..N pending under PHX-1033. |
+| PHX-1001 | MESH migration in progress | open | critical | Meta-ticket: the Strangler-fig plan. Tracks S1–S6. S1–S2 ✅; S2.5 seeded to 100k ✅ (full 4.81M blocked on a SeedConceptResolver RAM fix); S3 retrieval-quality groundwork **active** (PHX-1034); vision anchored (#168/#169). |
+| PHX-1030 | Wikidata5m bulk seed (S2.5) | open | high | Interpolated bootstrap step between S2 and S3. Bulk-imports Q-ID-anchored Tier-1 nodes + edges from Wikidata5m; embeds first-paragraphs off-substrate. Spec: [`MESH_MIGRATION_PLAN.md`](MESH_MIGRATION_PLAN.md) §"Step S2.5". **Progress:** Smoke-1 (#162), Smoke-2 (#164), dedup engpass fixed (#165); operator-driven subnets built & bge-m3-embedded — 10k, 15k (`mesh-wiki-v1`), 100k (`mesh-wiki-100k`, ~984k edges). **Full 4.81M blocked** on a SeedConceptResolver RAM fix (100k OOM'd: resolver caches full node vectors; ~50–100 KB/node). |
 | PHX-1031 | `mesh ingest --embedder` CLI flag | open | low | Operator-UX follow-up from PHX-1030 Smoke-1. Thread embedder selection through `theogony mesh ingest` so Kadmos vector-space alignment with the seed embedder is operator-explicit instead of env-hidden (`THEOGONY_EMBEDDING__MODEL_ID` / `THEOGONY_EMBEDDING__DIM`). Without alignment, `MeshTextVectorizer` silently falls back to deterministic hash-projection and Tier-2/Tier-3 linking is structurally broken. |
 | PHX-1032 | Device-info logging in MESH embedders | open | low | Forensics follow-up from PHX-1030 Smoke-1. Add explicit device-selection logging (MPS / CUDA / CPU) to `BGEM3Embedder` (seed path) and `LocalSentenceTransformerEmbedder` (Kadmos path), and surface the chosen device in `MeshSeedRunReport` / `IngestRunReport` so silent-CPU-fallback is observable. Smoke-1 ran 0.48s/entity for bge-m3 — CPU-suspect but unprovable from current logs. |
-| PHX-1033 | Wikidata5m bulk seed — Smoke-2 (10k entities, 50k triplets) | open | medium | Operator-driven scale-up of PHX-1030 Smoke-1. First scale point that exercises the importer's `_edge_keys` Python-set dedupe path at non-trivial volume and validates the new perf substrate (#161) end-to-end at 10×. Likely surface engpass: the in-memory `_edge_keys` build via `EdgeStore.load_all_edges()` — fix path is a Lance-indexed `edge_dedup_index` consistent with the `consolidated_qid_index` pattern from #161. |
+| PHX-1033 | Wikidata5m bulk seed — Smoke-2 (10k entities, 50k triplets) | **resolved** | medium | **Resolved.** The predicted `_edge_keys` dedup engpass was fixed exactly as foreseen — a Lance-indexed `edge_dedup_index` (#165, mirroring `consolidated_qid_index`); 56k-edge backfill 0.73s, `load_dedup_keys()` 0.02s. Smoke-2 ran (#164) and scaling continued to 15k/100k. Retrieval-quality work continues under PHX-1034; full-scale seeding under PHX-1030. |
+| PHX-1034 | S3 retrieval quality: production propagation operator | open | high | **Tier-1, active.** Choose + ship the production-default Spreading-Activation operator (normalized / PPR / relation-conditioned), the empirical floor for the full S3 `retrieval/` module. Measured: SA overtakes kNN past mean-degree ~3 (gap widens with density); relation-conditioned + symmetric-norm doubles untrained MRR (0.110→0.254, beats trained TransE, ~89% of RotatE); PPR concentrates activation energy ~4×. YAML: [`PHX-1034.yaml`](../phoenix-backlog/PHX-1034.yaml). |
+| PHX-1035 | MNLM: substrate as trainable weight matrix | open | high | **Tier-1 core (S5 heart), blocked on GPU.** Train the edge weights against the substrate's own retrieval primitive (Graph-GRPO + eligibility traces) so small-model + Chronik beats large-model-alone. Needs H100-class compute — blocked on hardware, not effort. Spec: [`etappes/mesh_native_lm_brief.md`](etappes/mesh_native_lm_brief.md) §5. |
+| PHX-1037 | Substrate runtime perf: incremental CSR + weight quantization | open | medium | **Tier-2.** Replace per-tick full CSR rebuild with incremental delta-apply + compaction; FP16/INT8 edge weights. Unlocks write-throughput and memory at scale. Engineering, not research. |
+| PHX-1038 | Sparse-attention-equivalence validation | open | low | **Tier-3.** Empirically show a Spreading-Activation step approximates an attention layer's retrieval on a controlled task — publishable validation of the "language model turned inside out" framing. |
 
 ### Carry-forward tickets from the legacy backlog
 
@@ -34,9 +38,9 @@ Each has `migrated_from: PHX-XXXX`.
 | PHX-1005 | PHX-0017 | Sensorium: Multimodal Acquisition Adapters | open |
 | PHX-1006 | PHX-0018 | Chronik-to-Model Distillation and Hardware Co-Design | open |
 | PHX-1007 | PHX-0019 | Hestia: Human Flourishing Guardian | open |
-| PHX-1008 | PHX-0033 | Pre-curated Wikidata subset for travel literature | open |
+| PHX-1008 | PHX-0033 | Pre-curated Wikidata subset for travel literature | **obsolete** — superseded by the Wikidata5m bulk seed (PHX-1030) + Kadmos v2 for arbitrary text; the travel-lit subset was a Gen-1 demo artifact |
 | PHX-1009 | PHX-0034 | Entity-resolution quality benchmark | open |
-| PHX-1010 | PHX-0036 | Re-evaluate Gemini 3.1 Flash Lite once GA | open |
+| PHX-1010 | PHX-0036 | Re-evaluate Gemini 3.1 Flash Lite once GA | **obsolete** — time-passed (model question stale by 2026-06); re-file against a current model only if an embedder/LLM re-eval is actually scheduled |
 | PHX-1011 | PHX-0037 | LLMRateLimitError as first-class exception | open |
 | PHX-1012 | PHX-0038 | AuditingLLMProvider wrapper | open |
 | PHX-1013 | PHX-0039 | Token-bucket backoff inside LLMProvider | open |
@@ -45,8 +49,8 @@ Each has `migrated_from: PHX-XXXX`.
 | PHX-1016 | PHX-0049 | AnswerSynthesizer system prompt packaging | open |
 | PHX-1017 | PHX-0055 | CI smoke-test against live default LLM | open |
 | PHX-1018 | PHX-0058 | Aggregated stub detection (curiosity) | open |
-| PHX-1019 | PHX-0060 | Domain Clusters / Cognitive Centers | open |
-| PHX-1020 | PHX-0061 | Vector-Routed Federation | open |
+| PHX-1019 | PHX-0060 | Domain Clusters / Cognitive Centers | open — **home of the expert-MNLM fragmentation idea (Tier-2):** cluster the mesh into topic regions; each region + a specialised MNLM = an expert. Greenlight from the locality test (PHX-1034: PPR keeps energy in a small effective region). |
+| PHX-1020 | PHX-0061 | Vector-Routed Federation | open — pairs with PHX-1019: cross-expert routing / partition-pruning = the "activation planner" (Postgres-style cost-based seed/shard selection). |
 | PHX-1021 | PHX-0064 | Portable Constellation | open |
 | PHX-1022 | PHX-0066 | Hosted Pantheon MCP Service | open |
 | PHX-1023 | PHX-0067 | Eris — Adversarial Defender | open |
