@@ -253,6 +253,21 @@ class CockpitSettings(BaseModel):
     bind_port: int | None = Field(default=None)
     public: bool = Field(default=False)
     sample_only: bool = Field(default=False)
+    mesh_root: Path | None = Field(
+        default=None,
+        description=(
+            "Path to a MESH substrate workspace for the read-only Mesh Explorer tab "
+            "(S4 preview). When unset, the cockpit auto-detects a seeded subnet under "
+            "data/ (prefers mesh-wiki-100k). Empty/absent -> Mesh tab disabled."
+        ),
+    )
+    mesh_embedder: str | None = Field(
+        default=None,
+        description=(
+            "Query embedder id for the Mesh Explorer (bge-m3 | bge-small-en). "
+            "Default: auto-match the workspace's semantic_dim."
+        ),
+    )
     sample_top_n_nodes: int = Field(default=20, ge=1, le=200)
     sample_recent_n_reports: int = Field(default=50, ge=1, le=500)
     manifest_path: Path = Field(default=Path("cockpit/manifest.md"))

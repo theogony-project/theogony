@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
 from collections.abc import AsyncIterator
 from html import escape
@@ -31,6 +32,7 @@ from theogony.cockpit.dependencies import (
     get_settings,
     get_store_readonly,
     require_cockpit_access,
+    require_mesh_explorer,
 )
 from theogony.cockpit.explorer import (
     _build_pipeline,
@@ -40,6 +42,7 @@ from theogony.cockpit.explorer import (
 )
 from theogony.cockpit.growth_stream import stream_growth_run, stream_research_request_run
 from theogony.cockpit.manifest import ManifestRepository, _default_manifest_markdown
+from theogony.cockpit.mesh_explorer import MeshExplorerService, stream_mesh_ask_sse
 from theogony.cockpit.operator_tick import OperatorWorkerTickResponse, run_wave3_worker_pass
 from theogony.cockpit.sample_mode import (
     cluster_drill_member_cap,
@@ -437,10 +440,16 @@ def build_cockpit_router() -> APIRouter:
         ctx = explorer_page_context(settings, llm)
         raw_growth = request.query_params.get("growth") or ""
         growth_enabled = _explorer_growth_enabled_from_query(raw_growth)
+        mesh_available = getattr(request.app.state, "mesh_explorer", None) is not None
         return templates.TemplateResponse(
             request,
             "explorer.html",
-            {"settings": settings, "growth_enabled": growth_enabled, **ctx},
+            {
+                "settings": settings,
+                "growth_enabled": growth_enabled,
+                "mesh_available": mesh_available,
+                **ctx,
+            },
         )
 
     @router.post("/api/ask", response_class=JSONResponse)
@@ -550,6 +559,73 @@ def build_cockpit_router() -> APIRouter:
                 thinking_max=thinking_max,
                 conversation_summary=raw_cs,
                 conversation_messages=raw_cm,
+            ):
+                yield chunk
+
+        return StreamingResponse(
+            gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    def _mesh_ask_args(body: object) -> tuple[str, int, int, str]:
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="body must be a JSON object")
+        query = str(body.get("q") or body.get("query") or "")
+        try:
+            top_k = max(1, min(200, int(body.get("top_k", body.get("k", 30)) or 30)))
+            k_seeds = max(1, min(64, int(body.get("seeds", 8) or 8)))
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=f"top_k/seeds not int: {exc}") from exc
+        operator = str(body.get("operator", "ppr")).lower()
+        if operator not in ("ppr", "degnorm", "raw"):
+            raise HTTPException(status_code=400, detail="operator must be ppr | degnorm | raw")
+        return query, top_k, k_seeds, operator
+
+    @router.get("/api/mesh/status", response_class=JSONResponse)
+    async def mesh_status(
+        service: Annotated[MeshExplorerService, Depends(require_mesh_explorer)],
+    ) -> JSONResponse:
+        return JSONResponse(service.status())
+
+    @router.post("/api/mesh/ask", response_class=JSONResponse)
+    async def mesh_ask(
+        request: Request,
+        service: Annotated[MeshExplorerService, Depends(require_mesh_explorer)],
+        writer: Annotated[RunReportWriter, Depends(get_report_writer)],
+    ) -> JSONResponse:
+        try:
+            body = await request.json()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"invalid json: {exc}") from exc
+        query, top_k, k_seeds, operator = _mesh_ask_args(body)
+        if not query.strip():
+            raise HTTPException(status_code=400, detail="query must be non-empty")
+        outcome = await service.ask(query, top_k=top_k, k_seeds=k_seeds, operator=operator)
+        with contextlib.suppress(Exception):  # report write is best-effort
+            writer.write(outcome.report)
+        return JSONResponse(outcome.payload)
+
+    @router.post("/api/mesh/ask-stream")
+    async def mesh_ask_stream(
+        request: Request,
+        service: Annotated[MeshExplorerService, Depends(require_mesh_explorer)],
+        writer: Annotated[RunReportWriter, Depends(get_report_writer)],
+    ) -> StreamingResponse:
+        try:
+            body = await request.json()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"invalid json: {exc}") from exc
+        query, top_k, k_seeds, operator = _mesh_ask_args(body)
+
+        async def gen() -> AsyncIterator[bytes]:
+            async for chunk in stream_mesh_ask_sse(
+                service,
+                query=query,
+                top_k=top_k,
+                k_seeds=k_seeds,
+                operator=operator,
+                report_writer=writer,
             ):
                 yield chunk
 

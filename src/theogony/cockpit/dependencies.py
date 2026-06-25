@@ -6,6 +6,7 @@ from typing import Annotated, cast
 
 from fastapi import Depends, HTTPException, Request
 
+from theogony.cockpit.mesh_explorer import MeshExplorerService
 from theogony.config.settings import Settings
 from theogony.core.store import KnowledgeStore
 from theogony.extraction.embedding import EmbeddingProvider
@@ -37,6 +38,20 @@ def get_report_writer(request: Request) -> RunReportWriter:
 
 def get_embedder(request: Request) -> EmbeddingProvider:
     return cast(EmbeddingProvider, request.app.state.embedder)
+
+
+def get_mesh_explorer(request: Request) -> MeshExplorerService | None:
+    """The mesh-backed Explorer service, or None when no mesh workspace is configured."""
+    return cast("MeshExplorerService | None", getattr(request.app.state, "mesh_explorer", None))
+
+
+def require_mesh_explorer(
+    request: Request,
+) -> MeshExplorerService:
+    service = get_mesh_explorer(request)
+    if service is None:
+        raise HTTPException(status_code=404, detail="mesh explorer not configured")
+    return service
 
 
 def get_authenticated_user(
