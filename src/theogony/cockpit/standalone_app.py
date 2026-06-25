@@ -16,6 +16,8 @@ starts without secrets.
 
 from __future__ import annotations
 
+import asyncio
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -187,6 +189,24 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.oneiros = None
         app.state.oneiros_task = None
         app.state.mesh_explorer = _build_mesh_explorer(settings)
+        mesh_svc = app.state.mesh_explorer
+        if mesh_svc is not None:
+
+            async def _warm_mesh() -> None:
+                try:
+                    ms = await mesh_svc.ensure_index()
+                    if ms > 0:
+                        log.info("mesh explorer: background index warmup in %d ms", ms)
+                    else:
+                        log.info("mesh explorer: activation index already cached")
+                    t0 = time.perf_counter()
+                    await mesh_svc.embed("warmup probe")
+                    embed_ms = int((time.perf_counter() - t0) * 1000.0)
+                    log.info("mesh explorer: embedder warmup in %d ms", embed_ms)
+                except Exception:  # pragma: no cover - best-effort warmup
+                    log.exception("mesh explorer: background warmup failed")
+
+            asyncio.create_task(_warm_mesh())
         if settings.cockpit.enabled:
             mount_cockpit(app, settings)
             log.info(
