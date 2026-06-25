@@ -118,6 +118,13 @@ mcp = [
 research = [
     "trafilatura>=1.12,<2.0",
 ]
+# Optional dependencies for the mesh evaluation suite (scripts/mesh_*.py):
+# trained KGE baselines, scaling-curve plots, and the LLM-as-judge probe.
+eval = [
+    "pykeen>=1.10",
+    "matplotlib>=3.8",
+    "anthropic>=0.40",
+]
 
 [project.scripts]
 theogony = "theogony.cli:app"
