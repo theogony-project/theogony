@@ -133,12 +133,21 @@ def retrieve(
     frame_threshold: float = 0.0,
     vector_column: str = "semantic_vector",
     query: str | None = None,
+    csr: EdgeCSR | None = None,
+    propagator: Propagator | None = None,
 ) -> RetrievalResult:
-    """Run one diversified-injection + Spreading-Activation query; return a Constellation."""
+    """Run one diversified-injection + Spreading-Activation query; return a Constellation.
+
+    ``csr`` / ``propagator`` may be supplied pre-built (and cached by the caller) to skip
+    the per-query CSR rebuild — the dominant cost at scale (PHX-1041). When omitted they
+    are built from ``runtime``. A supplied ``propagator`` is ignored when frame routing is
+    active (the routed adjacency requires a fresh one).
+    """
     timings: dict[str, float] = {}
 
     t0 = time.perf_counter()
-    csr = runtime.rebuild_csr()
+    if csr is None:
+        csr = runtime.rebuild_csr()
     timings["csr_ms"] = (time.perf_counter() - t0) * 1000.0
     n = len(csr.node_ids)
 
@@ -192,9 +201,12 @@ def retrieve(
             csr, node_frames, query_frame, threshold=frame_threshold
         )
         frame_routed = True
+        propagator = Propagator(active_csr)
+
+    if propagator is None:
+        propagator = Propagator(active_csr)
 
     t2 = time.perf_counter()
-    propagator = Propagator(active_csr)
     activation = propagator.propagate(
         seeds,
         operator=operator,
