@@ -60,6 +60,7 @@ class RunReportBase(BaseModel):
         "ingest",
         "mesh_seed",
         "query",
+        "mesh_query",
         "oneiros",
         "clustering",
         "blindspot",
@@ -347,6 +348,39 @@ class QueryRunReport(RunReportBase):
     stub_verdict: StubVerdict | None = None
     region_descriptor: RegionDescriptor | None = None
     meta_classification: MetaClassification | None = None
+    cited_node_ids: list[str] = Field(default_factory=list)
+
+
+class MeshQueryRunReport(RunReportBase):
+    """Feedback shape for a MESH-substrate retrieval (Step S3).
+
+    Distinct from the Gen-1 :class:`QueryRunReport` (which carries synthesis / citation
+    breakdowns that do not apply to the substrate's Constellation answer shape). A mesh
+    query returns an activated sub-graph, not a synthesised answer, so this report records
+    the diversified-injection + Spreading-Activation operation that produced it.
+    """
+
+    report_type: Literal["mesh_query"] = "mesh_query"
+    query: str
+    query_length_chars: int = Field(ge=0)
+    embedding_duration_ms: int = Field(default=0, ge=0)
+
+    operator: str = "ppr"
+    frame_routed: bool = False
+    ann_hit_count: int = Field(default=0, ge=0)
+    seed_count: int = Field(default=0, ge=0)
+    seed_node_ids: list[str] = Field(default_factory=list)
+
+    constellation_node_count: int = Field(default=0, ge=0)
+    constellation_edge_count: int = Field(default=0, ge=0)
+    source_anchor_count: int = Field(default=0, ge=0)
+    gaps_identified: int = Field(default=0, ge=0)
+
+    csr_duration_ms: int = Field(default=0, ge=0)
+    ann_duration_ms: int = Field(default=0, ge=0)
+    propagate_duration_ms: int = Field(default=0, ge=0)
+    assemble_duration_ms: int = Field(default=0, ge=0)
+
     cited_node_ids: list[str] = Field(default_factory=list)
 
 
