@@ -46,6 +46,26 @@ description: >
   Hardware note: all groundwork above runs on the reference MacBook (no training);
   it produces the evidence that justifies the GPU spend for PHX-1035.
 
+  Measured on 100k (mesh-wiki-100k, 100,883 nodes / 984,070 edges, 2026-06-25):
+  - Relation-conditioned + symmetric-norm (sa_rel_sym): MRR 0.228, Hits@1 0.179,
+    Hits@10 0.319 — beats trained TransE (0.145), ~80% of trained RotatE (0.285),
+    ~2.5x over relation-agnostic sa_raw (0.090). Replicates the 15k result (0.254)
+    at 6.7x scale.
+  - Relation-agnostic operators (link prediction, 1000 held-out): sa_raw best top-1
+    (MRR 0.117) but hub-collapses (meanRank 24k, diffuse energy); PPR best-behaved
+    (MRR 0.107, Hits@10 0.180, meanRank 15k); sa_degnorm best Hits@10 (0.186). No
+    clean MRR winner without a relation.
+  - Locality (200 seeds): PPR keeps activation in ~78 effective nodes / 100k
+    (participation ratio 77 vs 338 for sa_raw; top-100 mass 0.67 vs 0.47) — the
+    GREENLIGHT for expert-MNLM sharding (PHX-1019 / PHX-1020).
+
+  DECISION (default propagation operator): relation-conditioned + symmetric
+  normalisation where a query relation is available (the clear winner); PPR
+  (restart / normalised) as the relation-agnostic default. Raw damped SpMV is NOT
+  the production default — it hub-collapses. Next step: implement this as the
+  substrate's default retrieval propagation in the S3 retrieval/ path, keeping the
+  operator menu A/B-able for Mnemosyne.
+
 linked_prs:
   - "https://github.com/theogony-project/theogony/pull/166"  # eval harnesses (link-prediction, scaling)
   - "https://github.com/theogony-project/theogony/pull/167"  # eval suite (KGE baseline, dreaming, relation-conditioned retrieval)

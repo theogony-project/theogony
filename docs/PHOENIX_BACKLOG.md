@@ -51,7 +51,7 @@ Each has `migrated_from: PHX-XXXX`.
 | PHX-1016 | PHX-0049 | AnswerSynthesizer system prompt packaging | open |
 | PHX-1017 | PHX-0055 | CI smoke-test against live default LLM | open |
 | PHX-1018 | PHX-0058 | Aggregated stub detection (curiosity) | open |
-| PHX-1019 | PHX-0060 | Domain Clusters / Cognitive Centers | open — **home of the expert-MNLM fragmentation idea (Tier-2):** cluster the mesh into topic regions; each region + a specialised MNLM = an expert. Greenlight from the locality test (PHX-1034: PPR keeps energy in a small effective region). |
+| PHX-1019 | PHX-0060 | Domain Clusters / Cognitive Centers | open — **home of the expert-MNLM fragmentation idea (Tier-2):** cluster the mesh into topic regions; each region + a specialised MNLM = an expert. **Locality greenlight measured (PHX-1034, 100k):** PPR keeps activation in ~78 effective nodes / 100,883 (participation ratio 77 vs 338 raw) → sharding is viable. |
 | PHX-1020 | PHX-0061 | Vector-Routed Federation | open — pairs with PHX-1019: cross-expert routing / partition-pruning = the "activation planner" (Postgres-style cost-based seed/shard selection). |
 | PHX-1021 | PHX-0064 | Portable Constellation | open |
 | PHX-1022 | PHX-0066 | Hosted Pantheon MCP Service | open |
