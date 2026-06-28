@@ -5,9 +5,13 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Status: Early Research](https://img.shields.io/badge/status-early%20research-orange.svg)](ROADMAP.md)
 
-> **Theogony builds an open, democratic World-Brain: the shared knowledge substrate beneath AI — where knowledge lives not as text to be re-read, but as *meaning* (vectors and weighted edges) that machines reason over directly. Owned by no one, inspectable by everyone, and built so that any intelligence powerful enough to shape the world is forced to reason through a transparent, revisable, evidence-anchored chronicle.**
+**Theogony is building the knowledge layer beneath AI — as an open commons, owned by no one.**
 
-This README is the whole argument, in order: **the goal**, **what makes the mesh**, **the dimensions** it must reach, **the technique**, **the consequences for humanity**, **why it is necessary**, **where it leads**, and **how the global collaboration that builds it must work**. The honest status of the build — what is proven and what is not — is at the end, under [*Where we are*](#where-we-are--honestly).
+Today's AI reads knowledge as text, re-parsed from scratch on every query. Theogony stores it the way a mind does — as **vectors and weighted edges that an AI *activates* instead of reads**. It is a **language model turned inside out**: the knowledge a transformer hides in frozen weights, made explicit, inspectable, and editable.
+
+**Why it matters.** If every future AI depends on a knowledge layer, then whoever owns that layer shapes AI's relationship with truth. Theogony exists so that layer is **open, inspectable, and governed in the service of humanity** — not the proprietary, opaque asset of a single company.
+
+The rest of this page is the full argument, in order — **the goal · what makes the mesh · the dimensions · the technique · the consequences for humanity · why it is necessary · where it leads · how we build it together** — with an honest status of what is and isn't proven at the end.
 
 ---
 
@@ -15,7 +19,7 @@ This README is the whole argument, in order: **the goal**, **what makes the mesh
 
 Theogony builds the **Chronik**: today's working implementation of a long-horizon **Pantheon** — the planetary knowledge substrate beneath AI. Not a better search engine, not a bigger database, not another assistant. The **rail layer** beneath the models.
 
-The goal is that the knowledge layer every future AI depends on is **a commons in the service of humanity** — open, inspectable, owned by no one — rather than the proprietary, opaque asset of a single company. Foundation models are *vehicles*; they improve, split, and age out. The substrate of meaning they run on is the *rail*. Whoever shapes that rail shapes how intelligence relates to reality.
+Foundation models are *vehicles* — they improve, split, and age out. The substrate of meaning they run on is the *rail*. Whoever shapes that rail shapes how intelligence relates to reality; the goal is that it stays **a commons in the service of humanity** — open, inspectable, owned by no one.
 
 It is built to be **decentralization-capable and federated** (one instance or many; institutions and individuals keep sovereign sub-meshes joined to the commons through shared bridge concepts), **always democratic** (governed in the open, stewarded by a foundation rather than a market, with contradiction kept first-class so no single voice can flatten the rest), and **self-improving** — first its knowledge, then its own architecture, ultimately the stack it runs on.
 
