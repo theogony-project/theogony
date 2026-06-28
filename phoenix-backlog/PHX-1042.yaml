@@ -1,0 +1,65 @@
+id: PHX-1042
+category: substrate-retrieval
+priority: medium
+status: open
+generation_target: MESH migration — S3/S5 (retrieval quality)
+title: "Degree-hub bias: high-in-degree nodes dominate top-k across unrelated queries"
+filed_by: Cursor AI agent (live 100k cockpit testing)
+created_at: 2026-06-28
+description: >
+  Live testing of the Cockpit Mesh Explorer against mesh-wiki-100k surfaced a
+  retrieval-quality defect: a small set of very-high-in-degree nodes appears in
+  the top-k working set of almost every query, regardless of query content.
+
+  Reproduction (2026-06-28, mesh-wiki-100k, default operator ppr, top_k=10,
+  8 ANN seeds, via POST /cockpit/api/mesh/ask):
+    "Albert Einstein and relativity" -> top includes 'el panson'
+    "photosynthesis in plants"       -> top includes 'el panson'
+    "French Revolution causes"       -> top includes 'el panson'
+    "machine learning neural networks" -> top includes 'el panson'
+    "Mount Everest height"           -> top includes 'el panson'
+  'el panson' (Q2657718) is NOT an ANN seed in these runs; it is reached purely
+  through propagation and ranks #2 by activation in most of them.
+
+  Measured in-degree (edges whose target_id is the node), edge table = 984,070:
+    Q2657718 'el panson'      in=2,690  out=4
+    Q30      'united stated'  in=25,275 out=338
+    Q513     'Mt. Everest'    in=7      out=8    (normal node, for scale)
+  So the contaminating nodes have ~380x-3600x the in-degree of a normal node.
+  PPR mass accumulates at in-hubs; on a scale-free graph like Wikidata this
+  dominates the working set.
+
+  Operator A/B on the same query ("Albert Einstein and relativity"):
+    ppr     -> 'field of science', 'Albert Enstein', 'el panson', ...
+    degnorm -> hub demoted (#3 -> #5) but still present
+    raw     -> fully hub-dominated: 'united stated', 'Germanz',
+               'sovereign state', 'United Nations' (zero query relevance)
+  i.e. degnorm partially mitigates, raw is unusable on this data.
+
+  Why this is a defect, not just expected PPR behaviour: the S3 diversified
+  injection layer (MMR + weight-class stratification, diversified.py) is meant
+  to suppress over-represented nodes, yet a degree-hub survives it. Either MMR
+  is not degree-aware, or the PPR teleport/damping needs a degree correction
+  before assembly.
+
+  Candidate fixes (smallest first, A/B on the emergent judge, not link-pred):
+  - Degree-aware damping in the PPR operator (e.g. divide incoming mass by a
+    function of target in-degree) so hubs do not absorb mass from every seed.
+  - Make MMR / weight-class selection degree-aware so an over-connected node
+    pays a diversity penalty proportional to its global in-degree.
+  - Optional global hub mask: exclude the top-N global in-degree nodes from the
+    candidate set (cheap, blunt, reversible) and measure quality delta.
+
+  Honest-failure note (AGENTS.md §3): results are not wrong, the pipeline
+  completes and emits a MeshQueryRunReport; this is a relevance-quality anomaly
+  surfaced by the first interactive 100k runs, filed rather than absorbed.
+
+relates_to:
+  - PHX-1034   # S3 retrieval (the path this defect lives in; resolved)
+  - PHX-1019   # domain clusters — already measured locality (participation ratio 77/100,883)
+  - PHX-1039   # variable-temperature propagation — a related lever, not the fix
+  - PHX-1041   # query-path CSR latency — sibling S3 anomaly from the same runs
+linked_scripts:
+  - src/theogony/mesh/retrieval/propagation.py   # ppr/degnorm/raw operators
+  - src/theogony/mesh/retrieval/diversified.py   # MMR + weight-class injection
+  - src/theogony/mesh/retrieval/constellation.py # top-k assembly
