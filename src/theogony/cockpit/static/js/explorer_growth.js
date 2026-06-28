@@ -748,6 +748,11 @@
   }
 
   async function growthAsk(ev) {
+    const backendEl = document.getElementById("explorer-backend");
+    if (backendEl && backendEl.value === "mesh") {
+      // Mesh backend uses explorer.js ask() → /cockpit/api/mesh/ask-stream.
+      return;
+    }
     ev.preventDefault();
     ev.stopImmediatePropagation();
     const q = (qEl && qEl.value) || "";

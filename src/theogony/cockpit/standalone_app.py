@@ -16,11 +16,18 @@ starts without secrets.
 
 from __future__ import annotations
 
+import asyncio
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+
+if TYPE_CHECKING:
+    from theogony.cockpit.mesh_explorer import MeshExplorerService
 
 from theogony.agents.factory import build_llm_from_settings
 from theogony.agents.llm import LLMProvider, StubLLMProvider
@@ -112,6 +119,42 @@ def _build_embedder(settings: Settings) -> object:
         return _ConstantEmbedder()
 
 
+def _resolve_mesh_root(settings: Settings) -> Path | None:
+    """Configured cockpit.mesh_root, else auto-detect a seeded subnet (prefers 100k)."""
+    configured = settings.cockpit.mesh_root
+    if configured is not None:
+        # A configured path resolves against the CWD (an operator-supplied path), not data_dir.
+        return Path(configured).expanduser().resolve()
+    for name in ("mesh-wiki-100k", "mesh-wiki-v1", "mesh"):
+        candidate = settings.data_dir / name
+        if (candidate / "lance").exists():
+            return candidate
+    return None
+
+
+def _build_mesh_explorer(settings: Settings) -> MeshExplorerService | None:
+    """Open the Mesh Explorer service when a non-empty mesh workspace is available."""
+    root = _resolve_mesh_root(settings)
+    if root is None or not (root / "lance").exists():
+        log.info("cockpit standalone: no mesh workspace found; Mesh Explorer tab disabled")
+        return None
+    from theogony.cockpit.mesh_explorer import MeshExplorerService
+
+    service = MeshExplorerService(root, embedder_name=settings.cockpit.mesh_embedder)
+    if not service.has_data():
+        log.info("cockpit standalone: mesh workspace %s has no edges; Mesh tab disabled", root)
+        return None
+    status = service.status()
+    log.info(
+        "cockpit standalone: Mesh Explorer enabled at %s (%d nodes, %d edges; "
+        "activation index builds lazily on first query)",
+        root,
+        status["consolidated_nodes"],
+        status["mesh_edges"],
+    )
+    return service
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = _standalone_settings()
@@ -145,6 +188,25 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.mnemosyne_classifier = build_mnemosyne_classifier(settings, llm)
         app.state.oneiros = None
         app.state.oneiros_task = None
+        app.state.mesh_explorer = _build_mesh_explorer(settings)
+        mesh_svc = app.state.mesh_explorer
+        if mesh_svc is not None:
+
+            async def _warm_mesh() -> None:
+                try:
+                    ms = await mesh_svc.ensure_index()
+                    if ms > 0:
+                        log.info("mesh explorer: background index warmup in %d ms", ms)
+                    else:
+                        log.info("mesh explorer: activation index already cached")
+                    t0 = time.perf_counter()
+                    await mesh_svc.embed("warmup probe")
+                    embed_ms = int((time.perf_counter() - t0) * 1000.0)
+                    log.info("mesh explorer: embedder warmup in %d ms", embed_ms)
+                except Exception:  # pragma: no cover - best-effort warmup
+                    log.exception("mesh explorer: background warmup failed")
+
+            asyncio.create_task(_warm_mesh())
         if settings.cockpit.enabled:
             mount_cockpit(app, settings)
             log.info(

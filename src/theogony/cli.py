@@ -1678,6 +1678,14 @@ def cockpit_serve(
         "--sample-only",
         help="Enable cockpit sample-only caps (THEOGONY_COCKPIT__SAMPLE_ONLY).",
     ),
+    mesh_root: str | None = typer.Option(
+        None,
+        "--mesh-root",
+        help=(
+            "Mesh workspace for the read-only Mesh Explorer tab. Default: auto-detect a "
+            "seeded subnet under data/ (prefers mesh-wiki-100k). Sets THEOGONY_COCKPIT__MESH_ROOT."
+        ),
+    ),
     reload: bool = typer.Option(
         False,
         "--reload",
@@ -1687,10 +1695,13 @@ def cockpit_serve(
     """Run Iris cockpit alone (in-memory chronicle; pantheon_self loaded on startup).
 
     In-memory chronicle only. Does not start MCP or ``/query``. For the full API plus cockpit,
-    use ``theogony serve`` instead.
+    use ``theogony serve`` instead. The Mesh Explorer tab (read-only) reads the new MESH
+    substrate when a seeded workspace is found or ``--mesh-root`` is given.
     """
     if sample_only:
         os.environ["THEOGONY_COCKPIT__SAMPLE_ONLY"] = "true"
+    if mesh_root is not None:
+        os.environ["THEOGONY_COCKPIT__MESH_ROOT"] = mesh_root
     _console.print(
         f"[bold]Theogony Cockpit[/bold] → http://{host}:{port}/cockpit/  "
         f"(chronicle: env [cyan]THEOGONY_COCKPIT__KNOWLEDGE_STORE[/cyan], "
