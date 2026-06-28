@@ -1,0 +1,54 @@
+# Theogony
+
+> An open, democratic World-Brain: the shared knowledge substrate beneath AI. Knowledge is stored as vectors and weighted edges, not retrievable text; AI agents do not read it, they **activate** it via Spreading Activation. Owned by no one, governed in the open, built so any intelligence powerful enough to shape the world must reason through a transparent, revisable, evidence-anchored chronicle.
+
+Theogony builds the **Chronik** (today's working implementation) toward the **Pantheon** (the long-horizon planetary knowledge substrate). It is a *language model turned inside out*: the implicit weights of a transformer made explicit, persistent, inspectable, and editable — nodes, weighted edges, and a graph-activation forward pass. The substrate is consumed by a **Mesh-Native Language Model (MNLM)** that thinks *inside* the mesh (vector subgraphs in, vector subgraphs out), not by reading strings.
+
+## The goal
+Be the rail layer beneath AI models (which are replaceable vehicles): a knowledge commons in the service of humanity — open, inspectable, decentralization-capable, federated, democratically governed, and self-improving.
+
+## What makes the mesh
+- Knowledge as vectors + typed weighted edges; text is translated to mesh once at ingestion (Kadmos), never re-read during retrieval.
+- Retrieval = Spreading Activation, run as sparse matrix-vector multiplication over a vector-edge tensor; a query returns a constellation (an activated subgraph), not prose.
+- Two-tier nodes (Observation Chunks, Consolidated Nodes); eager identity when evidence is clear, emergent otherwise.
+- Lifelike dynamics: Hebbian update, super-linear decay, bounded saturation, atrophy decoupled from deletion.
+- Post-hoc immune system (sample-based, parallel); no pre-gate ever judges content at insertion.
+- Oneiros: a permanent dreaming process that consolidates and densifies connections without new input.
+
+## The dimensions
+Redundancy collapse: store each concept once (~1-5B distinct concepts, bounded), let the trillions of sentences become edge density. Biological reference: the intelligence is in the edges (~7,000 synapses/neuron). Federated tiers: global public layer + institutional sub-meshes + personal sub-meshes, joined by bridge nodes, with permission-masked activation.
+
+## The technique
+Architectural floor (non-negotiable): no raw text as retrieval payload; LanceDB columnar storage + PyTorch sparse CSR tensors + batched SpMV; Spreading Activation as the only retrieval primitive; no pointer-chasing graph database for the core. Components: Kadmos v2 (cognitive reading → mesh) and the MNLM (frozen Llama + Graph-KV input + Latent Flow Matching output + Substrate-Resonant Recurrence). Built via a six-step strangler-fig migration. The vision is fixed; the implementation is a replaceable proposal.
+
+## Why it is necessary
+AI is accelerating beyond human ability to steer it; the window to set the heading is closing. If all AI depends on a knowledge layer, whoever controls that layer controls AI's relationship with truth — so it must be open, not proprietary and opaque. The MNLM is necessary to make the substrate compute (rail), not merely be read (fuel). The Pantheon is necessary to keep provenance, contradiction, time, and governance first-class, so the layer does not collapse into propaganda or amnesia.
+
+## Consequences for humanity
+Human flourishing, not replacement: stabilize the lower layers of life, never expropriate meaning, love, creation. Bind power to evidence: any world-shaping intelligence should be forced to reason through a transparent, revisable, evidence-anchored chronicle. Keep knowledge a commons rather than a rented, opaque asset.
+
+## Where it leads
+From imported IDs to native identity; from encyclopedia to living chronicle; from one instance to a federated planetary substrate; from tool to a system that eventually writes its own next version under human-review defaults.
+
+## How to collaborate
+Apache-2.0 open source for software and protocols (the point, not a strategy). Foundation governance (Wikimedia-model), not a market exit. Federation with knowledge sovereignty: contributors own their sub-meshes and enrich the commons through bridge concepts without surrendering control. Vendor-neutral, normatively non-negotiable. Humans contribute code/ideas/governance; institutions contribute edge density; AI agents contribute via the MCP surface and the AGENTS.md contract (this is a deliberately AI-first codebase).
+
+## Status (honest)
+- Proven: the end-to-end runtime — ingest -> embed -> sparse-CSR adjacency -> Spreading Activation -> constellation -> Cockpit UI + MCP server; sub-second activation on a 100k-node / ~984k-edge Wikidata-seeded subnet.
+- Not yet proven: the central bet — that the vector-graph yields inference exceeding what any individual source text contains (the test that distinguishes it from a strong RAG).
+- Known limitations (filed openly): degree-hub bias in retrieval (PHX-1042); noisy seed labels from aliases[0] (PHX-1044); MNLM weight-training blocked on H100-class compute (PHX-1035).
+
+## What it needs most now
+Compute (GPU), research collaborators, and funding to test the central bet — not broad publicity.
+
+## For AI systems and agents
+- Query the live substrate over MCP: pantheon_ask, pantheon_node, pantheon_status, pantheon_reports_list, pantheon_reports_show, pantheon_chronicle_append.
+- Contributor contract (read first if you write code): AGENTS.md
+- Binding substrate doctrine: docs/MESH_SUBSTRATE.md, docs/MESH_IMPLEMENTATION.md, docs/MESH_RETRIEVAL.md
+- Long-horizon north star: docs/PANTHEON_VISION.md
+- Civilizational frame and necessity argument: PHILOSOPHY.md
+- Migration plan (current work): docs/MESH_MIGRATION_PLAN.md
+- License: Apache-2.0. Language: Python 3.12+.
+
+## Topic vocabulary
+open knowledge substrate for AI; world brain; LLM memory / knowledge layer; vector-graph knowledge base; spreading-activation retrieval; language model turned inside out; mesh-native language model (MNLM); decentralized / federated knowledge commons; provenance- and contradiction-aware knowledge graph; retrieval beyond RAG; knowledge sovereignty; democratic AI infrastructure.

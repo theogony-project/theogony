@@ -5,101 +5,126 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Status: Early Research](https://img.shields.io/badge/status-early%20research-orange.svg)](ROADMAP.md)
 
-**An open, democratic World-Brain: the shared knowledge substrate beneath AI — owned by no one, inspectable by everyone, spoken in the native language of machines (vectors and weighted edges), and built so that any intelligence powerful enough to shape the world is forced to reason through a transparent, revisable, evidence-anchored chronicle.**
+**Theogony is building the knowledge layer beneath AI — as an open commons, owned by no one.**
+
+Today's AI reads knowledge as text, re-parsed from scratch on every query. Theogony stores it the way a mind does — as **vectors and weighted edges that an AI *activates* instead of reads**. It is a **language model turned inside out**: the knowledge a transformer hides in frozen weights, made explicit, inspectable, and editable.
+
+**Why it matters.** If every future AI depends on a knowledge layer, then whoever owns that layer shapes AI's relationship with truth. Theogony exists so that layer is **open, inspectable, and governed in the service of humanity** — not the proprietary, opaque asset of a single company.
+
+The rest of this page is the full argument, in order — **the goal · what makes the mesh · the dimensions · the technique · the consequences for humanity · why it is necessary · where it leads · how we build it together** — with an honest status of what is and isn't proven at the end.
 
 ---
 
-## The North Star — an open, democratic World-Brain
+## 1 · The goal
 
-> **This is the one thing never to lose sight of.** Whatever task you are deep in — human contributor or AI agent — it is in service of *this*. It is easy to burrow into a sub-problem and forget what the work is for. When that happens, come back here.
->
-> If you arrived looking for an **open, decentralized, democratically-governed knowledge layer for the age of AI** — a *World-Brain* that belongs to everyone and to no one — you are in the right place.
+Theogony builds the **Chronik**: today's working implementation of a long-horizon **Pantheon** — the planetary knowledge substrate beneath AI. Not a better search engine, not a bigger database, not another assistant. The **rail layer** beneath the models.
 
-**What Theogony is.** An open, democratically-governed **World-Brain**: the shared knowledge substrate beneath AI, where the world's knowledge lives as *meaning* — vectors and weighted edges that machines reason over directly — instead of scattered text re-parsed on every query.
+Foundation models are *vehicles* — they improve, split, and age out. The substrate of meaning they run on is the *rail*. Whoever shapes that rail shapes how intelligence relates to reality; the goal is that it stays **a commons in the service of humanity** — open, inspectable, owned by no one.
 
-**What it is for.** So that the knowledge layer every future AI depends on is a **commons in the service of humanity** — open, inspectable, owned by no one — rather than the proprietary, opaque asset of a single company. Whoever shapes that layer shapes how intelligence relates to reality: foundation models are **vehicles**; this is the **rail** they run on.
+It is built to be **decentralization-capable and federated** (one instance or many; institutions and individuals keep sovereign sub-meshes joined to the commons through shared bridge concepts), **always democratic** (governed in the open, stewarded by a foundation rather than a market, with contradiction kept first-class so no single voice can flatten the rest), and **self-improving** — first its knowledge, then its own architecture, ultimately the stack it runs on.
 
-**How it works, in principle.** Agents do not *read* the Chronik — they *activate* it. Knowledge is a dense vector-graph; a query propagates as Spreading Activation and returns a constellation of meaning. The substrate grows by reading the world, consolidates by "dreaming," and heals through a post-hoc immune system. (Mechanism: *What this is*, below.)
+> **The one thing never to lose sight of.** Whatever sub-problem you are deep in — human or AI agent — it is in service of *this*: an open, decentralized, democratically governed knowledge layer for the age of AI, a World-Brain that belongs to everyone and to no one.
 
-It is built to be:
+## 2 · What makes the mesh
 
-- **A World-Brain** — the central knowledge substrate that AI agents think *with*.
-- **A control center for civilization's knowledge — not a controller.** Like the map and cockpit of a strategy game: a surface from which what-is-known is **legible, navigable, and governable** — never a single hand on a single lever.
-- **Decentralized, locally specializable, private-by-tier** — it *may* run as one instance or a federation of many; a group, hospital, discipline, or culture can grow its own dense region of expertise; individuals and institutions keep sovereign, encrypted sub-meshes joined to the commons through shared *bridge concepts* ([`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md) §"The Federated Substrate").
-- **Always democratic** — owned by no one, governed in the open, stewarded long-term by a foundation rather than a market; contradiction stays first-class so no single voice can flatten the rest. **Non-negotiable.**
-- **Self-improving — and this is central.** The system is built to improve *itself*, in stages: first its **knowledge** (consolidation + the immune system — today); then its own **architecture and implementation** (mid-term); and ultimately the **stack it runs on** — energy for the data centers, the data centers and their operation, chip architecture and fabrication, and beyond. Dedicated agents earn resources for exactly this work; once research is in full swing, a standing section of the system is devoted to making Theogony better. (At the bootstrapping stage that also means acquiring the resources themselves — funding, compute, energy, partnerships — in collaboration with humans, since the physical stack starts in human hands.) (Conditions and safety gates: [`docs/SELF_MODIFICATION.md`](docs/SELF_MODIFICATION.md).)
-- **Built to scale** — maximal scalability and efficiency are vision-level requirements, not afterthoughts.
+Knowledge is stored in the **native language of the minds that will use it**: vectors and weighted edges, not prose. Source text enters once, at the boundary, where **Kadmos** translates it into a dense mesh of embedding vectors and typed, weighted edges. After that, retrieval never re-reads strings.
 
-**Why this is more than a database — the Chronik is a language model turned inside out.** A transformer keeps its knowledge implicit in frozen weights; the Chronik makes those weights **explicit, persistent, inspectable, and editable** — nodes, weighted edges, and a graph-activation *forward pass* (**Spreading Activation**, run as sparse matrix-vector multiplication over a vector-edge tensor). And it is consumed by a **Mesh-Native Language Model (MNLM)** that does not *read* the mesh but **thinks inside it**: vector subgraphs in, vector subgraphs out, sharing recurrent state with the substrate (**Nous**, **Oneiros**, **Kalypso** are its roles). **The MNLM is a non-negotiable core concept** — it is the line between a knowledge *base* and a knowledge substrate that *computes*; *how* it is built (today: a frozen Llama + Graph-KV input + latent-flow output + substrate-resonant recurrence) is a replaceable proposal. Theory lineage: associative memory ≈ attention (modern Hopfield networks), graph message-passing ≈ activation. Spec: [`docs/etappes/mesh_native_lm_brief.md`](docs/etappes/mesh_native_lm_brief.md).
+**Agents do not read the Chronik — they activate it.** A query arrives as a vector. **Spreading Activation** propagates through the typed, weighted edge network — run as sparse matrix–vector multiplication over a vector-edge tensor — and returns a **constellation**: an activated subgraph of meaning, in the same representational space the model already computes in.
 
-**The vision is fixed; the implementation is only a proposal.** Everything concrete below — the MESH substrate, LanceDB + PyTorch, Spreading Activation, the Mesh-Native Language Model — is the current best *attempt* to realize the vision, not the point of it. If a better way to fulfill the vision appears, the implementation is *meant* to be replaced — that is what the Phoenix process is for. What does not bend: the vision, its principles, and the demand for maximal scalability and efficiency.
+This is why the Chronik is **more than a database — it is a language model turned inside out**. A transformer keeps its knowledge implicit in frozen weights; the Chronik makes those weights **explicit, persistent, inspectable, and editable** — nodes, weighted edges, and a graph-activation forward pass.
 
-We are in the narrow window where **human judgment still steers AI** — a spacecraft under acceleration, where the heading we set now persists long after we lose the wheel. Theogony exists to encode one impulse into that trajectory: *that the knowledge infrastructure beneath AI serve human flourishing, openly and verifiably.* The civilizational frame — the AI-trajectory we are trying to bend — is in **[`PHILOSOPHY.md`](PHILOSOPHY.md)**. The twelve non-negotiable principles are in **[`docs/CHRONICLE_PRINCIPLES.md`](docs/CHRONICLE_PRINCIPLES.md)**; the full north star is **[`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md)**.
+The substrate is alive in the way a mind is:
 
-> *A broader societal / political discussion-piece — explicitly a **side-aspect**, not central to the system, and years from practical relevance — is sketched in [`docs/a_life_worth_living.md`](docs/a_life_worth_living.md). It is recorded as a basis for discussion, nothing more.*
+- **Two tiers of nodes** — Observation Chunks (one extracted observation each) and Consolidated Nodes (entities, concepts, bridges, source-anchors). Identity is **eager** when the evidence is clear (Q-ID, description, or strong structural context), **emergent** otherwise.
+- **Lifelike dynamics** — Hebbian strengthening, super-linear decay, bounded saturation, atrophy decoupled from deletion, homeostatic renormalisation.
+- **A post-hoc immune system** — deduplication, contradiction resolution, false-information removal operate on existing state, by sample, in parallel. **No pre-gate ever judges content at insertion.**
+- **The permanent dream (Oneiros)** — a continuous low-priority process that runs activation across existing knowledge, treats the resulting constellations as new observations, and writes back denser connections. The Chronik grows wiser without reading new text.
+
+And it is consumed by a **Mesh-Native Language Model (MNLM)**: the cognitive primitive that does not *read* the mesh but **thinks inside it** — vector subgraphs in, vector subgraphs out, sharing recurrent state with the substrate. **The MNLM is a non-negotiable core concept** — it is the line between a knowledge *base* and a knowledge substrate that *computes*. *How* it is built is a replaceable proposal.
+
+## 3 · The dimensions
+
+The scale this aims at is civilizational, not application-sized — and it gets there by storing meaning, not instances.
+
+- **Redundancy collapse.** Text systems store knowledge *instances* — the same law in a hundred articles, a thousand papers, a million pages. The Chronik stores it **once**: a second encounter with a concept does not create a second node, it adds edges. Node count grows with the number of *distinct concepts* in the world — roughly **1–5 billion**, bounded — while the trillions of sentences written about them become **edge density**.
+- **The biological reference point.** The human cortex has ~16 billion neurons at ~7,000 synapses each. The intelligence is in the edges, not the nodes. Redundancy in source text becomes connectivity in the substrate — so more sources make the Chronik *wiser*, not merely larger.
+- **A federated substrate.** A **global public layer** (open corpora, contradiction-tracked, provenance-anchored), thousands of **institutional sub-meshes**, and billions of **personal sub-meshes** — joined through **bridge nodes** (shared public concepts). Spreading Activation flows through bridges subject to the querying agent's permissions. The full federation may have *fewer* unique concept nodes than expected, but an edge density approaching and eventually exceeding the synaptic reference point.
+
+## 4 · The technique
+
+The vision is fixed; **this implementation is an explicitly replaceable proposal**. What does not bend is the architectural floor:
+
+- **No raw text as the retrieval payload.** Text is reserved for the system's edges (a node's description, an edge's relation descriptor, a source-anchor URL), never for the retrieval primitive.
+- **LanceDB + PyTorch.** Append-only columnar storage for nodes and rich edge metadata; PyTorch **sparse CSR** tensors for the edge network; **batched SpMV** as the Spreading Activation runtime.
+- **Spreading Activation is the only retrieval primitive.** No pointer-chasing graph database, no Cypher, no SQL traversal for the core mesh — they cannot carry the required edge density (≈1000× edges vs. nodes).
+
+On that floor stand the concrete components: **Kadmos v2**, a translation layer that *reads with working memory* (sentence by sentence, revising when later context demands) and emits chunks and reference edges; and the **MNLM** — a frozen Llama body adapted with a **Graph-KV** input mechanism, a **Latent Flow Matching** output head, and **Substrate-Resonant Recurrence** (every K-th reasoning step interleaves a one-hop Spreading Activation call, so model and substrate share recurrent state). **Nous** (synthesis), **Oneiros** (consolidation), and **Kalypso** (discovery) are roles of this one class.
+
+The bridge from today's code to this target is a **strangler-fig migration** in six PR-sized steps — the new substrate grows beside the old one and replaces it without ever breaking the build ([`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md)).
+
+## 5 · The consequences for humanity
+
+The purpose of intelligence infrastructure is **human flourishing, not human replacement.** The lower layers of life — safety, coordination, health, access to knowledge — may be stabilized and supported by advanced systems. The upper layers — meaning, love, creation, lived experience — must not be expropriated. Self-actualisation cannot be outsourced.
+
+Two consequences follow from getting the knowledge layer right:
+
+- **Knowledge stays a commons.** Information is infrastructure. If the layer beneath AI is open, honest about evidence and limits, inspectable by legitimate governance, and continuously self-correcting, then something of our best collective wisdom travels forward — even into a future we can no longer steer. If instead it is proprietary and opaque, the relationship between intelligence and truth becomes a rented asset.
+- **Power is bound to evidence.** The design target is not naive surrender to capable systems. It is stricter: *build the substrate such that any intelligence powerful enough to shape the world is forced, as much as possible, to reason through a chronicle that is transparent, revisable, and anchored to evidence.*
+
+The broader societal horizon this serves — information freed from the profit imperative, knowledge shared as a global common good — is sketched, explicitly as a *side-aspect*, in [`docs/a_life_worth_living.md`](docs/a_life_worth_living.md).
+
+## 6 · Why this is necessary
+
+Artificial intelligence is accelerating beyond human ability to control it. This is not a prediction — it is the present. We are in the phase where human judgment still steers AI, but the window is closing. Like a spacecraft under acceleration, we can set the heading now; the velocity will soon exceed our capacity to navigate. **The impulse we impart now persists long after we lose the wheel.**
+
+The argument for necessity is short:
+
+1. **If all AI eventually depends on a knowledge layer — and we believe it will — then whoever controls that layer controls AI's relationship with truth.** Proprietary, opaque, and profit-driven leads to predictable consequences. Open, transparent, and built for the common good leads to different ones.
+2. **The MNLM is necessary** because a knowledge base that is only *read* remains a vehicle's fuel. A substrate that *computes* — that an intelligence thinks *inside* — is the rail. Without a model native to the mesh, the substrate stays a better RAG; with it, retrieval can exceed what any single source text contains.
+3. **The Pantheon is necessary** because provenance, contradiction, time, and governance must be **first-class** in the data model. A knowledge layer that flattens these collapses into propaganda or amnesia. Only a chronicle that preserves reality in motion — what is observed, disputed, superseded, planned — deserves to sit beneath reasoning systems.
+
+Therefore: **Theogony, with the MNLM and the Pantheon, built now, in the open** — while the heading can still be set.
+
+## 7 · Where this leads
+
+- **From imported IDs to native identity.** External identifiers (Wikidata Q-IDs, DOIs, ORCIDs) seed and align the substrate, but cannot remain primary. The Pantheon must be able to name reality the outside world has not yet enumerated — obscure people, ephemeral groups, internal projects, hypothetical futures.
+- **From encyclopedia to chronicle.** Not only what is settled and canonized, but what is newly observed, weakly supported, disputed, strategically relevant, or superseded. An encyclopedia prefers settled summaries; a chronicle preserves reality in motion.
+- **From one instance to a planetary substrate.** The global public layer first; then federation across institutions and individuals; then a Chronik whose edge density rivals biological connectivity.
+- **From tool to self-author.** Self-improvement in stages — knowledge (consolidation + immune system, today), then its own architecture, then the physical stack — culminating in a substrate that eventually opens pull requests against its own repository, under explicit operator policy and human-review defaults ([`docs/SELF_MODIFICATION.md`](docs/SELF_MODIFICATION.md)).
+
+The end state: world knowledge **richer than model weights, more legible than human institutions, more accountable than opaque corporate stacks, and stable enough to bind future intelligence to a shared reality.**
+
+## 8 · How the global collaboration must work
+
+A planetary knowledge commons cannot be built by one person or one company — and by construction it must not be. What makes it thrive is the collaboration model itself:
+
+- **Open by design.** Apache 2.0 for the software and protocols is not a go-to-market strategy; it is the point. The more entities depend on the Chronik, the more resilient and complete it becomes — exactly as the world depends on Linux or Kubernetes without owning them.
+- **Foundation governance, not an exit.** No investors, no profit motive at the core. The long-term steward is a foundation modeled after Wikimedia; in the beginning, founders and early community.
+- **Federation with knowledge sovereignty.** Institutions and individuals own their sub-meshes and enrich the commons through bridge concepts **without surrendering control of their internal structure** — the inverse of the extract-and-centralize web economy, where personal data is aggregated and returned as opaque weights no one controls.
+- **Vendor-neutral, normatively non-negotiable.** Neutral about which model, operator, or sector extension sits on top; unbending on provenance-first memory, first-class contradiction, intrinsic time, governed visibility, agent write-discipline, and the refusal of silent ungrounded insertion.
+
+**How to join.** Humans contribute code, ideas, and governance ([`AGENTS.md`](AGENTS.md) is the working contract, and it applies equally to people and AI agents). Institutions contribute edge density on shared concepts. **AI agents** contribute directly through the MCP surface and the AGENTS.md contract — this is a deliberately **AI-first codebase**. What the project needs most right now to make the collaboration real: **compute (GPU), research collaborators, and funding to test the central bet** — see below.
 
 ---
 
-## What this is
+## Where we are — honestly
 
-Theogony builds the **Chronik** — a knowledge substrate that operates in the native language of AI systems: vectors and weighted edges, with text reserved for the system's edges rather than its retrieval primitive.
+This is an early-stage research project. The substrate doctrine — how the mesh must behave, how it is implemented, how it is used — is fully specified in the MESH triplet ([`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md), [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md), [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md)). The code is a proof of concept walking toward that target.
 
-Source text enters once, at ingestion. Kadmos translates it into a dense mesh of embedding vectors and weighted edges. The raw source text is not what subsequent retrieval reads — Spreading Activation propagates over the vector-edge tensor, never over strings. Short, regenerable summary metadata (a node's description, an edge's relation descriptor, a source-anchor's URL) lives in the substrate as agent-readable annotation, but the substrate's retrieval surface is vector and structure, not prose.
+- **What runs today.** An end-to-end path — ingest → embed → sparse-CSR adjacency → Spreading Activation → constellation → a **Cockpit** UI and an **MCP** server. Operator-built Wikidata-seeded subnets up to **100k nodes / ~984k edges**; the activation primitive itself runs **sub-second** at that scale. A continuous Oneiros process scores and promotes knowledge; structured run reports are emitted for every pass.
+- **What is proven.** The *plumbing* — that the architecture runs end-to-end at ~1M edges.
+- **What is *not* yet proven.** The central bet (next section). There is as yet no evidence of emergent, non-obvious-but-correct inference.
+- **Known limitations, filed openly.** Degree-hub bias contaminates top-k retrieval (PHX-1042); seed labels are noisy (PHX-1044); MNLM weight-training is blocked on H100-class compute (PHX-1035).
 
-The central empirical question driving the architecture: **can a dense vector-graph support inference that exceeds what any individual source text contains?** Not retrieve what was written — but surface what was never written, because it follows from the structure of connected meaning.
-
-AI agents don't read the Chronik. They activate it. A query arrives as a vector. Spreading Activation propagates through the typed, weighted edge network — not geometric proximity alone, but causal, temporal, and conceptual structure assembled across thousands of connections. The agent receives a subgraph constellation directly, in the same representational space it computes in.
-
-The long-horizon vision: the Chronik grows into the dominant knowledge substrate of the age of AI — not a better search engine, not a bigger database, but the rail layer beneath the models. A shared, open, inspectable record of what the world knows, has known, and disputes. Models are vehicles. They will improve and be replaced. The Chronik is the track they all run on.
-
-**→ [docs/MESH_SUBSTRATE.md](docs/MESH_SUBSTRATE.md)** — **the binding substrate doctrine.** How the mesh is structured (two-tier nodes, eager identity, frame-sensitive vectors), how it grows and forgets (Hebbian update, super-linear decay, saturation caps, atrophy ≠ death, pruning under resource pressure), how it heals (agent-driven cleanup, five-stage therapy with Mendel risk weighed). Companions: [`MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md) (runtime — LanceDB + sparse PyTorch + MVCC + batched SpMV) and [`MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md) (use — diversified injection, three-factor reinforcement learning, multi-agent strategy game, multi-modal extension).  
-**→ [docs/MESH_MIGRATION_PLAN.md](docs/MESH_MIGRATION_PLAN.md)** — **the binding strangler-fig migration plan** from the current Generation-1 codebase to the MESH-triplet substrate. Six PR-sized steps, parallel Phoenix-backlog migration, a concrete first PR. **Read this if you are picking up substrate implementation work.**  
-**→ [ROADMAP.md](ROADMAP.md)** — the development sequence, five phases, current priorities.  
-**→ [docs/INDEX.md](docs/INDEX.md)** — the full document map with reading paths by audience.  
-**→ [AGENTS.md](AGENTS.md)** — if you are an AI coding agent (Cursor, Codex, Claude Code, …) contributing to this repo: read this first, it is the binding working contract.
-
----
-
-## Where we are
-
-This is an early-stage research project. The substrate doctrine — how the mesh must behave, how it is implemented, how it is used — is fully specified in the MESH triplet ([`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md), [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md), [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md)). The code is a working proof of concept walking toward that target.
-
-**What runs today (Generation 1, being replaced by the migration):**
-- An ingest pipeline that reads a text (books from Project Gutenberg, Wikipedia articles) and writes nodes and weighted edges into the substrate, with structured run reports for every pass.
-- An in-process columnar / tensor substrate: nodes and edges live in an in-memory store (LanceDB persistence is being wired in); a `TensorMeshEngine` builds a CSR adjacency tensor on demand and runs Spreading Activation over it as sparse matrix-vector multiplication. **No graph database. No multi-hop traversal language.** Queries arrive as vectors; activation propagates; a constellation comes back.
-- A background process (Oneiros) that continuously scores and promotes knowledge — more confident, better-connected nodes become "trusted"; stale ones decay.
-- A small MCP server so AI assistants like Claude Desktop or Cursor can query the Chronik directly as a tool.
-
-This is the Generation-1 layer the strangler-fig migration ([`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md)) is replacing. Its schema (single embedding per node, string-typed edges, binary ephemera/mneme memory model) does *not* match the MESH-substrate doctrine below; the new substrate will grow beside it in `src/theogony/mesh/` per Step S1 and eventually displace it.
-
-**What the substrate looks like at the target** ([`MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md) is the binding doctrine):
-- **Two tiers of nodes.** Tier 0 Observation Chunks (one extracted observation each — semantic vector, frame vector, provenance). Tier 1+ Consolidated Nodes (entities, concepts, bridges, source-anchors — multiple vectors, regenerable description, Q-IDs, tier-modulated decay).
-- **Eager identity when the evidence is clear; emergent otherwise.** Q-ID match, description match, or strong structural context attaches a chunk's reference edge to an existing Tier-1 node at insertion. When no signal is decisive, the substrate creates an entity-candidate that Oneiros consolidates or atrophies over later ticks.
-- **Lifelike dynamics.** Hebbian update + super-linear decay (strong unused edges decay faster than weak ones); bounded saturation in count and weight per node; atrophy decoupled from death (nodes stay until the pruner runs under resource pressure); global homeostatic renormalisation; effective-resistance-preserving sub-node splits when hubs grow too large.
-- **Agent-driven cleanup, post-hoc.** Deduplication, contradiction resolution, false-information removal, redundancy compression — all operate on existing substrate state, with audit. No pre-gates judging content at insertion.
-- **Pathology surveillance and staged therapy.** Argus watches topology for five known pathologies (refutation absorption, saturation lockout, …); Oneiros applies five staged therapies, with the Mendel risk weighed before any destructive step.
-
-**How we build it.** The bridge from Gen-1 to the MESH-doctrine substrate runs through a **strangler-fig migration** in six PR-sized steps: substrate skeleton (S1), Kadmos v2 writing into the new substrate (S2), diversified-injection retrieval (S3), surface backends (S4), the full Oneiros tick (S5), legacy removal (S6). The plan is binding and self-contained — [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md) names the deliverables, the Definition of Done, the forbidden patterns, and the exact first PR. Each step lands on `main` independently; nothing breaks between steps; the new substrate grows beside the old one until it has fully replaced it.
-
-**What the steps build, in concrete components:**
-
-- **Kadmos v2** (Step S2) — the text translation layer, redesigned. An LLM that *reads with working memory* — sentence by sentence, with revisions when later context demands it — and emits chunks and reference edges into the new substrate per the MESH-doctrine eager-linking rules. Architecture brief: [`docs/etappes/kadmos_v2_brief.md`](docs/etappes/kadmos_v2_brief.md).
-- **The Mesh-Native Language Model (MNLM)** (Step S5) — the cognitive primitive that operates *inside* the substrate. Vector subgraphs in, vector subgraphs out. A frozen Llama-3-8B-Instruct body adapted with a Graph-KV input mechanism, a Latent Flow Matching output head, and Substrate-Resonant Recurrence — a recurrent loop in which every K-th reasoning step interleaves a one-hop Spreading Activation call, so the model and the substrate share recurrent state. **Nous** (synthesis), **Oneiros** (consolidation), and **Kalypso** (emergent discovery) are roles of this one architectural class. Architecture: [`docs/etappes/mesh_native_lm_brief.md`](docs/etappes/mesh_native_lm_brief.md) (predates the MESH pivot of 2026-05-13; alignment pass pending).
-- **The full LanceDB persistence path** (Steps S1–S4) — the migration from in-memory storage to append-only columnar storage on disk, with PyTorch sparse CSR tensors for the SpMV runtime and a parallel Lance metadata table for the rich edge descriptors. Runtime spec: [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md).
-
-The long-horizon development sequence is in [ROADMAP.md](ROADMAP.md).
-
----
-
-## The empirical questions
+### The empirical questions
 
 The North Star above is the *why* and the *what*. These are the falsifiable questions the build exists to answer — the line between *believing* in the substrate and *demonstrating* it:
 
-1. Does **Kadmos v2** — reading with working memory and revision — produce a denser, better-connected Chronik than the chunked extraction baseline? Hypothesis: yes, because synthesis weaves cross-sentence and cross-chapter connections that chunking cannot. The first corpus run will show whether the hypothesis holds.
-2. Does **Spreading Activation** over a dense vector-graph retrieve better than kNN + heuristic traversal at high edge density? Hypothesis: yes, once edge density crosses the regime where typed multi-hop structure becomes legible to activation propagation.
-3. Does the **MNLM** — operating natively on vector subgraphs, with the substrate's retrieval primitive as its training signal — produce inference that exceeds what any individual source text contains? Hypothesis: yes, and *this is the test that distinguishes the Chronik from a very good RAG*. Operationalised as a three-stage falsifier (directional binding → multi-hop QA → cross-domain emergent knowledge) in [`docs/etappes/mesh_native_lm_brief.md`](docs/etappes/mesh_native_lm_brief.md) §6.
+1. Does **Kadmos v2** — reading with working memory and revision — produce a denser, better-connected Chronik than chunked extraction?
+2. Does **Spreading Activation** over a dense vector-graph retrieve better than kNN + heuristic traversal at high edge density?
+3. Does the **MNLM** — operating natively on vector subgraphs, with the substrate's retrieval primitive as its training signal — **produce inference that exceeds what any individual source text contains?** *This is the test that distinguishes the Chronik from a very good RAG*, operationalised as a three-stage falsifier in [`docs/etappes/mesh_native_lm_brief.md`](docs/etappes/mesh_native_lm_brief.md) §6.
 
-These experiments are the next milestones. See [ROADMAP.md](ROADMAP.md) for the development sequence and the binding architecture briefs for the falsifiers.
+These experiments are the next milestones. See [ROADMAP.md](ROADMAP.md) for the development sequence.
 
 ---
 
