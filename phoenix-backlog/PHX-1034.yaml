@@ -1,7 +1,7 @@
 id: PHX-1034
 category: substrate-retrieval
 priority: high
-status: open
+status: resolved
 generation_target: MESH migration — S3 (retrieval)
 title: "S3 retrieval quality: production propagation operator"
 filed_by: Chaos (vision/reflection role, via Cursor AI agent)
@@ -65,6 +65,18 @@ description: >
   the production default — it hub-collapses. Next step: implement this as the
   substrate's default retrieval propagation in the S3 retrieval/ path, keeping the
   operator menu A/B-able for Mnemosyne.
+
+  RESOLVED (2026-06-25): shipped as the S3 retrieval/ module
+  (src/theogony/mesh/retrieval/). The decided operators are the substrate
+  default — PPR is the relation-agnostic default in Propagator.propagate();
+  relation-conditioning is available as a masked hop; raw/degnorm stay in the
+  operator menu for A/B. The full S3 path (diversified injection = MMR +
+  weight-class stratification, frame routing, Constellation assembly,
+  `theogony mesh ask`, MeshQueryRunReport) builds on it. Validated end-to-end on
+  mesh-wiki-v1 (15k) and mesh-wiki-100k (101k / 984k edges): coherent,
+  relation-labelled constellations; SA primitive ~0.6s at ~1M edges. A
+  query-latency anomaly (per-query CSR rebuild dominates) was surfaced and filed
+  as PHX-1041 rather than absorbed silently.
 
 linked_prs:
   - "https://github.com/theogony-project/theogony/pull/166"  # eval harnesses (link-prediction, scaling)

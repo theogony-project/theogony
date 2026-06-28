@@ -18,7 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -385,6 +385,27 @@ class EdgeStore:
         out: list[Edge] = []
         for row in arrow.to_pylist():
             out.append(Edge.model_validate_json(row["payload_json"]))
+        return out
+
+    def load_metadata_for_sources(
+        self, source_ids: Iterable[str]
+    ) -> dict[tuple[str, str], EdgeMetadata]:
+        """Load edge descriptors for a small set of source nodes (Constellation enrichment).
+
+        Keyed by ``(source_id, target_id)``. Used by retrieval to attach
+        ``relation_descriptor`` to the edges of an activated sub-graph without scanning
+        the full metadata table. ULIDs are alphanumeric, so they inline safely in the
+        Lance filter (same pattern as :meth:`neighbor_ids`).
+        """
+        ids = {str(s) for s in source_ids}
+        if not ids:
+            return {}
+        quoted = ",".join(f'"{sid}"' for sid in ids)
+        rows = self.meta_table.search().where(f"source_id IN ({quoted})").to_list()
+        out: dict[tuple[str, str], EdgeMetadata] = {}
+        for row in rows:
+            meta = EdgeMetadata.model_validate_json(row["payload_json"])
+            out[(str(meta.source_id), str(meta.target_id))] = meta
         return out
 
     def replace_all_edges(self, edges: list[Edge]) -> None:

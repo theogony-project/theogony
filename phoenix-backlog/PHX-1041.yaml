@@ -1,0 +1,47 @@
+id: PHX-1041
+category: substrate-runtime
+priority: high
+status: open
+generation_target: MESH migration — S3/S5 (retrieval runtime)
+title: "Query-path CSR caching — stop rebuilding the edge CSR per query"
+filed_by: Chaos (vision/reflection role, via Cursor AI agent)
+created_at: 2026-06-25
+description: >
+  S3 retrieval (`theogony mesh ask`, retrieve()) calls MeshRuntime.rebuild_csr()
+  on every query, which calls EdgeStore.load_all_edges() -> one
+  Edge.model_validate_json() per edge. That is O(E) JSON deserialization on the
+  hot path of every read.
+
+  Measured (mesh-wiki-100k, 100,883 nodes / 984,070 edges, 2026-06-25,
+  reference MacBook):
+  - csr_ms       = 26,048 ms   (rebuild dominates total query latency)
+  - ann_ms       =    130 ms
+  - propagate_ms =    631 ms
+  - assemble_ms  =    661 ms
+  i.e. the Spreading-Activation primitive itself is sub-second at ~1M edges; the
+  26 s is pure per-query edge deserialization. On the 15k subnet csr_ms ~2.2 s.
+
+  Consequence: the substrate's *retrieval* is fast, but its *query latency* is
+  unacceptable at scale, purely because the CSR is reconstructed from Lance JSON
+  each call instead of being held resident.
+
+  Fix (smallest first):
+  - Cache the built EdgeCSR on the MeshRuntime, invalidated by Lance version /
+    delta-buffer pending count, so repeat queries reuse it.
+  - Build the CSR from the columnar quantitative columns (source_id, target_id,
+    weight) via Arrow, not by JSON-parsing payload_json per row.
+  - Longer term: the Hot-tier resident CSR + delta buffer of
+    MESH_IMPLEMENTATION.md §"Storage tiers" — this is the read-side companion to
+    PHX-1037's tick-time incremental CSR.
+
+  Honest-failure note: this is not a correctness bug — results are correct — it
+  is a latency anomaly surfaced by the first S3 end-to-end runs at 100k scale.
+  Filed rather than silently absorbed (AGENTS.md §3).
+
+relates_to:
+  - PHX-1037   # incremental CSR + quantization (write/tick path); this ticket is the read/query path
+  - PHX-1001   # S3 / S5 substrate runtime
+  - PHX-1034   # S3 retrieval (where this was measured)
+linked_scripts:
+  - src/theogony/mesh/retrieval/retrieve.py   # rebuild_csr() call site
+  - src/theogony/mesh/storage/edges.py        # load_all_edges() / csr_from_store()
