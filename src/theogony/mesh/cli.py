@@ -338,6 +338,16 @@ def mesh_ask(
     k_seeds: int = typer.Option(8, "--seeds", help="Diversified seed count (MMR + weight-class)."),
     hops: int = typer.Option(3, "--hops", help="Hops for raw/degnorm operators."),
     ann_limit: int = typer.Option(64, "--ann-limit", help="Vector-search candidates before MMR."),
+    degree_beta: float = typer.Option(
+        0.0,
+        "--degree-beta",
+        help="PHX-1042: divide incoming activation by in_degree**beta each hop (0 = off).",
+    ),
+    hub_mask_top_n: int = typer.Option(
+        0,
+        "--hub-mask-top-n",
+        help="PHX-1042: zero the top-N in-degree hubs before assembly (0 = off; seeds survive).",
+    ),
     embedder_name: str | None = typer.Option(
         None, "--embedder", help="bge-m3 | bge-small-en (default: match workspace dim)."
     ),
@@ -373,6 +383,8 @@ def mesh_ask(
         k_seeds=k_seeds,
         hops=hops,
         ann_limit=ann_limit,
+        degree_beta=degree_beta,
+        hub_mask_top_n=hub_mask_top_n,
         vector_column=vector_column,
         query=query,
     )
