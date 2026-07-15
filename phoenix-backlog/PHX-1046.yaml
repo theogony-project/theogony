@@ -1,0 +1,31 @@
+id: PHX-1046
+category: agents-runtime
+priority: medium
+status: open
+generation_target: MESH migration — ingest reliability (PHX-1045 F4 prerequisite for Sonnet-class readers)
+title: "AnthropicLLMProvider: stream long structured calls — Sonnet-5 turns exceed request timeouts"
+filed_by: Claude Code (PHX-1045 pilot, live run 2026-07-14/15)
+created_at: 2026-07-15
+description: >
+  The Sonnet-5 founding-corpus pilot (30 paragraphs/source) surfaced an
+  operational limit of the non-streaming Messages call in
+  AnthropicLLMProvider.complete(): 4.7+/5-generation models think long on
+  large paragraphs, and single requests can exceed the HTTP request window.
+  Measured: PG 26073 (Ovid VIII-XV, Riley prose) hit 5 "request timed out or
+  interrupted" failures out of 30 paragraphs -> reader status=partial ->
+  verdict=failed (honest-failure worked; the run report was correct).
+  The other three sources completed verdict=good but at ~1.9 h per 30
+  paragraphs. Anthropic's guidance for long requests is streaming
+  (client.messages.stream + get_final_message), which removes the
+  idle-connection timeout class entirely.
+
+  Fix sketch: switch complete() to the streaming helper for structured
+  (forced-tool) calls, keep the asyncio.timeout as an outer guard with a
+  model-aware floor, and record per-call latency as today. No behavior
+  change for fast models beyond transport.
+
+relates_to:
+  - PHX-1045   # founding demo — F3/F4 model decision depends on a reliable Sonnet path
+linked_scripts:
+  - src/theogony/agents/llm_anthropic.py
+  - scripts/build_founding_mesh.py
