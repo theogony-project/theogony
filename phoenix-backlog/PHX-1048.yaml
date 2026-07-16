@@ -1,0 +1,43 @@
+id: PHX-1048
+category: ingestion-runtime
+priority: high
+status: open
+generation_target: MESH migration — ingest scalability (PHX-1045 F4 and beyond)
+title: "Kadmos ingest fleet: parallel paragraph readers, Batch API, model-escalation on schema failure"
+filed_by: Claude Code (founding-mesh live operation, 2026-07-14/16)
+created_at: 2026-07-16
+description: >
+  Kadmos v2 reads sequentially, synchronously, with one model, and drops a
+  paragraph when the LLM returns schema-invalid output. All four weaknesses
+  cost real knowledge during the founding-demo build:
+  (1) sequential per-paragraph calls serialize behind the API key's
+  rate-limit tier (observed 6.7 min/paragraph wall time, LLM cost unchanged);
+  (2) 4/96 Theogony paragraphs were lost to ParagraphReadingOutput
+  validation errors — including the demo-critical Aphrodite sea-foam birth
+  passage (ll. 178-206);
+  (3) the loss was only recoverable by a manual repair pass with a stronger
+  model (claude-sonnet-4-6 extracted the same paragraph flawlessly, 7
+  Q-ID-anchored concepts, 0.06 EUR) — proving escalation works and is cheap;
+  (4) full-corpus cost/latency would drop ~50% via the Anthropic Batch API.
+
+  Design sketch: document -> segmentation -> parallel paragraph readers
+  (Batch API where supported) -> document-local mini-mesh in memory -> one
+  merge-commit into the workspace delta. Working memory stays document-local;
+  cross-document resolution happens at merge time (with PHX-1047 indexes),
+  decoupling LLM latency from substrate contention. A small model router
+  escalates cheap -> mid tier on validation error instead of dropping the
+  paragraph; every escalation lands in the IngestRunReport.
+
+cost_benefit_guardrails:
+  - Escalation is bounded (one tier, one retry) and reported; no silent
+    unbounded spend.
+  - Batch mode is opt-in per run; per-run cost ceiling stays an operator
+    parameter.
+
+relates_to:
+  - PHX-1045   # founding demo — repair-pass pattern proven by hand here
+  - PHX-1046   # streaming provider calls (transport-level sibling)
+  - PHX-1047   # merge-time resolution needs the ANN index
+linked_scripts:
+  - src/theogony/mesh/ingestion/kadmos_v2.py
+  - scripts/build_founding_mesh.py
