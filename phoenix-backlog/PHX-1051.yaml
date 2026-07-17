@@ -1,0 +1,38 @@
+id: PHX-1051
+category: substrate-identity
+priority: critical
+status: in_progress
+generation_target: MESH migration — identity integrity (S2/S3 foundation)
+title: "Identity attractor: generic high-degree nodes absorb entities on description-cosine alone"
+filed_by: Claude Code (founding-mesh forensics, 2026-07-18)
+created_at: 2026-07-18
+description: >
+  EagerLinker._best_description_match merges a new concept into an existing
+  node when combined score >= 0.72, dominated by raw description-vector
+  cosine, with NO requirement for lexical corroboration. Semantically generic
+  nodes sit close to every in-domain description, and high-degree nodes
+  additionally collect the +0.20 context bonus through their neighborhood —
+  so generic hubs become identity attractors that absorb entities at write
+  time.
+
+  Forensic evidence from the founding mesh: Venus, Dione, Zeus and other
+  central deities never received entity nodes across four sources; 92
+  genealogy edges (daughter_of / mother_of) attach to the work-node
+  ("An ancient Greek epic poem describing the origins and genealogy of the
+  gods"), including SELF-LOOPS ([poem] daughter_of [poem]) — the signature
+  of both relation endpoints resolving to the same attractor. This is the
+  write-side dual of PHX-1042 (read-side hub bias) and explains a large part
+  of the work-node's in-degree 1,940 (~15% of all edges).
+
+  Fix (this ticket's PR): a description-signal merge requires lexical
+  corroboration — a shared tag or a known label/alias. Pure vector
+  similarity keeps identity emergent, per MESH_SUBSTRATE ("identity is
+  eager when the evidence is clear"). Repair of already-corrupted meshes is
+  immune-system work (Athene/Chronos), tracked separately.
+
+relates_to:
+  - PHX-1042   # read-side sibling: hubs dominate retrieval
+  - PHX-1045   # founding demo — surfaced by the missing-Aphrodite investigation
+  - PHX-1047   # resolver ANN — same code path, orthogonal concern
+linked_scripts:
+  - src/theogony/mesh/ingestion/linker.py
