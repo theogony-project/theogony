@@ -1,7 +1,7 @@
 id: PHX-1041
 category: substrate-runtime
 priority: high
-status: open
+status: in_progress
 generation_target: MESH migration — S3/S5 (retrieval runtime)
 title: "Query-path CSR caching — stop rebuilding the edge CSR per query"
 filed_by: Chaos (vision/reflection role, via Cursor AI agent)
