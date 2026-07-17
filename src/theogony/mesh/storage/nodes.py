@@ -230,7 +230,12 @@ class MeshNodeStore:
             return None
         return ConsolidatedNode.model_validate_json(rows[0]["payload_json"])
 
-    def get_consolidated_by_qid(self, qid: str) -> ConsolidatedNode | None:
+    def get_consolidated_id_by_qid(self, qid: str) -> str | None:
+        """Return node_id for a Q-ID without loading the full node payload.
+
+        Used by the wikidata5m seed path (PHX-1030) so bulk imports do not
+        materialise 1024-d vectors into the resolver cache.
+        """
         rows = (
             self.consolidated_qid_index.search()
             .where(f'qid = "{_sql_quote(qid)}"')
@@ -239,7 +244,13 @@ class MeshNodeStore:
         )
         if not rows:
             return None
-        return self.get_consolidated(str(rows[0]["node_id"]))
+        return str(rows[0]["node_id"])
+
+    def get_consolidated_by_qid(self, qid: str) -> ConsolidatedNode | None:
+        node_id = self.get_consolidated_id_by_qid(qid)
+        if node_id is None:
+            return None
+        return self.get_consolidated(node_id)
 
     def get_consolidated_by_label(self, label: str) -> ConsolidatedNode | None:
         normalized = _normalize_label(label)
