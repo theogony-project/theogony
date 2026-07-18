@@ -45,8 +45,16 @@ Read the paragraph below and output valid JSON for this schema:
 
 1. concepts:
    - every distinct person, place, object, organization, date, event, or idea
+   - the paragraph's central figure(s) — whoever the passage is ABOUT — MUST
+     appear here as named concepts. Never leave the protagonist implicit or
+     fold them into the paragraph_concept alone; a passage about a goddess's
+     birth must yield the goddess herself as a concept.
+   - when the text uses a variant or translated name (e.g. Roman "Venus" for
+     Greek Aphrodite, "Jove" for Zeus), use the text's name as the label and
+     add the canonical variant names as tags
    - include a discriminating description
-   - include optional Wikidata Q-IDs only when you are confident
+   - include optional Wikidata Q-IDs only when you are confident; for figures
+     known under multiple names, the Q-ID of the canonical identity
 
 2. relations:
    - directed edges between concepts from this paragraph
@@ -55,6 +63,8 @@ Read the paragraph below and output valid JSON for this schema:
 
 3. paragraph_concept:
    - optional single paragraph-level concept when the paragraph has a coherent unifying idea
+   - the paragraph_concept never replaces the concepts it is about — its
+     protagonists must still be listed in concepts
    - if absent, set paragraph_concept to null
 
 Output only valid JSON. Do not add commentary."""
