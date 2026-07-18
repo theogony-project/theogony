@@ -13,7 +13,7 @@ from collections.abc import Iterator
 import lancedb
 import pyarrow as pa
 
-from theogony.mesh.schemas import ChunkNode, ConsolidatedNode
+from theogony.mesh.schemas import ChunkNode, ConsolidatedNode, QIDTag
 
 
 def _normalize_label(label: str) -> str:
@@ -229,6 +229,29 @@ class MeshNodeStore:
         if not rows:
             return None
         return ConsolidatedNode.model_validate_json(rows[0]["payload_json"])
+
+    def merge_identity_evidence(
+        self, node_id: str, *, qids: list[QIDTag]
+    ) -> ConsolidatedNode | None:
+        """Persist identity evidence acquired at merge time (PHX-1053).
+
+        When the eager linker merges a reference into an existing node, the
+        reference may carry Q-IDs the stored node does not have yet (measured
+        live: Aphrodite Q35500 merged into a hymn concept and the Q-ID
+        evaporated with the process). Appending them here makes the identity
+        durable and Q-ID-addressable for every later read and ingest."""
+        node = self.get_consolidated(node_id)
+        if node is None:
+            return None
+        known = {q.qid for q in node.qids}
+        new_qids = [q for q in qids if q.qid not in known]
+        if not new_qids:
+            return node
+        updated = node.model_copy(update={"qids": [*node.qids, *new_qids]})
+        self.consolidated_table.delete(f'id = "{_sql_quote(node_id)}"')
+        self.consolidated_table.add([self._consolidated_row(updated)])
+        self.consolidated_qid_index.add([{"qid": q.qid, "node_id": str(node_id)} for q in new_qids])
+        return updated
 
     def get_consolidated_id_by_qid(self, qid: str) -> str | None:
         """Return node_id for a Q-ID without loading the full node payload.
