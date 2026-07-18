@@ -12,7 +12,6 @@ from typing import Literal
 
 from ulid import ULID
 
-from theogony.mesh.ingestion.concept_resolver import ConceptResolver
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.schemas import ConsolidatedNode, Edge, PIDTag, QIDTag
 from theogony.mesh.seeds.wikidata5m.embedder import MeshEmbedder
@@ -35,6 +34,7 @@ from theogony.mesh.seeds.wikidata5m.loader import (
     load_relation_aliases,
 )
 from theogony.mesh.seeds.wikidata5m.relations import resolve_relation_mapping
+from theogony.mesh.seeds.wikidata5m.seed_resolver import SeedConceptResolver
 from theogony.reporting.models import MeshSeedRunReport
 from theogony.reporting.writer import RunReportWriter
 
@@ -88,7 +88,7 @@ class Wikidata5mSeedImporter:
         self.max_embedding_chars = max_embedding_chars
         self.write_batch_size = seed_write_batch_size(batch_size)
         self.report_writer = report_writer or RunReportWriter(Path("data/run_reports"))
-        self.resolver = ConceptResolver(runtime.nodes)
+        self.resolver = SeedConceptResolver(runtime.nodes)
         self.counters = _SeedCounters()
         self.pid_unmapped: Counter[str] = Counter()
         # Edge dedup keys come from the lightweight Lance edge_dedup_index, not a
@@ -145,7 +145,7 @@ class Wikidata5mSeedImporter:
         new_pairs: list[tuple[EntityRecord, TextRecord]] = []
         for entity, text in batch:
             self.counters.entities_streamed += 1
-            if self.resolver.get_by_qid(entity.qid) is not None:
+            if self.resolver.has_qid(entity.qid):
                 self.counters.entities_skipped_duplicate_qid += 1
                 continue
             new_pairs.append((entity, text))
@@ -170,7 +170,6 @@ class Wikidata5mSeedImporter:
         embedding_duration_s = time.monotonic() - embed_started
         self._embedding_duration_s += embedding_duration_s
         nodes: list[ConsolidatedNode] = []
-        node_aliases: list[list[str]] = []
         audit_entries: list[tuple[str, dict[str, object]]] = []
         for (entity, _text), semantic_vector in zip(new_pairs, semantic_vectors, strict=False):
             now = datetime.now(UTC)
@@ -195,7 +194,6 @@ class Wikidata5mSeedImporter:
                 ],
             )
             nodes.append(node)
-            node_aliases.append(entity.aliases)
             audit_entries.append(
                 (
                     "mesh_seed_node_created",
@@ -208,8 +206,9 @@ class Wikidata5mSeedImporter:
             )
         if not dry_run:
             self.runtime.nodes.append_consolidated_many(nodes)
-        for node, aliases in zip(nodes, node_aliases, strict=False):
-            self.resolver.remember(node, aliases=aliases, qids=node.qids)
+        for node in nodes:
+            for qid_tag in node.qids:
+                self.resolver.remember(qid_tag.qid, node.id)
         self.counters.entities_upserted += len(nodes)
         self._append_audits(audit_entries, dry_run=dry_run)
 
@@ -260,7 +259,7 @@ class Wikidata5mSeedImporter:
     def _seeded_qids(self, *, qid_file: Path | None = None) -> set[str]:
         if qid_file is not None:
             return set(load_qid_selection_file(qid_file))
-        remembered = {qid.qid for node in self.resolver.iter_nodes() for qid in node.qids}
+        remembered = self.resolver.known_qids()
         if remembered:
             return remembered
         return {
@@ -312,9 +311,9 @@ class Wikidata5mSeedImporter:
             seeded_qids=seeded_qids,
         ):
             self.counters.edges_streamed += 1
-            source_node = self.resolver.get_by_qid(triplet.subject_qid)
-            target_node = self.resolver.get_by_qid(triplet.object_qid)
-            if source_node is None or target_node is None:
+            source_id = self.resolver.get_ulid(triplet.subject_qid)
+            target_id = self.resolver.get_ulid(triplet.object_qid)
+            if source_id is None or target_id is None:
                 self.counters.edges_skipped_missing_endpoint += 1
                 continue
             mapping = resolve_relation_mapping(
@@ -324,8 +323,8 @@ class Wikidata5mSeedImporter:
             if not mapping.mapped:
                 self.pid_unmapped[triplet.predicate_pid] += 1
             edge_key = self.runtime.edges.dedup_key(
-                str(source_node.id),
-                str(target_node.id),
+                str(source_id),
+                str(target_id),
                 mapping.relation_descriptor,
             )
             if edge_key in self._edge_keys:
@@ -333,8 +332,8 @@ class Wikidata5mSeedImporter:
                 continue
             now = datetime.now(UTC)
             edge = Edge(
-                source_id=source_node.id,
-                target_id=target_node.id,
+                source_id=source_id,
+                target_id=target_id,
                 weight=1.0,
                 born_at=now,
                 last_fired_at=now,
@@ -350,8 +349,8 @@ class Wikidata5mSeedImporter:
                 (
                     "mesh_seed_edge_created",
                     {
-                        "source_id": str(source_node.id),
-                        "target_id": str(target_node.id),
+                        "source_id": str(source_id),
+                        "target_id": str(target_id),
                         "pid": triplet.predicate_pid,
                         "relation_descriptor": mapping.relation_descriptor,
                     },
