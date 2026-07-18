@@ -45,6 +45,9 @@
   let simulation = null;
   /** @type {object | null} */
   let lastPayload = null;
+  /** Per-iteration Spreading-Activation frames for the last mesh query
+   *  ({node_id: normalized activation}[]) — founding-demo Beat 1. */
+  let lastActivationFrames = null;
   /** @type {{ role: string, content: string, detailHtml?: string }[]} */
   let chatTurns = [];
   let rollingSummary = "";
@@ -126,6 +129,7 @@
     renderChatThread();
     clearGraph();
     lastPayload = null;
+    lastActivationFrames = null;
   }
 
   function setStatus(text, level) {
@@ -279,6 +283,34 @@
     return { lines, tooltip, uniq };
   }
 
+  function isContradictionEdge(d) {
+    return /contradict/i.test(d.relation_type || "");
+  }
+
+  /** Replay the Spreading-Activation forward pass: one transition per SpMV
+   *  iteration, node size/brightness following the normalized activation.
+   *  Ends on the real constellation sizes so ranking stays authoritative. */
+  function animateActivationFrames(nodeSel, frames) {
+    const FRAME_MS = 380;
+    const circles = nodeSel.filter((d) => !d.isQuery).select("circle");
+    circles.attr("r", 3).attr("fill-opacity", 0.25);
+    frames.forEach((frame, k) => {
+      circles
+        .transition("activation")
+        .delay(k * FRAME_MS)
+        .duration(FRAME_MS)
+        .ease(d3.easeCubicOut)
+        .attr("r", (d) => 3 + (frame[d.id] || 0) * 15)
+        .attr("fill-opacity", (d) => 0.25 + (frame[d.id] || 0) * 0.75);
+    });
+    circles
+      .transition("activation-final")
+      .delay(frames.length * FRAME_MS)
+      .duration(320)
+      .attr("r", (d) => d.r)
+      .attr("fill-opacity", 1);
+  }
+
   function renderGraph(payload) {
     clearGraph();
     const width = svg.node().clientWidth;
@@ -355,12 +387,21 @@
       .join("line")
       .attr("stroke", (d) => {
         if (d.kind === "seed") return "#fbbf24";
+        if (isContradictionEdge(d)) return "#f87171";
         const [s, t] = edgeEndpointIds(d);
         return cited.has(s) && cited.has(t) ? "#34d399" : "#475569";
       })
       .attr("stroke-opacity", (d) => (d.kind === "seed" ? 0.55 : 0.65))
-      .attr("stroke-width", (d) => 1 + (d.weight || 0.3) * 3)
-      .attr("stroke-dasharray", (d) => (d.kind === "seed" ? "3 4" : null));
+      .attr("stroke-width", (d) =>
+        isContradictionEdge(d) ? 2.5 + (d.weight || 0.3) * 3 : 1 + (d.weight || 0.3) * 3
+      )
+      .attr("stroke-dasharray", (d) =>
+        d.kind === "seed" ? "3 4" : isContradictionEdge(d) ? "7 3" : null
+      );
+    linkSel
+      .filter((d) => d.kind !== "seed" && d.relation_type)
+      .append("title")
+      .text((d) => d.relation_type);
 
     const nodeSel = svg
       .append("g")
@@ -386,6 +427,10 @@
       .duration(650)
       .ease(d3.easeBackOut.overshoot(1.2))
       .attr("r", (d) => d.r);
+
+    if (lastActivationFrames && lastActivationFrames.length) {
+      animateActivationFrames(nodeSel, lastActivationFrames);
+    }
 
     nodeSel
       .append("title")
@@ -746,6 +791,9 @@
           if (obj.type === "status" && obj.message) {
             setStatus(String(obj.message));
           }
+          if (obj.type === "activation_frames") {
+            lastActivationFrames = obj.frames || null;
+          }
           if (obj.type === "complete") {
             finalPayload = obj.payload;
             resetPhases();
@@ -768,6 +816,7 @@
     setStatus("connecting…");
     clearGraph();
     lastPayload = null;
+    lastActivationFrames = null;
     let resp;
     try {
       const backendEl = document.getElementById("explorer-backend");

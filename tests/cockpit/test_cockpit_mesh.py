@@ -150,3 +150,27 @@ def test_mesh_ask_rejects_bad_operator(cockpit_client: TestClient, tmp_path: Pat
     )
     resp = cockpit_client.post("/cockpit/api/mesh/ask", json={"q": "sun", "operator": "nonsense"})
     assert resp.status_code == 400
+
+
+def test_ask_streaming_emits_activation_frames(tmp_path: Path) -> None:
+    """Founding-demo Beat 1: the stream carries per-iteration SA frames, scoped
+    to the constellation's working set, normalized to [0, 1], before complete."""
+    root = tmp_path / "meshws_frames"
+    _build_solar_system(root)
+    service = MeshExplorerService(root, embedder=_FakeEmbedder(_basis(0)))
+
+    async def _collect() -> list[dict]:
+        return [e async for e in service.ask_streaming("what orbits the sun?", top_k=10, k_seeds=3)]
+
+    events = asyncio.run(_collect())
+    types = [e["type"] for e in events]
+    assert "activation_frames" in types
+    assert types.index("activation_frames") < types.index("complete")
+
+    frames = next(e for e in events if e["type"] == "activation_frames")["frames"]
+    assert frames
+    complete = next(e for e in events if e["type"] == "complete")
+    constellation_ids = {n["id"] for n in complete["payload"]["constellation"]["nodes"]}
+    assert set(frames[0].keys()) <= constellation_ids
+    assert all(0.0 <= v <= 1.0 for frame in frames for v in frame.values())
+    assert any(v > 0.0 for v in frames[-1].values())

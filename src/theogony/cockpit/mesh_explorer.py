@@ -322,6 +322,38 @@ class MeshExplorerService:
         )
         return MeshAskOutcome(payload=payload, report=report)
 
+    def _activation_frames(
+        self, result: RetrievalResult, *, max_frames: int = 12
+    ) -> dict[str, Any] | None:
+        """Per-iteration activation for the constellation's working set — the
+        Spreading-Activation forward pass as animation frames (founding-demo
+        Beat 1). Seed weights are uniform (the exact MMR weights are not part of
+        :class:`RetrievalResult`), which preserves hop order and relative spread —
+        honest for visualization; ranking stays with the real retrieval result."""
+        if self._propagator is None or self._csr is None:
+            return None
+        c = result.constellation
+        if not c.nodes:
+            return None
+        id_to_index = self._csr.id_to_index
+        seeds = {id_to_index[i]: 1.0 for i in result.seed_node_ids if i in id_to_index}
+        if not seeds:
+            return None
+        frames = self._propagator.propagate_frames(seeds, operator=result.operator)
+        if not frames:
+            return None
+        frames = frames[:max_frames]
+        indexed = [(n.node_id, id_to_index[n.node_id]) for n in c.nodes if n.node_id in id_to_index]
+        peak = max((float(f.max()) for f in frames), default=1.0) or 1.0
+        return {
+            "type": "activation_frames",
+            "operator": result.operator,
+            "frames": [
+                {node_id: round(float(f[idx]) / peak, 4) for node_id, idx in indexed}
+                for f in frames
+            ],
+        }
+
     async def ask_streaming(
         self,
         query: str,
@@ -406,6 +438,9 @@ class MeshExplorerService:
             "phase": "retrieve",
             "ms": int(result.timings_ms.get("propagate_ms", 0.0)),
         }
+        frames_event = await asyncio.to_thread(self._activation_frames, result)
+        if frames_event is not None:
+            yield frames_event
         yield {
             "type": "phase",
             "phase": "synthesize",

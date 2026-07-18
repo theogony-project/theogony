@@ -162,6 +162,40 @@ class Propagator:
             return x
         raise ValueError(f"unknown operator: {operator!r}")
 
+    def propagate_frames(
+        self,
+        seeds: Mapping[int, float],
+        *,
+        operator: Operator = "ppr",
+        hops: int = 3,
+        damping: float = 0.5,
+        ppr_alpha: float = 0.15,
+        ppr_iters: int = 12,
+    ) -> list[torch.Tensor]:
+        """Like :meth:`propagate`, but return the activation vector after **every**
+        iteration — the substrate's forward pass as animation frames (founding-demo
+        Beat 1: watching a constellation light up hop by hop). The final frame is
+        exactly what :meth:`propagate` returns for the same arguments."""
+        if self.n == 0 or self.adj is None:
+            return []
+        e = self._seed_vector(seeds)
+        frames: list[torch.Tensor] = []
+        if operator in ("raw", "degnorm"):
+            adj_t = (self.adj if operator == "raw" else self.adj_norm).t()
+            x = e.clone()
+            for _ in range(hops):
+                x = damping * _spmv(adj_t, x)
+                frames.append(x.clone())
+            return frames
+        if operator == "ppr":
+            adj_t = self.adj_norm.t()
+            x = e.clone()
+            for _ in range(ppr_iters):
+                x = (1.0 - ppr_alpha) * _spmv(adj_t, x) + ppr_alpha * e
+                frames.append(x.clone())
+            return frames
+        raise ValueError(f"unknown operator: {operator!r}")
+
     def relation_masked_hop(
         self,
         activation: torch.Tensor,
