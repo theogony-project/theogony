@@ -649,7 +649,13 @@ Adopted from `DeepSeek.md` §Q8 with the deepresearch corpus refinement. The pro
 
 **Baseline:** text-RAG on Llama-3-8B-Instruct, with the same factual content serialised as flattened text passages, zero-shot prompting. Identical base model, identical corpus.
 
-**MNLM evaluation path:** each question's `intent_vector` is derived from the question text via the same embedder; the MNLM ingests the corresponding subgraph plus the intent; emits a `MeshDelta`; the substrate is re-queried via Spreading Activation; the top-1 activated node's `label_for_provenance_only` is the predicted answer.
+**MNLM evaluation path:** each question's `intent_vector` is derived from the question text via the same embedder; the MNLM ingests the corresponding subgraph plus the intent; emits a `MeshDelta`; the substrate is re-queried via Spreading Activation; the top-1 activated node's `description` is the predicted answer. (Earlier drafts named a `label_for_provenance_only` field; that is a retired pre-MESH field — post-realignment consolidated nodes carry `description`.)
+
+**Ablation controls (required).** The answer is read off the substrate *the MNLM just wrote to*, so the MNLM can move any node to top-1 by emitting an `AddEdge`(question-entity → answer). Two controls isolate its actual contribution and must be reported alongside the MNLM number:
+- **Frozen-mesh control** — the same post-query Spreading Activation over the Golden Chronik **without applying any MNLM `MeshDelta`**. If this already returns the correct top-1 node, the answer was Kadmos's and the MNLM added nothing.
+- **Parametric-only control** — the frozen base Llama-3-8B answering **closed-book, no mesh input**. The base was pretrained on Wikipedia, the source of MuSiQue; a correct closed-book answer means the "win" is pretrained recall laundered through a written edge, not substrate reasoning.
+
+A pass requires the MNLM to beat **both** controls, not merely to be non-inferior to text-RAG. Report all four numbers (MNLM, text-RAG, frozen-mesh, parametric-only) side by side; the thresholds below are then necessary, not sufficient.
 
 **Metric:** exact-match accuracy of the answer entity.
 
@@ -672,7 +678,13 @@ This is the test the project has named "Monkey 3" since `TARGET_ARCHITECTURE.md`
 
 **Baseline 2:** text-RAG on Llama-3-70B-Instruct (compute-equivalent ceiling) over the same source articles. Expected to do better than 8 B but still degrade on cross-domain.
 
-**Metric:** human-judged answer correctness on a 0–3 Likert scale, blind-rated against the three systems' outputs. Inter-rater reliability (κ ≥ 0.7) is required.
+**Baseline 3 — frozen-mesh control:** post-query Spreading Activation over the combined Chronik **without the MNLM's `MeshDelta`**. Isolates whether the cross-domain link was Kadmos's or the MNLM's.
+
+**Baseline 4 — parametric-only control:** frozen Llama-3-8B answering **closed-book**. The worked Bernoulli ↔ capillary-action example is a standard textbook analogy almost certainly in pretraining; a correct closed-book answer falsifies the "emergent synthesis" reading of any MNLM win.
+
+**Contamination guard (required):** at least half of the 100 analogy pairs must be drawn from **fictional or synthetic domains** with no plausible pretraining presence, so a win cannot be pretrained-analogy recall. Note too that the MNLM path spends more test-time compute (≤16 latent steps + interleaved SA calls) than one RAG pass, so beating the 8 B baseline on compute alone is not the claim — the 70 B compute-equivalent ceiling (Baseline 2) is the more honest comparator, and a win over 8 B that does not also approach 70 B should be read as compute, not architecture.
+
+**Metric:** human-judged answer correctness on a 0–3 Likert scale, blind-rated against the systems' outputs (MNLM + the four baselines/controls). Inter-rater reliability (κ ≥ 0.7) is required.
 
 **Decision rule:**
 - MNLM mean rating > 8 B baseline (p < 0.05): **the architecture demonstrably synthesises cross-source structure that text-RAG cannot reach**. The project's central thesis is empirically supported.

@@ -45,12 +45,28 @@ This ratio is the key variable in all scale estimates below. If it is lower in p
 | Explicit reference edges (Kadmos chunk → Tier-1 node) | ~1.5 billion | ~1.5 billion |
 | Hebbian + kNN similarity edges (50–100× over Tier-1 nodes) | — | ~10–15 billion |
 | Node storage (multiple vectors per Tier-1 node: 1024-d semantic + 64-d frame + 128-d structural where populated + 1024-d description where populated, plus metadata) | — | **~300–500 GB** |
-| Edge storage — quantitative CSR (source, target, weight FP16, decay_tier, frame_consistency) | — | ~50–80 GB |
+| Tier-0 chunk vectors (~500M chunks × 1024-d semantic + 64-d frame, FP16) + per-vector HNSW indices | — | **~1.5–3 TB** |
+| Edge storage — quantitative CSR (source, target, weight FP16, decay_tier, frame_consistency) | — | ~90–250 GB (see note) |
 | Edge storage — Lance metadata table (descriptors on ~10–30% of edges) | — | ~30–60 GB |
 | Audit ledger + historical Lance versions | — | ~100–500 GB cumulative |
-| **Total consolidated storage** | — | **~5–8 TB** |
+| **Total consolidated storage** | — | **~3–5 TB** |
 
-Infrastructure at this tier: single high-memory server (512 GB RAM for CSR runtime tensor, NVMe SSD for LanceDB vector store). LanceDB or Milvus. No distributed system required.
+> **Arithmetic note (order-of-magnitude, not an audited capex budget).** Three
+> things earlier drafts of this table got wrong or left implicit, corrected here:
+> **(a) The CSR does not fit a single 80 GB GPU at this tier.** At 10–15 billion
+> edges and ~9 B/edge (int32 col + FP16 weight + int8 decay_tier + FP16
+> frame_consistency), the quantitative tensor is ~90–135 GB; PyTorch sparse CSR
+> forces **int64** indices once `nnz > 2³¹`, pushing it to ~130–250 GB. So
+> Spreading Activation at Tier 1 runs as **host-memory / CPU SpMV or a sharded
+> edge tensor**, not in one A100/H100's VRAM — the single-GPU hot-tier assumption
+> only holds up to ~6–8 billion edges. **(b) The ~500M Tier-0 chunk vectors are
+> the dominant storage term** and were missing from earlier line items; they, not
+> the edges, set the tier's disk footprint. **(c)** [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md)'s
+> "~10⁹ edges, ~10–20 GB" figure describes a smaller edge count than this tier's
+> 10¹⁰–1.5×10¹⁰ — read the two together, not as a contradiction. Re-derive all of
+> these against the measured PoC consolidation ratio before committing hardware.
+
+Infrastructure at this tier: single high-memory server (**512 GB RAM** — the CSR runtime tensor alone is ~90–250 GB, leaving room for the delta buffer, activation state, and Lance page cache; 256 GB is not viable at these edge counts), NVMe SSD for the LanceDB vector store. Spreading Activation runs in host memory (CPU SpMV) or across a sharded edge tensor, **not** in a single 80 GB GPU. LanceDB or Milvus. No distributed system required.
 
 Estimated operating cost (2026 hardware/cloud prices): **~500–2,000 EUR/month** on dedicated hardware; **~2,000–6,000 EUR/month** on cloud instances.
 
