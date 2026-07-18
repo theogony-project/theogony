@@ -1,0 +1,36 @@
+id: PHX-1047
+category: substrate-ingestion
+priority: high
+status: open
+generation_target: MESH migration — ingest scalability (blocks PHX-1045 F4 full read)
+title: "ConceptResolver: ANN-backed identity resolution — stop scanning the store per candidate"
+filed_by: Claude Code (founding-mesh live operation, 2026-07-15/16)
+created_at: 2026-07-16
+description: >
+  Identity resolution cost grows with mesh size because candidate concepts are
+  checked against the existing store by scan. Measured live on the founding
+  mesh: paragraph ingest throughput fell from ~16 s/paragraph (empty mesh,
+  pilot) to ~400 s/paragraph once the workspace held 157 consolidated nodes /
+  12.6k edges — a 61-hour projection for the remaining 557 demo paragraphs,
+  which forced cutting the corpus mid-run. This is the write-side sibling of
+  PHX-1041 (read-side per-query CSR rebuild) and the root of the PHX-1030
+  RAM note (resolver caches full node vectors; 100k seed OOM'd).
+
+  Fix sketch: resolution = (1) exact-match via the existing
+  consolidated_qid_index / consolidated_label_index Lance tables, then
+  (2) ANN neighborhood over consolidated-node vectors (Lance vector index /
+  HNSW-class, updated incrementally on append), then (3) a lightweight
+  eager/emergent decision on the top-k neighborhood only. O(log N) per
+  candidate instead of O(N); no full-vector cache in resolver memory.
+
+  Acceptance: paragraph throughput independent of workspace size (flat curve
+  10 -> 10k consolidated nodes), pinned by a scaling test; identity decisions
+  unchanged on the existing linker test corpus.
+
+relates_to:
+  - PHX-1045   # founding demo — F4 full read is blocked on this
+  - PHX-1041   # read-side sibling: cache the CSR
+  - PHX-1030   # resolver RAM note from the 100k seed
+linked_scripts:
+  - src/theogony/mesh/ingestion/concept_resolver.py
+  - src/theogony/mesh/ingestion/linker.py

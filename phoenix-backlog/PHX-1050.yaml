@@ -1,0 +1,34 @@
+id: PHX-1050
+category: substrate-storage
+priority: high
+status: open
+generation_target: MESH migration — storage discipline (blocks full read on operator hardware)
+title: "Lance write amplification: one version per edge append — 29 GB for a 15k-edge mesh"
+filed_by: Claude Code (founding-mesh live operation, 2026-07-16)
+created_at: 2026-07-16
+description: >
+  The edge write path creates one Lance version per appended edge:
+  mesh_edges holds 15,340 versions for 15,340 rows (11 GB), edge_metadata
+  15,338 versions (9.1 GB), edge_dedup_index 8.7 GB — a ~400-node demo mesh
+  occupies 29 GB, larger on disk than the 100k-node/984k-edge wiki seed
+  (17 GB). Version overhead is ~700 KB per append. Extrapolated to the
+  founding full read (~5,000 paragraphs) this exhausts operator disks;
+  extrapolated to world knowledge it is fatal.
+
+  Two-part fix, both within existing doctrine (MVCC/time-machine stays):
+  (1) batch edge appends per paragraph or per document commit instead of
+  per edge — the delta-buffer design already implies this;
+  (2) run table maintenance in the Oneiros tick: compact_files() +
+  cleanup_old_versions(retention window) as a scheduled substrate op,
+  with the retention window an operator setting (audit/time-machine
+  requirements decide it, not disk pressure).
+
+  Sibling of PHX-1037 (incremental CSR + compaction); measured evidence
+  complements PHX-1047/1048/1049 from the same live run.
+
+relates_to:
+  - PHX-1037
+  - PHX-1045
+  - PHX-1047
+linked_scripts:
+  - src/theogony/mesh/storage/edges.py
