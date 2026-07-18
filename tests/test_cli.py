@@ -108,7 +108,11 @@ class TestIngestCommand:
         monkeypatch.setenv("COLUMNS", "200")
         result = CliRunner().invoke(app, ["ingest", "--help"])
         assert result.exit_code == 0
-        assert "BOOK_ID" in result.stdout
+        # Typer/Click releases changed the argument metavar rendering from
+        # "BOOK_ID" to "{book_id}" (surfaced by CI installing fresh deps while
+        # local venvs held the old release). Assert the intent — the help
+        # mentions the book-id argument — not the rendering style.
+        assert "book_id" in result.stdout.lower()
         # Match each option's help description body — those words live
         # in the description column and are not split by Rich even at
         # narrow widths. More robust than asserting on the option
