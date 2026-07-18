@@ -1,0 +1,47 @@
+id: PHX-1045
+category: demo
+priority: high
+status: open
+generation_target: MESH migration — founding demo (post-S3)
+title: "Founding Demo — a small, dense, fully Kadmos-read mythology mesh (Theogony reads the Theogony)"
+filed_by: Claude Code (founding-demo planning session with the operator)
+created_at: 2026-07-14
+description: >
+  Live 100k testing (PHX-1042/1043/1044) showed the showcase mesh is a seeded
+  Wikidata skeleton, not the substrate MESH_SUBSTRATE.md specifies: alias-noise
+  labels, hub-poisoned topology, no observations, no contradictions. The mesh
+  the doctrine describes exists in code (kadmos_v2.py) but has only run at
+  smoke scale. This ticket tracks the founding demo that inverts the priority:
+  small, dense, real — Greek mythology primary sources (Hesiod's Theogony,
+  Apollodorus, Ovid; optional Homeric Hymns) read end-to-end by Kadmos v2 into
+  a dedicated mesh root, retrieved by Spreading Activation, consolidated by
+  Oneiros, and shown in a three-beat recording:
+  (1) animated activation with provenance across sources that never cite each
+  other, (2) a genuine first-class contradiction (Aphrodite's parentage,
+  Hesiod vs. the Homeric tradition) held un-flattened with both anchors,
+  (3) a live Oneiros tick densifying the mesh without new text.
+  Binding plan with build sequence F1–F6 and exit criteria:
+  docs/plans/FOUNDING_DEMO_PLAN.md.
+
+cost_benefit_guardrails:
+  - >
+    Hard budget ceiling 100 EUR, operator-approved. Estimated ~65 EUR
+    including one full re-read as iteration buffer. LLM reads via the
+    Batch API (50% discount) where supported; embeddings local
+    (sentence-transformers); no GPU.
+  - >
+    Model choice (Haiku 4.5 vs. Sonnet 5) is decided by a ~50-paragraph
+    pilot compared on run-report metrics, not assumed. Operator confirms
+    spend before the full read (F3 gate).
+  - >
+    Gutenberg IDs are pinned in a manifest and verified against Gutendex
+    metadata at fetch time; a title mismatch is a structured failure.
+
+relates_to:
+  - PHX-1042   # degree-hub bias fix is prerequisite F1 (Zeus is a natural hub)
+  - PHX-1043   # founding mesh has source anchors, so the verdict ceiling lifts
+  - PHX-1044   # unaffected; label noise is a seed-pipeline artifact this demo bypasses
+  - PHX-1035   # explicitly OUT of scope — demo must not depend on the MNLM bet
+linked_scripts:
+  - docs/plans/FOUNDING_DEMO_PLAN.md
+  - src/theogony/mesh/ingestion/kadmos_v2.py
