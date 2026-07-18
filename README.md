@@ -13,6 +13,12 @@ Today's AI reads knowledge as text, re-parsed from scratch on every query. Theog
 
 The rest of this page is the full argument, in order — **the goal · what makes the mesh · the dimensions · the technique · the consequences for humanity · why it is necessary · where it leads · how we build it together** — with an honest status of what is and isn't proven at the end.
 
+<p align="center">
+  <img src="demo/assets/founding_activation.gif" alt="Spreading Activation propagating hop by hop through the founding mesh" width="82%">
+</p>
+
+<p align="center"><sub><em>Spreading Activation over the <strong>founding mesh</strong>: one query, propagating hop by hop through typed, weighted edges. A real constellation from the Greek-myth corpus that Kadmos read end to end (~460 concepts / ~28k edges) — early research, not a benchmark. The honest status is at the bottom of this page.</em></sub></p>
+
 ---
 
 ## 1 · The goal
@@ -112,9 +118,11 @@ A planetary knowledge commons cannot be built by one person or one company — a
 This is an early-stage research project. The substrate doctrine — how the mesh must behave, how it is implemented, how it is used — is fully specified in the MESH triplet ([`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md), [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md), [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md)). The code is a proof of concept walking toward that target.
 
 - **What runs today.** An end-to-end path — ingest → embed → sparse-CSR adjacency → Spreading Activation → constellation → a **Cockpit** UI and an **MCP** server. Operator-built Wikidata-seeded subnets up to **100k nodes / ~984k edges**; the activation primitive itself runs **sub-second** at that scale. A continuous Oneiros process scores and promotes knowledge; structured run reports are emitted for every pass.
+- **The founding mesh — read, not seeded.** Beyond the seeded subnets, a small, dense mesh that **Kadmos read end to end** from Greek-myth primary sources (Hesiod, Homer, Ovid): **~460 consolidated nodes / ~28k edges**. This is the mesh animated at the top of this page and in the [founding demo](demo/founding_demo.md).
 - **What is proven.** The *plumbing* — that the architecture runs end-to-end at ~1M edges.
-- **What is *not* yet proven.** The central bet (next section). There is as yet no evidence of emergent, non-obvious-but-correct inference.
-- **Known limitations, filed openly.** Degree-hub bias contaminates top-k retrieval (PHX-1042); seed labels are noisy (PHX-1044); MNLM weight-training is blocked on H100-class compute (PHX-1035).
+- **Early signals — internal, single-run, self-measured; suggestive, not conclusive.** On the founding mesh, one continuous Oneiros "dream" pass improved held-out link-prediction **MRR by +34.8% (0.44 → 0.60) with no new text**, while a kNN control stayed flat — the substrate reorganising its *existing* knowledge into better predictions. An LLM judge rated Oneiros-created edges **2.08× more plausible** than degree-matched controls. On a 15k Wikidata subnet, untrained Spreading Activation outranks the untrained kNN and degree baselines on held-out triples (trained KGE models still lead).
+- **What is *not* yet proven.** The central bet (next section), on standard external benchmarks. The signals above are small and self-run; there is no independently benchmarked evidence of emergent, non-obvious-but-correct inference yet.
+- **Known limitations, filed openly.** Reading at scale is the current wall — Kadmos throughput collapses on long runs (PHX-1047) and append-per-edge Lance writes amplify storage badly (PHX-1050). Identity is fragile — generic hubs can absorb distinct entities at write time (PHX-1051, mitigated) and a passage's protagonist can be missed at extraction (PHX-1052). Retrieval-side, degree-hub bias contaminates top-k (PHX-1042) and seed labels are noisy (PHX-1044). MNLM weight-training is blocked on H100-class compute (PHX-1035).
 
 ### The empirical questions
 
