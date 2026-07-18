@@ -97,19 +97,29 @@ class EagerLinker:
             if desc_score <= 0.0:
                 continue
             context_score = self._context_score(str(candidate.id), context_node_ids)
-            tag_overlap = len(tag_set & {tag.lower().strip() for tag in candidate.tags})
+            shared_tags = tag_set & {tag.lower().strip() for tag in candidate.tags}
+            tag_overlap = len(shared_tags)
             tag_score = tag_overlap / max(1, len(tag_set)) if tag_set else 0.0
             known_labels = self._registry.known_labels(str(candidate.id))
             label_score = 1.0 if norm_label in known_labels else 0.0
-            if tag_overlap == 0 and label_score == 0.0:
-                # PHX-1051 doctrine guard: pure vector similarity is not "clear
+            label_tokens = set(norm_label.split())
+            naming_tags = {
+                tag for tag in shared_tags if label_tokens & set(_normalize(tag).split())
+            }
+            if not naming_tags and label_score == 0.0:
+                # PHX-1051 doctrine guard (v2): pure vector similarity is not "clear
                 # evidence" of identity. Semantically generic, high-degree nodes
                 # (measured live: the work-node itself) sit close to *every*
                 # in-domain description AND collect the context bonus through
                 # their degree — without lexical corroboration (shared tag or
                 # known label) they absorb entities: Venus, Dione, and Zeus all
                 # merged into "An ancient Greek epic poem …", leaving
-                # daughter_of self-loops on the hub. No corroboration, no merge.
+                # daughter_of self-loops on the hub. And category tags are not
+                # corroboration either (v2, measured live: shared 'Titaness'
+                # routed Dione's Q-ID onto Tethys, shared generic tags routed
+                # Aphrodite onto Apollo's neighborhood) — the shared tag must
+                # NAME the entity, i.e. token-overlap the incoming label, or
+                # the label must already be a known alias. No naming, no merge.
                 continue
             score = desc_score + (0.20 * context_score) + (0.08 * tag_score) + (0.05 * label_score)
             if score > best_score:
@@ -129,6 +139,8 @@ class EagerLinker:
         best_score = 0.0
         tag_set = {tag.lower().strip() for tag in tags}
 
+        norm_label = _normalize(label)
+        label_tokens = set(norm_label.split())
         for candidate in self._registry.find_by_labels(
             [label, *tags],
             limit=self.TAG_CANDIDATE_LIMIT,
@@ -136,8 +148,17 @@ class EagerLinker:
             if candidate.is_source_anchor:
                 continue
             candidate_tags = {tag.lower().strip() for tag in candidate.tags}
-            overlap = len(tag_set & candidate_tags)
+            shared = tag_set & candidate_tags
+            overlap = len(shared)
             if overlap <= 0:
+                continue
+            # PHX-1051 v2: category tags ('Titaness', 'person') are not identity
+            # evidence — a shared tag corroborates only when it NAMES the
+            # entity, or the label itself is a known alias of the candidate.
+            names_entity = any(label_tokens & set(_normalize(tag).split()) for tag in shared)
+            if not names_entity and norm_label not in self._registry.known_labels(
+                str(candidate.id)
+            ):
                 continue
             tag_score = overlap / max(len(tag_set), len(candidate_tags), 1)
             context_score = self._context_score(str(candidate.id), context_node_ids)

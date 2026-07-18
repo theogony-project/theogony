@@ -105,3 +105,48 @@ def test_known_label_still_allows_description_merge(tmp_path: Path) -> None:
         description_vector=[0.05, 0.99, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     )
     assert not decision.is_new, "known alias is clear evidence — merge should hold"
+
+
+def test_category_tag_overlap_is_not_corroboration(tmp_path: Path) -> None:
+    """PHX-1051 v2 (measured live): shared *category* tags ('Titaness',
+    'person') routed Dione's Q-ID onto Tethys. A shared tag corroborates only
+    when it NAMES the entity — token overlap with the incoming label."""
+    rt = _runtime(tmp_path)
+    vec = [1.0, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    tethys = _generic_hub(
+        "Titaness goddess who bore the rivers to Ocean.", vec, ["titaness", "person"]
+    )
+    rt.nodes.append_consolidated(tethys)
+    linker = _linker(rt)
+    linker._registry.remember(tethys, aliases=["Tethys"], qids=[])
+
+    decision = linker.link_reference(
+        label="Dione",
+        description="Titaness mother of Aphrodite who tends her wounded daughter.",
+        tags=["titaness", "person", "mother of aphrodite"],
+        qids=[],
+        semantic_vector=[0.99, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        frame_vector=[0.0] * 4,
+        description_vector=[0.99, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    )
+    assert decision.is_new, "category tags corroborated a wrong merge again (PHX-1051 v2)"
+
+
+def test_naming_tag_still_corroborates(tmp_path: Path) -> None:
+    rt = _runtime(tmp_path)
+    vec = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    dione = _generic_hub("Titaness mother of Aphrodite.", vec, ["dione", "titaness"])
+    rt.nodes.append_consolidated(dione)
+    linker = _linker(rt)
+    linker._registry.remember(dione, aliases=["Dione"], qids=[])
+
+    decision = linker.link_reference(
+        label="Dione of Olympus",
+        description="The Titaness who comforts her wounded daughter on Olympus.",
+        tags=["dione", "olympus"],
+        qids=[],
+        semantic_vector=[0.05, 0.0, 0.98, 0.0, 0.0, 0.0, 0.0, 0.0],
+        frame_vector=[0.0] * 4,
+        description_vector=[0.05, 0.0, 0.98, 0.0, 0.0, 0.0, 0.0, 0.0],
+    )
+    assert not decision.is_new, "a tag naming the entity must still corroborate"
