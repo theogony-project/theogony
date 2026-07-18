@@ -1,0 +1,40 @@
+id: PHX-1052
+category: ingestion-quality
+priority: high
+status: open
+generation_target: MESH migration — extraction fidelity (Kadmos v2 prompt/schema)
+title: "Protagonist blindness: the passage's central figure becomes a paragraph concept, not an entity"
+filed_by: Claude Code (founding-mesh acceptance, 2026-07-18)
+created_at: 2026-07-18
+description: >
+  Reproducible across models (Haiku 4.5, Sonnet 4.6) and sources: Kadmos v2
+  extracts the entities *around* a passage's protagonist but not the
+  protagonist herself. Measured on the founding mesh: the Theogony's
+  foam-birth paragraph yielded Cronos, Gaia, the sea, Cyprus, and Eros — but
+  no Aphrodite entity; Iliad V yielded Apollo, Olympus, and Diomedes-adjacent
+  concepts — but no Venus/Dione entities; the Aphrodite hymns yielded her
+  dominion, her promise, her hymn — as paragraph concepts and satellites,
+  never the goddess as a first-class entity. Consequence: cross-source
+  identity (Aphrodite = Venus = the foam-born goddess) has no anchor node,
+  so contradiction demos and genealogy queries must ride on chunk semantics.
+
+  Suspected cause: the reading prompt's paragraph_concept slot ("optional
+  single paragraph-level concept when the paragraph has a coherent unifying
+  idea") absorbs the protagonist — the model files the subject of the
+  passage as the paragraph's idea instead of as an entity among entities.
+
+  Fix sketch (prompt/schema level, cheap to A/B): instruct explicitly that
+  the passage's central figure(s) MUST appear in concepts even when they
+  also anchor the paragraph concept; optionally add a dedicated
+  protagonist field to ParagraphReadingOutput so the reader can assert
+  entity-existence for it. Validate on the foam-birth and Dione paragraphs
+  (both preserved as repair slices) — success = Aphrodite/Venus/Dione
+  entity nodes with Q-IDs after a re-read.
+
+relates_to:
+  - PHX-1045   # founding demo — Beat 2 entity layer depends on this
+  - PHX-1051   # identity attractor — fixed; this is the remaining reason deities are missing
+  - PHX-1048   # ingest fleet — escalation alone does not help if the schema hides protagonists
+linked_scripts:
+  - src/theogony/mesh/ingestion/kadmos_v2.py
+  - src/theogony/mesh/ingestion/reading_schemas.py
