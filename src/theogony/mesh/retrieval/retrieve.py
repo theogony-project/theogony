@@ -29,7 +29,7 @@ from theogony.mesh.retrieval.constellation import (
 )
 from theogony.mesh.retrieval.diversified import SeedCandidate, select_seeds
 from theogony.mesh.retrieval.frame_routing import build_frame_routed_csr
-from theogony.mesh.retrieval.propagation import Propagator
+from theogony.mesh.retrieval.propagation import Propagator, in_degree
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.schemas import ConsolidatedNode
 from theogony.mesh.storage.edges import EdgeCSR
@@ -129,6 +129,8 @@ def retrieve(
     damping: float = 0.5,
     ppr_alpha: float = 0.15,
     ppr_iters: int = 12,
+    degree_beta: float = 0.0,
+    hub_mask_top_n: int = 0,
     query_frame: Sequence[float] | None = None,
     frame_threshold: float = 0.0,
     vector_column: str = "semantic_vector",
@@ -142,6 +144,12 @@ def retrieve(
     the per-query CSR rebuild — the dominant cost at scale (PHX-1041). When omitted they
     are built from ``runtime``. A supplied ``propagator`` is ignored when frame routing is
     active (the routed adjacency requires a fresh one).
+
+    Two default-off hub-bias levers (PHX-1042), to be tuned by A/B on the emergent judge:
+    ``degree_beta`` enables degree-aware damping inside the propagation operator;
+    ``hub_mask_top_n`` > 0 zeroes the activation of the top-N global in-degree nodes
+    before Constellation assembly (seeds are never masked — they were chosen by
+    query-relevant ANN + MMR, not by degree).
     """
     timings: dict[str, float] = {}
 
@@ -214,8 +222,19 @@ def retrieve(
         damping=damping,
         ppr_alpha=ppr_alpha,
         ppr_iters=ppr_iters,
+        degree_beta=degree_beta,
     )
     timings["propagate_ms"] = (time.perf_counter() - t2) * 1000.0
+
+    if hub_mask_top_n > 0 and activation.numel() > 0:
+        deg = in_degree(active_csr).to(activation.device)
+        top_n = min(hub_mask_top_n, activation.numel())
+        hub_indices = torch.topk(deg, top_n).indices.tolist()
+        seed_set = set(seeds)
+        masked = [int(i) for i in hub_indices if int(i) not in seed_set]
+        if masked:
+            activation = activation.clone()
+            activation[masked] = 0.0
 
     t3 = time.perf_counter()
     constellation = assemble_constellation(

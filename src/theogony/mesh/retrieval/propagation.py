@@ -117,28 +117,48 @@ class Propagator:
         damping: float = 0.5,
         ppr_alpha: float = 0.15,
         ppr_iters: int = 12,
+        degree_beta: float = 0.0,
     ) -> torch.Tensor:
-        """Propagate activation from a weighted seed set; return a dense (N,) vector."""
+        """Propagate activation from a weighted seed set; return a dense (N,) vector.
+
+        ``degree_beta`` > 0 enables degree-aware damping (PHX-1042): after every hop,
+        each node's incoming mass is divided by ``in_degree ** degree_beta``, so global
+        in-hubs stop absorbing mass from every seed set. ``0.0`` (default) is the
+        unchanged operator; the productive value is decided by A/B on the emergent
+        judge, not hardcoded here.
+        """
         if self.n == 0 or self.adj is None:
             return torch.zeros(0, dtype=torch.float32, device=self.device)
+        penalty: torch.Tensor | None = None
+        if degree_beta > 0.0:
+            penalty = in_degree(self.csr).to(self.device).clamp_min(1.0).pow(degree_beta)
         e = self._seed_vector(seeds)
         if operator == "raw":
             adj_t = self.adj.t()
             x = e.clone()
             for _ in range(hops):
-                x = damping * _spmv(adj_t, x)
+                x = _spmv(adj_t, x)
+                if penalty is not None:
+                    x = x / penalty
+                x = damping * x
             return x
         if operator == "degnorm":
             adj_t = self.adj_norm.t()
             x = e.clone()
             for _ in range(hops):
-                x = damping * _spmv(adj_t, x)
+                x = _spmv(adj_t, x)
+                if penalty is not None:
+                    x = x / penalty
+                x = damping * x
             return x
         if operator == "ppr":
             adj_t = self.adj_norm.t()
             x = e.clone()
             for _ in range(ppr_iters):
-                x = (1.0 - ppr_alpha) * _spmv(adj_t, x) + ppr_alpha * e
+                spread = _spmv(adj_t, x)
+                if penalty is not None:
+                    spread = spread / penalty
+                x = (1.0 - ppr_alpha) * spread + ppr_alpha * e
             return x
         raise ValueError(f"unknown operator: {operator!r}")
 
