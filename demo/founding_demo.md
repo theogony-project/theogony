@@ -6,6 +6,14 @@ Kadmos v2 from Project Gutenberg primary sources. Every beat maps to a run
 report — nothing is staged. Companion plan with exit criteria:
 [`docs/plans/FOUNDING_DEMO_PLAN.md`](../docs/plans/FOUNDING_DEMO_PLAN.md).
 
+## The one image
+
+![Spreading Activation on the founding mesh](assets/founding_activation.gif)
+
+Twelve frames, one per real SpMV iteration of Spreading Activation on the
+founding mesh — rendered by [`scripts/render_founding_demo_gif.py`](../scripts/render_founding_demo_gif.py)
+from `propagate_frames()`, not staged. Re-render after any full read.
+
 ## Setup
 
 ```bash
