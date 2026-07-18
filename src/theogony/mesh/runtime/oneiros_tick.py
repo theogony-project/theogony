@@ -85,6 +85,12 @@ class MeshRuntime:
         self.audit = MeshAuditLog(self.db)
 
         self._state_path = root / "mesh_state.json"
+        # Query-path CSR cache (PHX-1041). Invalidated when EdgeStore mutation
+        # generation or pending delta-buffer count changes — see :meth:`rebuild_csr`.
+        # (Do not key on Lance list_versions — that is O(version_count) and can
+        # take tens of seconds on busy 100k workspaces.)
+        self._csr_cache: EdgeCSR | None = None
+        self._csr_cache_key: tuple[int, int] | None = None
 
     @classmethod
     def open(
@@ -157,8 +163,30 @@ class MeshRuntime:
 
     # ---- CSR --------------------------------------------------------
 
-    def rebuild_csr(self) -> EdgeCSR:
-        return self.edges.csr_from_store()
+    def _csr_cache_fingerprint(self) -> tuple[int, int]:
+        return (self.edges.mutation_generation, self.edges.delta.pending())
+
+    def invalidate_csr_cache(self) -> None:
+        """Drop the resident CSR (call after out-of-band edge mutations)."""
+        self._csr_cache = None
+        self._csr_cache_key = None
+
+    def rebuild_csr(self, *, force: bool = False) -> EdgeCSR:
+        """Return the edge CSR, reusing a resident cache when the graph is unchanged.
+
+        Cache key = ``(edge_mutation_generation, delta_pending)``. Set
+        ``force=True`` to bypass the cache (tests / Oneiros tick bookkeeping).
+        Building uses the columnar Lance path in :meth:`EdgeStore.csr_from_store`
+        (PHX-1041). Do not key on Lance ``list_versions`` — that is O(version
+        count) and can take tens of seconds on busy 100k workspaces.
+        """
+        key = self._csr_cache_fingerprint()
+        if not force and self._csr_cache is not None and self._csr_cache_key == key:
+            return self._csr_cache
+        csr = self.edges.csr_from_store()
+        self._csr_cache = csr
+        self._csr_cache_key = key
+        return csr
 
     # ---- tick -------------------------------------------------------
 
@@ -178,6 +206,7 @@ class MeshRuntime:
         decay_edges_inplace(merged, lam=lam, dt=dt)
         merged = enforce_saturation(merged, max_out_degree=max_out_degree, w_max=w_max)
         self.edges.replace_all_edges(merged)
+        self.invalidate_csr_cache()
         after = self.edges.count_rows()
         now = datetime.now(UTC)
 

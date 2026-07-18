@@ -194,34 +194,54 @@ def enforce_saturation(
     return survivors
 
 
-def build_csr_from_edges(edges: list[Edge]) -> EdgeCSR:
-    """Build a PyTorch CSR tensor where conductance = weight × frame_consistency."""
-    endpoints: set[str] = set()
-    for e in edges:
-        endpoints.add(str(e.source_id))
-        endpoints.add(str(e.target_id))
+def build_csr_from_columns(
+    source_ids: Iterable[str],
+    target_ids: Iterable[str],
+    weights: Iterable[float],
+    frame_consistencies: Iterable[float] | None = None,
+) -> EdgeCSR:
+    """Build a PyTorch CSR tensor where conductance = weight × frame_consistency.
+
+    Prefer this over :func:`build_csr_from_edges` on the query hot path — it
+    consumes columnar Lance fields and avoids per-edge JSON deserialization
+    (PHX-1041).
+    """
+    sources = [str(s) for s in source_ids]
+    targets = [str(t) for t in target_ids]
+    weight_list = [float(w) for w in weights]
+    if frame_consistencies is None:
+        frame_list = [1.0] * len(weight_list)
+    else:
+        frame_list = [float(f) for f in frame_consistencies]
+    if not (len(sources) == len(targets) == len(weight_list) == len(frame_list)):
+        raise ValueError(
+            "source_ids, target_ids, weights, and frame_consistencies must have equal length"
+        )
+
+    endpoints: set[str] = set(sources)
+    endpoints.update(targets)
     ordered = sorted(endpoints)
     id_to_index = {nid: i for i, nid in enumerate(ordered)}
     n = len(ordered)
 
     row_counts = [0] * n
-    for e in edges:
-        si = id_to_index[str(e.source_id)]
-        row_counts[si] += 1
+    for source in sources:
+        row_counts[id_to_index[source]] += 1
     crow = [0]
-    for c in row_counts:
-        crow.append(crow[-1] + c)
+    for count in row_counts:
+        crow.append(crow[-1] + count)
     nnz = crow[-1]
     col = [0] * nnz
     val = [0.0] * nnz
     write = crow[:-1].copy()
 
-    for e in edges:
-        si = id_to_index[str(e.source_id)]
-        ti = id_to_index[str(e.target_id)]
+    for source, target, weight, frame in zip(
+        sources, targets, weight_list, frame_list, strict=True
+    ):
+        si = id_to_index[source]
         pos = write[si]
-        col[pos] = ti
-        val[pos] = float(e.weight) * float(e.frame_consistency)
+        col[pos] = id_to_index[target]
+        val[pos] = weight * frame
         write[si] += 1
 
     return EdgeCSR(
@@ -230,6 +250,16 @@ def build_csr_from_edges(edges: list[Edge]) -> EdgeCSR:
         values=torch.tensor(val, dtype=torch.float32),
         node_ids=ordered,
         id_to_index=id_to_index,
+    )
+
+
+def build_csr_from_edges(edges: list[Edge]) -> EdgeCSR:
+    """Build a PyTorch CSR tensor where conductance = weight × frame_consistency."""
+    return build_csr_from_columns(
+        (str(edge.source_id) for edge in edges),
+        (str(edge.target_id) for edge in edges),
+        (edge.weight for edge in edges),
+        (edge.frame_consistency for edge in edges),
     )
 
 
@@ -242,6 +272,11 @@ class EdgeStore:
     def __init__(self, db: lancedb.DBConnection) -> None:
         self._db = db
         self.delta = EdgeDeltaBuffer()
+        # Cheap write-clock for CSR cache invalidation (PHX-1041). Listing Lance
+        # versions is O(version_count) and can take tens of seconds on busy
+        # workspaces; this counter is O(1) and sufficient for single-process
+        # query loops (CLI / cockpit).
+        self._mutation_generation: int = 0
 
         if _have_table(db, "mesh_edges"):
             self.edge_table = db.open_table("mesh_edges")
@@ -258,6 +293,13 @@ class EdgeStore:
         else:
             self.dedup_index = db.create_table("edge_dedup_index", schema=_DEDUP_INDEX_SCHEMA)
         self._ensure_dedup_index()
+
+    @property
+    def mutation_generation(self) -> int:
+        return self._mutation_generation
+
+    def _bump_mutation_generation(self) -> None:
+        self._mutation_generation += 1
 
     @staticmethod
     def dedup_key(source_id: str, target_id: str, relation_descriptor: str | None) -> str:
@@ -379,6 +421,7 @@ class EdgeStore:
         if meta_rows:
             self.meta_table.add(meta_rows)
         self.dedup_index.add(self._dedup_rows(edges))
+        self._bump_mutation_generation()
 
     def load_all_edges(self) -> list[Edge]:
         arrow = self.edge_table.search().to_arrow()
@@ -414,12 +457,14 @@ class EdgeStore:
         self.meta_table.delete("true")
         self.dedup_index.delete("true")
         if not edges:
+            self._bump_mutation_generation()
             return
         self.edge_table.add([self._edge_row(edge) for edge in edges])
         meta_rows = [row for edge in edges if (row := self._metadata_row(edge)) is not None]
         if meta_rows:
             self.meta_table.add(meta_rows)
         self.dedup_index.add(self._dedup_rows(edges))
+        self._bump_mutation_generation()
 
     def count_rows(self) -> int:
         return int(self.edge_table.count_rows())
@@ -432,4 +477,13 @@ class EdgeStore:
         return neighbours
 
     def csr_from_store(self) -> EdgeCSR:
-        return build_csr_from_edges(self.load_all_edges())
+        """Build CSR from quantitative Lance columns (no ``payload_json`` parse)."""
+        arrow = self.edge_table.search().to_arrow()
+        if arrow.num_rows == 0:
+            return build_csr_from_columns([], [], [], [])
+        return build_csr_from_columns(
+            arrow.column("source_id").to_pylist(),
+            arrow.column("target_id").to_pylist(),
+            arrow.column("weight").to_pylist(),
+            arrow.column("frame_consistency").to_pylist(),
+        )
