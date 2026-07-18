@@ -31,6 +31,39 @@ log = get_logger("agents.llm_anthropic")
 _TOOL_NAME = "theogony_structured_output"
 _RESEARCH_PLAN_TOOL = "theogony_research_plan"
 
+# Sampling parameters were removed on Claude 4.7+/5-generation models — sending
+# `temperature` returns a 400 invalid_request_error. Surfaced live by the
+# PHX-1045 Sonnet-5 pilot (every paragraph call failed; 0 mentions extracted).
+_SAMPLING_LOCKED_PREFIXES: tuple[str, ...] = (
+    "claude-sonnet-5",
+    "claude-opus-4-7",
+    "claude-opus-4-8",
+    "claude-fable",
+    "claude-mythos",
+)
+
+# Prefix-matched USD prices per MTok (input, output); first match wins. Without
+# this, every model was billed at Sonnet prices in run reports (Haiku runs were
+# recorded ~3x too expensive during the PHX-1045 pilot).
+_MODEL_PRICES_USD: tuple[tuple[str, float, float], ...] = (
+    ("claude-haiku-4-5", 1.00, 5.00),
+    ("claude-sonnet", 3.00, 15.00),
+    ("claude-opus", 5.00, 25.00),
+    ("claude-fable", 10.00, 50.00),
+    ("claude-mythos", 10.00, 50.00),
+)
+
+
+def _prices_for(model_id: str) -> tuple[float, float] | None:
+    for prefix, usd_in, usd_out in _MODEL_PRICES_USD:
+        if model_id.startswith(prefix):
+            return usd_in, usd_out
+    return None
+
+
+def _supports_temperature(model_id: str) -> bool:
+    return not model_id.startswith(_SAMPLING_LOCKED_PREFIXES)
+
 
 class AnthropicLLMProvider:
     """Async Anthropic Messages API behind the LLMProvider protocol."""
@@ -55,12 +88,13 @@ class AnthropicLLMProvider:
         )
         self._model_id = model_id
         self._client: Any | None = client
-        self._usd_per_m_input = (
-            usd_per_m_input if usd_per_m_input is not None else self.USD_PER_M_INPUT_DEFAULT
+        model_prices = _prices_for(model_id)
+        default_in, default_out = model_prices or (
+            self.USD_PER_M_INPUT_DEFAULT,
+            self.USD_PER_M_OUTPUT_DEFAULT,
         )
-        self._usd_per_m_output = (
-            usd_per_m_output if usd_per_m_output is not None else self.USD_PER_M_OUTPUT_DEFAULT
-        )
+        self._usd_per_m_input = usd_per_m_input if usd_per_m_input is not None else default_in
+        self._usd_per_m_output = usd_per_m_output if usd_per_m_output is not None else default_out
 
     @property
     def model_id(self) -> str:
@@ -102,16 +136,21 @@ class AnthropicLLMProvider:
         if json_schema is not None:
             effective_timeout_s = max(timeout_s, STRUCTURED_LLM_MIN_TIMEOUT_S)
 
+        request_kwargs: dict[str, Any] = {
+            "model": self._model_id,
+            "max_tokens": max_tokens,
+            "system": system or "",
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if _supports_temperature(self._model_id):
+            request_kwargs["temperature"] = temperature
+
         started = time.perf_counter()
         try:
             async with asyncio.timeout(effective_timeout_s):
                 if json_schema is not None:
                     message = await client.messages.create(
-                        model=self._model_id,
-                        max_tokens=max_tokens,
-                        temperature=temperature,
-                        system=system or "",
-                        messages=[{"role": "user", "content": prompt}],
+                        **request_kwargs,
                         tools=[
                             {
                                 "name": _TOOL_NAME,
@@ -122,13 +161,7 @@ class AnthropicLLMProvider:
                         tool_choice={"type": "tool", "name": _TOOL_NAME},
                     )
                 else:
-                    message = await client.messages.create(
-                        model=self._model_id,
-                        max_tokens=max_tokens,
-                        temperature=temperature,
-                        system=system or "",
-                        messages=[{"role": "user", "content": prompt}],
-                    )
+                    message = await client.messages.create(**request_kwargs)
         except TimeoutError:
             log.warning(
                 "anthropic timeout model_id=%s timeout_s=%s",
@@ -185,10 +218,13 @@ class AnthropicLLMProvider:
         client = self._ensure_client()
         schema = output_schema.model_json_schema()
         _started = time.perf_counter()
+        sampling: dict[str, Any] = (
+            {"temperature": 0.0} if _supports_temperature(self._model_id) else {}
+        )
         message = await client.messages.create(
             model=self._model_id,
             max_tokens=max_total_tokens,
-            temperature=0.0,
+            **sampling,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
             tools=[
