@@ -1,7 +1,7 @@
 id: PHX-1052
 category: ingestion-quality
 priority: high
-status: open
+status: in_progress
 generation_target: MESH migration — extraction fidelity (Kadmos v2 prompt/schema)
 title: "Protagonist blindness: the passage's central figure becomes a paragraph concept, not an entity"
 filed_by: Claude Code (founding-mesh acceptance, 2026-07-18)
