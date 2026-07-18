@@ -1,0 +1,33 @@
+id: PHX-1053
+category: substrate-identity
+priority: high
+status: in_progress
+generation_target: MESH migration — identity durability (S2/S3 foundation)
+title: "Merge-time identity evidence is not persisted — Q-IDs evaporate with the process"
+filed_by: Claude Code (founding-mesh Beat-2 verification, 2026-07-18)
+created_at: 2026-07-18
+description: >
+  When the eager linker merges a reference into an existing node,
+  registry.remember() records the reference's Q-IDs and aliases only in the
+  in-process ConceptResolver cache; the stored node is never updated.
+  Measured live: after the PHX-1052 prompt fix, the foam-birth re-read
+  correctly extracted Aphrodite with Q35500 and merged her (tier-3
+  description signal) into the existing hymn concept — and the founding
+  mesh ended the run with no Q35500 anywhere. Identity evidence must be
+  durable or every merge loses exactly the information that makes future
+  eager identity possible.
+
+  Fix (this ticket's PR): MeshNodeStore.merge_identity_evidence() appends
+  new Q-IDs to the stored node payload and the consolidated_qid_index;
+  EagerLinker calls it in all three merge branches. End-to-end pinned:
+  a tag-corroborated Aphrodite merge carrying Q35500 makes the follow-up
+  "Venus" (Q35500) reference resolve to the same node via the qid signal —
+  the Greek/Roman cross-source bridge.
+
+relates_to:
+  - PHX-1051   # identity attractor (fixed) — sibling write-path integrity issue
+  - PHX-1052   # protagonist extraction (fixed) — surfaced this as the next blocker
+  - PHX-1045   # founding demo — Beat-2 entity layer
+linked_scripts:
+  - src/theogony/mesh/storage/nodes.py
+  - src/theogony/mesh/ingestion/linker.py

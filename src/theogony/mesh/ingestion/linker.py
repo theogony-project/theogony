@@ -195,6 +195,8 @@ class EagerLinker:
         for qid_tag in qids:
             node = self._registry.get_by_qid(qid_tag.qid)
             if node is not None:
+                persisted = self._store.merge_identity_evidence(str(node.id), qids=qids)
+                node = persisted or node
                 self._registry.remember(node, aliases=[label, description], qids=qids)
                 return LinkDecision(node=node, signal="qid", is_new=False, score=1.0)
 
@@ -205,6 +207,9 @@ class EagerLinker:
             context_node_ids=context_ids,
         )
         if matched is not None and score >= 0.72:
+            if qids:
+                persisted = self._store.merge_identity_evidence(str(matched.id), qids=qids)
+                matched = persisted or matched
             self._registry.remember(matched, aliases=[label, description], qids=qids)
             return LinkDecision(node=matched, signal="description", is_new=False, score=score)
 
@@ -214,6 +219,9 @@ class EagerLinker:
             context_node_ids=context_ids,
         )
         if matched is not None and score >= 0.55:
+            if qids:
+                persisted = self._store.merge_identity_evidence(str(matched.id), qids=qids)
+                matched = persisted or matched
             self._registry.remember(matched, aliases=[label, description], qids=qids)
             return LinkDecision(node=matched, signal="tag", is_new=False, score=score)
 
