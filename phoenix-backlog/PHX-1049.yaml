@@ -1,0 +1,38 @@
+id: PHX-1049
+category: substrate-topology
+priority: medium
+status: open
+generation_target: MESH migration — edge-budget discipline before scale
+title: "Cap the structural chunk lattice: k-NN sparsification of shares_entities_with"
+filed_by: Claude Code (founding-mesh topology analysis, 2026-07-16)
+created_at: 2026-07-16
+description: >
+  The structural paragraph lattice grows quadratically with paragraphs per
+  source and crowds out the semantic edge budget. Measured on the founding
+  mesh (292 nodes / 13,260 edges): shares_entities_with alone is 6,724 edges
+  (51% of all edges); the in-degree histogram shows a distinct bump of ~92
+  nodes in the 64-127 bin — the chunk layer forming a quasi-clique. The same
+  mechanism at full-corpus scale (1,200+ paragraphs/source) means O(C^2)
+  structural edges, while the vision's ~1000x edge density target is meant to
+  carry *meaning* (MESH_SUBSTRATE edge dynamics operate on semantic weight).
+
+  Positive side, also measured: the lattice is why the founding mesh is one
+  connected component with zero isolated nodes. The fix must keep that
+  property.
+
+  Design sketch: cap structural neighbors per chunk at top-k by
+  shared-entity weight (k configurable, e.g. 8-16); the remaining structural
+  affinity is mediated through the shared concept nodes themselves (which is
+  where the doctrine wants connectivity to live anyway). A/B on the emergent
+  judge + connectivity metrics (LCC ratio, isolated-node count must not
+  regress) before/after.
+
+  Doctrine note: MESH_SUBSTRATE governs edge behaviour — this is a
+  topology-shaping change and is flagged for doctrine review per AGENTS §6,
+  not applied silently.
+
+relates_to:
+  - PHX-1045   # surfaced by the founding-mesh topology analysis
+  - PHX-1042   # hub dynamics sibling (degree-aware retrieval levers)
+linked_scripts:
+  - src/theogony/mesh/ingestion/kadmos_v2.py
