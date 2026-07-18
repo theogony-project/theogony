@@ -101,6 +101,16 @@ class EagerLinker:
             tag_score = tag_overlap / max(1, len(tag_set)) if tag_set else 0.0
             known_labels = self._registry.known_labels(str(candidate.id))
             label_score = 1.0 if norm_label in known_labels else 0.0
+            if tag_overlap == 0 and label_score == 0.0:
+                # PHX-1051 doctrine guard: pure vector similarity is not "clear
+                # evidence" of identity. Semantically generic, high-degree nodes
+                # (measured live: the work-node itself) sit close to *every*
+                # in-domain description AND collect the context bonus through
+                # their degree — without lexical corroboration (shared tag or
+                # known label) they absorb entities: Venus, Dione, and Zeus all
+                # merged into "An ancient Greek epic poem …", leaving
+                # daughter_of self-loops on the hub. No corroboration, no merge.
+                continue
             score = desc_score + (0.20 * context_score) + (0.08 * tag_score) + (0.05 * label_score)
             if score > best_score:
                 best_node = candidate
