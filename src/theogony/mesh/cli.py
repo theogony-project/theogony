@@ -25,7 +25,7 @@ from theogony.mesh.seeds.wikidata5m import (
     build_embedder,
 )
 from theogony.mesh.seeds.wikidata5m.embedder import EdgesOnlyEmbedder, MeshEmbedder
-from theogony.reporting.models import MeshQueryRunReport
+from theogony.reporting.models import MeshQueryRunReport, MeshTickReport
 from theogony.reporting.writer import RunReportWriter
 
 mesh_app = typer.Typer(
@@ -148,6 +148,87 @@ def mesh_ingest(
         result = asyncio.run(reader.read_book(source))
 
     _console.print(Panel.fit(json.dumps(result, indent=2), title="mesh ingest result"))
+
+
+@mesh_app.command("tick")
+def mesh_tick(
+    decay_lambda: float = typer.Option(
+        0.05,
+        "--decay-lambda",
+        help="Super-linear decay rate applied to every edge (0 = no forgetting).",
+    ),
+    dt: float = typer.Option(
+        1.0,
+        "--dt",
+        help="Time delta multiplied into the decay step.",
+    ),
+    max_out_degree: int = typer.Option(
+        64,
+        "--max-out-degree",
+        help="Saturation cap: keep only the strongest N outbound edges per node.",
+    ),
+    w_max: float = typer.Option(
+        1.0,
+        "--w-max",
+        help="Weight ceiling for Hebbian delta merges and saturation.",
+    ),
+    mesh_root: Path | None = MESH_ROOT,
+) -> None:
+    """Run one minimal Oneiros tick over the workspace.
+
+    Drains the Hebbian delta buffer, merges deltas, applies super-linear decay,
+    enforces saturation caps, rewrites the edge table, and commits a Lance
+    version. This is the substrate's write-side dynamics driver — the loop that
+    lets the Chronik consolidate strong co-activations and forget unused edges
+    "without reading new text". Emits a MeshTickReport.
+    """
+    settings = Settings()
+    root = mesh_root.resolve() if mesh_root is not None else _default_root(settings)
+    rt = MeshRuntime.open(root)
+
+    started_at = datetime.now(UTC)
+    result = rt.run_minimal_tick(
+        lam=decay_lambda,
+        dt=dt,
+        max_out_degree=max_out_degree,
+        w_max=w_max,
+    )
+    finished_at = datetime.now(UTC)
+
+    report = MeshTickReport(
+        started_at=started_at,
+        finished_at=finished_at,
+        duration_s=(finished_at - started_at).total_seconds(),
+        status="completed",
+        verdict="good",
+        verdict_reasoning=(
+            f"drained {result.delta_drained} delta(s); "
+            f"edges {result.edges_before} -> {result.edges_after}"
+        ),
+        edges_before=result.edges_before,
+        edges_after=result.edges_after,
+        delta_drained=result.delta_drained,
+        decay_lambda=decay_lambda,
+        dt=dt,
+        max_out_degree=max_out_degree,
+        w_max=w_max,
+        audit_id=result.audit_id,
+        new_lance_version=result.new_lance_version,
+    )
+    RunReportWriter(settings.run_reports_dir).write(report)
+
+    summary = {
+        "mesh_root": str(root),
+        "edges_before": result.edges_before,
+        "edges_after": result.edges_after,
+        "delta_drained": result.delta_drained,
+        "decay_lambda": decay_lambda,
+        "max_out_degree": max_out_degree,
+        "audit_id": result.audit_id,
+        "new_lance_version": result.new_lance_version,
+        "run_report": report.run_id,
+    }
+    _console.print(Panel.fit(json.dumps(summary, indent=2), title="mesh tick"))
 
 
 @seed_app.command("wikidata5m")

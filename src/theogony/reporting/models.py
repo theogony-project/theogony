@@ -61,6 +61,7 @@ class RunReportBase(BaseModel):
         "mesh_seed",
         "query",
         "mesh_query",
+        "mesh_tick",
         "oneiros",
         "clustering",
         "blindspot",
@@ -382,6 +383,32 @@ class MeshQueryRunReport(RunReportBase):
     assemble_duration_ms: int = Field(default=0, ge=0)
 
     cited_node_ids: list[str] = Field(default_factory=list)
+
+
+class MeshTickReport(RunReportBase):
+    """Feedback shape for a minimal MESH-substrate Oneiros tick (Step S2/S5 driver).
+
+    Distinct from the Gen-1 :class:`OneirosTickReport` (which records the legacy
+    memory worker's vitality / Morpheus / depth-band phases over the KnowledgeStore).
+    The mesh minimal tick is the substrate's write-side dynamics: drain the Hebbian
+    delta buffer, merge deltas, apply super-linear decay, enforce saturation caps,
+    rewrite the edge table, and commit a Lance version. This report records that
+    one operation so the "grows wiser without new text" loop has an auditable trace.
+    """
+
+    report_type: Literal["mesh_tick"] = "mesh_tick"
+
+    edges_before: int = Field(default=0, ge=0)
+    edges_after: int = Field(default=0, ge=0)
+    delta_drained: int = Field(default=0, ge=0)
+
+    decay_lambda: float = Field(default=0.0, ge=0.0)
+    dt: float = Field(default=1.0, ge=0.0)
+    max_out_degree: int = Field(default=0, ge=0)
+    w_max: float = Field(default=1.0, ge=0.0)
+
+    audit_id: str | None = None
+    new_lance_version: int = Field(default=0, ge=0)
 
 
 # ---------------------------------------------------------------------------

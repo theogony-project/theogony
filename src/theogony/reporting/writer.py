@@ -33,6 +33,7 @@ from theogony.reporting.models import (
     KadmosRunReport,
     MeshQueryRunReport,
     MeshSeedRunReport,
+    MeshTickReport,
     MnemosyneObservationCluster,
     MnlmRunReport,
     NousRunReport,
@@ -48,6 +49,7 @@ RUN_REPORT_TYPE_SUBDIRS: tuple[str, ...] = (
     "mesh_seed",
     "query",
     "mesh_query",
+    "mesh_tick",
     "oneiros",
     "clustering",
     "blindspot",
@@ -67,6 +69,7 @@ ReportType = (
     | type[MeshSeedRunReport]
     | type[QueryRunReport]
     | type[MeshQueryRunReport]
+    | type[MeshTickReport]
     | type[OneirosTickReport]
     | type[ClusteringRunReport]
     | type[BlindSpotReport]
@@ -181,6 +184,8 @@ class RunReportWriter:
             return QueryRunReport.model_validate(raw)
         if rt == "mesh_query":
             return MeshQueryRunReport.model_validate(raw)
+        if rt == "mesh_tick":
+            return MeshTickReport.model_validate(raw)
         if rt == "oneiros":
             return OneirosTickReport.model_validate(raw)
         if rt == "clustering":
