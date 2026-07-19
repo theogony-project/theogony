@@ -218,14 +218,29 @@ def build_csr_from_columns(
             "source_ids, target_ids, weights, and frame_consistencies must have equal length"
         )
 
+    # Node index space includes every endpoint — even a node whose only edge is a
+    # dropped self-loop — so seed / constellation node→index mapping stays stable.
     endpoints: set[str] = set(sources)
     endpoints.update(targets)
     ordered = sorted(endpoints)
     id_to_index = {nid: i for i, nid in enumerate(ordered)}
     n = len(ordered)
 
+    # Drop self-loops (source == target). Activation cannot propagate from a node
+    # to itself, and PPR / PageRank zero the diagonal by construction, so a stored
+    # self-loop carries no Spreading-Activation signal — it only inflates a node's
+    # out-degree and clones itself into every Constellation. Filtering here (rather
+    # than at write time) also self-heals meshes that accumulated self-loops before
+    # this guard: e.g. the founding mesh's identity-attractor `fed_with` self-loops
+    # on the poem hub (PHX-1051), which dominated the induced sub-graph of a query.
+    triples = [
+        (s, t, w, f)
+        for s, t, w, f in zip(sources, targets, weight_list, frame_list, strict=True)
+        if s != t
+    ]
+
     row_counts = [0] * n
-    for source in sources:
+    for source, _t, _w, _f in triples:
         row_counts[id_to_index[source]] += 1
     crow = [0]
     for count in row_counts:
@@ -235,9 +250,7 @@ def build_csr_from_columns(
     val = [0.0] * nnz
     write = crow[:-1].copy()
 
-    for source, target, weight, frame in zip(
-        sources, targets, weight_list, frame_list, strict=True
-    ):
+    for source, target, weight, frame in triples:
         si = id_to_index[source]
         pos = write[si]
         col[pos] = id_to_index[target]
