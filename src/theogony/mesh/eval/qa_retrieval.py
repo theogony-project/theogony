@@ -1,0 +1,501 @@
+"""Multi-hop QA passage-retrieval benchmark — Spreading Activation vs kNN / BM25.
+
+Operationalises README empirical question 2 — *does Spreading Activation over a
+dense vector-graph retrieve better than kNN at high edge density?* — on the
+standard multi-hop trio (MuSiQue / 2WikiMultihopQA / HotpotQA) using the
+HippoRAG_v2 shared-corpus protocol: retrieve over the whole per-dataset corpus
+and score **passage recall@2 / @5** against each question's gold supporting
+passages.
+
+This module is **pure compute** (torch + stdlib). The driver
+(``scripts/mesh_qa_retrieval.py``) does the I/O — download, local embedding
+(BGE), local NER (spaCy) — and passes plain arrays in, so the whole harness is
+unit-testable offline on synthetic fixtures.
+
+Graph construction is deliberately **cheap and LLM-free** (spaCy-NER entities +
+embedding-kNN edges), which the literature establishes as a legitimate first
+data point: LinearRAG (ICLR 2026, relation-free spaCy-entity graph) and SPRIG
+(2026, NER co-occurrence + PPR) both beat or match LLM-KG GraphRAG on exactly
+this trio. LLM (Kadmos) extraction is a documented *fidelity upgrade*, not a
+prerequisite — the retrieval kernel (:func:`propagate`) is identical either way.
+
+The headline is the **edge-density ablation**: hold the geometric edges fixed,
+sweep the fraction of entity-bridge (co-occurrence) edges, and read whether the
+SA recall curve pulls away from the (edge-independent, flat) kNN reference as
+structural density rises. That crossover is the phase transition the
+architecture bets on — and no published study has measured it as an explicit
+density function for activation vs kNN.
+"""
+
+from __future__ import annotations
+
+import math
+import random
+import re
+from collections import defaultdict
+from dataclasses import dataclass, field
+
+import torch
+from pydantic import BaseModel, ConfigDict, Field
+
+from theogony.mesh.eval.link_prediction import (
+    EdgeRow,
+    build_adjacency,
+    build_csr_over_nodes,
+    build_normalized_adjacency,
+)
+
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+
+# ---------------------------------------------------------------------------
+# Corpus / question shapes
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class QAPassage:
+    """One retrievable passage from the shared corpus."""
+
+    idx: int
+    title: str
+    text: str
+
+
+@dataclass
+class QAQuestion:
+    """One question with the set of corpus indices that are gold-supporting."""
+
+    qid: str
+    question: str
+    answer: str
+    gold_idxs: set[int]
+
+
+# ---------------------------------------------------------------------------
+# Report shapes (extra="forbid" — RunReport discipline)
+# ---------------------------------------------------------------------------
+
+
+class QAMethodMetrics(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    method: str
+    recall_at_2: float
+    recall_at_5: float
+    mrr_at_10: float
+
+
+class QADensityLevel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    entity_edge_fraction: float
+    entity_edges: int
+    total_edges: int
+    mean_out_degree: float
+    sa_raw_recall_at_5: float
+    sa_ppr_recall_at_5: float
+    knn_recall_at_5: float
+    sa_ppr_minus_knn_at_5: float
+
+
+class QARetrievalReport(BaseModel):
+    """Structured result of one QA-retrieval benchmark run (honest-failure discipline)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str
+    dataset: str
+    construction: str  # e.g. "spacy-ner + bge-small-en kNN (LLM-free first-cut)"
+    embedder_model_id: str
+    passage_count: int
+    entity_node_count: int
+    question_count: int
+    gold_coverage: float  # fraction of questions with >=1 gold matched in corpus
+    knn_k: int
+    seed_top_s: int
+    hops: int
+    damping: float
+    seed: int
+    methods: list[QAMethodMetrics] = Field(default_factory=list)
+    density_levels: list[QADensityLevel] = Field(default_factory=list)
+    timing_s: dict[str, float] = Field(default_factory=dict)
+    notes: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# BM25 (minimal, dependency-free)
+# ---------------------------------------------------------------------------
+
+
+def _tokenize(text: str) -> list[str]:
+    return _TOKEN_RE.findall(text.lower())
+
+
+@dataclass
+class BM25:
+    """Okapi BM25 over a fixed passage corpus (k1=1.5, b=0.75)."""
+
+    docs: list[list[str]]
+    k1: float = 1.5
+    b: float = 0.75
+    _idf: dict[str, float] = field(default_factory=dict)
+    _doc_len: list[int] = field(default_factory=list)
+    _avg_len: float = 0.0
+    _tf: list[dict[str, int]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        n = len(self.docs)
+        self._doc_len = [len(d) for d in self.docs]
+        self._avg_len = (sum(self._doc_len) / n) if n else 0.0
+        df: dict[str, int] = defaultdict(int)
+        for d in self.docs:
+            tf: dict[str, int] = defaultdict(int)
+            for tok in d:
+                tf[tok] += 1
+            self._tf.append(dict(tf))
+            for tok in tf:
+                df[tok] += 1
+        # Robertson-Sparck-Jones idf, floored at 0 so common terms don't go negative.
+        self._idf = {t: max(0.0, math.log((n - c + 0.5) / (c + 0.5) + 1.0)) for t, c in df.items()}
+
+    def scores(self, query: str) -> torch.Tensor:
+        q_tokens = _tokenize(query)
+        out = torch.zeros(len(self.docs), dtype=torch.float32)
+        for i, tf in enumerate(self._tf):
+            dl = self._doc_len[i]
+            denom_len = self.k1 * (1.0 - self.b + self.b * dl / max(self._avg_len, 1e-9))
+            s = 0.0
+            for tok in q_tokens:
+                f = tf.get(tok, 0)
+                if f == 0:
+                    continue
+                s += self._idf.get(tok, 0.0) * (f * (self.k1 + 1.0)) / (f + denom_len)
+            out[i] = s
+        return out
+
+
+# ---------------------------------------------------------------------------
+# Graph construction
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class QAGraph:
+    """A retrieval graph over passage + entity nodes, ready for CSR / SA."""
+
+    node_ids: list[str]
+    sem_unit: torch.Tensor  # (N, D) L2-normalised, aligned to node_ids
+    passage_indices: list[int]  # CSR index of passage p (in passage order)
+    containment_edges: list[EdgeRow]  # passage<->entity (always kept)
+    knn_edges: list[EdgeRow]  # passage<->passage geometric (always kept)
+    entity_edges: list[EdgeRow]  # entity<->entity co-occurrence (the density dial)
+
+
+def _l2_unit(mat: torch.Tensor) -> torch.Tensor:
+    out: torch.Tensor = mat / mat.norm(dim=1, keepdim=True).clamp_min(1e-12)
+    return out
+
+
+def build_qa_graph(
+    passage_emb: torch.Tensor,
+    entity_emb: torch.Tensor,
+    entities_per_passage: list[set[int]],
+    *,
+    knn_k: int = 10,
+    max_entity_degree: int = 32,
+    seed: int = 0,
+) -> QAGraph:
+    """Build a symmetric passage+entity graph.
+
+    * ``passage_emb`` (P, D) and ``entity_emb`` (E, D) are raw embeddings.
+    * ``entities_per_passage[p]`` is the set of entity indices found in passage p.
+
+    Edge types (all symmetric — SA propagates along edge direction, so both
+    directions are added):
+
+    * **containment** passage↔entity (weight 1.0) — connects a passage to its entities.
+    * **knn** passage↔passage — top-``knn_k`` cosine neighbours (weight = cosine); the
+      geometric baseline embedded *into* the graph.
+    * **entity** entity↔entity — co-occurrence within a passage (weight = #co-occurrences,
+      capped per entity at ``max_entity_degree`` to stop hubs exploding). This is the
+      structural bridge that carries multi-hop signal and the density-ablation dial.
+    """
+    p = passage_emb.shape[0]
+    e = entity_emb.shape[0]
+    passage_ids = [f"p{i}" for i in range(p)]
+    entity_ids = [f"e{i}" for i in range(e)]
+    node_ids = passage_ids + entity_ids
+    sem = torch.cat([passage_emb, entity_emb], dim=0) if e else passage_emb
+    sem_unit = _l2_unit(sem)
+    passage_indices = list(range(p))  # passages occupy CSR indices 0..P-1 by construction
+
+    # containment: passage <-> its entities
+    containment: list[EdgeRow] = []
+    for pi, ents in enumerate(entities_per_passage):
+        for ei in ents:
+            containment.append((f"p{pi}", f"e{ei}", 1.0))
+            containment.append((f"e{ei}", f"p{pi}", 1.0))
+
+    # passage-passage kNN (geometric): top-knn_k by cosine, excluding self
+    knn_edges: list[EdgeRow] = []
+    if knn_k > 0 and p > 1:
+        pu = _l2_unit(passage_emb)
+        sims = pu @ pu.t()
+        sims.fill_diagonal_(-2.0)
+        k = min(knn_k, p - 1)
+        top_vals, top_idx = torch.topk(sims, k, dim=1)
+        for i in range(p):
+            for val, j in zip(top_vals[i].tolist(), top_idx[i].tolist(), strict=True):
+                w = max(0.0, float(val))
+                knn_edges.append((f"p{i}", f"p{j}", w))
+                knn_edges.append((f"p{j}", f"p{i}", w))
+
+    # entity-entity co-occurrence, capped per entity to bound hub degree
+    cooc: dict[tuple[int, int], int] = defaultdict(int)
+    for ents in entities_per_passage:
+        ordered = sorted(ents)
+        for a_idx in range(len(ordered)):
+            for b_idx in range(a_idx + 1, len(ordered)):
+                cooc[(ordered[a_idx], ordered[b_idx])] += 1
+    per_entity: dict[int, list[tuple[int, int]]] = defaultdict(list)
+    for (a, b), c in cooc.items():
+        per_entity[a].append((b, c))
+        per_entity[b].append((a, c))
+    kept_pairs: set[tuple[int, int]] = set()
+    for a, neigh in per_entity.items():
+        neigh.sort(key=lambda x: x[1], reverse=True)
+        for b, _c in neigh[:max_entity_degree]:
+            kept_pairs.add((min(a, b), max(a, b)))
+    # Shuffle at the *pair* level, then flatten both directions adjacently, so a
+    # nested-prefix density sweep keeps each undirected bridge whole and order-stable.
+    ordered_pairs = sorted(kept_pairs)
+    random.Random(seed).shuffle(ordered_pairs)
+    entity_edges: list[EdgeRow] = []
+    for a, b in ordered_pairs:
+        w = float(cooc[(a, b)])
+        entity_edges.append((f"e{a}", f"e{b}", w))
+        entity_edges.append((f"e{b}", f"e{a}", w))
+
+    return QAGraph(
+        node_ids=node_ids,
+        sem_unit=sem_unit,
+        passage_indices=passage_indices,
+        containment_edges=containment,
+        knn_edges=knn_edges,
+        entity_edges=entity_edges,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Retrieval
+# ---------------------------------------------------------------------------
+
+
+def _seed_vector(
+    query_unit: torch.Tensor,
+    passage_unit: torch.Tensor,
+    n_nodes: int,
+    *,
+    top_s: int,
+) -> torch.Tensor:
+    """Dense query→passage seeding (HippoRAG-2 finding: beats NER-to-node seeding).
+
+    Returns an activation vector over all CSR nodes with mass on the top-``top_s``
+    passages by query cosine (passages occupy indices 0..P-1).
+    """
+    sims = passage_unit @ query_unit
+    k = min(top_s, sims.shape[0])
+    vals, idx = torch.topk(sims, k)
+    x = torch.zeros(n_nodes, dtype=torch.float32)
+    for v, j in zip(vals.tolist(), idx.tolist(), strict=True):
+        x[j] = max(0.0, float(v))
+    return x
+
+
+def sa_passage_scores(
+    adj: torch.Tensor,
+    seed_x: torch.Tensor,
+    passage_indices: list[int],
+    *,
+    hops: int,
+    damping: float,
+) -> torch.Tensor:
+    """Spreading Activation from a seed vector; return activation on passage nodes.
+
+    Uses the same damped-diffusion kernel as the link-prediction eval
+    (:func:`propagate`), generalised to a multi-node seed. Activation flows along
+    edge direction (``x ← damping · Aᵀx``); the graph is symmetric so it spreads
+    both ways. Passage scores are read off after propagation.
+    """
+    x = seed_x.clone()
+    for _ in range(hops):
+        x = damping * torch.sparse.mm(adj.t(), x.unsqueeze(1)).squeeze(1) + seed_x
+    return x[torch.tensor(passage_indices, dtype=torch.int64)]
+
+
+def recall_at_k(ranked_passage_idx: list[int], gold_idxs: set[int], k: int) -> float:
+    """Fraction of a question's gold passages present in the top-k (HippoRAG convention)."""
+    if not gold_idxs:
+        return 0.0
+    topk = set(ranked_passage_idx[:k])
+    return len(topk & gold_idxs) / len(gold_idxs)
+
+
+def mrr_at_k(ranked_passage_idx: list[int], gold_idxs: set[int], k: int = 10) -> float:
+    """Reciprocal rank of the first gold passage within the top-k, else 0."""
+    for rank, pidx in enumerate(ranked_passage_idx[:k], start=1):
+        if pidx in gold_idxs:
+            return 1.0 / rank
+    return 0.0
+
+
+def rank_desc(scores: torch.Tensor) -> list[int]:
+    """Argsort passage scores descending → list of passage indices (0..P-1)."""
+    return torch.argsort(scores, descending=True).tolist()
+
+
+# ---------------------------------------------------------------------------
+# Orchestration
+# ---------------------------------------------------------------------------
+
+
+def _adjacencies(
+    node_ids: list[str], edge_rows: list[EdgeRow]
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return (raw weighted adjacency, row-normalised random-walk adjacency)."""
+    csr = build_csr_over_nodes(node_ids, edge_rows)
+    device = torch.device("cpu")
+    return build_adjacency(csr, device), build_normalized_adjacency(csr, device)
+
+
+def evaluate_methods(
+    graph: QAGraph,
+    passage_emb: torch.Tensor,
+    question_emb: torch.Tensor,
+    bm25: BM25,
+    questions: list[QAQuestion],
+    *,
+    hops: int = 3,
+    damping: float = 0.5,
+    seed_top_s: int = 10,
+) -> list[QAMethodMetrics]:
+    """Score BM25, kNN (dense), and two SA variants at the operating point.
+
+    * ``sa_raw`` — Spreading Activation over raw weighted adjacency. This is the
+      variant the substrate doctrine itself flags as hub-collapsing (PHX-1042):
+      degree hubs (common entities — dates, frequent names) absorb activation.
+    * ``sa_ppr`` — the *fair* variant: row-normalised (random-walk) adjacency with
+      query→passage restart, i.e. Personalized PageRank — the operator HippoRAG
+      actually uses and the closest analogue to the substrate's production
+      degree-aware retrieval.
+
+    ``question_emb`` rows are aligned to ``questions``. Every method retrieves
+    over the same passage universe, so the comparison isolates the mechanism.
+    """
+    passage_unit = _l2_unit(passage_emb)
+    question_unit = _l2_unit(question_emb)
+    n_nodes = len(graph.node_ids)
+    adj_raw, adj_ppr = _adjacencies(
+        graph.node_ids, graph.containment_edges + graph.knn_edges + graph.entity_edges
+    )
+
+    rec2: dict[str, float] = defaultdict(float)
+    rec5: dict[str, float] = defaultdict(float)
+    mrr: dict[str, float] = defaultdict(float)
+    names = ("bm25", "knn", "sa_raw", "sa_ppr")
+    for qi, q in enumerate(questions):
+        qu = question_unit[qi]
+        seed_x = _seed_vector(qu, passage_unit, n_nodes, top_s=seed_top_s)
+        scored = {
+            "bm25": bm25.scores(q.question),
+            "knn": passage_unit @ qu,
+            "sa_raw": sa_passage_scores(
+                adj_raw, seed_x, graph.passage_indices, hops=hops, damping=damping
+            ),
+            "sa_ppr": sa_passage_scores(
+                adj_ppr, seed_x, graph.passage_indices, hops=hops, damping=damping
+            ),
+        }
+        for name in names:
+            ranked = rank_desc(scored[name])
+            rec2[name] += recall_at_k(ranked, q.gold_idxs, 2)
+            rec5[name] += recall_at_k(ranked, q.gold_idxs, 5)
+            mrr[name] += mrr_at_k(ranked, q.gold_idxs, 10)
+    nq = max(1, len(questions))
+    return [
+        QAMethodMetrics(
+            method=m,
+            recall_at_2=rec2[m] / nq,
+            recall_at_5=rec5[m] / nq,
+            mrr_at_10=mrr[m] / nq,
+        )
+        for m in names
+    ]
+
+
+def density_sweep(
+    graph: QAGraph,
+    passage_emb: torch.Tensor,
+    question_emb: torch.Tensor,
+    questions: list[QAQuestion],
+    *,
+    fractions: list[float],
+    hops: int = 3,
+    damping: float = 0.5,
+    seed_top_s: int = 10,
+) -> list[QADensityLevel]:
+    """Sweep the entity-bridge edge fraction; SA recall@5 vs the flat kNN reference.
+
+    The geometric backbone (containment + passage-kNN) is held fixed; only the
+    structural entity-bridge edges grow, as nested prefixes of one shuffle. The
+    kNN reference is edge-independent (flat). A widening ``sa_minus_knn_at_5`` as
+    density rises is the phase-transition signal.
+    """
+    passage_unit = _l2_unit(passage_emb)
+    question_unit = _l2_unit(question_emb)
+    n_nodes = len(graph.node_ids)
+    base_edges = graph.containment_edges + graph.knn_edges
+
+    # kNN reference (constant across levels)
+    knn_r5 = 0.0
+    for qi, q in enumerate(questions):
+        ranked = rank_desc(passage_unit @ question_unit[qi])
+        knn_r5 += recall_at_k(ranked, q.gold_idxs, 5)
+    knn_r5 /= max(1, len(questions))
+
+    total_entity = len(graph.entity_edges)
+    levels: list[QADensityLevel] = []
+    for frac in fractions:
+        k = int(round(frac * total_entity))
+        edges = base_edges + graph.entity_edges[:k]
+        adj_raw, adj_ppr = _adjacencies(graph.node_ids, edges)
+        sa_raw_r5 = 0.0
+        sa_ppr_r5 = 0.0
+        for qi, q in enumerate(questions):
+            qu = question_unit[qi]
+            seed_x = _seed_vector(qu, passage_unit, n_nodes, top_s=seed_top_s)
+            raw = sa_passage_scores(
+                adj_raw, seed_x, graph.passage_indices, hops=hops, damping=damping
+            )
+            ppr = sa_passage_scores(
+                adj_ppr, seed_x, graph.passage_indices, hops=hops, damping=damping
+            )
+            sa_raw_r5 += recall_at_k(rank_desc(raw), q.gold_idxs, 5)
+            sa_ppr_r5 += recall_at_k(rank_desc(ppr), q.gold_idxs, 5)
+        nq = max(1, len(questions))
+        sa_raw_r5 /= nq
+        sa_ppr_r5 /= nq
+        levels.append(
+            QADensityLevel(
+                entity_edge_fraction=frac,
+                entity_edges=k,
+                total_edges=len(edges),
+                mean_out_degree=len(edges) / max(1, n_nodes),
+                sa_raw_recall_at_5=sa_raw_r5,
+                sa_ppr_recall_at_5=sa_ppr_r5,
+                knn_recall_at_5=knn_r5,
+                sa_ppr_minus_knn_at_5=sa_ppr_r5 - knn_r5,
+            )
+        )
+    return levels
