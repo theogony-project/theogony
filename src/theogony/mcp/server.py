@@ -673,22 +673,21 @@ def build_server(res: McpResources) -> Any:
     except ImportError as exc:  # pragma: no cover - guard exercised only without extra
         raise RuntimeError(_INSTALL_HINT) from exc
 
-    server = Server("theogony")
     descriptors = _tool_descriptors()
 
-    @server.list_tools()  # type: ignore[no-untyped-call,untyped-decorator]
-    async def _list_tools() -> list[Any]:
-        return [
-            types.Tool(
-                name=d["name"],
-                description=d["description"],
-                inputSchema=d["inputSchema"],
-            )
-            for d in descriptors
-        ]
+    async def _list_tools(ctx: Any, params: Any) -> Any:
+        return types.ListToolsResult(
+            tools=[
+                types.Tool(
+                    name=d["name"],
+                    description=d["description"],
+                    input_schema=d["inputSchema"],
+                )
+                for d in descriptors
+            ]
+        )
 
-    @server.call_tool()  # type: ignore[untyped-decorator]
-    async def _call_tool(name: str, arguments: dict[str, Any]) -> list[Any]:
+    async def _dispatch(name: str, arguments: dict[str, Any]) -> Any:
         payload: Any
         if name == "pantheon_ask":
             raw_mode = arguments.get("pheromone_mode")
@@ -725,9 +724,28 @@ def build_server(res: McpResources) -> Any:
             )
         else:
             raise ValueError(f"unknown tool: {name}")
-        return [types.TextContent(type="text", text=json.dumps(payload, indent=2))]
+        return payload
 
-    return server
+    async def _call_tool(ctx: Any, params: Any) -> Any:
+        # The lowlevel Server no longer converts handler exceptions into a tool
+        # error, so a raise here would reach the host as a protocol fault and
+        # tell it nothing. Report the failure in the result instead.
+        try:
+            payload = await _dispatch(params.name, params.arguments or {})
+        except Exception as exc:  # noqa: BLE001 - surfaced to the caller as a tool error
+            return types.CallToolResult(
+                content=[types.TextContent(type="text", text=str(exc))],
+                is_error=True,
+            )
+        return types.CallToolResult(
+            content=[types.TextContent(type="text", text=json.dumps(payload, indent=2))]
+        )
+
+    return Server(
+        "theogony",
+        on_list_tools=_list_tools,
+        on_call_tool=_call_tool,
+    )
 
 
 @dataclass
