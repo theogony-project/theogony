@@ -73,7 +73,7 @@ Cross-cutting: Pantheon agents (agent system)
 
 Three surfaces let people interact with Theogony without writing agent code:
 
-- **Pantheon Cockpit (Iris, [PHX-0074](../phoenix-backlog/PHX-0074.yaml))** — server-rendered HTML dashboard at `/cockpit` on the FastAPI app: status, knowledge browser, cluster drill-down, run reports, and a single editable manifest file under `data_dir`. Defaults to loopback binding; optional **sample-only** mode caps what a public URL may show. Operator documentation: [`COCKPIT.md`](COCKPIT.md). Phase 1 is chronicle-read-only except that manifest path.
+- **Pantheon Cockpit (Iris, [PHX-0074](../phoenix-backlog/archive/PHX-0074.yaml))** — server-rendered HTML dashboard at `/cockpit` on the FastAPI app: status, knowledge browser, cluster drill-down, run reports, and a single editable manifest file under `data_dir`. Defaults to loopback binding; optional **sample-only** mode caps what a public URL may show. Operator documentation: [`COCKPIT.md`](COCKPIT.md). Phase 1 is chronicle-read-only except that manifest path.
 - **Operator CLI** — `theogony …` for ingest, reports, workers, and diagnostics.
 - **MCP over HTTP/SSE** — agent-facing `pantheon_*` tools on hosted and local deploys ([`PHX-0066`](PHOENIX_BACKLOG.md#phx-0066-hosted-pantheon-mcp-service) / [`hosted/README.md`](../hosted/README.md)).
 

@@ -73,7 +73,7 @@ pytest tests/
 
 If you have an idea that belongs to a future generation of the Chronik — a deep architectural change, a new vision, an improvement to the knowledge organization — file it as a Phoenix Backlog ticket.
 
-Copy the template from [phoenix-backlog/PHX-0001.yaml](phoenix-backlog/PHX-0001.yaml) and create a new file with the next sequential ID. Open a pull request or issue with it.
+Copy the template from [phoenix-backlog/archive/PHX-0001.yaml](phoenix-backlog/archive/PHX-0001.yaml) and create a new file with the next sequential ID. Open a pull request or issue with it.
 
 ## Code Style
 

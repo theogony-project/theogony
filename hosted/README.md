@@ -23,7 +23,7 @@ The same container runs **FastAPI + MCP-SSE + Iris** when the build includes the
 
 1. **Operator-only (default intent)** — leave `THEOGONY_COCKPIT__ENABLED=true` (default) with **`THEOGONY_COCKPIT__PUBLIC=false`** (default). The process still listens on `0.0.0.0:8080` for MCP, but cockpit routes return **403** when the request is not from loopback. Operators reach the UI via **SSH tunnel**, **Fly `proxy`**, or a **sidecar admin port** (e.g. bind cockpit settings to `127.0.0.1` on `8081` while MCP stays on `8080` — see cockpit settings in `COCKPIT.md`).
 2. **Public URL with capped content** — set **`THEOGONY_COCKPIT__SAMPLE_ONLY=true`** so search, clusters, and report tables are capped to a fixed sample. You may still need **`THEOGONY_COCKPIT__PUBLIC=true`** plus an explicit **`THEOGONY_COCKPIT__BIND_HOST`** that matches how traffic arrives if you truly want the dashboard on the public listener; treat this as a **demo** posture, not a private chronicle browser.
-3. **Full graph on a public listener (not recommended in Phase 1)** — would require **`THEOGONY_COCKPIT__PUBLIC=true`** without sample-only, exposing the same aggregations the operator sees. **No authentication ships in Phase 1** ([PHX-0074](../phoenix-backlog/PHX-0074.yaml)); prefer tunnel or split-port until Phase 2 auth lands.
+3. **Full graph on a public listener (not recommended in Phase 1)** — would require **`THEOGONY_COCKPIT__PUBLIC=true`** without sample-only, exposing the same aggregations the operator sees. **No authentication ships in Phase 1** ([PHX-0074](../phoenix-backlog/archive/PHX-0074.yaml)); prefer tunnel or split-port until Phase 2 auth lands.
 
 ## Build the image
 

@@ -1,17 +1,17 @@
 # Deep Tech Vision
 
-This document sits between [`docs/VISION.md`](docs/VISION.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+This document sits between [`docs/VISION.md`](VISION.md) and [`docs/ARCHITECTURE.md`](ARCHITECTURE.md).
 
 `VISION.md` states the civilizational bet.
 `ARCHITECTURE.md` describes the current Gen-1 architectural direction.
 This document explores the deeper substrate that the Chronik may ultimately require if it grows into a true planetary knowledge system.
 
-**Operative substrate doctrine.** For substrate-layer mechanics, runtime, and use — the actual binding behaviour of the storage layer beneath Pantheon cognition — the MESH triplet ([`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md), [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md), [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md)) is operative. This Deep Tech Vision describes representational and conceptual layers (the six languages, the deep stack, digital twins, the scientific workbench) that sit *above* the substrate; the substrate doctrine specifies *how* those layers actually run.
+**Operative substrate doctrine.** For substrate-layer mechanics, runtime, and use — the actual binding behaviour of the storage layer beneath Pantheon cognition — the MESH triplet ([`docs/MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md), [`docs/MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md), [`docs/MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md)) is operative. This Deep Tech Vision describes representational and conceptual layers (the six languages, the deep stack, digital twins, the scientific workbench) that sit *above* the substrate; the substrate doctrine specifies *how* those layers actually run.
 
 Two companion documents deepen specific strands from this vision:
 
-- [`docs/CHRONESE.md`](docs/CHRONESE.md) for the Chronik's possible canonical semantic language
-- [`docs/METIS.md`](docs/METIS.md) for the advisory agent built on top of Akasha, Lethe, and Norm Space
+- [`docs/CHRONESE.md`](CHRONESE.md) for the Chronik's possible canonical semantic language
+- [`docs/METIS.md`](METIS.md) for the advisory agent built on top of Akasha, Lethe, and Norm Space
 
 It is intentionally bold.
 It is also intentionally realistic.

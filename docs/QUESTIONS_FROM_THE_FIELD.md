@@ -5,7 +5,7 @@ or agents that revealed something the chronicle does not yet know
 or whose answer has architectural implications for the chronicle
 itself.
 
-It is the **manual precursor** of [PHX-0071 — Mnemosyne](../phoenix-backlog/PHX-0071.yaml):
+It is the **manual precursor** of [PHX-0071 — Mnemosyne](../phoenix-backlog/archive/PHX-0071.yaml):
 once Mnemosyne is implemented she will populate a structured
 equivalent of this file automatically. Until then, questions
 worth recording land here by hand, and a human (or, eventually,
@@ -43,7 +43,7 @@ Discovery for **agents** (hosted MCP, PHX-0066) does not solve discovery for **h
 
 **Outcome**:
 
-Shipped as **[PHX-0074 — Iris / Pantheon Cockpit](../phoenix-backlog/PHX-0074.yaml)** (W6): FastAPI-mounted `/cockpit`, default loopback-first security model, optional sample-only mode for public demos, single manifest write path. Operator documentation: [`COCKPIT.md`](COCKPIT.md).
+Shipped as **[PHX-0074 — Iris / Pantheon Cockpit](../phoenix-backlog/archive/PHX-0074.yaml)** (W6): FastAPI-mounted `/cockpit`, default loopback-first security model, optional sample-only mode for public demos, single manifest write path. Operator documentation: [`COCKPIT.md`](COCKPIT.md).
 
 ---
 
@@ -102,7 +102,7 @@ almost without modification:
 
 **Outcome**:
 
-Promoted [PHX-0002 — Hierarchical + Heterogeneous Embedding Spaces](../phoenix-backlog/PHX-0002.yaml)
+Promoted [PHX-0002 — Hierarchical + Heterogeneous Embedding Spaces](../phoenix-backlog/archive/PHX-0002.yaml)
 from catalogue-only to a full YAML ticket on 2026-04-22, with
 this question cited as the originating evidence. PHX-0002 now
 covers both the original abstraction-level pressure and this
@@ -110,7 +110,7 @@ modality pressure in one parent ticket; Phase-2 sub-tickets will
 schedule the actual implementation work.
 
 This question is also a textbook example of the kind of
-**self-referential** query [PHX-0071 — Mnemosyne](../phoenix-backlog/PHX-0071.yaml)
+**self-referential** query [PHX-0071 — Mnemosyne](../phoenix-backlog/archive/PHX-0071.yaml)
 will catch automatically once she is implemented. It is recorded
 here manually so the pattern is visible from day one.
 
