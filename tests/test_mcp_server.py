@@ -179,6 +179,66 @@ def test_build_server_does_not_require_live_resources(tmp_path: Path) -> None:
     assert getattr(server, "name", None) == "theogony"
 
 
+@pytest.mark.asyncio
+async def test_server_answers_a_real_protocol_round_trip(tmp_path: Path) -> None:
+    """Drive the built server over an in-memory MCP session.
+
+    Constructing the server is not evidence that it speaks the protocol.
+    The mcp 2.0 upgrade removed the decorator registration this module used
+    to rely on, and a construction-only smoke would have stayed green while
+    every host saw an empty tool list. So the handlers get exercised through
+    a real client session.
+    """
+    import anyio
+    from mcp.client.session import ClientSession
+    from mcp.shared.memory import create_client_server_memory_streams
+
+    from theogony.mcp.server import build_server
+
+    server = build_server(_make_resources(tmp_path))
+
+    async with create_client_server_memory_streams() as (client_streams, server_streams):
+        client_read, client_write = client_streams
+        server_read, server_write = server_streams
+
+        async with anyio.create_task_group() as tg:
+
+            async def _run_server() -> None:
+                await server.run(
+                    server_read,
+                    server_write,
+                    server.create_initialization_options(),
+                )
+
+            tg.start_soon(_run_server)
+
+            async with ClientSession(client_read, client_write) as session:
+                await session.initialize()
+
+                listed = await session.list_tools()
+                names = {tool.name for tool in listed.tools}
+                assert "pantheon_status" in names
+                assert {tool.name for tool in listed.tools} == {
+                    d["name"] for d in _tool_descriptors_from_module()
+                }
+
+                result = await session.call_tool("pantheon_status", {})
+                assert result.is_error is not True
+                payload = json.loads(result.content[0].text)  # type: ignore[union-attr]
+                assert payload["store"] == "fake"
+
+                unknown = await session.call_tool("pantheon_nope", {})
+                assert unknown.is_error is True
+
+            tg.cancel_scope.cancel()
+
+
+def _tool_descriptors_from_module() -> list[dict[str, Any]]:
+    from theogony.mcp.server import _tool_descriptors
+
+    return _tool_descriptors()
+
+
 # --------------------------------------------------------------------------
 # Pure-function tools
 # --------------------------------------------------------------------------
