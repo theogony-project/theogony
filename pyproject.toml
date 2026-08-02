@@ -91,7 +91,9 @@ dev = [
     "testcontainers>=4.0",
     # MCP SDK so test_mcp_server.py runs inside the dev matrix without
     # forcing humans to install the optional ``mcp`` extra by hand.
-    "mcp>=1.0.0",
+    # 2.x replaced the lowlevel Server's decorator registration; the floor
+    # is a major version so the next one cannot arrive unannounced.
+    "mcp>=2.0.0,<3.0.0",
     # Import-linter for MNLM boundary enforcement (§3.6):
     # prevents text-generation imports from leaking into the MNLM module.
     "import-linter>=1.12",
@@ -113,7 +115,7 @@ anthropic = [
 # etc.) can discover and call Theogony as a tool. Required for the
 # ``theogony mcp`` CLI command.
 mcp = [
-    "mcp>=1.0.0",
+    "mcp>=2.0.0,<3.0.0",
 ]
 research = [
     "trafilatura>=1.12,<2.0",

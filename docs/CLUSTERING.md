@@ -1,6 +1,6 @@
 # Clustering (PHX-0060 Phase 1)
 
-This document is the operator-facing companion to [`docs/etappes/W1_cluster_v1_brief.md`](etappes/W1_cluster_v1_brief.md) and [`phoenix-backlog/PHX-0060.yaml`](../phoenix-backlog/PHX-0060.yaml). Phase 1 ships **flat** semantic clusters over the Chronik: emergent “cognitive centers” (Sprachzentrum / Sehzentrum / code vs places vs fiction style regions) without claiming neuroscience fidelity — the metaphor guides product direction.
+This document is the operator-facing companion to [`docs/etappes/W1_cluster_v1_brief.md`](etappes/W1_cluster_v1_brief.md) and [`phoenix-backlog/archive/PHX-0060.yaml`](../phoenix-backlog/archive/PHX-0060.yaml). Phase 1 ships **flat** semantic clusters over the Chronik: emergent “cognitive centers” (Sprachzentrum / Sehzentrum / code vs places vs fiction style regions) without claiming neuroscience fidelity — the metaphor guides product direction.
 
 ## Locked Phase-1 decisions (four YAML knobs, resolved 2026-04-21)
 

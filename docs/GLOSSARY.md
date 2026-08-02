@@ -265,7 +265,7 @@ The world crawler. Searches for and acquires new public knowledge sources.
 The bulk ingestor. Handles large corpora, uploads, and structured source acquisition at scale.
 
 **Iris**  
-The Remember-layer output agent. Activates a subgraph via Spreading Activation and generates natural language from the vector constellation — not by retrieving stored text, but by formulating meaning from structure. Iris is the only point where the Chronik produces language for humans. Also ships as the **Pantheon Cockpit** ([PHX-0074](../phoenix-backlog/PHX-0074.yaml)) — the `/cockpit` dashboard ([`COCKPIT.md`](COCKPIT.md)).
+The Remember-layer output agent. Activates a subgraph via Spreading Activation and generates natural language from the vector constellation — not by retrieving stored text, but by formulating meaning from structure. Iris is the only point where the Chronik produces language for humans. Also ships as the **Pantheon Cockpit** ([PHX-0074](../phoenix-backlog/archive/PHX-0074.yaml)) — the `/cockpit` dashboard ([`COCKPIT.md`](COCKPIT.md)).
 
 **Pantheon Cockpit**  
 Server-rendered Iris UI on the FastAPI app (`src/theogony/cockpit/`): five panels (status, knowledge browser, clusters, reports, manifest). Default **127.0.0.1** binding with an explicit opt-in for public bind; **sample-only** caps aggregations for demos. See [`COCKPIT.md`](COCKPIT.md).
@@ -277,7 +277,7 @@ Single Markdown file (default `cockpit/manifest.md` under `data_dir`) owned by t
 `THEOGONY_COCKPIT__SAMPLE_ONLY=true` — caps search, cluster lists, and report tables so a cockpit URL can demonstrate layout without exposing the full graph.
 
 **Mnemosyne**  
-Meta-cognitive auditor ([PHX-0071](../phoenix-backlog/PHX-0071.yaml)): classifies whether a query is *about the chronicle itself*, appends run ids on cited nodes when the verdict is self-referential, and (optional Oneiros phase) clusters observations into `MnemosyneObservationCluster` reports. See [`MNEMOSYNE.md`](MNEMOSYNE.md).
+Meta-cognitive auditor ([PHX-0071](../phoenix-backlog/archive/PHX-0071.yaml)): classifies whether a query is *about the chronicle itself*, appends run ids on cited nodes when the verdict is self-referential, and (optional Oneiros phase) clusters observations into `MnemosyneObservationCluster` reports. See [`MNEMOSYNE.md`](MNEMOSYNE.md).
 
 **self-referential (query)**  
 A user or agent question whose topic is the Chronik's own schema, retrieval, embedding spaces, workers, lifecycle, or backlog — architectural introspection rather than domain fact lookup.

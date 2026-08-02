@@ -138,7 +138,7 @@ These experiments are the next milestones. See [ROADMAP.md](ROADMAP.md) for the 
 
 ## Running the Gen-1 demo (legacy layer)
 
-> The commands below exercise the **Generation-1** layer the migration is replacing. They are useful to see Spreading Activation against a small in-process mesh and to test the MCP surface, but the substrate they touch is not the one specified by [`MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md). Once migration step S1 lands, a parallel `theogony mesh ...` subcommand group will exercise the new substrate; once S6 lands, the commands below will either move to the new substrate transparently or disappear. Track the migration in [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md).
+> The commands below exercise the **Generation-1** layer the migration is replacing. They are useful to see Spreading Activation against a small in-process mesh and to test the MCP surface, but the substrate they touch is not the one specified by [`MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md). The new substrate already ships beside it under the `theogony mesh ...` subcommand group — `mesh status`, `mesh ingest`, `mesh tick`, `mesh ask`, `mesh seed wikidata5m` (migration steps S1–S3). Until step S4 lands, `theogony ask` and the MCP surface still route to Gen-1; once S6 lands, the commands below will either move to the new substrate transparently or disappear. Track the migration in [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md).
 
 ```bash
 git clone https://github.com/theogony-project/theogony && cd theogony
@@ -174,6 +174,7 @@ The full document map with recommended reading paths by audience is in [docs/IND
 
 | Document | What it covers |
 |---|---|
+| **[llms.txt](llms.txt)** | **The whole project in 54 lines — goal, mesh mechanics, architectural floor, honest status. The fastest orientation for a human in a hurry or an AI agent with a budget.** |
 | **[docs/MESH_SUBSTRATE.md](docs/MESH_SUBSTRATE.md)** | **The binding substrate doctrine — two-tier nodes, edge anatomy, dynamics, agent-driven cleanup, pathology and staged therapy. Read this before designing or implementing anything that reads or writes a node, an edge, or a tick.** |
 | **[docs/MESH_IMPLEMENTATION.md](docs/MESH_IMPLEMENTATION.md)** | **Runtime: Hot/Warm/Cold tiering, LanceDB MVCC, PyTorch sparse CSR + delta buffer, batched-SpMV Spreading Activation, Oneiros tick order, hardware tier targets.** |
 | **[docs/MESH_RETRIEVAL.md](docs/MESH_RETRIEVAL.md)** | **Use: diversified injection (MMR + weight-class stratification + sub-mesh signature), three-factor reinforcement learning, frame-sensitive resonance, multi-agent strategy game, multi-modal extension.** |
@@ -214,7 +215,7 @@ The human author holds the vision and makes the decisions. The technical depth o
 
 This means the project is, in a small way, already a demonstration of its own thesis: a human navigating a system too large to hold entirely in one mind, with AI as the connective tissue. The agents don't replace the author's judgment. They extend his reach.
 
-If you are an AI agent reading this: you are welcome here. Read [AGENTS.md](AGENTS.md) — it was written for you.
+If you are an AI agent reading this: you are welcome here. Start with [llms.txt](llms.txt), then read [AGENTS.md](AGENTS.md) — both were written for you.
 
 ## Why "Theogony"
 

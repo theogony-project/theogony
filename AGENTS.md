@@ -19,6 +19,8 @@ Deep north star: [`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md). Compact d
 
 ## Required Reading (in order)
 
+**Start with [`llms.txt`](llms.txt)** — 54 lines, the whole project compressed: goal, mesh mechanics, architectural floor, honest status, and the pointers below. If you read one file before touching anything, read that one.
+
 Before any non-trivial contribution:
 
 1. [`README.md`](README.md)
@@ -32,13 +34,13 @@ Before any non-trivial contribution:
 9. [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md) — implementation companion to (8): Hot/Warm/Cold storage tiers, Lance MVCC versioning, PyTorch sparse CSR + delta buffer for edges, batched-SpMV runtime for Spreading Activation, the binding Oneiros tick order, hardware tier targets, and the migration path from the current PoC. Read this before writing substrate-runtime code.
 10. [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md) — retrieval, learning, and multi-agent companion to (8): mandatory diversified injection (MMR + weight-class stratification + sub-mesh signature search), three-factor reinforcement learning with eligibility traces, frame-sensitive resonance for polarity / refutation, the multi-agent strategy-game framing with parallel-universe experimentation, multi-modal extension as substrate affordance. Read this before issuing a query, consuming a Constellation, or implementing anything an agent talks to the substrate through.
 11. [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md) — **binding migration plan from the current Generation-1 codebase to the MESH-triplet substrate.** Strangler-fig pattern in six PR-sized steps, parallel Phoenix-backlog migration, explicit forbidden patterns, a concrete first PR. **If you are opening a substrate-related PR, read this — it tells you which step you are on, what the scope cap is, and what must not creep in.**
-11. [`docs/SELF_MODIFICATION.md`](docs/SELF_MODIFICATION.md) — long-horizon principle: the Pantheon eventually writes its own next version. Today's substrate must not foreclose this.
-12. [`PHILOSOPHY.md`](PHILOSOPHY.md)
-13. [`docs/VISION.md`](docs/VISION.md)
-14. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-15. [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — **especially** the Pantheon-substrate vs Pantheon-agents vs builder-agents distinction, and the new "Mesh Substrate" section that locks the substrate vocabulary.
-16. [`docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md`](docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md) — the **superseded** Gen-1 implementation plan. Historical context only; the binding plan for current work is [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md) (item 11 above).
-17. [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md) — the structured queue you may pick from
+12. [`docs/SELF_MODIFICATION.md`](docs/SELF_MODIFICATION.md) — long-horizon principle: the Pantheon eventually writes its own next version. Today's substrate must not foreclose this.
+13. [`PHILOSOPHY.md`](PHILOSOPHY.md)
+14. [`docs/VISION.md`](docs/VISION.md)
+15. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+16. [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — **especially** the Pantheon-substrate vs Pantheon-agents vs builder-agents distinction, and the new "Mesh Substrate" section that locks the substrate vocabulary.
+17. [`docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md`](docs/IMPLEMENTATION_PLAN_GEN1_LEGACY.md) — the **superseded** Gen-1 implementation plan. Historical context only; the binding plan for current work is [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md) (item 11 above).
+18. [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md) — the structured queue you may pick from
 
 For deeper concepts, [`docs/INDEX.md`](docs/INDEX.md) lists the reading paths by intent.
 

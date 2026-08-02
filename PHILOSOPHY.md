@@ -113,7 +113,7 @@ The Phoenix process periodically distills the entire Chronik into a cleaner, mor
 
 ### 9. The chronicle grows where it is asked questions about its growth
 
-Meta-questions — about embeddings, schema, workers, retrieval, the backlog — carry architectural signal that must not evaporate after the answer is delivered. **Mnemosyne** ([PHX-0071](phoenix-backlog/PHX-0071.yaml), [operator doc](docs/MNEMOSYNE.md)) names that layer: classify, persist audit metadata on cited nodes, and aggregate patterns so humans (and later proposal automation) can file honest PHX work from lived operator curiosity.
+Meta-questions — about embeddings, schema, workers, retrieval, the backlog — carry architectural signal that must not evaporate after the answer is delivered. **Mnemosyne** ([PHX-0071](phoenix-backlog/archive/PHX-0071.yaml), [operator doc](docs/MNEMOSYNE.md)) names that layer: classify, persist audit metadata on cited nodes, and aggregate patterns so humans (and later proposal automation) can file honest PHX work from lived operator curiosity.
 
 ## The Economic Argument
 
