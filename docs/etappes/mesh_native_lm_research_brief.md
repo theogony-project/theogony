@@ -5,7 +5,7 @@
 **Original status:** Research order for in-repo agents (Cursor, Codex, Claude Code, Cline, …). **Not** an implementation plan. **Not** a substitute for [`docs/TARGET_ARCHITECTURE.md`](../TARGET_ARCHITECTURE.md), [`docs/etappes/kadmos_v2_brief.md`](kadmos_v2_brief.md), or any Daedalus planning document.
 **Filed by:** Chaos (vision / reflection role) — handoff to many parallel research agents, then to Hesiod for synthesis, then to Talos for any implementation that follows.
 **Date:** 2026-05-10
-**Companion (sister doc):** [`notes/deep_research/run12_brief.md`](../../notes/deep_research/run12_brief.md) — the same question phrased self-contained for external research agents (Gemini Deep Research, Manus, Perplexity Pro). When in doubt, the two briefs must agree on the **question**; the in-repo brief is the binding one for what an answer must respect to be merge-relevant.
+**Companion (sister doc):** `notes/deep_research/run12_brief.md` — the same question phrased self-contained for external research agents (Gemini Deep Research, Manus, Perplexity Pro). When in doubt, the two briefs must agree on the **question**; the in-repo brief is the binding one for what an answer must respect to be merge-relevant.
 
 ---
 
@@ -313,8 +313,8 @@ Read these in order. Not all of them, but in this order; stop when you have enou
 8. [`docs/etappes/chronik_mesh_agent_parallel_brief.md`](chronik_mesh_agent_parallel_brief.md) — the prior, narrower brainstorm for *one* mesh agent. The MNLM brief generalises that question. Read it as the seed; do not duplicate it.
 9. [`notes/architecture/reading_agent_vision.md`](../../notes/architecture/reading_agent_vision.md) — the user's own articulation of what reading-as-synthesis looks like; the MNLM family is the post-Kadmos extension of that vision into agents that no longer read text.
 10. [`notes/architecture/vector_native_spreading_activation.md`](../../notes/architecture/vector_native_spreading_activation.md) — the Spreading-Activation primitive in detail, in German.
-11. [`notes/deep_research/run10_brief.md`](../../notes/deep_research/run10_brief.md) and [`notes/deep_research/run11_brief.md`](../../notes/deep_research/run11_brief.md) — prior research questions on cognitively-plausible reading and on the sub-linguistic substrate. The MNLM question is downstream of these.
-12. [`notes/deep_research/run11_gemini.md`](../../notes/deep_research/run11_gemini.md) — Gemini Deep Research's response to run 11. Useful prior literature dump on COCONUT, GraphGPT, LatentMAS, Kairos / validation-gated Hebbian, SLM V3.3 / FRQAD, etc. Treat it as **a literature pointer, not an architectural commitment.** That report is uneven; some of its authorities are real, some are likely fabricated. Verify before citing.
+11. `notes/deep_research/run10_brief.md` and `notes/deep_research/run11_brief.md` — prior research questions on cognitively-plausible reading and on the sub-linguistic substrate. The MNLM question is downstream of these.
+12. `notes/deep_research/run11_gemini.md` — Gemini Deep Research's response to run 11. Useful prior literature dump on COCONUT, GraphGPT, LatentMAS, Kairos / validation-gated Hebbian, SLM V3.3 / FRQAD, etc. Treat it as **a literature pointer, not an architectural commitment.** That report is uneven; some of its authorities are real, some are likely fabricated. Verify before citing.
 13. **If they exist:** `notes/deep_research/run12_gemini.md` and `notes/deep_research/run12_deepseek.md` — external Deep Research responses to the *same* question this brief asks. Treat as **literature floor**, not as a template to imitate. Verify any citation before reusing it. Your artifact must be your own design, not a re-rendering of the external answer.
 
 ### Code worth touching before specifying

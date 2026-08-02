@@ -18,7 +18,7 @@ The architectural primitive that Nous instantiates — the MNLM as a class — i
 Supporting documents:
 
 → [`mesh_native_lm_research_brief.md`](mesh_native_lm_research_brief.md) — the *question* the binding brief answers. Repository-internal research order with reading discipline.
-→ [`../../notes/deep_research/run12_brief.md`](../../notes/deep_research/run12_brief.md) — the same MNLM question for external research agents (Gemini Deep Research, DeepSeek).
+→ `../../notes/deep_research/run12_brief.md` — the same MNLM question for external research agents (Gemini Deep Research, DeepSeek).
 → [`../research/mnlm/`](../research/mnlm/) — the five Round-1 research artifacts (opus, codex, gemini, deepresearch, DeepSeek) that fed Hesiod's synthesis.
 
 ## Why no Nous brief exists yet
