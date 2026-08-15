@@ -21,6 +21,7 @@ import threading
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import lancedb
@@ -84,11 +85,37 @@ class EdgeCSR:
 
 
 class EdgeDeltaBuffer:
-    """Lock-free append path merged into the stable CSR at each Oneiros tick."""
+    """Append path for Hebbian updates, merged into the CSR at each Oneiros tick.
 
-    def __init__(self) -> None:
+    When ``path`` is given the buffer is **durable**: each delta is also appended to
+    a JSONL sidecar, so reinforcement written by one process (``theogony mesh ask
+    --hebbian``) is drained by the tick in another (``theogony mesh tick``). Without
+    it the buffer is process-local, which makes the whole query -> reinforcement ->
+    tick loop inert across CLI invocations — the deltas die at process exit.
+
+    The sidecar lives beside the Lance directory rather than inside it: it is
+    scratch state with a different lifecycle (truncated on every drain), not a
+    versioned table.
+    """
+
+    def __init__(self, path: Path | None = None) -> None:
         self._lock = threading.Lock()
         self._rows: list[dict[str, Any]] = []
+        self._path = path
+
+    def _persisted(self) -> list[dict[str, Any]]:
+        if self._path is None or not self._path.is_file():
+            return []
+        rows: list[dict[str, Any]] = []
+        for line in self._path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                # A torn final line from a killed process costs one delta, not the tick.
+                continue
+        return rows
 
     def append_hebbian_delta(
         self,
@@ -97,24 +124,31 @@ class EdgeDeltaBuffer:
         target_id: str,
         weight_delta: float,
     ) -> None:
+        row = {
+            "source_id": source_id,
+            "target_id": target_id,
+            "weight_delta": weight_delta,
+        }
         with self._lock:
-            self._rows.append(
-                {
-                    "source_id": source_id,
-                    "target_id": target_id,
-                    "weight_delta": weight_delta,
-                }
-            )
+            if self._path is None:
+                self._rows.append(row)
+                return
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            with self._path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(row) + "\n")
 
     def drain(self) -> list[dict[str, Any]]:
         with self._lock:
             out = self._rows
             self._rows = []
+            if self._path is not None:
+                out = out + self._persisted()
+                self._path.unlink(missing_ok=True)
             return out
 
     def pending(self) -> int:
         with self._lock:
-            return len(self._rows)
+            return len(self._rows) + len(self._persisted())
 
 
 # ---- Merging helpers ----
@@ -282,9 +316,9 @@ def build_csr_from_edges(edges: list[Edge]) -> EdgeCSR:
 class EdgeStore:
     """Lance ``mesh_edges`` table + parallel ``edge_metadata`` table + delta buffer."""
 
-    def __init__(self, db: lancedb.DBConnection) -> None:
+    def __init__(self, db: lancedb.DBConnection, *, delta_path: Path | None = None) -> None:
         self._db = db
-        self.delta = EdgeDeltaBuffer()
+        self.delta = EdgeDeltaBuffer(delta_path)
         # Cheap write-clock for CSR cache invalidation (PHX-1041). Listing Lance
         # versions is O(version_count) and can take tens of seconds on busy
         # workspaces; this counter is O(1) and sufficient for single-process

@@ -402,6 +402,7 @@ def _render_constellation(result: RetrievalResult, *, max_nodes: int = 20) -> No
         "edges": len(c.edges),
         "source_anchors": len(c.source_anchor_ids),
         "gaps": c.gaps,
+        "hebbian_deltas": result.hebbian_deltas,
         "timings_ms": {k: round(v, 1) for k, v in result.timings_ms.items()},
     }
     _console.print(Panel.fit(json.dumps(summary, indent=2), title="mesh ask summary"))
@@ -440,6 +441,18 @@ def mesh_ask(
     json_out: bool = typer.Option(
         False, "--json", help="Emit the Constellation as JSON instead of tables."
     ),
+    hebbian: bool = typer.Option(
+        False,
+        "--hebbian",
+        help=(
+            "Reinforce the traversed edges into the delta buffer (off by default: a "
+            "query that mutates the mesh would make evaluations non-reproducible). "
+            "Deltas are applied by the next `theogony mesh tick`."
+        ),
+    ),
+    hebbian_learning_rate: float = typer.Option(
+        0.01, "--hebbian-lr", help="Weight credited per unit of endpoint co-activation."
+    ),
     mesh_root: Path | None = MESH_ROOT,
 ) -> None:
     """Query the MESH substrate: embed -> diversified injection -> Spreading Activation."""
@@ -468,6 +481,8 @@ def mesh_ask(
         hub_mask_top_n=hub_mask_top_n,
         vector_column=vector_column,
         query=query,
+        hebbian=hebbian,
+        hebbian_learning_rate=hebbian_learning_rate,
     )
     finished_at = datetime.now(UTC)
     verdict, reasoning = _mesh_query_verdict(result)
