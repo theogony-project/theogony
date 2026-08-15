@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-BIN="${THEOGONY_PYTHON_BIN:-venv/bin/theogony}"
+BIN="${THEOGONY_PYTHON_BIN:-.venv/bin/theogony}"
 STORE="${STORE:-neo4j}"
 
 THEOGONY_CURIOSITY__ATHENE__ENABLED=true "$BIN" curiosity athene-run --once --store "$STORE"

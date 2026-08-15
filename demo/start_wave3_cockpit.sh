@@ -18,4 +18,4 @@ export THEOGONY_CURIOSITY__NEMESIS__ENABLED="${THEOGONY_CURIOSITY__NEMESIS__ENAB
 export THEOGONY_CURIOSITY__ERIS__ENABLED="${THEOGONY_CURIOSITY__ERIS__ENABLED:-true}"
 export THEOGONY_MNEMOSYNE__CONDUCTOR_ENABLED="${THEOGONY_MNEMOSYNE__CONDUCTOR_ENABLED:-true}"
 
-exec "${THEOGONY_PYTHON_BIN:-venv/bin/theogony}" cockpit serve --host "${HOST:-127.0.0.1}" --port "${PORT:-8000}"
+exec "${THEOGONY_PYTHON_BIN:-.venv/bin/theogony}" cockpit serve --host "${HOST:-127.0.0.1}" --port "${PORT:-8000}"

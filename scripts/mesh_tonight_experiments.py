@@ -23,7 +23,7 @@ The relation-CONDITIONED comparison (the biggest measured lever, 0.110 -> 0.254)
 in scripts/mesh_relation_retrieval.py — run that too tonight for the full picture.
 
 Example (tonight, on the 100k subnet):
-    ./venv/bin/python scripts/mesh_tonight_experiments.py \
+    ./.venv/bin/python scripts/mesh_tonight_experiments.py \
         --root data/mesh-wiki-100k --max-test 1000 --locality-seeds 200
 """
 

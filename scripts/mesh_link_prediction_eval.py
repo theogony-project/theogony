@@ -7,7 +7,7 @@ popularity and geometry baselines.  See
 
 Example:
 
-    ./venv/bin/python scripts/mesh_link_prediction_eval.py \
+    ./.venv/bin/python scripts/mesh_link_prediction_eval.py \
         --root data/mesh-smoke2-safe \
         --triplets data/raw/wikidata5m/wikidata5m_all_triplet.txt \
         --max-test 500 --scan-limit 3000000 --hops 3 --damping 0.5

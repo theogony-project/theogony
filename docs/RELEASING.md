@@ -20,14 +20,14 @@ Before any release, build and inspect the distribution locally. This catches met
 rm -rf dist build
 
 # 2. Build wheel + sdist (uses an isolated build environment).
-./venv/bin/python -m build
+./.venv/bin/python -m build
 
 # 3. Validate the metadata the same way PyPI will.
-./venv/bin/python -m twine check dist/*
+./.venv/bin/python -m twine check dist/*
 
 # 4. Eyeball the wheel — confirms cli.py, mcp/, py.typed, and the
 #    answer_synthesizer.md prompt are all bundled.
-./venv/bin/python -m zipfile -l dist/*.whl | head -40
+./.venv/bin/python -m zipfile -l dist/*.whl | head -40
 
 # 5. Eyeball the sdist — confirms docs, prompts, phoenix-backlog,
 #    and the project metadata files are bundled.

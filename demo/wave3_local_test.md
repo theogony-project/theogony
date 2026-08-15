@@ -37,7 +37,7 @@ THEOGONY_CURIOSITY__CHRONOS__ENABLED=true \
 THEOGONY_CURIOSITY__NEMESIS__ENABLED=true \
 THEOGONY_CURIOSITY__ERIS__ENABLED=true \
 THEOGONY_MNEMOSYNE__CONDUCTOR_ENABLED=true \
-venv/bin/theogony cockpit serve --host 127.0.0.1 --port 8000
+.venv/bin/theogony cockpit serve --host 127.0.0.1 --port 8000
 ```
 
 ## 4. Ask and research
