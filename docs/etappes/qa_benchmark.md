@@ -110,6 +110,90 @@ harness now hands the next experiment a concrete bar to beat: **kNN recall@5 of
 cannot clear that, the thesis is in trouble; if it clears it *and* the density
 curve turns positive, that is the first real evidence for it.
 
+## Results — Kadmos-grade construction (LLM extraction)
+
+The first-cut left one dominant suspect: the entity bridges were spaCy-NER
+**co-occurrence**, which bridges every pair of entities sharing a passage whether
+or not they are related. So the follow-up experiment asks: *do clean, typed
+relational edges — Kadmos v2's own LLM extraction — carry the multi-hop signal
+that noisy co-occurrence bridges do not?*
+
+**Design: one corpus, one question set, two graphs.** Identical passages,
+embeddings, passage-kNN backbone, BM25 and bridge capping. The *only* difference
+is where entity↔entity bridges come from. Extraction uses Kadmos's real
+`SYSTEM_PROMPT` and `ParagraphReadingOutput` schema
+(`scripts/mesh_qa_kadmos.py`), so this measures the substrate's actual reading
+contract.
+
+Run on the **full corpora**, same as the first-cut above, so the numbers are
+directly comparable. Extraction: `deepseek-chat` at concurrency 24 —
+2Wiki 6,089 passages (0 failures, €1.53, 22 min), HotpotQA 9,811 passages
+(6 failures = 0.06 %, €2.77, 34 min). **Total €4.30.**
+
+| | 2Wiki cheap | 2Wiki Kadmos | HotpotQA cheap | HotpotQA Kadmos |
+|---|---:|---:|---:|---:|
+| entity nodes | 31,794 | 32,499 | 55,155 | 61,540 |
+| entity bridges | 323,314 | **37,281** | 489,540 | **77,303** |
+| bridges per entity | 10.2 | **1.15** | 8.9 | **1.26** |
+| `sa_raw` recall@5 | 0.151 | **0.221** | 0.147 | **0.303** |
+| `sa_ppr` recall@5 | 0.686 | 0.687 | 0.823 | 0.815 |
+| kNN recall@5 (reference) | 0.683 | 0.683 | 0.832 | 0.832 |
+
+Density sweep, `sa_ppr` recall@5 as the bridge fraction grows:
+
+| construction | 0 % | 25 % | 50 % | 100 % | kNN |
+|---|---:|---:|---:|---:|---:|
+| 2Wiki cheap | **0.691** | 0.688 | 0.687 | 0.686 | 0.683 |
+| 2Wiki Kadmos | **0.691** | 0.688 | 0.690 | 0.687 | 0.683 |
+| HotpotQA cheap | 0.807 | 0.822 | 0.818 | 0.823 | **0.832** |
+| HotpotQA Kadmos | 0.800 | 0.800 | 0.805 | 0.815 | **0.832** |
+
+**What this shows — consistent across both datasets:**
+
+1. **The extraction did what it was supposed to.** Kadmos bridges are **6–9×
+   sparser** (1.2 vs 9–10 per entity): it asserts relations instead of bridging
+   everything that co-occurs. The construction difference is real, not marginal.
+2. **Clean edges rescue the naive operator — substantially.** `sa_raw` improves
+   **+46 %** on 2Wiki (0.151 → 0.221) and **+106 %** on HotpotQA (0.147 → 0.303).
+   Hub collapse is therefore partly an artefact of *noisy bridges*, not only of
+   the operator. This is the clearest positive effect of Kadmos-grade extraction
+   found anywhere in this benchmark.
+3. **…but they add nothing to the fair operator.** `sa_ppr` moves +0.001 (2Wiki)
+   and **−0.008** (HotpotQA). **Clean edges and degree normalisation are
+   substitutes, not complements** — each fixes what the other already fixed. This
+   is the sharpest result of the run.
+4. **Still no crossover, in either construction, on either dataset.** SA reaches
+   parity on 2Wiki (+0.004) and stays *below* kNN on HotpotQA (−0.017). On 2Wiki
+   the best SA configuration is **zero entity bridges** (0.691) — the entity layer
+   contributes nothing net-positive there, and the small edge SA holds over kNN
+   comes from diffusion over the *passage-kNN* graph, not from entity structure.
+
+**The hypothesis is refuted on this evidence.** Kadmos-grade edges do not lift
+degree-aware Spreading Activation above dense-kNN parity. The predicted multi-hop
+advantage is **not** explained by edge cleanliness — a genuinely useful finding,
+because it removes the most plausible remaining explanation and forces the search
+elsewhere.
+
+One honest nuance in favour of clean edges: on HotpotQA the Kadmos density curve
+rises monotonically (0.800 → 0.815) while the cheap curve is flat and noisy — the
+*direction* is right, the *level* is not. More clean bridges do help; they start
+from a lower base and never reach kNN.
+
+**Where to look next** (hypotheses, not conclusions):
+
+- **The seeding ceiling — the strongest suspect.** SA seeds from the top-10
+  passages by query cosine, so it *starts inside kNN's neighbourhood*. Bridges can
+  only re-rank and expand from there; a gold passage far from every seed is rarely
+  reached before damping kills the mass. If retrieval is seeded by the thing it is
+  meant to beat, parity may be structural. Testing this means seeding differently
+  (entity-anchored seeds, query-term seeds, larger seed sets).
+- **Propagation shape.** 3 hops at damping 0.5 may be too shallow, or too steep,
+  for bridge paths to contribute.
+- **The benchmark itself.** 2Wiki/HotpotQA gold passages share heavy lexical
+  overlap with their questions, so embeddings may already be near the achievable
+  ceiling; a corpus where the answer genuinely cannot be found by similarity is a
+  fairer test of the claim.
+
 ## Reading the numbers honestly
 
 - Absolute recall is a **lower bound**: cheap spaCy+BGE construction, no
