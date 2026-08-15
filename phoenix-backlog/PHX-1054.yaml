@@ -1,0 +1,52 @@
+id: PHX-1054
+category: substrate-identity
+priority: high
+status: in_progress
+generation_target: MESH migration — identity integrity (S2/S3 foundation)
+title: "Uncorroborated LLM Q-IDs are accepted as identity with score 1.0"
+filed_by: Claude Code (audit follow-up, 2026-08-15)
+created_at: 2026-08-15
+description: >
+  The eager linker's Q-ID branch merged on any Q-ID string match with score 1.0
+  and no corroboration whatsoever, while the description (0.72) and tag (0.55)
+  branches both carry the PHX-1051 naming guard. The Q-ID is supplied by the
+  extraction LLM, reading_schemas coerces a bare string to confidence 1.0, and
+  the linker never reads that confidence — so a single hallucinated identifier
+  silently rewrote an entity's identity. PHX-1053 then made the damage durable:
+  merge_identity_evidence writes the merged Q-IDs back to the store and the
+  qid index, so a bad merge outlives the process that made it.
+
+  This was the strongest remaining identity-corruption vector after PHX-1051
+  closed the two vector-similarity paths.
+
+  Fix (this ticket's PR): a plausibility guard on the Q-ID path, deliberately
+  dosed *weaker* than the naming guard so it does not destroy what the Q-ID
+  path exists for — bridging entities whose names differ (Venus/Aphrodite,
+  Jove/Zeus, cross-language variants). Either signal suffices:
+
+    * naming — the incoming label is a known alias of the node, or shares a
+      token with its description or tags. Covers weak or hash-projection
+      embeddings, where semantically identical entities are near-orthogonal
+      (the wikidata5m seed handoff exercises exactly this).
+    * semantics — cosine over whatever vector pairs both sides actually have,
+      floor 0.35.
+
+  A Q-ID is rejected only when the vectors *can* be compared, disagree, and
+  nothing in the naming corroborates. When neither signal has data the Q-ID
+  stands — absent vectors are not evidence of a mismatch, and conflating
+  cosine 0.0 ("unrelated") with 0.0 ("nothing to compare") rejected every
+  vectorless caller in the first iteration of this fix.
+
+  Remaining gap, deliberately not addressed here: the extraction LLM's own
+  stated confidence is still never consulted, and bare-string Q-IDs are still
+  coerced to 1.0 in reading_schemas. A confidence-aware admission rule is a
+  separate change.
+
+relates_to:
+  - PHX-1051   # identity attractor — closed the description and tag paths
+  - PHX-1052   # protagonist extraction — same extraction surface
+  - PHX-1053   # identity-evidence persistence — is what makes a bad merge durable
+linked_scripts:
+  - src/theogony/mesh/ingestion/linker.py
+  - src/theogony/mesh/ingestion/reading_schemas.py
+  - tests/mesh/test_ingestion_linker_qid_plausibility.py
