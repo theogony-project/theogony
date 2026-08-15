@@ -17,6 +17,7 @@ from theogony.mesh.eval.qa_retrieval import (
     build_qa_graph,
     density_sweep,
     evaluate_methods,
+    graph_inputs_from_extractions,
     mrr_at_k,
     recall_at_k,
 )
@@ -91,6 +92,102 @@ def test_sa_finds_multihop_bridge_that_knn_misses() -> None:
     # Both SA variants ride the entity bridge P0 → e0 → P1 and recover the gold.
     assert metrics["sa_raw"].recall_at_2 == 1.0
     assert metrics["sa_ppr"].recall_at_2 == 1.0
+
+
+def test_extractions_intern_entities_across_passages_and_keep_declared_relations() -> None:
+    extractions = [
+        {
+            "concepts": [{"label": "Marie Curie"}, {"label": "Polonium"}],
+            "relations": [{"source": "Marie Curie", "target": "Polonium"}],
+        },
+        # Same entity, different casing/punctuation -> must fold to one node.
+        {
+            "concepts": [{"label": "marie curie."}, {"label": "Sorbonne"}],
+            "relations": [
+                {"source": "Marie Curie", "target": "Sorbonne"},
+                # endpoint never declared as a concept here -> dropped, not invented
+                {"source": "Marie Curie", "target": "Pierre Curie"},
+            ],
+        },
+    ]
+    names, per_passage, pairs = graph_inputs_from_extractions(extractions)
+
+    assert names.count("marie curie") == 1  # interned once across passages
+    curie = names.index("marie curie")
+    assert curie in per_passage[0] and curie in per_passage[1]
+    # Two real bridges; the relation to the undeclared "Pierre Curie" is not bridged.
+    assert len(pairs) == 2
+    assert all(curie in pair for pair in pairs)
+
+
+def test_normalize_reading_payload_maps_provider_aliases() -> None:
+    from theogony.mesh.eval.qa_retrieval import normalize_reading_payload
+    from theogony.mesh.ingestion.reading_schemas import ParagraphReadingOutput
+
+    # Shape DeepSeek actually returns: `name`/`wikidata_id` instead of `label`/`qids`,
+    # `subject`/`predicate`/`object` instead of source/relation_descriptor/target.
+    raw = {
+        "concepts": [
+            {"name": "Marie Curie", "wikidata_id": "Q7186", "type": "person"},
+            {"label": "Polonium", "description": "an element"},
+            {"description": "no label -> dropped"},
+        ],
+        "relations": [
+            {"subject": "Marie Curie", "predicate": "discovered", "object": "Polonium"},
+            {"subject": "Marie Curie"},  # missing target -> dropped
+        ],
+        "paragraph_concept": {"name": "Curie's discovery"},
+    }
+    payload = normalize_reading_payload(raw)
+
+    # Validates against the real Kadmos schema (extra="forbid") after normalisation.
+    parsed = ParagraphReadingOutput.model_validate(payload)
+    assert [c.label for c in parsed.concepts] == ["Marie Curie", "Polonium"]
+    assert parsed.concepts[0].entity_type == "person"
+    assert len(parsed.relations) == 1
+    rel = parsed.relations[0]
+    assert (rel.source, rel.relation_descriptor, rel.target) == (
+        "Marie Curie",
+        "discovered",
+        "Polonium",
+    )
+    assert parsed.paragraph_concept is not None
+    assert parsed.paragraph_concept.label == "Curie's discovery"
+
+
+def test_failed_extraction_contributes_nothing_but_does_not_break() -> None:
+    names, per_passage, pairs = graph_inputs_from_extractions(
+        [{}, {"concepts": [{"label": "Ada Lovelace"}], "relations": []}]
+    )
+    assert per_passage[0] == set()  # failed passage carries no entities
+    assert names == ["ada lovelace"]
+    assert pairs == {}
+
+
+def test_relation_bridges_are_sparser_than_cooccurrence_on_the_same_passages() -> None:
+    # One passage naming four entities: co-occurrence bridges all 6 pairs;
+    # the extractor asserted only 1 real relation. Sparser + targeted is the
+    # whole point of Kadmos-grade construction.
+    extraction = {
+        "concepts": [
+            {"label": "Alpha"},
+            {"label": "Beta"},
+            {"label": "Gamma"},
+            {"label": "Delta"},
+        ],
+        "relations": [{"source": "Alpha", "target": "Beta"}],
+    }
+    _names, per_passage, pairs = graph_inputs_from_extractions([extraction])
+    emb_p = torch.eye(1, 3)
+    emb_e = torch.eye(4, 3)
+
+    cheap = build_qa_graph(emb_p, emb_e, per_passage, knn_k=0)
+    kadmos = build_qa_graph(emb_p, emb_e, per_passage, knn_k=0, relation_pairs=pairs)
+
+    assert len(cheap.entity_edges) == 12  # 6 undirected pairs, both directions
+    assert len(kadmos.entity_edges) == 2  # 1 undirected pair, both directions
+    # Containment is identical — only the bridges differ.
+    assert cheap.containment_edges == kadmos.containment_edges
 
 
 def test_density_sweep_sa_pulls_away_from_knn_as_bridges_grow() -> None:
