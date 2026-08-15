@@ -30,9 +30,9 @@ class MeshAuditLog:
     def __init__(self, db: lancedb.DBConnection) -> None:
         resp = db.list_tables()
         if "mesh_audit" not in (resp.tables or []):
-            self._table: lancedb.table.LanceTable = db.create_table(
-                "mesh_audit", schema=_AUDIT_SCHEMA
-            )
+            # lancedb >= 0.37 returns the general `Table` from create/open; the
+            # concrete LanceTable is an implementation detail we never rely on.
+            self._table: lancedb.table.Table = db.create_table("mesh_audit", schema=_AUDIT_SCHEMA)
         else:
             self._table = db.open_table("mesh_audit")
 

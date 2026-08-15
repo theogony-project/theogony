@@ -8,18 +8,21 @@ It stores nodes, edges, and provenance data in columnar format.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
-from pathlib import Path
+from datetime import datetime
+from pathlib import Path as FilesystemPath
 
 import lancedb
 import pyarrow as pa
 
 from theogony.core.model import (
     ClusterSummary,
+    Constellation,
     KnowledgeEdge,
     KnowledgeNode,
     Layer,
     ScoreUpdate,
 )
+from theogony.core.store import Path, ScoredNode
 from theogony.core.tensor_engine import TensorMeshEngine
 
 
@@ -28,7 +31,7 @@ class LanceDBKnowledgeStore:
     LanceDB-backed persistent storage for the Chronicle.
     """
 
-    def __init__(self, db_path: Path | str, embedding_dim: int = 384):
+    def __init__(self, db_path: FilesystemPath | str, embedding_dim: int = 384):
         self.db_path = str(db_path)
         self.db = lancedb.connect(self.db_path)
         self.embedding_dim = embedding_dim
@@ -128,21 +131,41 @@ class LanceDBKnowledgeStore:
     # --- Methods required by the protocol but not fully implemented for MVP ---
 
     async def vector_search(
-        self, embedding, k=20, layer=None, node_types=None, min_confidence=None
-    ):
+        self,
+        embedding: list[float],
+        k: int = 20,
+        layer: Layer | None = None,
+        node_types: list[str] | None = None,
+        min_confidence: float | None = None,
+    ) -> list[ScoredNode]:
         raise NotImplementedError("Use spreading_activation instead.")
 
     async def traverse(
-        self, start_id, max_depth=3, min_weight=0.3, relation_types=None, *, pheromone_mode="follow"
-    ):
+        self,
+        start_id: str,
+        max_depth: int = 3,
+        min_weight: float = 0.3,
+        relation_types: list[str] | None = None,
+        *,
+        pheromone_mode: str = "follow",
+    ) -> list[Path]:
         raise NotImplementedError("Use spreading_activation instead.")
 
     async def multi_hop_search(
-        self, embedding, k=20, hops=3, min_weight=0.3, layer=None, *, pheromone_mode="follow"
-    ):
+        self,
+        embedding: list[float],
+        k: int = 20,
+        hops: int = 3,
+        min_weight: float = 0.3,
+        layer: Layer | None = None,
+        *,
+        pheromone_mode: str = "follow",
+    ) -> list[ScoredNode]:
         raise NotImplementedError("Use spreading_activation instead.")
 
-    async def get_edges_among(self, node_ids, min_weight=0.0):
+    async def get_edges_among(
+        self, node_ids: Sequence[str], min_weight: float = 0.0
+    ) -> list[KnowledgeEdge]:
         return []
 
     async def get_node(self, node_id: str) -> KnowledgeNode | None:
@@ -151,7 +174,14 @@ class LanceDBKnowledgeStore:
             return KnowledgeNode.model_validate_json(result[0]["payload"])
         return None
 
-    async def get_neighborhood(self, node_id, depth=2, min_weight=0.3, *, pheromone_mode="follow"):
+    async def get_neighborhood(
+        self,
+        node_id: str,
+        depth: int = 2,
+        min_weight: float = 0.3,
+        *,
+        pheromone_mode: str = "follow",
+    ) -> Constellation:
         raise NotImplementedError("Use spreading_activation instead.")
 
     async def delete_node(self, node_id: str) -> None:
@@ -178,7 +208,9 @@ class LanceDBKnowledgeStore:
     async def get_cluster_centroid(self, cluster_id: str) -> list[float]:
         return []
 
-    async def assign_cluster(self, node_id, cluster_id, *, cluster_label=None) -> None:
+    async def assign_cluster(
+        self, node_id: str, cluster_id: str | None, *, cluster_label: str | None = None
+    ) -> None:
         pass
 
     async def list_clusters(self) -> list[ClusterSummary]:
@@ -187,48 +219,67 @@ class LanceDBKnowledgeStore:
     async def get_cluster_members(self, cluster_id: str) -> AsyncIterator[str]:
         yield ""
 
-    async def batch_bump_edges(self, edge_ids, *, delta, ts) -> None:
+    async def batch_bump_edges(
+        self, edge_ids: Sequence[str], *, delta: float, ts: datetime
+    ) -> None:
         pass
 
-    async def list_aged_pheromone_edges(self, *, horizon, epsilon) -> list[tuple[str, float]]:
+    async def list_aged_pheromone_edges(
+        self, *, horizon: datetime, epsilon: float
+    ) -> list[tuple[str, float]]:
         return []
 
-    async def batch_update_pheromone_deltas(self, updates) -> None:
+    async def batch_update_pheromone_deltas(self, updates: Sequence[tuple[str, float]]) -> None:
         pass
 
     async def export_layer(self, layer: Layer) -> AsyncIterator[KnowledgeNode]:
-        yield KnowledgeNode(label="dummy", source_ref=None)
+        # Was yielding KnowledgeNode(label="dummy", source_ref=None) — a node the
+        # schema does not permit (source_ref is required). Anything consuming this
+        # would have received an invalid node instead of a clear signal.
+        raise NotImplementedError("export_layer is not implemented for the LanceDB store.")
+        yield  # pragma: no cover - keeps the async-generator type
 
     async def import_nodes(self, nodes: AsyncIterator[KnowledgeNode]) -> None:
         pass
 
-    async def list_pending_resolution(self, layer=None, limit=100) -> list[KnowledgeNode]:
+    async def list_pending_resolution(
+        self, layer: Layer | None = None, limit: int = 100
+    ) -> list[KnowledgeNode]:
         return []
 
     async def resolve_node(self, node_id: str, wikidata_id: str | None) -> bool:
         return False
 
-    async def count_nodes(self, layer=None) -> int:
+    async def count_nodes(self, layer: Layer | None = None) -> int:
         return len(self.nodes_table)
 
     async def health(self) -> dict[str, object]:
         return {"status": "ok"}
 
     async def list_low_connectivity_nodes(
-        self, *, layer, max_edges, batch_size
+        self, *, layer: Layer, max_edges: int, batch_size: int
     ) -> list[KnowledgeNode]:
         return []
 
     async def find_similar_nodes_in_band(
-        self, embedding, *, band_low, band_high, exclude_ids, top_k, layer=None
-    ):
+        self,
+        embedding: list[float],
+        *,
+        band_low: float,
+        band_high: float,
+        exclude_ids: set[str],
+        top_k: int,
+        layer: Layer | None = None,
+    ) -> list[ScoredNode]:
         return []
 
-    async def update_depth_band(self, node_id, depth_band, *, layer=None) -> None:
+    async def update_depth_band(
+        self, node_id: str, depth_band: int, *, layer: Layer | None = None
+    ) -> None:
         pass
 
     async def list_nodes_by_source_identifier(
-        self, *, identifier, exclude_id=None
+        self, *, identifier: str, exclude_id: str | None = None
     ) -> list[KnowledgeNode]:
         return []
 

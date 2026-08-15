@@ -14,6 +14,7 @@ import lancedb
 import pyarrow as pa
 
 from theogony.mesh.schemas import ChunkNode, ConsolidatedNode, QIDTag
+from theogony.stores.lance_typing import as_vector_query
 
 
 def _normalize_label(label: str) -> str:
@@ -333,9 +334,11 @@ class MeshNodeStore:
             return []
         try:
             rows = (
-                self.consolidated_table.search(
-                    vector,
-                    vector_column_name=vector_column_name,
+                as_vector_query(
+                    self.consolidated_table.search(
+                        vector,
+                        vector_column_name=vector_column_name,
+                    )
                 )
                 .metric("cosine")
                 .limit(limit)
@@ -345,9 +348,11 @@ class MeshNodeStore:
             if vector_column_name == "semantic_vector":
                 raise
             rows = (
-                self.consolidated_table.search(
-                    vector,
-                    vector_column_name="semantic_vector",
+                as_vector_query(
+                    self.consolidated_table.search(
+                        vector,
+                        vector_column_name="semantic_vector",
+                    )
                 )
                 .metric("cosine")
                 .limit(limit)

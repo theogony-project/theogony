@@ -22,15 +22,24 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskID,
+    TextColumn,
+    TimeElapsedColumn,
+)
 from rich.table import Column, Table
 
+from theogony.agents.llm import LLMProvider
 from theogony.config.logging import get_logger
+from theogony.extraction.embedding import EmbeddingProvider
 from theogony.kadmos.reader import KadmosReader
 from theogony.reporting.models import new_run_id
 
@@ -78,8 +87,8 @@ class CrawlCoordinator:
 
     def __init__(
         self,
-        llm_provider: object,
-        embedder: object,
+        llm_provider: LLMProvider,
+        embedder: EmbeddingProvider,
         *,
         corpus_path: Path = CORPUS_PATH,
         crawl_log_path: Path = CRAWL_LOG_PATH,
@@ -124,13 +133,13 @@ class CrawlCoordinator:
             TextColumn("[cyan]{task.completed}/{task.total}[/cyan]"),
             TimeElapsedColumn(),
         )
-        self._task_id: int | None = None
+        self._task_id: TaskID | None = None
 
         # Per-domain progress
         self._domain_counts: dict[str, int] = {}
         self._domain_progress: dict[str, tuple[int, int]] = {}  # done, total
 
-    def _load_corpus(self) -> list[dict]:
+    def _load_corpus(self) -> list[dict[str, Any]]:
         """Load the 200-article corpus from the locked JSON."""
         if not self._corpus_path.exists():
             raise FileNotFoundError(
@@ -138,9 +147,10 @@ class CrawlCoordinator:
                 "Run scripts/build_mnlm_corpus.py first."
             )
         with open(self._corpus_path, encoding="utf-8") as f:
-            return json.load(f)
+            corpus: list[dict[str, Any]] = json.load(f)
+        return corpus
 
-    def _load_crawl_log(self) -> dict[str, dict]:
+    def _load_crawl_log(self) -> dict[str, dict[str, Any]]:
         """Load the crawl log, returning {title: entry} for already-processed articles.
 
         The crawl_log.jsonl has one JSON line per article:
@@ -150,7 +160,7 @@ class CrawlCoordinator:
         if not self._crawl_log_path.exists():
             return {}
 
-        entries: dict[str, dict] = {}
+        entries: dict[str, dict[str, Any]] = {}
         with open(self._crawl_log_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
@@ -165,7 +175,7 @@ class CrawlCoordinator:
                     log.warning("crawl: skipping unparseable log line: %s", line[:80])
         return entries
 
-    def _append_to_crawl_log(self, entry: dict) -> None:
+    def _append_to_crawl_log(self, entry: dict[str, Any]) -> None:
         """Append one line to the crawl log (atomic append, no read required)."""
         with open(self._crawl_log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -272,7 +282,7 @@ class CrawlCoordinator:
 
         try:
             # First pass: collect remaining articles (skip completed)
-            remaining: list[dict] = []
+            remaining: list[dict[str, Any]] = []
             for article in corpus:
                 title = article["title"]
                 if title in completed and completed[title].get("verdict") != "failed":
@@ -297,8 +307,8 @@ class CrawlCoordinator:
                 self._batch_size,
             )
 
-            async def process_with_sem(article: dict) -> dict | None:
-                """Process one article. Returns a log line dict or None."""
+            async def process_with_sem(article: dict[str, Any]) -> dict[str, Any] | None:
+                """Process one article. Returns a log line dict[str, Any] or None."""
                 async with semaphore:
                     if self._shutdown_requested:
                         return None
@@ -342,9 +352,10 @@ class CrawlCoordinator:
 
                     # Process results (sequential fast path — no LLM calls here)
                     batch_lines: list[str] = []
-                    for _article, entry in zip(batch, batch_results, strict=True):
-                        if entry is None:
+                    for _article, result_entry in zip(batch, batch_results, strict=True):
+                        if result_entry is None:
                             continue
+                        entry = result_entry
                         self._processed += 1
                         self._total_cost_eur += entry["cost_eur"]
                         self._total_duration_s += entry["duration_s"]
@@ -410,9 +421,10 @@ class CrawlCoordinator:
         layout.add_row(Panel(self._build_domain_table(), title="Per domain"))
 
         # Progress bar
-        self._progress.update(
-            self._task_id, total=(self._total_articles if self._total_articles > 0 else 1)
-        )
+        if self._task_id is not None:
+            self._progress.update(
+                self._task_id, total=(self._total_articles if self._total_articles > 0 else 1)
+            )
         layout.add_row(Panel(self._progress, title="Progress"))
 
         # Last batch results
@@ -469,16 +481,16 @@ class CrawlCoordinator:
             " ".join(domain_parts),
         )
 
-    def _iter_batches(self, corpus: list[dict]) -> list[list[dict]]:
+    def _iter_batches(self, corpus: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
         """Split the corpus into domain-sequential batches."""
         # Group by domain (preserving order from corpus)
-        domains: dict[str, list[dict]] = {}
+        domains: dict[str, list[dict[str, Any]]] = {}
         for article in corpus:
             domain = article.get("domain", "unknown")
             domains.setdefault(domain, []).append(article)
 
         # Yield batches: process one domain at a time, batch_size per batch
-        batches: list[list[dict]] = []
+        batches: list[list[dict[str, Any]]] = []
         for _domain, articles in domains.items():
             for i in range(0, len(articles), self._batch_size):
                 batches.append(articles[i : i + self._batch_size])
@@ -538,8 +550,12 @@ class CrawlCoordinator:
 
         elapsed = time.monotonic() - start_time
 
-        # Map KadmosRunReport status to crawl verdict
-        report_verdict = report.status  # "completed", "partial", "failed"
+        # Map KadmosRunReport status to crawl verdict. `status` can also be
+        # "aborted", which CrawlVerdict does not carry — and it must not simply be
+        # passed through: the resume logic treats every verdict except "failed" as
+        # done, so an aborted article would be skipped on the next run instead of
+        # retried. Folding it into "failed" is what makes the crawl resumable.
+        report_verdict: CrawlVerdict = "failed" if report.status == "aborted" else report.status
 
         # Only persist, crosslink, and export if the session produced content
         if annotated.total_concepts > 0:
@@ -553,7 +569,7 @@ class CrawlCoordinator:
             try:
                 from theogony.kadmos.crosslink import ChronikCrosslinker
 
-                crosslink_nodes: list[dict] = []
+                crosslink_nodes: list[dict[str, Any]] = []
                 for synth in annotated.final_syntheses:
                     emb = await self._embedder.embed(synth.label + ": " + synth.description)
                     emb_vec = emb[:384] if len(emb) >= 384 else emb + [0.0] * (384 - len(emb))
@@ -660,7 +676,7 @@ def print_crawl_status(
     with open(corpus_path, encoding="utf-8") as f:
         corpus = json.load(f)
 
-    entries: dict[str, dict] = {}
+    entries: dict[str, dict[str, Any]] = {}
     if crawl_log_path.exists():
         with open(crawl_log_path, encoding="utf-8") as f:
             for line in f:

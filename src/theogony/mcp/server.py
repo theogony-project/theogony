@@ -83,7 +83,10 @@ from theogony.retrieval.synthesizer_factory import build_synthesizer
 from theogony.stores.memory import InMemoryKnowledgeStore
 
 if TYPE_CHECKING:  # pragma: no cover
-    pass
+    # FastAPI is an optional extra, imported lazily at the call site below. Naming
+    # the real type here (rather than `object`) keeps the runtime import lazy while
+    # letting the type checker see through `.state` assignments and the Mount().
+    from fastapi import FastAPI
 
 log = get_logger("mcp.server")
 
@@ -965,7 +968,7 @@ async def serve_sse(*, host: str, port: int, seed_path: Path | None) -> None:
     # after Starlette() is constructed, but our resources are loaded
     # inside the lifespan via open_resources().
     settings_preview = Settings()
-    cockpit_subapp: object | None = None
+    cockpit_subapp: FastAPI | None = None
     if settings_preview.cockpit.enabled:
         from fastapi import FastAPI as _FastAPI
 

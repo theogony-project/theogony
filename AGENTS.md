@@ -104,6 +104,14 @@ second venv once produced two red tests against code CI was passing. If a local
 failure looks unrelated to your change, check the installed version of the
 package in the traceback against `pyproject.toml` before touching the code.
 
+**The reverse also happens: green locally, red in CI.** The dependencies are
+unpinned, so CI's fresh resolve can be well ahead of a local environment —
+`mypy` once passed locally on lancedb 0.30 / openai 2.32 and failed in CI on
+lancedb 0.37 / openai 3.1, where `LanceQueryBuilder.metric` no longer exists.
+When CI reports an error you cannot reproduce, read the versions out of the CI
+install log and install those exact ones locally before changing anything.
+Guessing at a fix you cannot run is how a green build gets papered over.
+
 ### 6. Plan adherence is the default
 
 The architecture is decided by the MESH triplet ([`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md) + [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md) + [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md)); the migration to it is sequenced by [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md). If those documents are silent on a question, propose the minimal interpretation in the PR body. If they are wrong, do not silently route around them — flag the contradiction in the PR body and file a new (PHX-1000+) Phoenix Backlog ticket per [`phoenix-backlog/README.md`](phoenix-backlog/README.md).

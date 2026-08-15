@@ -108,7 +108,8 @@ async def fetch_day_tfa_wikitext(
         revs = page.get("revisions")
         if not revs:
             raise RuntimeError(f"No revisions for TFA day page: {title!r}")
-        return revs[0]["slots"]["main"]["*"]
+        wikitext: str = revs[0]["slots"]["main"]["*"]
+        return wikitext
     raise RuntimeError("Empty query.pages")
 
 
