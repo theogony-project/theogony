@@ -128,6 +128,26 @@ def test_retrieve_returns_connected_anchored_constellation(mesh_runtime) -> None
     assert report.constellation_node_count >= 1
 
 
+def test_retrieval_is_read_only_unless_hebbian_is_requested(mesh_runtime) -> None:
+    """The guarantee the benchmarks rely on: a plain query never mutates the mesh.
+
+    Thousands of evaluation queries run through this path; if any of them wrote
+    deltas, every measurement would depend on how many queries preceded it.
+    """
+    _build_solar_system(mesh_runtime)
+    query_vec = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    result = retrieve(mesh_runtime, query_vec, top_k=10, k_seeds=3, query="What orbits the Sun?")
+    assert result.hebbian_deltas == 0
+    assert mesh_runtime.edges.delta.pending() == 0
+
+    reinforced = retrieve(
+        mesh_runtime, query_vec, top_k=10, k_seeds=3, query="What orbits the Sun?", hebbian=True
+    )
+    assert reinforced.hebbian_deltas > 0
+    assert mesh_runtime.edges.delta.pending() == reinforced.hebbian_deltas
+
+
 def test_assemble_constellation_empty_mesh(mesh_runtime) -> None:
     import torch
 

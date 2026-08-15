@@ -11,7 +11,12 @@ Wires the S3 pieces into one call: a query **vector** in, a :class:`Constellatio
 
 The orchestrator is embedder-agnostic: callers pass a query vector already in the
 workspace's semantic space (the ``theogony mesh ask`` CLI does the text->vector step).
-No synthesis, no LLM, no feedback write-back (three-factor RL is a later step).
+No synthesis, no LLM.
+
+Retrieval is **read-only by default**. Passing ``hebbian=True`` additionally credits
+the traversed edges into the delta buffer, closing the query -> reinforcement ->
+tick -> denser-mesh loop; see :func:`append_hebbian_deltas` for what that does and,
+importantly, what it is not (one-factor Hebbian, not the doctrine's three-factor RL).
 """
 
 from __future__ import annotations
@@ -45,6 +50,54 @@ class RetrievalResult:
     frame_routed: bool
     ann_hit_count: int
     timings_ms: dict[str, float] = field(default_factory=dict)
+    hebbian_deltas: int = 0
+
+
+def append_hebbian_deltas(
+    runtime: MeshRuntime,
+    constellation: Constellation,
+    *,
+    learning_rate: float = 0.01,
+    max_deltas: int = 64,
+) -> int:
+    """Reinforce the edges this query actually traversed. Returns the delta count.
+
+    "Fire together, wire together": each edge in the returned Constellation is
+    credited in proportion to the product of its endpoints' activation, so the
+    paths that carried the answer strengthen and incidental ones barely move. The
+    deltas land in the append-only :class:`EdgeDeltaBuffer`; nothing is written to
+    Lance here. They are merged, decayed and saturated by the next Oneiros tick
+    (``theogony mesh tick``), which is where the substrate's dynamics belong.
+
+    Bounded by ``max_deltas`` (highest co-activation first) so a single broad query
+    cannot flood the buffer — the tick's cost is linear in what it drains.
+
+    **This is one-factor Hebbian learning, not the three-factor rule the doctrine
+    specifies.** MESH_RETRIEVAL requires a consumer-feedback signal and a rater
+    distinct from the consumer; neither exists yet. Reinforcing on co-activation
+    alone rewards what the substrate already believed, so it will amplify existing
+    structure — including wrong structure. That is why this is opt-in, and why the
+    honest description is "the loop is closeable", not "the loop is correct".
+    """
+    activation = {n.node_id: n.activation for n in constellation.nodes}
+    scored: list[tuple[float, str, str]] = []
+    for edge in constellation.edges:
+        source_act = activation.get(edge.source_id, 0.0)
+        target_act = activation.get(edge.target_id, 0.0)
+        if source_act <= 0.0 or target_act <= 0.0:
+            continue
+        scored.append((source_act * target_act, edge.source_id, edge.target_id))
+
+    scored.sort(key=lambda row: row[0], reverse=True)
+    written = 0
+    for product, source_id, target_id in scored[:max_deltas]:
+        runtime.edges.delta.append_hebbian_delta(
+            source_id=source_id,
+            target_id=target_id,
+            weight_delta=learning_rate * product,
+        )
+        written += 1
+    return written
 
 
 def _in_strength(csr: EdgeCSR) -> torch.Tensor:
@@ -137,6 +190,9 @@ def retrieve(
     query: str | None = None,
     csr: EdgeCSR | None = None,
     propagator: Propagator | None = None,
+    hebbian: bool = False,
+    hebbian_learning_rate: float = 0.01,
+    hebbian_max_deltas: int = 64,
 ) -> RetrievalResult:
     """Run one diversified-injection + Spreading-Activation query; return a Constellation.
 
@@ -249,6 +305,19 @@ def retrieve(
     )
     timings["assemble_ms"] = (time.perf_counter() - t3) * 1000.0
 
+    # Opt-in by design: a query that silently mutates the substrate would make every
+    # evaluation non-reproducible and quietly contaminate the retrieval benchmarks.
+    deltas = 0
+    if hebbian:
+        t4 = time.perf_counter()
+        deltas = append_hebbian_deltas(
+            runtime,
+            constellation,
+            learning_rate=hebbian_learning_rate,
+            max_deltas=hebbian_max_deltas,
+        )
+        timings["hebbian_ms"] = (time.perf_counter() - t4) * 1000.0
+
     return RetrievalResult(
         constellation=constellation,
         seed_node_ids=[csr.node_ids[i] for i in seeds if 0 <= i < n],
@@ -256,4 +325,5 @@ def retrieve(
         frame_routed=frame_routed,
         ann_hit_count=len(hits),
         timings_ms=timings,
+        hebbian_deltas=deltas,
     )

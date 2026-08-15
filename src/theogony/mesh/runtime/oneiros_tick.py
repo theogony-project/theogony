@@ -81,7 +81,9 @@ class MeshRuntime:
         self.db = lancedb.connect(str(root / "lance"))
 
         self.nodes = MeshNodeStore(self.db, semantic_dim=semantic_dim, frame_dim=frame_dim)
-        self.edges = EdgeStore(self.db)
+        # Durable delta sidecar: reinforcement written by `mesh ask --hebbian` in one
+        # process must survive to be drained by `mesh tick` in another.
+        self.edges = EdgeStore(self.db, delta_path=root / "edge_deltas.jsonl")
         self.audit = MeshAuditLog(self.db)
 
         self._state_path = root / "mesh_state.json"
