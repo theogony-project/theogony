@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from dataclasses import dataclass
@@ -16,7 +17,11 @@ from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
 from theogony.mesh.ingestion.concept_resolver import ConceptResolver
 from theogony.mesh.ingestion.linker import EagerLinker
-from theogony.mesh.ingestion.reading_schemas import LLMConcept, ParagraphReadingOutput
+from theogony.mesh.ingestion.reading_schemas import (
+    LLMConcept,
+    ParagraphReadingOutput,
+    normalize_reading_payload,
+)
 from theogony.mesh.ingestion.source_anchor import (
     build_paragraph_anchor_title,
     build_source_anchor_node,
@@ -775,7 +780,14 @@ class MeshParagraphReader:
                 temperature=0.1,
                 timeout_s=45,
             )
-            output = ParagraphReadingOutput.model_validate_json(result.text)
+            # Providers differ in how strictly they honour a JSON schema. DeepSeek
+            # returns name/wikidata_id/subject/object, which failed validation
+            # outright — every paragraph became a schema failure and ingestion
+            # produced nothing but source anchors. Normalising known aliases first
+            # keeps a good extraction that merely disagrees on spelling; anything
+            # structurally unusable still fails validation below.
+            payload = normalize_reading_payload(json.loads(result.text))
+            output = ParagraphReadingOutput.model_validate(payload)
             return output, {
                 "cost_eur": result.cost_eur,
                 "duration_s": time.monotonic() - started,

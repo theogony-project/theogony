@@ -102,3 +102,80 @@ class ParagraphReadingOutput(BaseModel):
         default=None,
         description="Optional paragraph-level concept node",
     )
+
+
+# ---------------------------------------------------------------------------
+# Provider tolerance
+# ---------------------------------------------------------------------------
+
+# Field aliases seen from providers that do not enforce the JSON schema strictly
+# (DeepSeek returns `name`/`wikidata_id`; others vary). Mapping them instead of
+# discarding the reading keeps a good extraction that merely disagrees on spelling
+# — the same tolerance `kadmos/reader.py` already applies on the Gen-1 path.
+_CONCEPT_ALIASES = {
+    "name": "label",
+    "title": "label",
+    "concept": "label",
+    "type": "entity_type",
+    "category": "entity_type",
+    "desc": "description",
+    "summary": "description",
+}
+_RELATION_ALIASES = {
+    "subject": "source",
+    "from": "source",
+    "head": "source",
+    "object": "target",
+    "to": "target",
+    "tail": "target",
+    "relation": "relation_descriptor",
+    "predicate": "relation_descriptor",
+    "descriptor": "relation_descriptor",
+    "kind": "relation_kind",
+}
+_CONCEPT_FIELDS = {"label", "entity_type", "tags", "description", "qids"}
+_RELATION_FIELDS = {"source", "target", "relation_descriptor", "relation_kind", "rationale"}
+
+
+def _rename(row: dict[str, object], aliases: dict[str, str], keep: set[str]) -> dict[str, object]:
+    out: dict[str, object] = {}
+    for key, value in row.items():
+        canonical = aliases.get(key, key)
+        if canonical in keep and canonical not in out:
+            out[canonical] = value
+    return out
+
+
+def normalize_reading_payload(raw: dict[str, object]) -> dict[str, object]:
+    """Coerce a provider's reading JSON into the ``ParagraphReadingOutput`` shape.
+
+    Renames known field aliases and drops unknown keys, so a model that got the
+    *content* right but the *field names* wrong still validates rather than being
+    thrown away. Anything structurally unusable (missing label, missing endpoints)
+    is dropped by the caller's schema validation, which stays strict.
+    """
+    concepts_in = raw.get("concepts")
+    relations_in = raw.get("relations")
+    concepts = [
+        _rename(c, _CONCEPT_ALIASES, _CONCEPT_FIELDS)
+        for c in (concepts_in if isinstance(concepts_in, list) else [])
+        if isinstance(c, dict)
+    ]
+    relations = [
+        _rename(r, _RELATION_ALIASES, _RELATION_FIELDS)
+        for r in (relations_in if isinstance(relations_in, list) else [])
+        if isinstance(r, dict)
+    ]
+    out: dict[str, object] = {
+        "concepts": [c for c in concepts if c.get("label")],
+        "relations": [r for r in relations if r.get("source") and r.get("target")],
+    }
+    para = raw.get("paragraph_concept")
+    if isinstance(para, dict):
+        renamed = _rename(
+            para, _CONCEPT_ALIASES, {"label", "description", "tags", "basis_concepts"}
+        )
+        if renamed.get("label"):
+            renamed.setdefault("description", "")
+            out["paragraph_concept"] = renamed
+    return out

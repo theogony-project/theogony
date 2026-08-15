@@ -121,8 +121,10 @@ def test_extractions_intern_entities_across_passages_and_keep_declared_relations
 
 
 def test_normalize_reading_payload_maps_provider_aliases() -> None:
-    from theogony.mesh.eval.qa_retrieval import normalize_reading_payload
-    from theogony.mesh.ingestion.reading_schemas import ParagraphReadingOutput
+    from theogony.mesh.ingestion.reading_schemas import (
+        ParagraphReadingOutput,
+        normalize_reading_payload,
+    )
 
     # Shape DeepSeek actually returns: `name`/`wikidata_id` instead of `label`/`qids`,
     # `subject`/`predicate`/`object` instead of source/relation_descriptor/target.
