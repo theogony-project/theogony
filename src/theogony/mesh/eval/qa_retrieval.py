@@ -197,6 +197,42 @@ def _l2_unit(mat: torch.Tensor) -> torch.Tensor:
     return out
 
 
+def _entity_bridge_edges(
+    weighted_pairs: dict[tuple[int, int], float],
+    *,
+    max_entity_degree: int,
+    seed: int,
+) -> list[EdgeRow]:
+    """Cap, shuffle, and symmetrise entity↔entity bridges.
+
+    Shared by both constructions (co-occurrence and LLM relations) so the only
+    thing that differs between them is *which pairs* are bridged — not how those
+    bridges are capped or ordered. That keeps the ablation honest.
+
+    Pairs are capped per entity (highest weight first) to bound hub degree, then
+    shuffled at the *pair* level and flattened with both directions adjacent, so a
+    nested-prefix density sweep keeps each undirected bridge whole.
+    """
+    per_entity: dict[int, list[tuple[int, float]]] = defaultdict(list)
+    for (a, b), w in weighted_pairs.items():
+        per_entity[a].append((b, w))
+        per_entity[b].append((a, w))
+    kept: set[tuple[int, int]] = set()
+    for a, neigh in per_entity.items():
+        neigh.sort(key=lambda x: x[1], reverse=True)
+        for b, _w in neigh[:max_entity_degree]:
+            kept.add((min(a, b), max(a, b)))
+
+    ordered_pairs = sorted(kept)
+    random.Random(seed).shuffle(ordered_pairs)
+    edges: list[EdgeRow] = []
+    for a, b in ordered_pairs:
+        w = float(weighted_pairs.get((a, b), weighted_pairs.get((b, a), 1.0)))
+        edges.append((f"e{a}", f"e{b}", w))
+        edges.append((f"e{b}", f"e{a}", w))
+    return edges
+
+
 def build_qa_graph(
     passage_emb: torch.Tensor,
     entity_emb: torch.Tensor,
@@ -205,6 +241,7 @@ def build_qa_graph(
     knn_k: int = 10,
     max_entity_degree: int = 32,
     seed: int = 0,
+    relation_pairs: dict[tuple[int, int], float] | None = None,
 ) -> QAGraph:
     """Build a symmetric passage+entity graph.
 
@@ -217,9 +254,16 @@ def build_qa_graph(
     * **containment** passage↔entity (weight 1.0) — connects a passage to its entities.
     * **knn** passage↔passage — top-``knn_k`` cosine neighbours (weight = cosine); the
       geometric baseline embedded *into* the graph.
-    * **entity** entity↔entity — co-occurrence within a passage (weight = #co-occurrences,
-      capped per entity at ``max_entity_degree`` to stop hubs exploding). This is the
-      structural bridge that carries multi-hop signal and the density-ablation dial.
+    * **entity** entity↔entity — the structural bridge that carries multi-hop signal
+      and the density-ablation dial. Two constructions:
+
+      - default (**cheap**): co-occurrence within a passage, weight = #co-occurrences.
+        Noisy — every pair of entities sharing a passage is bridged, related or not.
+      - ``relation_pairs`` given (**Kadmos-grade**): only pairs the extractor asserted
+        an actual relation between, weight = relation count. Sparser and typed.
+
+    Passing ``relation_pairs`` is the whole experimental contrast: same passages,
+    same embeddings, same kNN backbone, same capping — different bridges.
     """
     p = passage_emb.shape[0]
     e = entity_emb.shape[0]
@@ -251,31 +295,22 @@ def build_qa_graph(
                 knn_edges.append((f"p{i}", f"p{j}", w))
                 knn_edges.append((f"p{j}", f"p{i}", w))
 
-    # entity-entity co-occurrence, capped per entity to bound hub degree
-    cooc: dict[tuple[int, int], int] = defaultdict(int)
-    for ents in entities_per_passage:
-        ordered = sorted(ents)
-        for a_idx in range(len(ordered)):
-            for b_idx in range(a_idx + 1, len(ordered)):
-                cooc[(ordered[a_idx], ordered[b_idx])] += 1
-    per_entity: dict[int, list[tuple[int, int]]] = defaultdict(list)
-    for (a, b), c in cooc.items():
-        per_entity[a].append((b, c))
-        per_entity[b].append((a, c))
-    kept_pairs: set[tuple[int, int]] = set()
-    for a, neigh in per_entity.items():
-        neigh.sort(key=lambda x: x[1], reverse=True)
-        for b, _c in neigh[:max_entity_degree]:
-            kept_pairs.add((min(a, b), max(a, b)))
-    # Shuffle at the *pair* level, then flatten both directions adjacently, so a
-    # nested-prefix density sweep keeps each undirected bridge whole and order-stable.
-    ordered_pairs = sorted(kept_pairs)
-    random.Random(seed).shuffle(ordered_pairs)
-    entity_edges: list[EdgeRow] = []
-    for a, b in ordered_pairs:
-        w = float(cooc[(a, b)])
-        entity_edges.append((f"e{a}", f"e{b}", w))
-        entity_edges.append((f"e{b}", f"e{a}", w))
+    # entity-entity bridges: LLM relations when supplied, else passage co-occurrence
+    if relation_pairs is not None:
+        weighted_pairs = {
+            (min(a, b), max(a, b)): w for (a, b), w in relation_pairs.items() if a != b
+        }
+    else:
+        cooc: dict[tuple[int, int], float] = defaultdict(float)
+        for ents in entities_per_passage:
+            ordered = sorted(ents)
+            for a_idx in range(len(ordered)):
+                for b_idx in range(a_idx + 1, len(ordered)):
+                    cooc[(ordered[a_idx], ordered[b_idx])] += 1.0
+        weighted_pairs = dict(cooc)
+    entity_edges = _entity_bridge_edges(
+        weighted_pairs, max_entity_degree=max_entity_degree, seed=seed
+    )
 
     return QAGraph(
         node_ids=node_ids,
@@ -285,6 +320,160 @@ def build_qa_graph(
         knn_edges=knn_edges,
         entity_edges=entity_edges,
     )
+
+
+# ---------------------------------------------------------------------------
+# Kadmos-grade construction (LLM concepts + typed relations)
+# ---------------------------------------------------------------------------
+
+
+def _normalize_entity(label: str) -> str:
+    """Fold a concept label to its cross-passage identity key."""
+    return " ".join(_TOKEN_RE.findall(label.lower()))
+
+
+# Field aliases seen from providers that do not enforce the JSON schema strictly
+# (DeepSeek returns `name`/`wikidata_id`; others vary). Mapping them instead of
+# discarding the reading keeps a good extraction that merely disagrees on spelling
+# — the same tolerance `kadmos/reader.py` already applies on the Gen-1 path.
+_CONCEPT_ALIASES = {
+    "name": "label",
+    "title": "label",
+    "concept": "label",
+    "type": "entity_type",
+    "category": "entity_type",
+    "desc": "description",
+    "summary": "description",
+}
+_RELATION_ALIASES = {
+    "subject": "source",
+    "from": "source",
+    "head": "source",
+    "object": "target",
+    "to": "target",
+    "tail": "target",
+    "relation": "relation_descriptor",
+    "predicate": "relation_descriptor",
+    "descriptor": "relation_descriptor",
+    "kind": "relation_kind",
+}
+_CONCEPT_FIELDS = {"label", "entity_type", "tags", "description", "qids"}
+_RELATION_FIELDS = {"source", "target", "relation_descriptor", "relation_kind", "rationale"}
+
+
+def _rename(row: dict[str, object], aliases: dict[str, str], keep: set[str]) -> dict[str, object]:
+    out: dict[str, object] = {}
+    for key, value in row.items():
+        canonical = aliases.get(key, key)
+        if canonical in keep and canonical not in out:
+            out[canonical] = value
+    return out
+
+
+def normalize_reading_payload(raw: dict[str, object]) -> dict[str, object]:
+    """Coerce a provider's reading JSON into the ``ParagraphReadingOutput`` shape.
+
+    Renames known field aliases and drops unknown keys, so a model that got the
+    *content* right but the *field names* wrong still validates rather than being
+    thrown away. Anything structurally unusable (missing label, missing endpoints)
+    is dropped by the caller's schema validation, which stays strict.
+    """
+    concepts_in = raw.get("concepts")
+    relations_in = raw.get("relations")
+    concepts = [
+        _rename(c, _CONCEPT_ALIASES, _CONCEPT_FIELDS)
+        for c in (concepts_in if isinstance(concepts_in, list) else [])
+        if isinstance(c, dict)
+    ]
+    relations = [
+        _rename(r, _RELATION_ALIASES, _RELATION_FIELDS)
+        for r in (relations_in if isinstance(relations_in, list) else [])
+        if isinstance(r, dict)
+    ]
+    out: dict[str, object] = {
+        "concepts": [c for c in concepts if c.get("label")],
+        "relations": [r for r in relations if r.get("source") and r.get("target")],
+    }
+    para = raw.get("paragraph_concept")
+    if isinstance(para, dict):
+        renamed = _rename(
+            para, _CONCEPT_ALIASES, {"label", "description", "tags", "basis_concepts"}
+        )
+        if renamed.get("label"):
+            renamed.setdefault("description", "")
+            out["paragraph_concept"] = renamed
+    return out
+
+
+def graph_inputs_from_extractions(
+    extractions: list[dict[str, object]],
+) -> tuple[list[str], list[set[int]], dict[tuple[int, int], float]]:
+    """Turn per-passage LLM readings into (entity_names, per-passage sets, relation pairs).
+
+    ``extractions[p]`` is one passage's :class:`ParagraphReadingOutput` dump —
+    ``{"concepts": [{"label": ...}], "relations": [{"source": ..., "target": ...}]}``.
+    A missing or failed reading is an empty dict, which contributes no entities and
+    no relations (honest-failure: the passage is still retrievable via its own
+    embedding and kNN edges, it just carries no structural bridges).
+
+    **Entity identity is normalized-label matching** — lowercase, punctuation
+    stripped. This is deliberately the same naive resolution GraphRAG uses, and the
+    literature flags it as a weakness (homonyms merge, variant names split). Using
+    it here is the honest choice for *this* experiment: it isolates the variable
+    under test — relation quality — instead of confounding it with an entity
+    resolution scheme the cheap construction does not have either. The substrate's
+    real eager linker (PHX-1051/1053) is a separate, later upgrade.
+
+    Relations are folded to undirected pairs with weight = how many passages
+    asserted them, mirroring the co-occurrence weighting so the two constructions
+    stay comparable.
+    """
+    entity_to_idx: dict[str, int] = {}
+    entity_names: list[str] = []
+    per_passage: list[set[int]] = []
+    relation_pairs: dict[tuple[int, int], float] = defaultdict(float)
+
+    def _intern(label: str) -> int | None:
+        key = _normalize_entity(label)
+        if len(key) < 2:
+            return None
+        idx = entity_to_idx.get(key)
+        if idx is None:
+            idx = len(entity_names)
+            entity_to_idx[key] = idx
+            entity_names.append(key)
+        return idx
+
+    for reading in extractions:
+        local: dict[str, int] = {}  # this passage's label -> global entity index
+        ents: set[int] = set()
+        concepts = reading.get("concepts") or []
+        if isinstance(concepts, list):
+            for concept in concepts:
+                if not isinstance(concept, dict):
+                    continue
+                label = str(concept.get("label", ""))
+                idx = _intern(label)
+                if idx is None:
+                    continue
+                local[_normalize_entity(label)] = idx
+                ents.add(idx)
+        per_passage.append(ents)
+
+        relations = reading.get("relations") or []
+        if isinstance(relations, list):
+            for rel in relations:
+                if not isinstance(rel, dict):
+                    continue
+                src = local.get(_normalize_entity(str(rel.get("source", ""))))
+                tgt = local.get(_normalize_entity(str(rel.get("target", ""))))
+                # Only bridge endpoints the same passage actually declared as concepts;
+                # a relation naming something never extracted is dropped, not invented.
+                if src is None or tgt is None or src == tgt:
+                    continue
+                relation_pairs[(min(src, tgt), max(src, tgt))] += 1.0
+
+    return entity_names, per_passage, dict(relation_pairs)
 
 
 # ---------------------------------------------------------------------------
