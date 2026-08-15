@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 import pyarrow as pa
 
 from theogony.config.logging import get_logger
+from theogony.stores.lance_typing import as_vector_query
 
 if TYPE_CHECKING:
     import lancedb
@@ -81,7 +82,8 @@ class ChronikCrosslinker:
 
         import lancedb
 
-        self._db: lancedb.LanceDBConnection = lancedb.connect(str(self._db_path))
+        # lancedb >= 0.37 returns the general DBConnection from connect().
+        self._db: lancedb.DBConnection = lancedb.connect(str(self._db_path))
         self._dim = embedding_dim
         self._top_k = top_k
         self._max_edges_per_node = max_edges_per_node
@@ -270,7 +272,7 @@ class ChronikCrosslinker:
             return []
 
         results = (
-            self._nodes_tbl.search(query_embedding)
+            as_vector_query(self._nodes_tbl.search(query_embedding))
             .metric("cosine")
             .where(f"id != '{query_id}'")
             .limit(min(self._top_k, 200))

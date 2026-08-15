@@ -42,6 +42,7 @@ from theogony.kadmos.model import (
     RevisionRecord,
     SynthesisNode,
 )
+from theogony.stores.lance_typing import as_vector_query
 
 if TYPE_CHECKING:
     pass
@@ -293,7 +294,7 @@ class ReadingStateStore:
             return []
         try:
             results = (
-                self._concepts_tbl.search(query_embedding)
+                as_vector_query(self._concepts_tbl.search(query_embedding))
                 .metric("cosine")
                 .where("invalidated = false AND supersedes_id = ''", prefilter=True)
                 .limit(k)
@@ -406,7 +407,7 @@ class ReadingStateStore:
         for src_id, src_emb in zip(ids, embeddings, strict=True):
             try:
                 hits = (
-                    self._concepts_tbl.search(src_emb)
+                    as_vector_query(self._concepts_tbl.search(src_emb))
                     .metric("cosine")
                     .where("invalidated = false AND supersedes_id = ''", prefilter=True)
                     .limit(k + 1)

@@ -7,7 +7,7 @@ Uses the official OpenAI-compatible DeepSeek API endpoint.
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel
 
@@ -45,7 +45,12 @@ class DeepSeekLLMProvider(LLMProvider):
         self._client = openai.AsyncOpenAI(
             api_key=api_key,
             base_url="https://api.deepseek.com/v1",
-            timeout=httpx.Timeout(connect=60.0, read=300.0, write=60.0, pool=60.0),
+            # openai 3.x types its `timeout` against httpx2 while still accepting
+            # any httpx-compatible Timeout at runtime (verified against openai
+            # 3.1.0 / httpx 0.28). Casting keeps the per-phase values — read=300s
+            # matters for long structured extraction calls — instead of collapsing
+            # them to a single float to satisfy whichever httpx the SDK pins today.
+            timeout=cast(Any, httpx.Timeout(connect=60.0, read=300.0, write=60.0, pool=60.0)),
         )
 
     @property
