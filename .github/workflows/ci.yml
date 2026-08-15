@@ -105,3 +105,27 @@ jobs:
 
       - name: ruff format --check
         run: ruff format --check src/ tests/
+
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # mypy runs under `strict = true` (pyproject) and needs the real dependency
+      # types to check against, so this installs the project rather than mypy alone.
+      - name: Install project
+        run: pip install -e ".[dev,research]"
+
+      # AGENTS.md §5 has always listed mypy as a pre-push gate; until now nothing
+      # enforced it and the tree had accumulated 60 errors. It is clean as of the
+      # PR that added this job — this keeps it that way.
+      - name: mypy
+        run: mypy src/theogony

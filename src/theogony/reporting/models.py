@@ -336,6 +336,12 @@ class RegionDescriptor(BaseModel):
 
 class QueryRunReport(RunReportBase):
     report_type: Literal["query"] = "query"
+    # Narrower than the base header's verdict: a query is judged on *answer
+    # quality*, and downstream consumers act on exactly these four values —
+    # `growth_bridge.maybe_emit` fires a curiosity trigger on partial/poor/failed.
+    # The base's status-flavoured "completed" belongs to run kinds that report
+    # progress rather than quality (e.g. MnlmRunReport) and must not reach here.
+    verdict: Literal["good", "partial", "poor", "failed"]
     query: str
     query_length_chars: int = Field(ge=0)
     embedding_duration_ms: int = Field(default=0, ge=0)

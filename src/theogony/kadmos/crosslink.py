@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pyarrow as pa
 
@@ -148,11 +148,11 @@ class ChronikCrosslinker:
     def ingest_and_link(
         self,
         embedder: object,
-        new_nodes: list[dict],
-        new_edges: list[dict],
+        new_nodes: list[dict[str, Any]],
+        new_edges: list[dict[str, Any]],
         *,
         source_domain: str = "unknown",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Ingest nodes into the global chronicle and link them to existing nodes.
 
         Parameters
@@ -240,7 +240,7 @@ class ChronikCrosslinker:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _write_nodes(self, nodes: list[dict], source_domain: str) -> None:
+    def _write_nodes(self, nodes: list[dict[str, Any]], source_domain: str) -> None:
         """Batch-insert nodes into the global Chronicle."""
         import json
 
@@ -261,7 +261,7 @@ class ChronikCrosslinker:
             )
         self._nodes_tbl.add(data)
 
-    def _find_similar(self, query_id: str, query_embedding: list[float]) -> list[dict]:
+    def _find_similar(self, query_id: str, query_embedding: list[float]) -> list[dict[str, Any]]:
         """Run kNN search against existing nodes, excluding the query node itself.
 
         Returns list of dicts with keys: id, label, node_type, score.
@@ -286,7 +286,9 @@ class ChronikCrosslinker:
             for r in results
         ]
 
-    def _make_cross_edges(self, source_node: dict, matches: list[dict]) -> list[dict]:
+    def _make_cross_edges(
+        self, source_node: dict[str, Any], matches: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Build CROSS_SIMILAR edges from source_node to each match."""
         import hashlib
 
@@ -314,7 +316,7 @@ class ChronikCrosslinker:
             )
         return edges
 
-    def _write_edges(self, edges: list[dict]) -> None:
+    def _write_edges(self, edges: list[dict[str, Any]]) -> None:
         """Batch-insert edges into the global Chronicle."""
         now = datetime.now(UTC)
         data = []

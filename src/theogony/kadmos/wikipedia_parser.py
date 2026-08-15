@@ -77,7 +77,12 @@ def _parse_html_to_sections(html: str) -> list[WikiSection]:
     def _is_heading_div(tag: Tag) -> tuple[int, str] | None:
         """Return (level, text) if tag is a mw-heading div, else None."""
         if tag.name == "div":
-            classes = tag.get("class", [])
+            # bs4 types `get` as returning str | AttributeValueList | None: a
+            # multi-valued attribute like class comes back as a list, a plain one
+            # as a str. Normalising both to a list keeps the iteration honest
+            # instead of silently iterating a string's characters.
+            raw_classes = tag.get("class")
+            classes = [raw_classes] if isinstance(raw_classes, str) else list(raw_classes or [])
             for cls in classes:
                 if cls.startswith("mw-heading"):
                     h = tag.find(["h2", "h3", "h4"])

@@ -40,7 +40,8 @@ async def _wiki_get_json(
     headers = {"User-Agent": WIKI_USER_AGENT}
     r = await client.get(_ENWIKI_API, params=params, headers=headers, timeout=timeout_s)
     r.raise_for_status()
-    return r.json()
+    payload: dict[str, Any] = r.json()
+    return payload
 
 
 async def fetch_outgoing_mainspace_links(

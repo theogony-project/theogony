@@ -91,7 +91,19 @@ class TensorMeshEngine:
         Returns:
             A tuple of (active_node_indices, activation_energies).
         """
-        if self.node_embeddings is None or self.row_ptr is None or self.col_idx is None:
+        # The edge tensors are as load-bearing here as the node ones — dynamic edge
+        # weighting reads all four below. Leaving them out of the guard meant an
+        # unloaded engine failed later with a bare "NoneType is not subscriptable"
+        # instead of saying what the caller actually did wrong.
+        if (
+            self.node_embeddings is None
+            or self.row_ptr is None
+            or self.col_idx is None
+            or self.edge_codebook is None
+            or self.edge_type_idx is None
+            or self.base_weight is None
+            or self.hebbian_strength is None
+        ):
             raise ValueError("TensorMeshEngine is not initialized. Call load_from_arrays first.")
 
         N = self.node_embeddings.size(0)
