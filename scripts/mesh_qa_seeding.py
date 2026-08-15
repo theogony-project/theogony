@@ -65,6 +65,7 @@ class SeedingReport(BaseModel):
     knn_k: int
     seed: int
     results: list[SeedingResult] = Field(default_factory=list)
+    tune_test: str | None = None
     timing_s: dict[str, float] = Field(default_factory=dict)
     notes: str | None = None
 
@@ -113,6 +114,16 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--spacy-model", default="en_core_web_sm")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--tune-test",
+        action="store_true",
+        help=(
+            "Split the questions in half: select the best (mode, S) on the tune half, "
+            "then report that single configuration's score on the held-out test half. "
+            "Without this, the sweep reports every configuration on all questions, "
+            "which means the best number is selected on the data it is measured on."
+        ),
+    )
     parser.add_argument("--cache-dir", type=Path, default=Path("data/raw/qa_bench"))
     parser.add_argument("--report-dir", type=Path, default=Path("data/run_reports/mesh_eval"))
     args = parser.parse_args()
@@ -172,17 +183,43 @@ def main() -> None:
     timing["build_s"] = time.perf_counter() - t
 
     t = time.perf_counter()
-    results = evaluate_seeding(
-        graph,
-        passage_emb,
-        question_emb,
-        data.questions,
-        modes=modes,
-        seed_counts=seed_counts,
-        operator=args.operator,
-        hops=args.hops,
-        damping=args.damping,
-    )
+
+    def _run(idxs: list[int]) -> list[SeedingResult]:
+        return evaluate_seeding(
+            graph,
+            passage_emb,
+            question_emb[idxs],
+            [data.questions[i] for i in idxs],
+            modes=modes,
+            seed_counts=seed_counts,
+            operator=args.operator,
+            hops=args.hops,
+            damping=args.damping,
+        )
+
+    tune_test_summary: str | None = None
+    if args.tune_test:
+        import random as _random
+
+        order = list(range(len(data.questions)))
+        _random.Random(args.seed).shuffle(order)
+        half = len(order) // 2
+        tune_idx, test_idx = sorted(order[:half]), sorted(order[half:])
+
+        tune_results = _run(tune_idx)
+        best = max(tune_results, key=lambda r: r.sa_recall_at_5)
+        test_results = _run(test_idx)
+        chosen = next(r for r in test_results if r.mode == best.mode and r.top_s == best.top_s)
+        tune_test_summary = (
+            f"selected on tune (n={len(tune_idx)}): mode={best.mode} S={best.top_s} "
+            f"-> tune sa@5={best.sa_recall_at_5:.3f} (kNN {best.knn_recall_at_5:.3f}); "
+            f"held-out test (n={len(test_idx)}): sa@5={chosen.sa_recall_at_5:.3f} "
+            f"(kNN {chosen.knn_recall_at_5:.3f}, "
+            f"delta {chosen.sa_recall_at_5 - chosen.knn_recall_at_5:+.3f})"
+        )
+        results = test_results
+    else:
+        results = _run(list(range(len(data.questions))))
     timing["evaluate_s"] = time.perf_counter() - t
 
     report = SeedingReport(
@@ -199,6 +236,7 @@ def main() -> None:
         knn_k=args.knn_k,
         seed=args.seed,
         results=results,
+        tune_test=tune_test_summary,
         timing_s=timing,
         notes="Seeding-ceiling probe. rescue_rate = of gold passages absent from the "
         "seed set, the fraction SA pulls into top-5 — SA's unique contribution over "
@@ -228,6 +266,9 @@ def main() -> None:
             f"{r.rescue_rate:>7.3f} {f'{r.rescued_gold}/{r.gold_missed_by_seeds}':>10} "
             f"{r.sa_only_hits:>8} {r.knn_only_hits:>9} {r.seed_retention:>7.3f}"
         )
+    if tune_test_summary:
+        print()
+        print("HELD-OUT: " + tune_test_summary)
     print()
     print(f"report: {out}")
 
