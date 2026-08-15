@@ -38,6 +38,13 @@ class EagerLinker:
     DESCRIPTION_CANDIDATE_LIMIT = 24
     TAG_CANDIDATE_LIMIT = 48
 
+    # Sanity floor on the Q-ID path. Deliberately far below the description
+    # threshold (0.72): a matching Q-ID is strong evidence and must keep bridging
+    # entities whose *names* differ — Venus/Aphrodite, Jove/Zeus, cross-language
+    # variants. This only rejects a Q-ID that lands on something semantically
+    # unrelated, which is what a hallucinated identifier looks like.
+    QID_PLAUSIBILITY_FLOOR = 0.35
+
     def __init__(
         self,
         node_store: MeshNodeStore,
@@ -199,6 +206,59 @@ class EagerLinker:
         self._registry.remember(node, aliases=[label, description], qids=qids)
         return node
 
+    def _qid_is_plausible(
+        self,
+        node: ConsolidatedNode,
+        *,
+        label: str,
+        description_vector: list[float] | None,
+        semantic_vector: list[float] | None,
+    ) -> bool:
+        """Is this Q-ID match defensible, or does it look hallucinated?
+
+        Either signal suffices, because each covers the other's blind spot:
+
+        * **Naming** — the incoming label is a known alias of the node, or shares a
+          token with its description or tags. This carries the cases where vectors
+          are weak or meaningless: the bulk seed stores the entity *name* as the
+          description and hash-projection embedders make semantically identical
+          entities near-orthogonal.
+        * **Semantics** — cosine over whatever vector pairs both sides actually
+          have. This carries the cases the Q-ID path exists for, where the names
+          deliberately differ: Venus/Aphrodite, Jove/Zeus, cross-language variants.
+
+        A Q-ID is rejected only when the vectors *can* be compared, disagree, and
+        nothing in the naming corroborates — which is what a hallucinated
+        identifier looks like. When neither signal has anything to work with, the
+        Q-ID stands: the guard does not invent a verdict from absent evidence.
+        """
+        norm_label = _normalize(label)
+        if norm_label:
+            if norm_label in self._registry.known_labels(str(node.id)):
+                return True
+            label_tokens = set(norm_label.split())
+            node_tokens = set(_normalize(node.description or "").split())
+            for tag in node.tags:
+                node_tokens |= set(_normalize(tag).split())
+            if label_tokens & node_tokens:
+                return True
+
+        def _has_signal(vector: list[float] | None) -> bool:
+            return bool(vector) and any(value != 0.0 for value in vector or [])
+
+        pairs = (
+            (description_vector, node.description_vector),
+            (description_vector, node.semantic_vector),
+            (semantic_vector, node.semantic_vector),
+        )
+        comparable = [(a, b) for a, b in pairs if _has_signal(a) and _has_signal(b)]
+        if not comparable:
+            # Absent vectors are not evidence of a mismatch. Cosine 0.0 means both
+            # "unrelated" and "nothing to compare" — conflating them would reject
+            # every vectorless caller.
+            return True
+        return max(_cosine_similarity(a, b) for a, b in comparable) >= self.QID_PLAUSIBILITY_FLOOR
+
     def link_reference(
         self,
         *,
@@ -215,11 +275,26 @@ class EagerLinker:
 
         for qid_tag in qids:
             node = self._registry.get_by_qid(qid_tag.qid)
-            if node is not None:
-                persisted = self._store.merge_identity_evidence(str(node.id), qids=qids)
-                node = persisted or node
-                self._registry.remember(node, aliases=[label, description], qids=qids)
-                return LinkDecision(node=node, signal="qid", is_new=False, score=1.0)
+            if node is None:
+                continue
+            if not self._qid_is_plausible(
+                node,
+                label=label,
+                description_vector=description_vector,
+                semantic_vector=semantic_vector,
+            ):
+                # The Q-ID is the only signal here and it is asserted by an LLM with
+                # no corroboration — the strongest remaining identity-corruption
+                # vector after the PHX-1051 naming guard, and a durable one, since
+                # merge_identity_evidence writes the merged Q-ID back to the store.
+                # A hallucinated identifier looks exactly like this: it resolves to a
+                # real node that has nothing semantically to do with the reference.
+                # Fall through to the corroborated signals instead of merging.
+                continue
+            persisted = self._store.merge_identity_evidence(str(node.id), qids=qids)
+            node = persisted or node
+            self._registry.remember(node, aliases=[label, description], qids=qids)
+            return LinkDecision(node=node, signal="qid", is_new=False, score=1.0)
 
         matched, score = self._best_description_match(
             label=label,
