@@ -17,7 +17,7 @@ relation-conditioned retrieval (migration step S3) would unlock.
 
 Example:
 
-    ./venv/bin/python scripts/mesh_kge_baseline.py \
+    ./.venv/bin/python scripts/mesh_kge_baseline.py \
         --root data/mesh-wiki-v1 --model TransE --epochs 150 --dim 128
 """
 

@@ -46,10 +46,15 @@ cd theogony
 ### 2. Set Up Your Environment
 
 ```bash
-python -m venv venv
-source venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev]"
 ```
+
+The environment directory is **`.venv`** — the same name uv, PyCharm and VS Code
+create and auto-detect, so the editor and the shell agree on one interpreter.
+Keeping to it matters: a second environment under a different name drifts out of
+sync with `pyproject.toml` and makes local test runs disagree with CI.
 
 ### 3. Make Your Changes
 

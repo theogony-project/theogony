@@ -97,6 +97,13 @@ pytest -q
 
 CI runs the same matrix. Red CI does not merge.
 
+Run these in the project's **`.venv`** — one environment, matching
+`pyproject.toml`. A second environment under another name silently drifts out of
+sync with the pins and makes local runs disagree with CI: a stale `mcp` in a
+second venv once produced two red tests against code CI was passing. If a local
+failure looks unrelated to your change, check the installed version of the
+package in the traceback against `pyproject.toml` before touching the code.
+
 ### 6. Plan adherence is the default
 
 The architecture is decided by the MESH triplet ([`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md) + [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md) + [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md)); the migration to it is sequenced by [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md). If those documents are silent on a question, propose the minimal interpretation in the PR body. If they are wrong, do not silently route around them — flag the contradiction in the PR body and file a new (PHX-1000+) Phoenix Backlog ticket per [`phoenix-backlog/README.md`](phoenix-backlog/README.md).

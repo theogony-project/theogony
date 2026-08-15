@@ -7,7 +7,7 @@ retrieval as edge density rises?*  See ``theogony.mesh.eval.scaling``.
 
 Example:
 
-    ./venv/bin/python scripts/mesh_scaling_curve.py \
+    ./.venv/bin/python scripts/mesh_scaling_curve.py \
         --root data/mesh-smoke2-safe \
         --densities 0.05,0.1,0.2,0.4,0.7,1.0 --max-test 1000 --plot
 """
