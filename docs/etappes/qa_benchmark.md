@@ -196,14 +196,20 @@ from a lower base and never reach kNN.
 
 ## Reading the numbers honestly
 
-- Absolute recall is a **lower bound**: cheap spaCy+BGE construction, no
-  cross-encoder rerank, no LLM extraction. HippoRAG's published numbers use a 7B
-  embedder (NV-Embed-2) + LLM OpenIE. The point of this first-cut is the
-  **harness** and the **SA−kNN density curve**, not to top a leaderboard.
-- Fidelity upgrades, in order of expected payoff: (1) `bge-large-en-v1.5`
-  embedder; (2) a `bge-reranker-v2-m3` cross-encoder for the kNN+rerank baseline
-  (`--reranker`, downloads ~568 MB); (3) Kadmos-grade LLM extraction for the
-  graph; (4) the full 1,000-question splits for exact comparability.
+- Absolute recall is a **lower bound**: a 384-d `bge-small-en` embedder and no
+  cross-encoder rerank. HippoRAG's published numbers use a 7B embedder
+  (NV-Embed-2). The point here is the **harness**, the **SA−kNN density curve**,
+  and the **construction A/B** — not to top a leaderboard.
+- Every method is measured against the *same* embedder, so the SA-vs-kNN contrast
+  is unaffected by that ceiling; a stronger embedder would lift both arms.
+- Remaining fidelity upgrades, in order of expected payoff now that construction
+  has been tested: (1) **alternative seeding** — the leading suspect above, and the
+  only untested structural variable; (2) `bge-large-en-v1.5` embedder;
+  (3) a `bge-reranker-v2-m3` cross-encoder to strengthen the kNN baseline (making
+  the bar *harder*, which is the honest direction); (4) the full 1,000-question
+  splits for exact comparability with published HippoRAG numbers.
+- What would change the conclusion: a seeding scheme under which `sa_ppr` clears
+  kNN by more than noise on both multi-hop sets, without regressing PopQA.
 
 ## How to run
 
