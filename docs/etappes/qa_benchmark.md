@@ -277,15 +277,56 @@ past kNN. That conclusion stands *for the configuration it was measured in* — 
 that configuration was over-seeded to the point where no edge property could have
 mattered. Two consequences:
 
-- **The Kadmos-grade A/B needs re-reading.** Clean edges showed no benefit to
-  `sa_ppr` at S = 10 — but at S = 10 nothing could show a benefit, because SA was
-  returning its seeds. Whether clean edges help *at narrow seeding* is now an open
-  question the earlier run cannot answer.
+- **The Kadmos-grade A/B needed re-reading** — and has since been re-run at narrow
+  seeding; see the section below. The short version: the original conclusion
+  survives at the optimum, but only because the passage backbone masks the entity
+  layer. Where the entity layer is load-bearing, construction quality decides.
 - **Production was never in the broken regime.** `retrieve()` defaults to
   `k_seeds = 8` with `top_k = 30` (S/k ≈ 0.27), well inside the range where the
   graph must work. The benchmark's S/k = 2.0 was unrepresentative of the system it
   was measuring. The relevant quantity appears to be **S relative to the retrieval
   depth**, not S alone.
+
+## Results — the Kadmos A/B, re-run at narrow seeding
+
+The construction A/B was originally measured at S = 10, where SA returns its own
+seed set and **no** edge property could have shown an effect. Re-running it across
+the seeding sweep (both constructions, identical seeds, cached readings, zero
+cost) gives a sharper answer than either earlier run:
+
+`sa_ppr` recall@5, cheap vs Kadmos at matched seeding:
+
+| mode / S | 2Wiki cheap | 2Wiki Kadmos | Δ | Hotpot cheap | Hotpot Kadmos | Δ |
+|---|---:|---:|---:|---:|---:|---:|
+| hybrid, S=2 *(overall optimum)* | 0.795 | 0.797 | +0.002 | 0.842 | 0.845 | +0.003 |
+| passage, S=3 | 0.764 | 0.774 | +0.010 | 0.853 | 0.862 | +0.009 |
+| **entity, S=2** | 0.608 | **0.788** | **+0.180** | 0.583 | **0.717** | **+0.134** |
+| **entity, S=3** | 0.589 | **0.738** | **+0.149** | 0.575 | **0.697** | **+0.122** |
+
+**The answer depends entirely on whether the entity layer is load-bearing.**
+
+- **Seeding passages (or hybrid): construction is nearly invisible** (±0.01). The
+  original conclusion — clean edges add nothing to the fair operator — *survives*,
+  now measured under conditions where it could have failed. But the reason is not
+  that clean edges are worthless: it is that the **passage-kNN backbone carries the
+  signal**, and whatever the entity layer contributes is redundant with it.
+- **Seeding entities: construction decides** (+0.12 to +0.18). Here every path runs
+  through the entity graph, so entity and relation quality becomes the bottleneck,
+  and Kadmos's typed relations beat spaCy co-occurrence decisively.
+
+**The uncomfortable reading, stated plainly.** Kadmos-grade extraction demonstrably
+produces a better entity graph — but on this benchmark that better graph does not
+raise the *overall* optimum, because a plain passage-similarity backbone already
+reaches the same passages by a shorter route. For a substrate whose thesis is that
+typed entity relations are the point, that is a result worth sitting with rather
+than explaining away: the relations are better, and on this task the improvement is
+largely masked.
+
+**What it does not settle.** These corpora are passage-retrieval benchmarks whose
+gold is defined as *passages*, which structurally favours a passage backbone. A
+task whose answer is an **entity** or a **path** — the substrate's actual target
+shape — is where a better entity graph should pay, and this benchmark cannot see
+that. Designing that measurement is the natural next etappe.
 
 ## Reading the numbers honestly
 
