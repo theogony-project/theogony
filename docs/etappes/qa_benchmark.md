@@ -194,6 +194,99 @@ from a lower base and never reach kNN.
   ceiling; a corpus where the answer genuinely cannot be found by similarity is a
   fairer test of the claim.
 
+## Results — the seeding ceiling (and the correction it forces)
+
+The two runs above left one structural variable untested: **seeding**. SA is
+seeded from the top-S passages by query cosine, so it starts *inside* the
+neighbourhood dense kNN already returns. A method that only re-ranks its own
+seeds cannot beat the retriever that produced them, however good its edges are.
+
+`scripts/mesh_qa_seeding.py` sweeps seeding scheme × seed count and reports three
+diagnostics that make this answerable rather than inferable: **rescue rate** (of
+the gold passages the seeds *missed*, the fraction SA pulls into its top-5 —
+SA's unique contribution), **head-to-head** hits, and **seed retention**.
+
+### The parity was an artefact of the harness
+
+At **S = 5**, on both multi-hop datasets, with the Kadmos graph:
+
+| | seed retention | rescue rate | SA recall@5 | kNN recall@5 |
+|---|---:|---:|---:|---:|
+| 2WikiMultihopQA | **1.000** | **0.000** | 0.683 | 0.683 |
+| HotpotQA | **1.000** | **0.000** | 0.832 | 0.832 |
+
+SA's top-5 is *entirely* its seed set, it rescues **not one** gold passage the
+seeds missed, and its recall equals kNN's **to three decimals**. That is not
+approximate parity — it is identity. **The earlier "SA ties kNN" result was a
+property of the seeding configuration (S = 10 ≥ k = 5), not of the substrate.**
+The benchmark was measuring a re-ranker of kNN output and calling it a graph.
+
+### Given room, the graph does contribute
+
+Narrowing the seeds forces propagation to do the work. Full sweep, all questions:
+
+| dataset | best config | SA recall@5 | kNN recall@5 | Δ | rescue rate |
+|---|---|---:|---:|---:|---:|
+| 2WikiMultihopQA | hybrid, S=2 | **0.797** | 0.683 | **+0.114** | 0.421 |
+| HotpotQA | passage, S=3 | **0.862** | 0.832 | **+0.030** | 0.362 |
+
+Both datasets peak at narrow seeding and fall back to exactly kNN at S = 5. The
+rescue rate is what makes this readable: at the optimum SA is recovering 36–42 %
+of the gold its seeds never contained — the graph is reaching past the embedding,
+which is the whole claim.
+
+### Held out, so the number is not selected on the data it is measured on
+
+Picking the best (mode, S) from a sweep and quoting it is selection on the test
+set. `--tune-test` splits the questions in half, selects the configuration on the
+tune half, and reports only that configuration on the held-out half:
+
+| dataset | selected on tune | held-out SA@5 | held-out kNN@5 | Δ |
+|---|---|---:|---:|---:|
+| 2WikiMultihopQA (multi-hop) | hybrid, S=2 | **0.818** | 0.717 | **+0.102** |
+| HotpotQA (multi-hop) | passage, S=3 | **0.857** | 0.827 | **+0.030** |
+| PopQA (single-hop control) | passage, S=10 | 0.497 | 0.503 | −0.007 |
+
+**This is the first evidence in this benchmark that Spreading Activation beats
+dense kNN** — on held-out questions, with the configuration chosen without seeing
+them.
+
+The control behaves exactly as it should: on single-hop PopQA the tuning half
+selected the **widest** seeding on offer (S=10), i.e. it found no benefit in
+letting the graph work and settled on the configuration closest to plain kNN —
+and the held-out difference is −0.007, inside noise. Gains where multi-hop
+structure exists, no regression where it does not, is the bar HippoRAG 2 set and
+the failure that sank GraphRAG/LightRAG as general retrievers.
+
+**Caveats that keep this honest:**
+
+- **There is no universal setting.** The selected configuration differs per corpus
+  (hybrid S=2 / passage S=3 / passage S=10). S must be tuned per deployment; this
+  is a tunable regime, not a constant.
+- **The kNN baseline is untuned and un-reranked.** It has no knob to tune, and a
+  cross-encoder rerank would raise it. The honest next step is to make the
+  baseline *harder*, not to bank the current margin.
+- **PopQA ran on the cheap construction** (no cached Kadmos readings for that
+  corpus), so its control status covers seeding, not extraction quality.
+- Single 384-d embedder throughout; absolute numbers stay a lower bound.
+
+### The correction this forces to the earlier conclusions
+
+The first two runs concluded that neither density nor edge cleanliness lifts SA
+past kNN. That conclusion stands *for the configuration it was measured in* — and
+that configuration was over-seeded to the point where no edge property could have
+mattered. Two consequences:
+
+- **The Kadmos-grade A/B needs re-reading.** Clean edges showed no benefit to
+  `sa_ppr` at S = 10 — but at S = 10 nothing could show a benefit, because SA was
+  returning its seeds. Whether clean edges help *at narrow seeding* is now an open
+  question the earlier run cannot answer.
+- **Production was never in the broken regime.** `retrieve()` defaults to
+  `k_seeds = 8` with `top_k = 30` (S/k ≈ 0.27), well inside the range where the
+  graph must work. The benchmark's S/k = 2.0 was unrepresentative of the system it
+  was measuring. The relevant quantity appears to be **S relative to the retrieval
+  depth**, not S alone.
+
 ## Reading the numbers honestly
 
 - Absolute recall is a **lower bound**: a 384-d `bge-small-en` embedder and no

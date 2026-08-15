@@ -190,6 +190,82 @@ def test_relation_bridges_are_sparser_than_cooccurrence_on_the_same_passages() -
     assert cheap.containment_edges == kadmos.containment_edges
 
 
+def test_entity_seeding_places_mass_on_entity_nodes_not_passages() -> None:
+    from theogony.mesh.eval.qa_retrieval import build_seed_vector
+
+    passage_unit = torch.eye(2, 3)
+    entity_unit = torch.tensor([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+    query = torch.tensor([0.0, 1.0, 0.0])  # matches passage 1 and entity 0
+    n_nodes = 4  # 2 passages + 2 entities
+
+    passage_seed = build_seed_vector(
+        query, passage_unit, entity_unit, n_nodes, mode="passage", top_s=1
+    )
+    entity_seed = build_seed_vector(
+        query, passage_unit, entity_unit, n_nodes, mode="entity", top_s=1
+    )
+    hybrid = build_seed_vector(query, passage_unit, entity_unit, n_nodes, mode="hybrid", top_s=1)
+
+    assert passage_seed[:2].sum() > 0 and passage_seed[2:].sum() == 0
+    assert entity_seed[:2].sum() == 0 and entity_seed[2:].sum() > 0  # entity indices offset by P
+    assert hybrid[:2].sum() > 0 and hybrid[2:].sum() > 0
+
+
+def test_rescue_rate_is_zero_when_the_graph_cannot_reach_missed_gold() -> None:
+    """A disconnected gold passage can never be rescued — the diagnostic must say so.
+
+    Needs a corpus meaningfully larger than k: at 5 or fewer passages every recall@5
+    is trivially 1.0 and the diagnostic cannot discriminate. Here the gold sits at a
+    high index with no edges, while six other passages receive real activation and
+    crowd it out of the top-5.
+    """
+    from theogony.mesh.eval.qa_retrieval import evaluate_seeding
+
+    n = 10
+    passage_emb = torch.zeros((n, 3))
+    passage_emb[0] = torch.tensor([1.0, 0.0, 0.0])  # query match, gets seeded
+    for i in range(1, 7):  # reachable neighbours, pulled up by the shared entity
+        passage_emb[i] = torch.tensor([0.0, 1.0, 0.0])
+    passage_emb[9] = torch.tensor([0.0, 0.0, 1.0])  # the gold: dissimilar and isolated
+    entity_emb = torch.tensor([[1.0, 0.0, 0.0]])
+    ents: list[set[int]] = [{0}] + [{0}] * 6 + [set(), set(), set()]
+
+    graph = build_qa_graph(passage_emb, entity_emb, ents, knn_k=0)
+    questions = [QAQuestion(qid="q", question="q", answer="a", gold_idxs={9})]
+    question_emb = torch.tensor([[1.0, 0.0, 0.0]])
+
+    res = evaluate_seeding(
+        graph, passage_emb, question_emb, questions, modes=["passage"], seed_counts=[1]
+    )[0]
+    assert res.gold_missed_by_seeds == 1  # the gold was not seeded
+    assert res.rescued_gold == 0  # and the graph cannot reach it
+    assert res.rescue_rate == 0.0
+
+
+def test_rescue_rate_counts_gold_the_graph_reaches_beyond_the_seeds() -> None:
+    from theogony.mesh.eval.qa_retrieval import evaluate_seeding
+
+    # P0 matches the query and shares entity 0 with the gold P1; P2/P3 are noise.
+    passage_emb = torch.tensor(
+        [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [0.0, 0.0, -1.0]]
+    )
+    entity_emb = torch.tensor([[0.5, 0.5, 0.0]])
+    ents: list[set[int]] = [{0}, {0}, set(), set()]  # the bridge P0 -> e0 -> P1
+    graph = build_qa_graph(passage_emb, entity_emb, ents, knn_k=0)
+    questions = [QAQuestion(qid="q", question="q", answer="a", gold_idxs={1})]
+    question_emb = torch.tensor([[1.0, 0.0, 0.0]])
+
+    res = evaluate_seeding(
+        graph, passage_emb, question_emb, questions, modes=["passage"], seed_counts=[1]
+    )[0]
+    # Seeding only reaches P0, so the gold P1 is "missed by seeds" — and the entity
+    # bridge rescues it into the top-5. That is exactly SA's unique contribution.
+    assert res.gold_missed_by_seeds == 1
+    assert res.rescued_gold == 1
+    assert res.rescue_rate == 1.0
+    assert res.sa_recall_at_5 == 1.0
+
+
 def test_density_sweep_sa_pulls_away_from_knn_as_bridges_grow() -> None:
     passage_emb, entity_emb, ents, questions, question_emb = _multihop_fixture()
     graph = build_qa_graph(passage_emb, entity_emb, ents, knn_k=0)

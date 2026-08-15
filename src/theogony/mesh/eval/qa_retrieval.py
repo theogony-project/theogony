@@ -502,6 +502,70 @@ def _seed_vector(
     return x
 
 
+def seed_indices(
+    query_unit: torch.Tensor,
+    passage_unit: torch.Tensor,
+    *,
+    top_s: int,
+) -> set[int]:
+    """The passage indices that query→passage seeding would activate."""
+    sims = passage_unit @ query_unit
+    k = min(top_s, sims.shape[0])
+    _vals, idx = torch.topk(sims, k)
+    return {int(i) for i in idx.tolist()}
+
+
+def build_seed_vector(
+    query_unit: torch.Tensor,
+    passage_unit: torch.Tensor,
+    entity_unit: torch.Tensor,
+    n_nodes: int,
+    *,
+    mode: str,
+    top_s: int,
+) -> torch.Tensor:
+    """Seed activation over the graph under one of three schemes.
+
+    The seeding scheme is the last untested structural variable in this benchmark.
+    It matters because the default (``passage``) starts activation *inside* the
+    neighbourhood dense kNN already returns — so a graph that merely re-ranks its
+    seeds can never beat the retriever that produced them, no matter how good its
+    edges are.
+
+    * ``passage`` — top-``top_s`` passages by query cosine (the default; HippoRAG 2
+      reports this beats NER-to-node seeding on their graph).
+    * ``entity`` — top-``top_s`` *entity* nodes by query cosine. Activation must
+      travel entity→passage, so the passage ranking is produced by the graph rather
+      than inherited from the embedding ranking. This is closer to HippoRAG 1's
+      query-NER seeding.
+    * ``hybrid`` — both, each contributing its own cosine mass.
+    """
+    x = torch.zeros(n_nodes, dtype=torch.float32)
+    n_passages = passage_unit.shape[0]
+
+    if mode in ("passage", "hybrid"):
+        sims = passage_unit @ query_unit
+        k = min(top_s, sims.shape[0])
+        vals, idx = torch.topk(sims, k)
+        for v, j in zip(vals.tolist(), idx.tolist(), strict=True):
+            x[j] = max(0.0, float(v))
+
+    if mode in ("entity", "hybrid"):
+        if entity_unit.shape[0] == 0:
+            if mode == "entity":
+                raise ValueError("entity seeding requested but the graph has no entity nodes")
+        else:
+            sims_e = entity_unit @ query_unit
+            k = min(top_s, sims_e.shape[0])
+            vals, idx = torch.topk(sims_e, k)
+            for v, j in zip(vals.tolist(), idx.tolist(), strict=True):
+                x[n_passages + int(j)] = max(0.0, float(v))
+
+    if mode not in ("passage", "entity", "hybrid"):
+        raise ValueError(f"unknown seeding mode: {mode!r}")
+    return x
+
+
 def sa_passage_scores(
     adj: torch.Tensor,
     seed_x: torch.Tensor,
@@ -621,6 +685,139 @@ def evaluate_methods(
         )
         for m in names
     ]
+
+
+class SeedingResult(BaseModel):
+    """One seeding configuration, with diagnostics that explain *why* it scores so.
+
+    The headline recalls say how well SA does. These fields say whether the graph
+    is doing anything at all:
+
+    * ``seed_recall_at_5`` — recall of the seed set itself, the ceiling SA inherits
+      when it only re-ranks its seeds.
+    * ``rescue_rate`` — of the gold passages the seeds **missed**, the fraction SA
+      still pulls into its top-5. This is SA's unique contribution. Near zero means
+      the graph cannot reach what the embedding did not already find, and parity
+      with kNN is **structural**, not a tuning problem.
+    * ``sa_only_hits`` / ``knn_only_hits`` — head-to-head gold passages found by one
+      method's top-5 and not the other's. Equal and small means the two rankings are
+      effectively the same; ``knn_only`` exceeding ``sa_only`` means propagation is
+      actively displacing correct results.
+    * ``seed_retention`` — fraction of SA's top-5 that were already seeds. Near 1.0
+      means SA is a re-ranker of kNN output, by construction.
+
+    These diagnostics only discriminate when the corpus is meaningfully larger than
+    k: on a corpus of five or fewer passages every recall@5 is trivially 1.0.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: str
+    top_s: int
+    operator: str
+    sa_recall_at_5: float
+    knn_recall_at_5: float
+    seed_recall_at_5: float
+    rescue_rate: float
+    rescued_gold: int
+    gold_missed_by_seeds: int
+    sa_only_hits: int
+    knn_only_hits: int
+    seed_retention: float
+
+
+def evaluate_seeding(
+    graph: QAGraph,
+    passage_emb: torch.Tensor,
+    question_emb: torch.Tensor,
+    questions: list[QAQuestion],
+    *,
+    modes: list[str],
+    seed_counts: list[int],
+    operator: str = "ppr",
+    hops: int = 3,
+    damping: float = 0.5,
+) -> list[SeedingResult]:
+    """Sweep seeding scheme × seed count, reporting recall plus the diagnostics.
+
+    ``operator`` selects the propagation adjacency: ``ppr`` (row-normalised, the
+    fair degree-aware operator) or ``raw``.
+    """
+    passage_unit = _l2_unit(passage_emb)
+    question_unit = _l2_unit(question_emb)
+    n_passages = passage_emb.shape[0]
+    entity_unit = graph.sem_unit[n_passages:]
+    n_nodes = len(graph.node_ids)
+
+    adj_raw, adj_ppr = _adjacencies(
+        graph.node_ids, graph.containment_edges + graph.knn_edges + graph.entity_edges
+    )
+    adj = adj_ppr if operator == "ppr" else adj_raw
+
+    # kNN reference is seeding-independent — compute once.
+    knn_top5: list[list[int]] = []
+    knn_recall = 0.0
+    for qi, q in enumerate(questions):
+        ranked = rank_desc(passage_unit @ question_unit[qi])
+        knn_top5.append(ranked[:5])
+        knn_recall += recall_at_k(ranked, q.gold_idxs, 5)
+    knn_recall /= max(1, len(questions))
+
+    results: list[SeedingResult] = []
+    for mode in modes:
+        for top_s in seed_counts:
+            sa_recall = 0.0
+            seed_recall = 0.0
+            retention = 0.0
+            rescued = 0
+            missed = 0
+            sa_only = 0
+            knn_only = 0
+
+            for qi, q in enumerate(questions):
+                qu = question_unit[qi]
+                seeds = seed_indices(qu, passage_unit, top_s=top_s)
+                seed_vec = build_seed_vector(
+                    qu, passage_unit, entity_unit, n_nodes, mode=mode, top_s=top_s
+                )
+                sa = sa_passage_scores(
+                    adj, seed_vec, graph.passage_indices, hops=hops, damping=damping
+                )
+                sa_top = rank_desc(sa)[:5]
+                sa_set = set(sa_top)
+
+                sa_recall += recall_at_k(sa_top, q.gold_idxs, 5)
+                # Ceiling the seed set imposes, scored on the same top-5 basis.
+                seed_recall += recall_at_k(sorted(seeds), q.gold_idxs, 5)
+                retention += len(sa_set & seeds) / max(1, len(sa_top))
+
+                # SA's unique contribution: gold the seeds never contained.
+                gold_missed = q.gold_idxs - seeds
+                missed += len(gold_missed)
+                rescued += len(gold_missed & sa_set)
+
+                knn_set = set(knn_top5[qi])
+                sa_only += len(q.gold_idxs & sa_set - knn_set)
+                knn_only += len(q.gold_idxs & knn_set - sa_set)
+
+            nq = max(1, len(questions))
+            results.append(
+                SeedingResult(
+                    mode=mode,
+                    top_s=top_s,
+                    operator=operator,
+                    sa_recall_at_5=sa_recall / nq,
+                    knn_recall_at_5=knn_recall,
+                    seed_recall_at_5=seed_recall / nq,
+                    rescue_rate=(rescued / missed) if missed else 0.0,
+                    rescued_gold=rescued,
+                    gold_missed_by_seeds=missed,
+                    sa_only_hits=sa_only,
+                    knn_only_hits=knn_only,
+                    seed_retention=retention / nq,
+                )
+            )
+    return results
 
 
 def density_sweep(
