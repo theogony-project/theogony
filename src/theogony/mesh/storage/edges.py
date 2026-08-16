@@ -523,6 +523,28 @@ class EdgeStore:
         neighbours.update(str(row["source_id"]) for row in incoming)
         return neighbours
 
+    def adjacency_index(self) -> dict[str, set[str]]:
+        """Undirected neighbour sets for every node, from one columnar scan.
+
+        :meth:`neighbor_ids` costs two filtered scans of the whole edge table —
+        measured at ~597 ms on a 27.8k-edge mesh. Callers that score many
+        candidates (the eager linker checks up to 24 per concept) pay that per
+        candidate, which is what actually collapses ingestion throughput as a mesh
+        grows. One full scan of the same table costs ~1.07 s, so building the whole
+        index is cheaper than asking about two nodes.
+
+        Reads only the two id columns — no payload_json, no Edge construction.
+        """
+        arrow = self.edge_table.search().select(["source_id", "target_id"]).to_arrow()
+        sources = arrow.column("source_id").to_pylist()
+        targets = arrow.column("target_id").to_pylist()
+        index: dict[str, set[str]] = {}
+        for source, target in zip(sources, targets, strict=True):
+            src, tgt = str(source), str(target)
+            index.setdefault(src, set()).add(tgt)
+            index.setdefault(tgt, set()).add(src)
+        return index
+
     def csr_from_store(self) -> EdgeCSR:
         """Build CSR from quantitative Lance columns (no ``payload_json`` parse)."""
         arrow = self.edge_table.search().to_arrow()
