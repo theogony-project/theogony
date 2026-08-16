@@ -1,0 +1,48 @@
+id: PHX-1056
+category: retrieval-quality
+priority: medium
+status: open
+generation_target: MESH migration — retrieval defaults (S3/S4)
+title: "Default seed count over-seeds retrieval; narrow seeding measurably outperforms"
+filed_by: Claude Code (seeding-ceiling follow-up, 2026-08-16)
+created_at: 2026-08-16
+description: >
+  `retrieve()` and the Cockpit mesh path default to k_seeds=8. The seeding-ceiling
+  experiment (docs/etappes/qa_benchmark.md) established that when the seed set is
+  as large as the evaluated working set, Spreading Activation can only re-rank what
+  the embedding already returned — measured at seed_retention 1.000 and rescue_rate
+  0.000 on both 2WikiMultihopQA and HotpotQA, with SA recall equal to kNN to three
+  decimals. Narrowing the seeds beat dense kNN on held-out questions: +0.102
+  (2Wiki, hybrid S=2) and +0.030 (HotpotQA, passage S=3), with no single-hop
+  regression on PopQA.
+
+  The same effect is visible on the founding mesh, on the demo's own Beat-1 query
+  ("How was Aphrodite born?"):
+
+    seeds  poem-hub activation  ranks 2-4
+    8      0.596 (3x runner-up) Iliad noise ("the god who cares for Aeneas")
+    3      0.236                Kypris epithet, the sea foam, the Hesiod source paragraph
+    2      0.169                the Hesiod source paragraph at rank 2
+
+  At the current default the generic work-node dominates and irrelevant Iliad
+  material outranks the answer; at 2-3 seeds the actual birth narrative and its
+  source anchor surface. Notably this achieves what the PHX-1042 levers
+  (degree_beta, hub_mask_top_n) were built for, without enabling either.
+
+  Not changed unilaterally: k_seeds=8 may have been tuned for the 100k Wikidata
+  subnet, where the tradeoff can differ, and it affects Cockpit UX. What this
+  ticket asks for is an A/B across both mesh kinds (founding + wiki-100k) on the
+  emergent judge, and a decision — either a new default, or per-workspace
+  configuration, or exposing it in the Cockpit.
+
+  Open question worth measuring alongside: the relevant quantity appears to be the
+  seed count *relative to the working-set depth* (S/k), not S alone. The benchmark
+  broke at S/k = 2.0 and worked at 0.4; production sits at 8/30 ~ 0.27.
+
+relates_to:
+  - PHX-1042   # degree-hub bias — narrow seeding addresses the same symptom
+  - PHX-1045   # founding demo — Beat 1 is where this is most visible
+linked_scripts:
+  - src/theogony/mesh/retrieval/retrieve.py
+  - src/theogony/cockpit/mesh_explorer.py
+  - scripts/mesh_qa_seeding.py

@@ -40,6 +40,29 @@ Honest note for the audience: the replay uses the retrieval's seed set with
 uniform weights — hop order and spread are real; ranking comes from the
 actual retrieval result.
 
+**Seed count matters more than anything else here — measured, not guessed.**
+The Cockpit currently seeds 8 nodes, which on this mesh lets the generic
+Theogony-poem node take 0.596 activation (3× the runner-up) and pushes *Iliad*
+noise above the answer. Narrowing the seeds forces propagation to do the work:
+
+| seeds | poem hub | what sits at ranks 2–4 |
+|---:|---:|---|
+| 8 (current default) | **0.596** | Iliad noise — "the god who cares for Aeneas" |
+| 3 | 0.236 | Kypris epithet · **the white foam around the severed members** · the Hesiod source paragraph |
+| 2 | 0.169 | **the Hesiod source paragraph at rank 2** — provenance surfaces on its own |
+
+At 2–3 seeds the constellation shows the actual birth narrative and its source
+anchor, which is what Beat 1 claims. This is the founding-mesh instance of the
+benchmark's seeding-ceiling result ([`docs/etappes/qa_benchmark.md`](../docs/etappes/qa_benchmark.md)):
+seeded as widely as the working set is deep, Spreading Activation can only
+re-rank what the embedding already returned. Whether the product default should
+change is PHX-1056; until then, run the CLI form with `--seeds 3` if you want the
+strongest Beat 1:
+
+```bash
+theogony mesh ask "How was Aphrodite born?" --root data/mesh-founding --seeds 3 --top-k 8
+```
+
 ## Beat 2 — Contradiction is first-class (~60s)
 
 > Who are the parents of Aphrodite?
