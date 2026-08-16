@@ -25,6 +25,7 @@ from theogony.mesh.seeds.wikidata5m import (
     build_embedder,
 )
 from theogony.mesh.seeds.wikidata5m.embedder import EdgesOnlyEmbedder, MeshEmbedder
+from theogony.mesh.storage.edges import DEFAULT_MAX_OUT_DEGREE
 from theogony.reporting.models import MeshQueryRunReport, MeshTickReport
 from theogony.reporting.writer import RunReportWriter
 
@@ -163,9 +164,12 @@ def mesh_tick(
         help="Time delta multiplied into the decay step.",
     ),
     max_out_degree: int = typer.Option(
-        64,
+        DEFAULT_MAX_OUT_DEGREE,
         "--max-out-degree",
-        help="Saturation cap: keep only the strongest N outbound edges per node.",
+        help=(
+            "Saturation cap: keep only the strongest N outbound edges per node. "
+            "Defaults to the doctrine's lowest tier cap (MESH_SUBSTRATE §3)."
+        ),
     ),
     w_max: float = typer.Option(
         1.0,
