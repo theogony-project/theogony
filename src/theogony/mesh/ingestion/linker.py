@@ -60,6 +60,17 @@ class EagerLinker:
         self._frame_dim = frame_dim
         self._registry = registry or ConceptResolver(node_store)
         self._adjacency: dict[str, set[str]] = {}
+        self._adjacency_primed = False
+
+    def _prime_adjacency(self) -> None:
+        """Load the whole adjacency index once, keeping edges learned this run."""
+        if self._adjacency_primed:
+            return
+        self._adjacency_primed = True
+        for node_id, neighbours in self._edge_store.adjacency_index().items():
+            # Union rather than overwrite: edges appended earlier in this run are
+            # already in memory and may not be flushed to storage yet.
+            self._adjacency.setdefault(node_id, set()).update(neighbours)
 
     def remember_edge(self, edge: Edge) -> None:
         source_id = str(edge.source_id)
@@ -72,8 +83,14 @@ class EagerLinker:
             return 0.0
         neighbours = self._adjacency.get(candidate_id)
         if neighbours is None:
-            neighbours = self._edge_store.neighbor_ids(candidate_id)
-            self._adjacency[candidate_id] = neighbours
+            # One full-table scan builds every node's neighbours; the per-node
+            # query costs two filtered scans of the same table (~597 ms on the
+            # founding mesh) and this is called for up to 24 ANN candidates per
+            # concept. Fetching the whole index once is cheaper than asking about
+            # two nodes, and it is what made ingestion collapse as a mesh grew
+            # (PHX-1047 — the cost is here, in context scoring, not in the ANN).
+            self._prime_adjacency()
+            neighbours = self._adjacency.get(candidate_id, set())
         if not neighbours:
             return 0.0
         overlap = len(neighbours & context_node_ids)

@@ -1,0 +1,76 @@
+id: PHX-1057
+category: ingestion-performance
+priority: high
+status: in_progress
+generation_target: MESH migration — reading at scale (S2)
+title: "Ingestion throughput collapse is per-candidate neighbour scans and per-edge Lance writes"
+filed_by: Claude Code (measured on the founding mesh, 2026-08-16)
+created_at: 2026-08-16
+description: >
+  PHX-1047 attributed the throughput collapse to "ANN-backed identity resolution"
+  and PHX-1050 to Lance write amplification. Profiling the same paragraph ingested
+  into an empty mesh and into the 463-node / 27.8k-edge founding mesh located the
+  cost precisely, and the ANN is not it.
+
+  Measured, one paragraph, identical LLM work (0.0005 EUR) in both runs:
+
+    empty mesh                     19 s
+    463-node founding mesh        109 s        (5.7x)
+
+  Stage breakdown on the loaded mesh, and the per-operation costs behind it:
+
+    mentions_resolved   37.9 s     <- dominant
+    stored             ~21 s
+    ANN search           8.9 ms per call       (not the bottleneck)
+    label lookup         4.4 ms per call
+    merge_identity_ev.  47   ms per call
+    append_consolidated  3.5 ms per call
+    audit.append         1.7 ms per call
+    neighbor_ids()     597   ms per call       <- the actual cost
+    append_edge()      119   ms per edge       <- the other one
+
+  Two independent causes:
+
+  1. EagerLinker._context_score calls EdgeStore.neighbor_ids() for **every ANN
+     candidate** (up to 24 per concept). Each call is two filtered scans of the
+     whole edge table: 597 ms on this mesh, so up to 14 s per concept. One full
+     scan of the same table costs 1.07 s — cheaper than asking about two nodes.
+  2. MeshParagraphReader wrote each edge with its own append_edge(), i.e. one
+     Lance transaction per edge, whose cost grows with table size: 119 ms/edge,
+     ~21 s for one paragraph's 165 edges. The batch API already existed and is
+     ~2000x cheaper for the same edges (0.01 s for 180).
+
+  Fix (this ticket's PR): EdgeStore.adjacency_index() builds every node's
+  neighbour set from one columnar scan of the two id columns, and the linker
+  primes it once per run instead of querying per candidate; the reader buffers
+  edges and flushes them in bounded batches.
+
+  Result on the same passage and mesh:
+
+    total              109 s -> 28.6 s   (3.8x)
+    mentions_resolved  37.9 s ->  3.24 s (11.7x)
+    stored            ~21   s ->  0.01 s
+
+  Ingestion is now LLM-bound (11.3 s of the 28.6 s is the model call), which is
+  where the time should be. Local overhead fell from ~90 s to ~4 s.
+
+  Consequence for the founding corpus: a full Theogony read was previously
+  measured at 9.1 h and ended with verdict=failed. At ~30 s/paragraph and
+  0.0005 EUR/paragraph on deepseek (usable since PHX-1055), the same read is
+  roughly an hour and pennies. That matters because the founding mesh is missing
+  its own subject matter — 0 nodes for Poseidon, Demeter, Hestia and Rhea against
+  25 / 42 / 9 / 15 occurrences in the source text — so the demo's succession
+  queries were unanswerable for lack of coverage, not for lack of retrieval
+  quality. Ingesting the single succession passage (Theogony 453-491) into a copy
+  produced Rhea, Cronos and all six children, and made "Who are the children of
+  Cronus?" return an actual child at rank 1.
+
+relates_to:
+  - PHX-1047   # supersedes its diagnosis: the ANN is fast, context scoring is not
+  - PHX-1050   # write amplification — the second half, now batched at the reader
+  - PHX-1055   # provider tolerance — what makes the cheap re-read possible
+  - PHX-1045   # founding demo — the coverage gap this unblocks
+linked_scripts:
+  - src/theogony/mesh/storage/edges.py
+  - src/theogony/mesh/ingestion/linker.py
+  - src/theogony/mesh/ingestion/kadmos_v2.py
