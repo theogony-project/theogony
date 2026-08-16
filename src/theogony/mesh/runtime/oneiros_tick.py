@@ -17,6 +17,7 @@ import lancedb
 
 from theogony.mesh.storage.audit import MeshAuditLog
 from theogony.mesh.storage.edges import (
+    DEFAULT_MAX_OUT_DEGREE,
     EdgeCSR,
     EdgeStore,
     decay_edges_inplace,
@@ -197,7 +198,7 @@ class MeshRuntime:
         *,
         lam: float = 0.05,
         dt: float = 1.0,
-        max_out_degree: int = 64,
+        max_out_degree: int = DEFAULT_MAX_OUT_DEGREE,
         w_max: float = 1.0,
     ) -> MinimalTickResult:
         """Drain delta buffer -> merge -> decay -> saturation -> Lance rewrite -> audit."""

@@ -1,0 +1,71 @@
+id: PHX-1058
+category: substrate-integrity
+priority: critical
+status: in_progress
+generation_target: MESH migration — tick correctness (S2/S5 foundation)
+title: "A tick destroyed every parallel typed relation, and the saturation default was 156x below doctrine"
+filed_by: Claude Code (operator report, reproduced and measured 2026-08-16)
+created_at: 2026-08-16
+description: >
+  Reported symptom: `theogony mesh tick` dropped ~69% of edges on the smoke mesh
+  (152 -> 47) with no Hebbian deltas present. The suspected cause was
+  `enforce_saturation`. That was wrong, and measuring the phases separately showed
+  why:
+
+    merge_edge_deltas([])   152 -> 47     <- the entire loss
+    decay                   0 edges zeroed
+    enforce_saturation      0 edges dropped (largest out-degree is 5, cap was 64)
+
+  Cause 1 — the merge key. `merge_edge_deltas` keyed edges by
+  `(source_id, target_id)` only, so every relation between the same two nodes
+  collapsed into whichever row came last. `mentions`,
+  `co_mentions_in_paragraph` and `appears_in_source` between one pair became one
+  edge. This contradicts the store's own identity: the dedup index is keyed on
+  `source + target + relation` (PHX-1033), so the substrate accepts parallel typed
+  edges and the tick then destroyed them.
+
+  Blast radius, measured before the fix:
+
+    smoke mesh        152 rows ->    47   (79 distinct triples existed)
+    founding mesh  27,824 rows -> 15,628, losing 2,520 DISTINCT typed relations
+    pilot-sonnet    8,945 rows ->  4,232, losing 1,257 DISTINCT typed relations
+
+  The bug was dormant until `theogony mesh tick` shipped (PR #193) and gave it a
+  driver — running the documented command on the demo workspace would have
+  silently deleted a quarter of its typed structure.
+
+  Cause 2 — the saturation default. `max_out_degree=64` against
+  MESH_SUBSTRATE §3, which specifies caps indexed by tier: 10,000 for a Tier-0
+  chunk rising to 1,000,000 for a Tier-3 hub. The implemented default sat three
+  orders of magnitude below the *lowest* doctrinal cap and truncated 116 nodes on
+  the founding mesh (largest out-degree 499), destroying a further 2,820 edges per
+  tick. Under doctrine none of those nodes is anywhere near its cap.
+
+  Fix (this ticket's PR):
+    * merge keyed by `(source, target, relation_descriptor)`; rows sharing a full
+      triple are genuine duplicates of one relation and fold to the *strongest*
+      weight, since repeated observation must not weaken a relation and summing
+      would drive much-repeated edges to the cap regardless of evidence.
+    * Hebbian deltas carry an optional relation, so reinforcement lands on the
+      edge activation actually traversed; an unnamed delta addresses the untyped
+      edge rather than silently retyping an existing relation.
+    * `DEFAULT_MAX_OUT_DEGREE = 10_000` — the doctrine's lowest tier, the only
+      flat value that cannot cap a node more tightly than doctrine allows.
+
+  After: smoke 152 -> 79 and founding 27,824 -> 18,148, both exactly the distinct
+  triple count. A tick now folds duplicate rows and preserves every relation.
+
+  Still not implemented, and deliberately left open rather than pretended:
+  per-tier cap indexing, the companion weight-sum cap, and the admission rule that
+  a new edge must be strictly stronger than the weakest incumbent before it
+  displaces anything (MESH_SUBSTRATE §3). The current truncation applies that
+  intent bluntly.
+
+relates_to:
+  - PHX-1033   # dedup index — the identity the merge should have used all along
+  - PHX-1050   # write amplification — the duplicate rows this folds
+  - PHX-1057   # ingestion performance — same write path
+linked_scripts:
+  - src/theogony/mesh/storage/edges.py
+  - src/theogony/mesh/retrieval/retrieve.py
+  - tests/mesh/test_tick_preserves_typed_edges.py

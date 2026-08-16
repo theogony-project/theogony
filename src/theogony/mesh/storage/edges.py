@@ -123,12 +123,18 @@ class EdgeDeltaBuffer:
         source_id: str,
         target_id: str,
         weight_delta: float,
+        relation_descriptor: str | None = None,
     ) -> None:
-        row = {
+        row: dict[str, Any] = {
             "source_id": source_id,
             "target_id": target_id,
             "weight_delta": weight_delta,
         }
+        # Naming the relation keeps reinforcement on the edge activation actually
+        # traversed; a pair can carry several typed relations, and an unnamed
+        # delta would land on the untyped one instead of any of them.
+        if relation_descriptor is not None:
+            row["relation_descriptor"] = relation_descriptor
         with self._lock:
             if self._path is None:
                 self._rows.append(row)
@@ -157,14 +163,31 @@ class EdgeDeltaBuffer:
 def merge_edge_deltas(
     base: list[Edge], deltas: list[dict[str, Any]], *, w_max: float
 ) -> list[Edge]:
-    """Apply weight deltas to existing edges; create synthetic edges for new pairs."""
+    """Apply weight deltas to existing edges; create synthetic edges for new pairs.
 
-    def _key(e: Edge) -> tuple[str, str]:
-        return (str(e.source_id), str(e.target_id))
+    Keyed by ``(source, target, relation_descriptor)`` — the same identity the
+    store's dedup index uses (PHX-1033). Keying by the node pair alone silently
+    destroyed every parallel typed relation: on the founding mesh one tick
+    collapsed 27,824 rows to 15,628, taking **2,520 distinct typed relations**
+    with it, because `mentions`, `co_mentions_in_paragraph` and
+    `appears_in_source` between the same two nodes all mapped to one key.
 
-    by_key: dict[tuple[str, str], Edge] = {}
+    Rows that *do* share a full triple are genuine duplicates of one relation
+    (ingestion appended per occurrence), so they collapse to the **strongest**
+    weight rather than to whichever happened to be last: repeated observation of
+    the same relation should not weaken it, and summing would drive every
+    much-repeated edge to the cap regardless of evidence.
+    """
+
+    def _key(e: Edge) -> tuple[str, str, str | None]:
+        return (str(e.source_id), str(e.target_id), e.relation_descriptor)
+
+    by_key: dict[tuple[str, str, str | None], Edge] = {}
     for e in base:
-        by_key[_key(e)] = e.model_copy(deep=True)
+        k = _key(e)
+        existing = by_key.get(k)
+        if existing is None or e.weight > existing.weight:
+            by_key[k] = e.model_copy(deep=True)
 
     for d in deltas:
         s = str(d["source_id"])
@@ -172,7 +195,10 @@ def merge_edge_deltas(
         dw = float(d["weight_delta"])
         if dw <= 0:
             continue
-        k = (s, t)
+        # A delta may name the relation it reinforces. Without one it addresses the
+        # untyped edge for the pair, so reinforcement can never silently retype an
+        # existing relation.
+        k = (s, t, d.get("relation_descriptor"))
         if k in by_key:
             cur = by_key[k]
             nw = min(w_max, cur.weight + dw)
@@ -185,6 +211,7 @@ def merge_edge_deltas(
                 weight=min(w_max, dw),
                 born_at=now,
                 last_fired_at=now,
+                relation_descriptor=k[2],
             )
     return list(by_key.values())
 
@@ -208,10 +235,26 @@ def decay_edges_inplace(edges: list[Edge], *, lam: float = 0.05, dt: float = 1.0
         e.weight = max(0.0, w - delta)
 
 
+# MESH_SUBSTRATE.md §3 specifies count caps indexed by node tier: 10K for a Tier-0
+# chunk, rising to 1M for a Tier-3 hub. The cap here is flat and applies to every
+# node, so it is set to the doctrine's *lowest* tier — the only value that cannot
+# cap a node more tightly than doctrine allows. The previous default of 64 was
+# three orders of magnitude below that floor and silently truncated 116 nodes on
+# the founding mesh (largest out-degree 499), destroying 2,820 edges per tick.
+DEFAULT_MAX_OUT_DEGREE = 10_000
+
+
 def enforce_saturation(
-    edges: list[Edge], *, max_out_degree: int = 64, w_max: float = 1.0
+    edges: list[Edge], *, max_out_degree: int = DEFAULT_MAX_OUT_DEGREE, w_max: float = 1.0
 ) -> list[Edge]:
-    """Per-source-node cap on outgoing count; drop lowest-weight edges first."""
+    """Per-source-node cap on outgoing count; drop lowest-weight edges first.
+
+    Two parts of the doctrinal rule are **not** implemented and remain open: the
+    per-tier indexing above, the companion weight-sum cap, and the admission rule
+    that a new edge must be strictly stronger than the weakest incumbent before it
+    can displace anything. This truncates by weight instead, which is the same
+    intent applied bluntly.
+    """
     by_source: dict[str, list[Edge]] = {}
     for e in edges:
         key = str(e.source_id)

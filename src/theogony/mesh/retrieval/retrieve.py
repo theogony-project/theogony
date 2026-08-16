@@ -80,21 +80,24 @@ def append_hebbian_deltas(
     honest description is "the loop is closeable", not "the loop is correct".
     """
     activation = {n.node_id: n.activation for n in constellation.nodes}
-    scored: list[tuple[float, str, str]] = []
+    scored: list[tuple[float, str, str, str | None]] = []
     for edge in constellation.edges:
         source_act = activation.get(edge.source_id, 0.0)
         target_act = activation.get(edge.target_id, 0.0)
         if source_act <= 0.0 or target_act <= 0.0:
             continue
-        scored.append((source_act * target_act, edge.source_id, edge.target_id))
+        scored.append(
+            (source_act * target_act, edge.source_id, edge.target_id, edge.relation_descriptor)
+        )
 
     scored.sort(key=lambda row: row[0], reverse=True)
     written = 0
-    for product, source_id, target_id in scored[:max_deltas]:
+    for product, source_id, target_id, relation in scored[:max_deltas]:
         runtime.edges.delta.append_hebbian_delta(
             source_id=source_id,
             target_id=target_id,
             weight_delta=learning_rate * product,
+            relation_descriptor=relation,
         )
         written += 1
     return written
