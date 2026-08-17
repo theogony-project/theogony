@@ -1,7 +1,7 @@
 id: PHX-1049
 category: substrate-topology
 priority: medium
-status: open
+status: in_progress
 generation_target: MESH migration — edge-budget discipline before scale
 title: "Cap the structural chunk lattice: k-NN sparsification of shares_entities_with"
 filed_by: Claude Code (founding-mesh topology analysis, 2026-07-16)
@@ -36,3 +36,38 @@ relates_to:
   - PHX-1042   # hub dynamics sibling (degree-aware retrieval levers)
 linked_scripts:
   - src/theogony/mesh/ingestion/kadmos_v2.py
+
+measured_ab_2026_08_17: >
+  A/B on 50 identical paragraphs into two copies of a dense 2,436-node mesh
+  (deepseek-chat, only --structural-neighbours differing):
+
+                      uncapped k=0   capped k=12     delta
+    edges_upserted           6,519         5,444    -16.5%
+    relations stage          458.7s        334.7s   -27.0%
+    mentions_resolved        918.1s        899.1s    -2.1%
+    total duration         1,690.8s      1,568.5s    -7.2%
+    isolated-node anomaly  present       present    unchanged
+
+  The cap delivers what the ticket asked for: the lattice shrinks 16.5% and its
+  own stage drops 27%, with the connectivity guardrail unchanged (the
+  isolated_consolidated_nodes anomaly is present in BOTH arms, so the cap did
+  not introduce it). Unit tests additionally pin that a capped lattice stays one
+  connected component and that a weakly-linked paragraph keeps its only partner.
+
+  It does NOT, however, solve the ingestion throughput collapse it was filed
+  under. At this mesh size the dominant cost is entity resolution at 918s (54%
+  of the run), against 459s (27%) for the whole relations stage. Total gain is
+  only 7.2%.
+
+  The measurement that matters for the next ticket: resolution cost per
+  paragraph went from 2.6s at 463 nodes to 18.4s at 2,436 nodes — 5.3x the nodes
+  for 7x the cost. That is the real blocker for a full-corpus read, and the
+  adjacency prefetch in PHX-1057 addressed only one part of it (per-candidate
+  neighbour scans). What still scales is unidentified and needs its own profile.
+
+  Caveat: single-run arms with a non-deterministic LLM. The edge reduction is the
+  robust signal; the stage timings carry model variance (the LLM stage itself
+  differed by 9.7% between arms in the opposite direction).
+
+  Default: k=12, tunable via --structural-neighbours; 0 restores the uncapped
+  lattice as the control arm.

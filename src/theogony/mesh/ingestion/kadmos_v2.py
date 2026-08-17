@@ -47,6 +47,14 @@ log = get_logger("mesh.ingestion")
 # Edges buffered before a Lance append (see MeshParagraphReader._append_edge).
 _EDGE_FLUSH_BATCH = 512
 
+# Structural (`shares_entities_with`) neighbours kept per paragraph — PHX-1049.
+# Linking every entity-sharing pair is O(P^2): on the founding mesh the lattice
+# alone was 51% of all edges, and a full read grew ~33% slower per 100-paragraph
+# batch because the pass writes two edges and an audit row per qualifying pair.
+# The doctrine wants connectivity carried by shared *concepts*, not by a chunk
+# quasi-clique, so each paragraph keeps only its strongest partners.
+_MAX_STRUCTURAL_NEIGHBOURS = 12
+
 SYSTEM_PROMPT = """You are Kadmos, the cognitive reader for a MESH substrate.
 
 Read the paragraph below and output valid JSON for this schema:
@@ -108,11 +116,13 @@ class MeshParagraphReader:
         frame_dim: int | None = None,
         max_paragraphs: int = 0,
         settings: Settings | None = None,
+        max_structural_neighbours: int = _MAX_STRUCTURAL_NEIGHBOURS,
     ) -> None:
         self.mesh = mesh
         self.llm = llm
         self.settings = settings or Settings()
         self.max_paragraphs = max_paragraphs
+        self.max_structural_neighbours = max_structural_neighbours
         self.semantic_dim = mesh.semantic_dim if semantic_dim is None else semantic_dim
         self.frame_dim = mesh.frame_dim if frame_dim is None else frame_dim
         self.registry = ConceptResolver(mesh.nodes)
@@ -562,11 +572,23 @@ class MeshParagraphReader:
             )
 
         cross_started = time.monotonic()
-        for left_unit, right_unit in combinations(paragraph_units, 2):
-            shared_entities = left_unit.entity_ids & right_unit.entity_ids
-            if not shared_entities:
-                continue
-            weight = min(0.25 + (0.10 * len(shared_entities)), 0.70)
+        structural_pairs, structural_dropped = _select_structural_pairs(
+            paragraph_units, max_neighbours=self.max_structural_neighbours
+        )
+        if structural_dropped:
+            # Doctrine: destruction is permitted under audit, never silently. The
+            # capped pairs are recorded so a mesh can always account for the links
+            # it chose not to make.
+            self._append_audit(
+                "mesh_ingest_structural_lattice_capped",
+                {
+                    "kept_pairs": len(structural_pairs),
+                    "dropped_pairs": structural_dropped,
+                    "max_neighbours": self.max_structural_neighbours,
+                },
+            )
+        for left_unit, right_unit, shared_count in structural_pairs:
+            weight = min(0.25 + (0.10 * shared_count), 0.70)
             for source_id, target_id in (
                 (left_unit.paragraph_anchor_id, right_unit.paragraph_anchor_id),
                 (right_unit.paragraph_anchor_id, left_unit.paragraph_anchor_id),
@@ -590,7 +612,7 @@ class MeshParagraphReader:
                 {
                     "left_paragraph": left_unit.paragraph_number,
                     "right_paragraph": right_unit.paragraph_number,
-                    "shared_entity_count": len(shared_entities),
+                    "shared_entity_count": shared_count,
                 },
             )
 
@@ -930,6 +952,48 @@ def _concept_tags(concept: LLMConcept) -> list[str]:
     if concept.entity_type and concept.entity_type not in tags:
         tags.append(concept.entity_type)
     return tags or ["concept"]
+
+
+def _select_structural_pairs(
+    units: list[_ParagraphUnit], *, max_neighbours: int
+) -> tuple[list[tuple[_ParagraphUnit, _ParagraphUnit, int]], int]:
+    """Keep each paragraph's strongest entity-sharing partners (PHX-1049).
+
+    Returns ``(kept_pairs, dropped_count)`` where each kept pair carries its
+    shared-entity count, so the caller still weights edges by overlap strength.
+
+    Selection is **union, not intersection**: a pair survives if *either*
+    endpoint ranks it in its top ``max_neighbours``. That is what preserves the
+    property the lattice was there for — the founding mesh is one connected
+    component with no isolated nodes — because a paragraph with few partners
+    keeps all of them even when its partners are individually popular.
+
+    ``max_neighbours <= 0`` disables the cap and restores the previous
+    all-pairs behaviour, which the A/B in PHX-1049 needs as its control arm.
+    """
+    scored: list[tuple[int, int, int]] = []
+    for left_index, right_index in combinations(range(len(units)), 2):
+        shared = units[left_index].entity_ids & units[right_index].entity_ids
+        if shared:
+            scored.append((left_index, right_index, len(shared)))
+
+    if max_neighbours <= 0 or not scored:
+        return [(units[i], units[j], n) for i, j, n in scored], 0
+
+    partners: dict[int, list[tuple[int, int]]] = {}
+    for left_index, right_index, count in scored:
+        partners.setdefault(left_index, []).append((count, right_index))
+        partners.setdefault(right_index, []).append((count, left_index))
+
+    keep: set[tuple[int, int]] = set()
+    for index, candidates in partners.items():
+        # Strongest overlap first; index breaks ties so the choice is deterministic.
+        candidates.sort(key=lambda item: (-item[0], item[1]))
+        for _count, other in candidates[:max_neighbours]:
+            keep.add((min(index, other), max(index, other)))
+
+    kept = [(units[i], units[j], n) for i, j, n in scored if (i, j) in keep]
+    return kept, len(scored) - len(kept)
 
 
 def _split_paragraphs(text: str) -> list[str]:
