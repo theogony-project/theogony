@@ -119,6 +119,14 @@ def mesh_ingest(
         "--anchor",
         help="Override anchor for local text ingestion.",
     ),
+    structural_neighbours: int = typer.Option(
+        12,
+        "--structural-neighbours",
+        help=(
+            "PHX-1049: cap `shares_entities_with` partners kept per paragraph. "
+            "0 restores the uncapped all-pairs lattice (the A/B control arm)."
+        ),
+    ),
     mesh_root: Path | None = MESH_ROOT,
 ) -> None:
     """Read a source into the MESH substrate with dense paragraph topology."""
@@ -131,6 +139,7 @@ def mesh_ingest(
         llm=llm,
         max_paragraphs=paragraphs if paragraphs > 0 else 0,
         settings=settings,
+        max_structural_neighbours=structural_neighbours,
     )
 
     if text_file:
