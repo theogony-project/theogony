@@ -328,6 +328,35 @@ task whose answer is an **entity** or a **path** — the substrate's actual targ
 shape — is where a better entity graph should pay, and this benchmark cannot see
 that. Designing that measurement is the natural next etappe.
 
+## What a query actually costs
+
+Worth stating plainly, because the CLI's ~17 s makes retrieval *look* expensive
+and it is not. Measured on the founding mesh (463 nodes / 27.8k edges):
+
+| | cost | what it is |
+|---|---:|---|
+| `import torch` + `sentence_transformers` + embedder | 11.7 s | **per process**, before any query |
+| first query | ~1.9 s | builds the CSR and the descriptor cache |
+| **warm query** | **57 ms** | of which **Spreading Activation is 13 ms** |
+
+The retrieval primitive is the cheapest part of the chain. For scale: one token
+through an 8B model is ~16 GFLOPs, while three hops over this mesh is ~167 kFLOPs
+— about **100,000× less arithmetic**. The 13 ms is Python and torch dispatch
+overhead, not the mathematics.
+
+Everything else is the cost of *not* being a resident server: an LLM loads its
+weights once and never touches disk again during inference, and it has no
+lookup step at all, because its knowledge *is* the matrix it multiplies. The
+substrate's assembly step exists because it returns something an LLM cannot —
+named nodes, descriptions, provenance — but it was implemented as one Lance query
+per node plus a filtered metadata query per call, which cost 395 ms of a 430 ms
+warm query. Batching both took it to 19 ms.
+
+The remaining 11.7 s of process startup is amortised by any long-running host;
+`MESH_IMPLEMENTATION.md`'s Hot/Warm/Cold tiering is the doctrine's version of the
+same point, and the Cockpit already gets it right ("the first mesh query pays the
+one-time index build; every subsequent query is sub-second").
+
 ## Reading the numbers honestly
 
 - Absolute recall is a **lower bound**: a 384-d `bge-small-en` embedder and no

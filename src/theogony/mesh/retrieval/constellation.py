@@ -112,11 +112,15 @@ def assemble_constellation(
     topk_set = {i for i, _ in keep}
     node_ids_topk = [csr.node_ids[i] for i, _ in keep]
 
+    # One read for the whole working set: per-node fetches cost a Lance query each
+    # (4.3 ms measured), which dominated assembly for no structural reason.
+    hydrated = runtime.nodes.get_consolidated_many(node_ids_topk)
+
     nodes: list[ConstellationNode] = []
     candidate_count = 0
     for idx, act in keep:
         node_id = csr.node_ids[idx]
-        cn = runtime.nodes.get_consolidated(node_id)
+        cn = hydrated.get(node_id)
         if cn is None:
             nodes.append(
                 ConstellationNode(
@@ -143,7 +147,10 @@ def assemble_constellation(
         )
 
     name_by_id = {node.node_id: node.name for node in nodes}
-    meta = runtime.edges.load_metadata_for_sources(node_ids_topk)
+    # Cached on the edge mutation generation, like the CSR: a filtered metadata
+    # query cost ~194 ms on every call, and the cost was the filter rather than the
+    # parsing, so narrowing it only made things worse.
+    descriptors = runtime.descriptor_index()
 
     raw_edges: list[tuple[int, int, float]] = []
     for src_idx, _ in keep:
@@ -159,10 +166,7 @@ def assemble_constellation(
     for src_idx, tgt_idx, weight in raw_edges[:max_edges]:
         sid = csr.node_ids[src_idx]
         tid = csr.node_ids[tgt_idx]
-        descriptor = None
-        m = meta.get((sid, tid))
-        if m is not None:
-            descriptor = m.relation_descriptor
+        descriptor = descriptors.get((sid, tid))
         edges.append(
             ConstellationEdge(
                 source_id=sid,

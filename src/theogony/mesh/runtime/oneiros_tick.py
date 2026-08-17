@@ -94,6 +94,9 @@ class MeshRuntime:
         # take tens of seconds on busy 100k workspaces.)
         self._csr_cache: EdgeCSR | None = None
         self._csr_cache_key: tuple[int, int] | None = None
+        # Same cache discipline for edge descriptors (see :meth:`descriptor_index`).
+        self._descriptor_cache: dict[tuple[str, str], str | None] | None = None
+        self._descriptor_cache_key: int | None = None
 
     @classmethod
     def open(
@@ -173,6 +176,8 @@ class MeshRuntime:
         """Drop the resident CSR (call after out-of-band edge mutations)."""
         self._csr_cache = None
         self._csr_cache_key = None
+        self._descriptor_cache = None
+        self._descriptor_cache_key = None
 
     def rebuild_csr(self, *, force: bool = False) -> EdgeCSR:
         """Return the edge CSR, reusing a resident cache when the graph is unchanged.
@@ -190,6 +195,22 @@ class MeshRuntime:
         self._csr_cache = csr
         self._csr_cache_key = key
         return csr
+
+    def descriptor_index(self, *, force: bool = False) -> dict[tuple[str, str], str | None]:
+        """Return relation descriptors for every edge, cached like the CSR.
+
+        Keyed on the edge mutation generation, so it survives across queries and is
+        rebuilt only after a write. Retrieval reads it once per query instead of
+        issuing a filtered metadata query, which measured ~194 ms *per query* on the
+        founding mesh against ~0 ms from this cache.
+        """
+        key = self.edges.mutation_generation
+        if not force and self._descriptor_cache is not None and self._descriptor_cache_key == key:
+            return self._descriptor_cache
+        index = self.edges.descriptor_index()
+        self._descriptor_cache = index
+        self._descriptor_cache_key = key
+        return index
 
     # ---- tick -------------------------------------------------------
 
