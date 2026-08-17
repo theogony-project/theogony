@@ -74,3 +74,34 @@ linked_scripts:
   - src/theogony/mesh/storage/edges.py
   - src/theogony/mesh/ingestion/linker.py
   - src/theogony/mesh/ingestion/kadmos_v2.py
+
+resolution_followup_2026_08_17: >
+  The "whatever still scales is unidentified" note above is now answered: it was
+  the same nested-per-item pattern a third time.
+  `MeshNodeStore.find_consolidated_by_labels` issued one index query per label
+  AND one `get_consolidated` per matching row, costing ~595 ms for a single
+  concept on a 2,436-node mesh — the dominant term inside `_best_tag_match`.
+  `merge_identity_evidence` additionally re-fetched a node the eager linker was
+  already holding, adding 68.7 ms to every merge including the common early-return
+  case where the reference carries no new Q-ID.
+
+  Fix: batch the hydration via get_consolidated_many, and thread the already-held
+  node into merge_identity_evidence.
+
+                        before      after
+    label lookup        595 ms      188 ms
+    mentions_resolved   918.1s      343.9s   (2.67x)
+    total ingest      1,690.8s      855.3s   (1.98x)
+
+  Rejected on the way, and worth recording: merging the per-label index reads into
+  a single `label IN (...)` query is faster still (106 ms) but changes which
+  candidates survive truncation when a generic tag matches more nodes than the
+  limit — 15 differing candidate sets out of 60 real label/tag combinations drawn
+  from the mesh. The eager linker scores whatever candidates it is handed, so that
+  is a changed identity decision, not a latency detail. The shipped version keeps
+  selection order-exact (0/60 mismatches) and pays ~80 ms per lookup for it.
+
+  Remaining known cost, not addressed: `merge_identity_evidence` still costs
+  ~683 ms when a genuinely new Q-ID is attached, because Lance has no in-place
+  update and the row is deleted and re-added. That fires once per node that gains
+  identity evidence, so it is bounded per ingest rather than per concept.

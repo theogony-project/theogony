@@ -251,7 +251,7 @@ class MeshNodeStore:
         return out
 
     def merge_identity_evidence(
-        self, node_id: str, *, qids: list[QIDTag]
+        self, node_id: str, *, qids: list[QIDTag], node: ConsolidatedNode | None = None
     ) -> ConsolidatedNode | None:
         """Persist identity evidence acquired at merge time (PHX-1053).
 
@@ -259,8 +259,14 @@ class MeshNodeStore:
         reference may carry Q-IDs the stored node does not have yet (measured
         live: Aphrodite Q35500 merged into a hymn concept and the Q-ID
         evaporated with the process). Appending them here makes the identity
-        durable and Q-ID-addressable for every later read and ingest."""
-        node = self.get_consolidated(node_id)
+        durable and Q-ID-addressable for every later read and ingest.
+
+        Pass ``node`` when the caller already holds it — the eager linker always
+        does, having just matched it. Re-fetching costs a filtered Lance query
+        (68.7 ms on a 2.4k-node mesh) on *every* merge, including the common case
+        where the reference carries no Q-ID the node lacks and the function
+        returns immediately."""
+        node = node or self.get_consolidated(node_id)
         if node is None:
             return None
         known = {q.qid for q in node.qids}
@@ -317,8 +323,22 @@ class MeshNodeStore:
     ) -> list[ConsolidatedNode]:
         if limit <= 0:
             return []
+
+        # Candidate *selection* is unchanged: one index read per label, in the
+        # caller's priority order, stopping at `limit` — the eager linker's
+        # scoring depends on which candidates it sees, so this must stay exact.
+        # Only the hydration is batched. Fetching each matching node with its own
+        # query was the expensive half (~595 ms for one concept on a 2.4k-node
+        # mesh); collecting the ids first and reading them in one go removes it
+        # without touching semantics.
+        #
+        # A combined `label IN (...)` read was tried and rejected: it is faster
+        # still, but changes which candidates survive truncation when a generic
+        # tag matches more nodes than `limit` (measured: 15 differing sets out of
+        # 60 real label/tag combinations). Identity resolution is not a place to
+        # trade exactness for latency.
         seen_ids: set[str] = set()
-        out: list[ConsolidatedNode] = []
+        ordered_ids: list[str] = []
         for label in labels:
             normalized = _normalize_label(label)
             if not normalized:
@@ -333,14 +353,15 @@ class MeshNodeStore:
                 node_id = str(row["node_id"])
                 if node_id in seen_ids:
                     continue
-                node = self.get_consolidated(node_id)
-                if node is None:
-                    continue
                 seen_ids.add(node_id)
-                out.append(node)
-                if len(out) >= limit:
-                    return out
-        return out
+                ordered_ids.append(node_id)
+                if len(ordered_ids) >= limit:
+                    break
+            if len(ordered_ids) >= limit:
+                break
+
+        hydrated = self.get_consolidated_many(ordered_ids)
+        return [hydrated[nid] for nid in ordered_ids if nid in hydrated]
 
     def search_consolidated_by_vector(
         self,
