@@ -41,6 +41,36 @@ description: >
   512 rows indexing is skipped: IVF cannot train partitions and a scan is faster
   anyway.
 
+  FOLLOW-UP — the first fix was only half of it (measured, not predicted). The
+  four batches were re-run with indexing enabled and the growth curve did NOT
+  flatten: resolution per paragraph went 0.71 / 0.51 / 1.10 / 2.74 s, the same
+  ~4x rise as the unindexed baseline. Inspecting the grown mesh explained it —
+  Lance indexes the rows present at build time and leaves later appends in an
+  unindexed fragment that every query scans on top of the index:
+
+    consolidated_nodes (2,300 rows):  indexed 831   unindexed 1,469  (64%)
+    label index        (6,805 rows):  indexed 2,974 unindexed 3,831  (56%)
+
+  ensure_indices() treated "an index exists on this column" as done, so after
+  the first tick nothing was ever folded in. Cost of that stale state vs. a
+  refresh on the same mesh:
+
+    find_consolidated_by_labels  88.4 ms  ->  3.3 ms   (27x)
+    get_consolidated             48.6 ms  ->  1.2 ms   (39x)
+    ANN                          41.7 ms  ->  5.2 ms   (8x)
+
+  for 2.5 s of refresh work. ensure_indices() now folds the tail in once it
+  exceeds _MAX_UNINDEXED_ROWS (512), leaving a small tail to the scan — below
+  that the scan is cheaper than the rebuild. Version retention is set far
+  beyond any tick cadence because `optimize` prunes versions older than a week
+  by default, and an append-only substrate must not have its history discarded
+  by a maintenance pass acting on its own.
+
+  Methodological note: the first PR shipped with tests proving indices get
+  CREATED. None of them asserted the indices still covered the table after more
+  rows arrived, which is exactly the state a growing mesh is always in. A test
+  for the steady state, not just the initial state, would have caught this.
+
   Relationship to the earlier work: PHX-1057 and its follow-up reduced how MANY
   queries the resolution path issues (batched hydration, adjacency prefetch,
   descriptor cache). This reduces what each query COSTS. The two compose — the
