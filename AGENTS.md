@@ -116,7 +116,26 @@ Guessing at a fix you cannot run is how a green build gets papered over.
 
 The architecture is decided by the MESH triplet ([`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md) + [`docs/MESH_IMPLEMENTATION.md`](docs/MESH_IMPLEMENTATION.md) + [`docs/MESH_RETRIEVAL.md`](docs/MESH_RETRIEVAL.md)); the migration to it is sequenced by [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md). If those documents are silent on a question, propose the minimal interpretation in the PR body. If they are wrong, do not silently route around them — flag the contradiction in the PR body and file a new (PHX-1000+) Phoenix Backlog ticket per [`phoenix-backlog/README.md`](phoenix-backlog/README.md).
 
-### 7. YAGNI is a hard rule
+### 7. One transaction per item is the recurring defect of this substrate
+
+Five separate performance collapses in the mesh have had the same shape: code that
+writes or queries once **per item** where it could do so once **per batch**. Edges
+(PHX-1050, PHX-1057), index coverage (PHX-1059), node version pile-up (PHX-1060),
+and the audit log (PHX-1061). Each was found only after it had already cost hours
+of wall-clock on real reads.
+
+Two habits follow.
+
+When adding a write or a lookup to a path that runs per concept, per edge, or per
+paragraph, state in the PR body what its batched form is — or why one transaction
+per item is correct here.
+
+And when profiling, **measure inside a real run, not in isolation**. The audit
+write measured 3.1 ms standalone and 269.8 ms in situ — 87x apart — because the
+cost only appears interleaved with other tables' writes. A standalone benchmark
+would have cleared it.
+
+### 8. YAGNI is a hard rule
 
 Do not build what the plan does not require. Do not add abstraction layers "for future flexibility" beyond what is already specified. Do not pre-optimize.
 

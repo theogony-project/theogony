@@ -1,0 +1,62 @@
+id: PHX-1061
+category: substrate-performance
+priority: high
+status: in_progress
+generation_target: MESH migration — reading at scale (S2)
+title: "The audit log wrote one Lance transaction per resolved concept — 84% of the resolution stage"
+filed_by: Claude Code (measured on a grown mesh, 2026-08-18)
+created_at: 2026-08-18
+description: >
+  Attributing the resolution stage end to end on a 2,336-node mesh left 84% of it
+  unexplained: `mentions_resolved` measured 186.5 s over 72 paragraphs while every
+  instrumented storage call inside it summed to 29.3 s.
+
+  The remainder was the audit log. `MeshParagraphReader._append_audit` writes one
+  row per resolved concept, and each row was its own Lance transaction:
+
+    MeshAuditLog.append          82 calls   22.12 s   269.8 ms/call   <- largest term
+    EagerLinker.link_reference   82 calls    2.11 s    25.7 ms/call
+    find_consolidated_by_labels  76 calls    1.07 s    14.1 ms/call
+
+  269.8 ms per call, ten times what identity linking cost. Scaled to the full
+  batch, 581 link decisions x 269.8 ms = 157 s, which closes the gap exactly.
+
+  WHY IT HID FOR SO LONG: the same call measures **3.1 ms** when timed in
+  isolation on the same mesh — 87x cheaper. It is only expensive interleaved with
+  the other tables' writes during a real ingest. Every earlier profile of this
+  subsystem either timed operations standalone or wrapped only the node and edge
+  stores, so this term was never in frame.
+
+  Fix: `MeshAuditLog.stage()` stamps the row immediately and defers only the
+  write; `flush()` commits the batch, and the reader flushes it alongside the edge
+  buffer. The row is built at stage time so `id` and `recorded_at` record when the
+  event happened, not when it was written — the trail keeps its chronology.
+  `list_recent()` and `count()` flush first, so a staged row is never invisible to
+  a reader. Only the per-item hot path stages; the handful of run-level entries
+  keep writing straight through, so a crash mid-paragraph still leaves a record of
+  what the run was.
+
+  Measured on the same six-paragraph slice, before and after:
+
+    mentions_resolved   26.5 s -> 2.19 s   (12x)
+    audit writes        22.12 s -> 0.02 s
+    ingest wall         76.7 s -> 51.4 s
+
+  This is the FIFTH instance of one-transaction-per-item in this subsystem:
+  edges (PHX-1057), edge writes on the reader path (PHX-1050), index coverage
+  (PHX-1059), node version pile-up (PHX-1060), and now the audit log. The pattern
+  is worth naming as a class rather than fixing case by case — see the note in
+  AGENTS.md.
+
+  Consequence for PHX-1060 route B: buffering node writes was already down to 1.7%
+  of the resolution stage after route A, and this finding makes it smaller still.
+  Route B stays closed.
+
+relates_to:
+  - PHX-1060   # route B is refuted by this attribution
+  - PHX-1059
+  - PHX-1057
+  - PHX-1050
+linked_scripts:
+  - src/theogony/mesh/storage/audit.py
+  - src/theogony/mesh/ingestion/kadmos_v2.py

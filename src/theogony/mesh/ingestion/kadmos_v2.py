@@ -387,7 +387,7 @@ class MeshParagraphReader:
                     local_node_ids.add(str(decision.node.id))
                     if decision.is_new:
                         nodes_upserted += 1
-                    self._append_audit(
+                    self._stage_audit(
                         "mesh_ingest_link_decision",
                         {
                             "label": concept.label,
@@ -640,6 +640,7 @@ class MeshParagraphReader:
 
         # Connectivity metrics read the edge table — the buffer must land first.
         self._flush_edges()
+        self.mesh.audit.flush()
 
         metrics = self._compute_connectivity_metrics(paragraph_units)
         anomalies, recommendations = self._build_connectivity_observations(
@@ -865,6 +866,16 @@ class MeshParagraphReader:
 
     def _append_audit(self, action: str, detail: dict[str, Any]) -> str:
         return self.mesh.audit.append(action=action, detail=detail)
+
+    def _stage_audit(self, action: str, detail: dict[str, Any]) -> str:
+        """Stamp a per-item audit row now, write it with the batch.
+
+        Only the hot path uses this. The run-level entries keep writing straight
+        through, so a crash mid-paragraph still leaves a record of what the run
+        was. Measured at 269.8 ms per unbatched write inside a real ingest —
+        the largest single term in the resolution stage (PHX-1061).
+        """
+        return self.mesh.audit.stage(action=action, detail=detail)
 
     def _compute_connectivity_metrics(
         self,
