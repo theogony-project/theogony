@@ -83,3 +83,53 @@ def test_tick_reports_what_it_indexed(mesh_runtime: MeshRuntime) -> None:
     result = mesh_runtime.run_minimal_tick()
     assert result.index_status
     assert any("created" in v or "present" in v for v in result.index_status.values())
+
+
+def test_rows_appended_after_a_build_get_folded_into_the_index(
+    mesh_runtime: MeshRuntime,
+) -> None:
+    """An index is not built once — it has to keep covering the table.
+
+    Lance indexes the rows that exist at build time and leaves later appends in
+    an unindexed fragment that every query scans on top of the index. Measured
+    on a mesh indexed at 831 nodes and grown to 2,300 without a refresh, 64% of
+    rows sat outside the index and the label lookup cost 88.4 ms against 3.3 ms
+    once refreshed. The first cut of this feature indexed and never refreshed,
+    which lowered the ingestion growth curve without flattening it.
+    """
+    from theogony.mesh.storage.nodes import _unindexed_rows
+
+    _nodes(mesh_runtime, 600)
+    mesh_runtime.nodes.ensure_indices()
+    assert _unindexed_rows(mesh_runtime.nodes.consolidated_table) == 0
+
+    _nodes(mesh_runtime, 200)
+    assert _unindexed_rows(mesh_runtime.nodes.consolidated_table) == 200
+
+    status = mesh_runtime.nodes.ensure_indices(max_unindexed=50)
+
+    assert "refreshed" in status["consolidated.refresh"], status
+    assert _unindexed_rows(mesh_runtime.nodes.consolidated_table) == 0
+
+
+def test_a_small_tail_is_left_alone(mesh_runtime: MeshRuntime) -> None:
+    """Scanning a handful of unindexed rows is cheaper than rebuilding for them."""
+    _nodes(mesh_runtime, 600)
+    mesh_runtime.nodes.ensure_indices()
+    _nodes(mesh_runtime, 5)
+
+    status = mesh_runtime.nodes.ensure_indices()
+
+    assert "fresh" in status["consolidated.refresh"], status
+
+
+def test_refreshing_preserves_history(mesh_runtime: MeshRuntime) -> None:
+    """The substrate is append-only; maintenance must not prune its own past."""
+    _nodes(mesh_runtime, 600)
+    mesh_runtime.nodes.ensure_indices()
+    versions_before = len(mesh_runtime.nodes.consolidated_table.list_versions())
+
+    _nodes(mesh_runtime, 200)
+    mesh_runtime.nodes.ensure_indices(max_unindexed=50)
+
+    assert len(mesh_runtime.nodes.consolidated_table.list_versions()) >= versions_before

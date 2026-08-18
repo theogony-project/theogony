@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator
+from datetime import timedelta
 from typing import Any
 
 import lancedb
@@ -44,6 +45,55 @@ def _create_scalar_index(table: Any, column: str) -> None:
 # Below this row count a full scan beats an index, and IVF cannot train
 # partitions. Chosen so test-sized workspaces never pay for indexing.
 _MIN_ROWS_FOR_INDEX = 512
+
+# A Lance index covers only the rows that existed when it was built; later
+# appends land in an unindexed fragment that every query scans on top of the
+# index. Refresh once this many rows have accumulated outside it — below that,
+# scanning the tail is cheaper than folding it in.
+_MAX_UNINDEXED_ROWS = 512
+
+# `optimize` prunes versions older than a week by default. The substrate is
+# append-only by doctrine, so a maintenance pass must not quietly discard its
+# own past: retention is set far beyond any tick cadence, which leaves
+# `optimize` doing what it is called for here — compaction and index upkeep.
+_VERSION_RETENTION = timedelta(days=3650)
+
+
+def _unindexed_rows(table: Any) -> int:
+    """Rows the least up-to-date index on this table does not cover."""
+    worst = 0
+    for idx in table.list_indices():
+        try:
+            stats = table.index_stats(idx.name)
+        except Exception:  # noqa: BLE001 - stats are advisory, never load-bearing
+            continue
+        worst = max(worst, int(getattr(stats, "num_unindexed_rows", 0) or 0))
+    return worst
+
+
+def _refresh_indices(table: Any, *, max_unindexed: int = _MAX_UNINDEXED_ROWS) -> str:
+    """Fold rows appended since the last build into this table's indices.
+
+    Building an index is not a one-time act, which is the half of PHX-1059 the
+    first fix missed. Measured on a mesh whose indices were built at 831 rows
+    and then grown to 2,300 (64% of rows outside the index):
+
+        label lookup   88.4 ms  ->  3.3 ms
+        get_consolidated 48.6 ms ->  1.2 ms
+        ANN              41.7 ms ->  5.2 ms
+
+    for 2.5 s of refresh. Without this the index lowers the growth curve but
+    does not flatten it: the unindexed tail grows with every ingest, so the
+    scan it forces grows too.
+    """
+    stale = _unindexed_rows(table)
+    if stale < max_unindexed:
+        return f"fresh ({stale} rows unindexed)"
+    try:
+        table.optimize(cleanup_older_than=_VERSION_RETENTION)
+    except Exception as exc:  # noqa: BLE001 - a stale index only costs speed
+        return f"refresh failed: {exc}"
+    return f"refreshed ({stale} rows folded in)"
 
 
 def _sql_quote(value: str) -> str:
@@ -272,7 +322,12 @@ class MeshNodeStore:
             out[str(node.id)] = node
         return out
 
-    def ensure_indices(self, *, min_rows: int = _MIN_ROWS_FOR_INDEX) -> dict[str, str]:
+    def ensure_indices(
+        self,
+        *,
+        min_rows: int = _MIN_ROWS_FOR_INDEX,
+        max_unindexed: int = _MAX_UNINDEXED_ROWS,
+    ) -> dict[str, str]:
         """Create the Lance indices this store's own query patterns depend on.
 
         The substrate created **no indices at all**, so every lookup was a full
@@ -288,6 +343,11 @@ class MeshNodeStore:
         linearly with the mesh. Ingestion resolution cost was scaling roughly with
         the square of the node count because both the number of lookups and the
         cost of each were rising together.
+
+        Indices are also *refreshed* here, not only created: Lance leaves rows
+        appended after a build outside the index, so an index built once and never
+        maintained lowers the growth curve without flattening it. See
+        :func:`_refresh_indices`.
 
         Indexing is skipped below ``min_rows``: IVF needs enough vectors to train
         partitions, and on a small workspace a scan is faster than an index anyway.
@@ -329,6 +389,10 @@ class MeshNodeStore:
             except Exception as exc:  # noqa: BLE001 - a missing index only costs speed
                 result[f"consolidated.{column}"] = f"failed: {exc}"
 
+        result["consolidated.refresh"] = _refresh_indices(
+            self.consolidated_table, max_unindexed=max_unindexed
+        )
+
         for table, column, key in (
             (self.consolidated_label_index, "label", "label_index.label"),
             (self.consolidated_qid_index, "qid", "qid_index.qid"),
@@ -338,12 +402,14 @@ class MeshNodeStore:
                 continue
             if any(column in idx.name for idx in table.list_indices()):
                 result[key] = "present"
-                continue
-            try:
-                _create_scalar_index(table, column)
-                result[key] = "created"
-            except Exception as exc:  # noqa: BLE001
-                result[key] = f"failed: {exc}"
+            else:
+                try:
+                    _create_scalar_index(table, column)
+                    result[key] = "created"
+                except Exception as exc:  # noqa: BLE001
+                    result[key] = f"failed: {exc}"
+                    continue
+            result[f"{key}.refresh"] = _refresh_indices(table, max_unindexed=max_unindexed)
         return result
 
     def merge_identity_evidence(
