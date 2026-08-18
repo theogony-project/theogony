@@ -1,0 +1,84 @@
+id: PHX-1060
+category: substrate-performance
+priority: high
+status: open
+generation_target: MESH migration — reading at scale (S2)
+title: "Node appends slow 30x as Lance versions pile up — one tiny transaction per node"
+filed_by: Claude Code (measured 2026-08-18)
+created_at: 2026-08-18
+description: >
+  After PHX-1059 and its refresh follow-up removed the lookup cost from the
+  resolution path, a profile of a single paragraph read into a 2,311-node mesh
+  showed the remaining time is no longer in reads at all:
+
+    append_consolidated          14 calls   1.17 s   83.9 ms/call   <- 78% of it
+    find_consolidated_by_labels  12 calls   0.15 s   12.3 ms/call
+    get_consolidated_many        12 calls   0.11 s    9.0 ms/call
+    search_consolidated_by_vector 12 calls  0.09 s    7.8 ms/call
+
+  The driver is NOT row count. Same-sized meshes, different write histories:
+
+    empty mesh            0 rows,     1 version    ->  2.5 ms/append
+    founding (copy)     463 rows,   239 versions   ->  3.2 ms/append
+    grown + optimised  2,325 rows, 1,871 versions  -> 83.3 ms/append
+    2,325 rows written in ONE transaction, 13 versions ->  2.6 ms/append
+
+  The last line is the control: MORE label-index rows (9,322 vs 6,948) and the
+  same node count, but 13 versions instead of 1,871 — and appends stay at
+  2.6 ms. Pruning the grown mesh's history confirms it from the other side:
+  1,893 -> 13 versions took 1.9 s and moved appends 40.8 ms -> 2.7 ms.
+
+  Cause: every resolved concept is written with its own `append_consolidated`,
+  which is three tiny Lance transactions (consolidated_nodes, label index, qid
+  index). A 124-paragraph batch writes ~1,300 nodes, so ~4,000 versions
+  accumulate inside a single ingest, and each further append pays for the
+  manifest history. This is the same one-transaction-per-item pattern that
+  PHX-1057 fixed for edges (`_EDGE_FLUSH_BATCH`) and PHX-1059's follow-up fixed
+  for index coverage — the fourth instance of it in this subsystem.
+
+  It also explains a symptom already noted in the code: `oneiros_tick` carries a
+  comment that `list_versions` is O(version_count) "and can take tens of seconds
+  on busy 100k workspaces". Same root, observed earlier without being traced.
+
+  Residual growth after PHX-1059's refresh, resolution per paragraph over four
+  word-equalised batches:
+
+    no index          0.76  0.69  1.35  2.94 s   (~n^2.0)
+    index only        0.71  0.51  1.10  2.74 s
+    index + refresh   0.77  0.57  1.10  1.89 s   (~n^1.7)
+
+  So the refresh is worth 31% at the largest batch but does not flatten the
+  curve; this ticket is the next term.
+
+  TWO ROUTES, and they are not equivalent:
+
+  (A) Prune Lance versions in the Oneiros tick, behind an explicit retention
+      knob. Cheap (1.9 s), measured 15x on appends, available immediately. It
+      resets the cost between batches but not WITHIN one, so a long batch still
+      climbs. It also deletes storage-level snapshots. Nothing in src/theogony
+      reads them — there is no `checkout`, `restore` or `as_of` anywhere, and
+      `list_versions` is only used to report a number — and the substrate's
+      doctrinal history lives in the `mesh_audit` table and the RunReports, not
+      in the Lance version chain. This needs an owner decision even so: it
+      discards durable data.
+
+  (B) Buffer node writes in the eager linker the way edges are already buffered.
+      Structural fix, keeps history intact, removes the within-batch climb too.
+      Delicate: identity resolution must still see a node created earlier in the
+      same paragraph, so the buffer has to be read-through. PHX-1054's lesson
+      applies directly — a changed candidate set is a changed identity decision,
+      and that failure mode is invisible unless randomised real labels are used
+      to check it, not hand-picked probes.
+
+  Recommended order: (A) to unblock a full read, (B) as the real fix, with (B)
+  making (A)'s retention knob mostly moot.
+
+relates_to:
+  - PHX-1059   # index coverage; this is the next term after it
+  - PHX-1057   # same one-transaction-per-item pattern, fixed for edges
+  - PHX-1054   # why (B) must be verified on randomised labels
+  - PHX-1041   # the list_versions O(n) comment that this explains
+linked_scripts:
+  - src/theogony/mesh/storage/nodes.py
+  - src/theogony/mesh/ingestion/linker.py
+  - src/theogony/mesh/runtime/oneiros_tick.py
