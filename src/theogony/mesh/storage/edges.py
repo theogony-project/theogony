@@ -20,7 +20,7 @@ import json
 import threading
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -519,6 +519,27 @@ class EdgeStore:
         for row in arrow.to_pylist():
             out.append(Edge.model_validate_json(row["payload_json"]))
         return out
+
+    def prune_history(self, *, retention: timedelta) -> dict[str, int]:
+        """Discard Lance version snapshots older than ``retention``.
+
+        The edge tables accumulate versions the same way the node tables do —
+        every tick rewrites the whole edge set, and every ingest appends batches
+        — and pay the same rising write cost for it. See
+        :meth:`MeshNodeStore.prune_history` for the measurement and for why the
+        substrate's own history is unaffected by this (PHX-1060).
+        """
+        removed: dict[str, int] = {}
+        for name, table in (("mesh_edges", self.edge_table), ("edge_metadata", self.meta_table)):
+            try:
+                before = len(table.list_versions())
+                table.optimize(cleanup_older_than=retention)
+                # Compaction commits a version of its own, so a run that prunes
+                # nothing can end up one or two ahead. Report removals only.
+                removed[name] = max(0, before - len(table.list_versions()))
+            except Exception:  # noqa: BLE001 - pruning is best-effort upkeep
+                removed[name] = 0
+        return removed
 
     def descriptor_index(self) -> dict[tuple[str, str], str | None]:
         """Relation descriptors for every edge, from one columnar scan.

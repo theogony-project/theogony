@@ -52,11 +52,18 @@ _MIN_ROWS_FOR_INDEX = 512
 # scanning the tail is cheaper than folding it in.
 _MAX_UNINDEXED_ROWS = 512
 
-# `optimize` prunes versions older than a week by default. The substrate is
-# append-only by doctrine, so a maintenance pass must not quietly discard its
-# own past: retention is set far beyond any tick cadence, which leaves
-# `optimize` doing what it is called for here — compaction and index upkeep.
-_VERSION_RETENTION = timedelta(days=3650)
+# How much Lance version history a maintenance pass keeps. These are
+# storage-level snapshots, one per write, not the substrate's own record: the
+# doctrinal history lives in the `mesh_audit` table and the RunReports, and
+# nothing in this codebase reads an old Lance version (there is no `checkout`,
+# `restore` or `as_of` anywhere). Retaining them is expensive — measured on a
+# 2,325-node mesh, appends cost 83.3 ms against 2.6 ms for the same rows written
+# without the version pile-up, and pruning 1,893 versions to 13 restored
+# 40.8 -> 2.7 ms for 1.9 s of work (PHX-1060).
+#
+# Zero keeps the current version only. Callers that want history kept pass a
+# window; `run_minimal_tick` threads one through.
+_DEFAULT_VERSION_RETENTION = timedelta(0)
 
 
 def _unindexed_rows(table: Any) -> int:
@@ -90,7 +97,7 @@ def _refresh_indices(table: Any, *, max_unindexed: int = _MAX_UNINDEXED_ROWS) ->
     if stale < max_unindexed:
         return f"fresh ({stale} rows unindexed)"
     try:
-        table.optimize(cleanup_older_than=_VERSION_RETENTION)
+        table.optimize(cleanup_older_than=timedelta(days=3650))
     except Exception as exc:  # noqa: BLE001 - a stale index only costs speed
         return f"refresh failed: {exc}"
     return f"refreshed ({stale} rows folded in)"
@@ -411,6 +418,41 @@ class MeshNodeStore:
                     continue
             result[f"{key}.refresh"] = _refresh_indices(table, max_unindexed=max_unindexed)
         return result
+
+    def prune_history(self, *, retention: timedelta = _DEFAULT_VERSION_RETENTION) -> dict[str, int]:
+        """Discard Lance version snapshots older than ``retention``.
+
+        Every write creates a version, and the substrate writes one node at a
+        time across three tables, so a single 124-paragraph batch leaves roughly
+        four thousand of them. That history is not free: it is what makes an
+        append cost 83.3 ms on a grown mesh against 2.6 ms for the same rows
+        written without the pile-up (PHX-1060). The node count is not the driver
+        — a mesh with *more* index rows and the same nodes appends in 2.6 ms when
+        it has 13 versions instead of 1,871.
+
+        This removes storage snapshots, not the substrate's memory. What the mesh
+        did and when is recorded in the `mesh_audit` table and the RunReports;
+        the Lance version chain has no reader in this codebase. Callers that want
+        it kept anyway pass a longer ``retention``.
+
+        Returns versions removed per table, for the caller's run report.
+        """
+        removed: dict[str, int] = {}
+        for name, table in (
+            ("consolidated_nodes", self.consolidated_table),
+            ("chunk_nodes", self.chunk_table),
+            ("consolidated_label_index", self.consolidated_label_index),
+            ("consolidated_qid_index", self.consolidated_qid_index),
+        ):
+            try:
+                before = len(table.list_versions())
+                table.optimize(cleanup_older_than=retention)
+                # Compaction commits a version of its own, so a run that prunes
+                # nothing can end up one or two ahead. Report removals only.
+                removed[name] = max(0, before - len(table.list_versions()))
+            except Exception:  # noqa: BLE001 - pruning is best-effort upkeep
+                removed[name] = 0
+        return removed
 
     def merge_identity_evidence(
         self, node_id: str, *, qids: list[QIDTag], node: ConsolidatedNode | None = None
