@@ -57,7 +57,13 @@ class SentenceTransformerMeshEmbedder:
         self._upstream_model_id = upstream_model_id
         self._device = _detect_device()
         self._load_lock = threading.Lock()
-        self._model = None
+        # Annotated rather than inferred: `SentenceTransformer` is imported lazily
+        # inside `_load_model`, so mypy infers this attribute as `None` and rejects
+        # the later assignment as soon as sentence-transformers ships type
+        # information. It did — CI resolves a version that does, while an older
+        # local resolution treated the class as `Any` and stayed silent (AGENTS.md
+        # §5: local-green is not CI-green).
+        self._model: Any = None
         self.model_id = upstream_model_id
         self.dim = 0
 
