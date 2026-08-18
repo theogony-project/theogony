@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -24,7 +24,7 @@ from theogony.mesh.storage.edges import (
     enforce_saturation,
     merge_edge_deltas,
 )
-from theogony.mesh.storage.nodes import MeshNodeStore
+from theogony.mesh.storage.nodes import _DEFAULT_VERSION_RETENTION, MeshNodeStore
 
 # ---- S5 stubs -------------------------------------------------------
 
@@ -56,6 +56,7 @@ class MinimalTickResult:
     audit_id: str
     new_lance_version: int
     index_status: dict[str, str] = field(default_factory=dict)
+    versions_pruned: dict[str, int] = field(default_factory=dict)
 
 
 # ---- Runtime --------------------------------------------------------
@@ -222,6 +223,7 @@ class MeshRuntime:
         dt: float = 1.0,
         max_out_degree: int = DEFAULT_MAX_OUT_DEGREE,
         w_max: float = 1.0,
+        version_retention: timedelta = _DEFAULT_VERSION_RETENTION,
     ) -> MinimalTickResult:
         """Drain delta buffer -> merge -> decay -> saturation -> Lance rewrite -> audit."""
         before = self.edges.count_rows()
@@ -237,6 +239,16 @@ class MeshRuntime:
         # here rather than on the ingest hot path: a mesh that has grown past the
         # threshold since the last tick gets its indices built once, not per write.
         index_status = self.nodes.ensure_indices()
+
+        # Same reasoning for version history: the substrate writes one node at a
+        # time across three tables, so a batch leaves thousands of Lance
+        # snapshots and every later append pays for them (83.3 ms vs 2.6 ms on a
+        # 2,325-node mesh — PHX-1060). Pruning belongs to the pass that has just
+        # committed a consistent state; what the mesh did is in `mesh_audit`.
+        versions_pruned = self.nodes.prune_history(retention=version_retention)
+        versions_pruned.update(self.edges.prune_history(retention=version_retention))
+        self.invalidate_csr_cache()
+
         after = self.edges.count_rows()
         now = datetime.now(UTC)
 
@@ -250,6 +262,7 @@ class MeshRuntime:
                 "dt": dt,
                 "max_out_degree": max_out_degree,
                 "indices": index_status,
+                "versions_pruned": versions_pruned,
             },
         )
 
@@ -266,4 +279,5 @@ class MeshRuntime:
             audit_id=aid,
             new_lance_version=new_version,
             index_status=index_status,
+            versions_pruned=versions_pruned,
         )

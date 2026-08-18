@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -185,6 +185,16 @@ def mesh_tick(
         "--w-max",
         help="Weight ceiling for Hebbian delta merges and saturation.",
     ),
+    keep_versions_hours: float = typer.Option(
+        0.0,
+        "--keep-versions-hours",
+        help=(
+            "Hours of Lance version snapshots to retain. These are one-per-write "
+            "storage snapshots, not the substrate's record — that is the audit log "
+            "— and keeping them makes every later append markedly slower "
+            "(PHX-1060). Raise this to keep them anyway."
+        ),
+    ),
     mesh_root: Path | None = MESH_ROOT,
 ) -> None:
     """Run one minimal Oneiros tick over the workspace.
@@ -205,6 +215,7 @@ def mesh_tick(
         dt=dt,
         max_out_degree=max_out_degree,
         w_max=w_max,
+        version_retention=timedelta(hours=keep_versions_hours),
     )
     finished_at = datetime.now(UTC)
 
@@ -239,6 +250,7 @@ def mesh_tick(
         "max_out_degree": max_out_degree,
         "audit_id": result.audit_id,
         "new_lance_version": result.new_lance_version,
+        "versions_pruned": sum(result.versions_pruned.values()),
         "run_report": report.run_id,
     }
     _console.print(Panel.fit(json.dumps(summary, indent=2), title="mesh tick"))
