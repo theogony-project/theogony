@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator
+from typing import Any
 
 import lancedb
 import pyarrow as pa
@@ -22,6 +23,27 @@ def _normalize_label(label: str) -> str:
     raw = re.sub(r"'s\b", "", raw)
     raw = re.sub(r"[^a-z0-9\s]", "", raw)
     return raw.strip()
+
+
+def _create_scalar_index(table: Any, column: str) -> None:
+    """Build a scalar index, preferring the current API over the deprecated one.
+
+    lancedb replaced `create_scalar_index(col)` with `create_index(col,
+    config=BTree())` in 0.25. This repo has already been bitten once by lancedb
+    moving an API between the version installed locally and the one CI resolves
+    (PHX-1057), so both spellings are supported rather than pinning to either.
+    """
+    try:
+        from lancedb.index import BTree
+
+        table.create_index(column, config=BTree())
+    except (ImportError, TypeError):
+        table.create_scalar_index(column)
+
+
+# Below this row count a full scan beats an index, and IVF cannot train
+# partitions. Chosen so test-sized workspaces never pay for indexing.
+_MIN_ROWS_FOR_INDEX = 512
 
 
 def _sql_quote(value: str) -> str:
@@ -249,6 +271,80 @@ class MeshNodeStore:
             node = ConsolidatedNode.model_validate_json(row["payload_json"])
             out[str(node.id)] = node
         return out
+
+    def ensure_indices(self, *, min_rows: int = _MIN_ROWS_FOR_INDEX) -> dict[str, str]:
+        """Create the Lance indices this store's own query patterns depend on.
+
+        The substrate created **no indices at all**, so every lookup was a full
+        scan whose cost grew with the table. Measured on a 2,436-node mesh:
+
+            get_consolidated            57.7 ms  ->   5.2 ms
+            find_consolidated_by_labels 213.7 ms ->  16.2 ms
+            get_consolidated_by_qid      56.0 ms ->   3.7 ms
+            ANN over description_vector  61.9 ms ->   8.4 ms
+
+        Batching the reads (PHX-1057 and its follow-up) cut how *many* queries ran;
+        this cuts what each one costs, and — more importantly — stops it growing
+        linearly with the mesh. Ingestion resolution cost was scaling roughly with
+        the square of the node count because both the number of lookups and the
+        cost of each were rising together.
+
+        Indexing is skipped below ``min_rows``: IVF needs enough vectors to train
+        partitions, and on a small workspace a scan is faster than an index anyway.
+        Returns a map of index name to status for the caller's run report.
+        """
+        result: dict[str, str] = {}
+        rows = self.consolidated_table.count_rows()
+        if rows < min_rows:
+            return {"skipped": f"only {rows} consolidated rows (<{min_rows})"}
+
+        existing = {idx.name for idx in self.consolidated_table.list_indices()}
+        for column in ("id",):
+            if any(column in name for name in existing):
+                result[f"consolidated.{column}"] = "present"
+                continue
+            try:
+                _create_scalar_index(self.consolidated_table, column)
+                result[f"consolidated.{column}"] = "created"
+            except Exception as exc:  # noqa: BLE001 - indexing is best-effort
+                result[f"consolidated.{column}"] = f"failed: {exc}"
+
+        # Partition count follows the row count: too many partitions on a small
+        # table trains poorly, too few degrades recall on a large one.
+        partitions = max(1, min(256, int(rows**0.5)))
+        for column in ("semantic_vector", "description_vector"):
+            if any(column in name for name in existing):
+                result[f"consolidated.{column}"] = "present"
+                continue
+            try:
+                self.consolidated_table.create_index(
+                    metric="cosine",
+                    vector_column_name=column,
+                    index_type="IVF_PQ",
+                    num_partitions=partitions,
+                    num_sub_vectors=max(1, min(8, self.semantic_dim // 8)),
+                    replace=True,
+                )
+                result[f"consolidated.{column}"] = "created"
+            except Exception as exc:  # noqa: BLE001 - a missing index only costs speed
+                result[f"consolidated.{column}"] = f"failed: {exc}"
+
+        for table, column, key in (
+            (self.consolidated_label_index, "label", "label_index.label"),
+            (self.consolidated_qid_index, "qid", "qid_index.qid"),
+        ):
+            if table.count_rows() < min_rows:
+                result[key] = "skipped: too few rows"
+                continue
+            if any(column in idx.name for idx in table.list_indices()):
+                result[key] = "present"
+                continue
+            try:
+                _create_scalar_index(table, column)
+                result[key] = "created"
+            except Exception as exc:  # noqa: BLE001
+                result[key] = f"failed: {exc}"
+        return result
 
     def merge_identity_evidence(
         self, node_id: str, *, qids: list[QIDTag], node: ConsolidatedNode | None = None

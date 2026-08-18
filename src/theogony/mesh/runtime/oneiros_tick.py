@@ -8,7 +8,7 @@ as part of S5.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -55,6 +55,7 @@ class MinimalTickResult:
     delta_drained: int
     audit_id: str
     new_lance_version: int
+    index_status: dict[str, str] = field(default_factory=dict)
 
 
 # ---- Runtime --------------------------------------------------------
@@ -231,6 +232,11 @@ class MeshRuntime:
         merged = enforce_saturation(merged, max_out_degree=max_out_degree, w_max=w_max)
         self.edges.replace_all_edges(merged)
         self.invalidate_csr_cache()
+
+        # The tick is the substrate's maintenance pass, so index upkeep belongs
+        # here rather than on the ingest hot path: a mesh that has grown past the
+        # threshold since the last tick gets its indices built once, not per write.
+        index_status = self.nodes.ensure_indices()
         after = self.edges.count_rows()
         now = datetime.now(UTC)
 
@@ -243,6 +249,7 @@ class MeshRuntime:
                 "lambda": lam,
                 "dt": dt,
                 "max_out_degree": max_out_degree,
+                "indices": index_status,
             },
         )
 
@@ -258,4 +265,5 @@ class MeshRuntime:
             delta_drained=len(drained),
             audit_id=aid,
             new_lance_version=new_version,
+            index_status=index_status,
         )

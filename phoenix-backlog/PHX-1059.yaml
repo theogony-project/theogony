@@ -1,0 +1,55 @@
+id: PHX-1059
+category: substrate-performance
+priority: high
+status: in_progress
+generation_target: MESH migration — reading at scale (S2)
+title: "The substrate never built any Lance index; every lookup was a full scan"
+filed_by: Claude Code (measured on the founding mesh, 2026-08-18)
+created_at: 2026-08-18
+description: >
+  `list_indices()` returned [] on every mesh table. No vector index, no scalar
+  index, ever — so `get_consolidated`, `find_consolidated_by_labels`,
+  `get_consolidated_by_qid` and every ANN search scanned the whole table, and each
+  one grew linearly with the mesh.
+
+  This is why ingestion resolution scaled roughly with the SQUARE of the node
+  count: both the number of lookups per paragraph and the cost of each lookup were
+  rising together. Measured across four word-equalised batches (~4,900 words each)
+  read into a growing copy of the founding mesh, resolution cost per paragraph:
+
+    nodes (mean)    ~660    ~1,000   ~1,480   ~2,080
+    resolve/para   0.76s     0.69s    1.35s    2.94s
+
+  From 1,126 to 2,329 nodes the node count rose 2.07x and per-paragraph
+  resolution rose 4.26x — almost exactly 2.07^2. The LLM stage stayed flat over
+  the same batches (8.5 / 5.4 / 4.8 / 5.0 s per paragraph), which is the control
+  that makes the reading trustworthy.
+
+  Effect of indexing the same 2,436-node mesh:
+
+    get_consolidated             51.3 ms  ->  2.5 ms   (20x)
+    find_consolidated_by_labels 215.5 ms  -> 14.5 ms   (15x)
+    ANN over description_vector  59.7 ms  ->  8.0 ms   (7.5x)
+
+  Index build cost is ~0.3 s at this size.
+
+  Fix (this ticket's PR): MeshNodeStore.ensure_indices() builds scalar indices on
+  the id / label / qid columns and IVF_PQ indices on the vector columns, with the
+  partition count scaled to the row count. It is invoked from the Oneiros tick —
+  the substrate's maintenance pass — rather than from the ingest hot path, so a
+  mesh that has grown since the last tick is indexed once, not per write. Below
+  512 rows indexing is skipped: IVF cannot train partitions and a scan is faster
+  anyway.
+
+  Relationship to the earlier work: PHX-1057 and its follow-up reduced how MANY
+  queries the resolution path issues (batched hydration, adjacency prefetch,
+  descriptor cache). This reduces what each query COSTS. The two compose — the
+  batching remains worthwhile because an indexed query is still not free.
+
+relates_to:
+  - PHX-1057   # nested-per-item query pattern; this is the other half
+  - PHX-1047   # the original throughput-collapse ticket
+  - PHX-1049   # lattice cap — a smaller term than either of these
+linked_scripts:
+  - src/theogony/mesh/storage/nodes.py
+  - src/theogony/mesh/runtime/oneiros_tick.py
