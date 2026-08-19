@@ -1,0 +1,58 @@
+id: PHX-1064
+category: substrate-retrieval
+priority: high
+status: open
+generation_target: MESH migration — S5 (consolidation)
+title: "The demo question fails on entity fragmentation, not on retrieval — consolidation is still a stub"
+filed_by: Claude Code (measured on the post-full-read founding mesh, 2026-08-19)
+created_at: 2026-08-19
+description: >
+  "Who are the children of Cronus?" was expected to work once the full read
+  closed the coverage gap. It does not, and the cause is upstream of retrieval.
+
+  Against a proxy gold set of 18 nodes (description names a Kronide AND
+  Cronos/Rhea), the current answer holds 1. Sweeping the retrieval knobs does not
+  rescue it:
+
+    ann_limit x k_seeds sweep     best 4 of 18, non-monotonic (64/32 -> 3,
+                                  128/32 -> 1, 512/16 -> 4)
+    degree_beta 0 -> 1.0          1 -> 2 of 18
+    hub_mask_top_n 0 -> 50        1 -> 1 of 18
+
+  The ANN itself is the ceiling: at limit 64 it surfaces 3 of the 18, at 512 it
+  surfaces 11, and the most informative passage — "The myth of Cronos swallowing
+  his children and later disgorging them" — sits at rank 409.
+
+  ROOT CAUSE: the answer is not in one node, it is smeared across many. Eight
+  separate nodes describe Zeus as son of Cronos — "Epithet of Zeus, as son of
+  Cronos", "Zeus, the king of the gods, son of Cronos", "Refers to Zeus, king of
+  the gods, son of Cronos", and so on. Each is a single mention's paraphrase. No
+  single one is a strong embedding match for the question, and no amount of
+  seeding or propagation tuning composes them into one.
+
+  Why they are smeared: `stub_consolidation_phase()` raises NotImplementedError
+  and the Oneiros tick never calls it. All 6,816 nodes sit at
+  consolidation_tier 1 and 5,275 are still flagged is_candidate. The two-tier
+  design exists in the schema and has never run.
+
+  So the demo question is an S5 problem wearing a retrieval costume. This ticket
+  exists so the next attempt does not start by tuning the retriever again.
+
+  WHAT THIS ALSO RULES OUT: coverage. Before the full read the mesh had zero
+  nodes for Poseidon, Demeter, Hestia and Rhea; it now has 48, 75, 16 and 9, and
+  the answer did not improve. More coverage is not more answer.
+
+  SEPARATE AND FIXED (see the PR this ticket ships with): source anchors were
+  eating the answer budget — 33 of 240 top-30 slots across eight questions,
+  13.8%, spent on rows reading "text paragraph: Theogony batch_01". That is a
+  real defect and it is fixed, but it does not move the gold count. Recording
+  both together so the two are not confused: reclaiming slots is not the same as
+  filling them well.
+
+relates_to:
+  - PHX-1042   # degree-hub bias; anchors are that pathology on a text mesh
+  - PHX-1051   # identity attractors, the same fragmentation seen at write time
+  - PHX-1056   # k_seeds default; swept here and not the lever
+linked_scripts:
+  - src/theogony/mesh/runtime/oneiros_tick.py
+  - src/theogony/mesh/retrieval/constellation.py
