@@ -1,0 +1,46 @@
+id: PHX-1062
+category: substrate-performance
+priority: medium
+status: in_progress
+generation_target: MESH migration — reading at scale (S2)
+title: "The audit log was the one table no maintenance pass touched"
+filed_by: Claude Code (found during the Theogony full read, 2026-08-19)
+created_at: 2026-08-19
+description: >
+  After the full read, `mesh_audit` held 21,219 rows across 5,915 Lance
+  versions with no index, while `prune_history` (PHX-1060) and `ensure_indices`
+  (PHX-1059) covered every other table. It is also the most-written table in
+  the substrate: one row per tick, per ingest run, and — before PHX-1061 — per
+  resolved concept.
+
+  Two costs, measured on the post-full-read mesh:
+
+    list_recent(limit=10)                        625.6 ms
+    order_by + limit, unpruned table             277.1 ms
+    order_by + limit, pruned table                 2.0 ms
+    list_recent (old code) on the pruned table     55.2 ms
+
+  `list_recent` materialised the whole table and sorted it in Python to return
+  ten rows, reading every `payload_json` to do it — so its cost grows with every
+  row ever written. Pushing the ordering into the store is 27x on the pruned
+  table and the gap widens as the log grows.
+
+  Pruning is the larger half: 266.6 ms -> 2.1 ms for the same read, a 127x
+  difference, and it shrinks the table on disk.
+
+  NOT DONE, deliberately: a scalar index on `recorded_at` was measured and
+  rejected. On the pruned table it moved the read from 2.1 ms to 1.9 ms — inside
+  the noise. Adding it would be pre-optimisation (AGENTS.md §8).
+
+  The ordering API is tried-and-fallen-back-on rather than assumed. `order_by`
+  takes `ColumnOrdering` objects in lancedb 0.37 and this repo has been bitten
+  three times by an API moving between the locally installed version and the one
+  CI resolves (AGENTS.md §5), most recently the same day in #218.
+
+relates_to:
+  - PHX-1061   # batched the audit writes; this maintains the table they land in
+  - PHX-1060   # prune_history, which this extends to the last uncovered table
+  - PHX-1059
+linked_scripts:
+  - src/theogony/mesh/storage/audit.py
+  - src/theogony/mesh/runtime/oneiros_tick.py
