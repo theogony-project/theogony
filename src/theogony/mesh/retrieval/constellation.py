@@ -70,6 +70,15 @@ def _display_name(node_id: str, description: str | None, tags: list[str], qid: s
     return node_id
 
 
+# How far past `top_k` to look so that anchors displaced from the answer budget
+# can be replaced by content. Six anchors in a top-30 was the worst case measured.
+_ANCHOR_HEADROOM = 16
+
+# Anchors kept for provenance once they no longer compete for answer slots. The
+# gap report needs at least one; a few give redundancy without crowding.
+_PROVENANCE_ANCHORS = 3
+
+
 def assemble_constellation(
     runtime: MeshRuntime,
     activation: torch.Tensor,
@@ -93,13 +102,29 @@ def assemble_constellation(
             gaps=["empty mesh — no nodes or no edges to activate"],
         )
 
-    k = min(top_k, n)
+    # Over-fetch, because source anchors must not eat the answer budget. Every
+    # entity in a paragraph is wired to that paragraph's anchor, so anchors are
+    # the highest-degree nodes in the mesh and propagation floods them — on the
+    # founding mesh they took 33 of 240 top-30 slots across eight questions
+    # (13.8%) while carrying nothing to read: "text paragraph: Theogony
+    # batch_01". They are provenance, and stay for it; they just ride along
+    # outside `top_k` rather than inside it (PHX-1042).
+    k = min(top_k + _ANCHOR_HEADROOM, n)
     top_vals, top_idx = torch.topk(activation, k)
-    keep = [
+    prelim = [
         (int(i), float(v))
         for i, v in zip(top_idx.tolist(), top_vals.tolist(), strict=True)
         if v > 0.0
     ]
+    prelim_ids = [csr.node_ids[i] for i, _ in prelim]
+    prelim_hydrated = runtime.nodes.get_consolidated_many(prelim_ids)
+
+    content: list[tuple[int, float]] = []
+    anchors: list[tuple[int, float]] = []
+    for idx, act in prelim:
+        cn = prelim_hydrated.get(csr.node_ids[idx])
+        (anchors if (cn is not None and cn.is_source_anchor) else content).append((idx, act))
+    keep = content[:top_k] + anchors[:_PROVENANCE_ANCHORS]
     if not keep:
         return Constellation(
             query=query,
@@ -110,11 +135,9 @@ def assemble_constellation(
         )
 
     topk_set = {i for i, _ in keep}
-    node_ids_topk = [csr.node_ids[i] for i, _ in keep]
-
-    # One read for the whole working set: per-node fetches cost a Lance query each
-    # (4.3 ms measured), which dominated assembly for no structural reason.
-    hydrated = runtime.nodes.get_consolidated_many(node_ids_topk)
+    # Already hydrated above in one read: per-node fetches cost a Lance query
+    # each (4.3 ms measured), which dominated assembly for no structural reason.
+    hydrated = prelim_hydrated
 
     nodes: list[ConstellationNode] = []
     candidate_count = 0
