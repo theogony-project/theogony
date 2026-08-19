@@ -1,0 +1,70 @@
+id: PHX-1066
+category: substrate-integrity
+priority: high
+status: open
+generation_target: MESH migration — S2/S3
+title: "93% of edges are asserted without judgement, under creation_contexts the doctrine does not list"
+filed_by: Claude Code (measured on the named Theogony mesh, 2026-08-19)
+created_at: 2026-08-19
+description: >
+  Nodes are committed through a graded identity decision — Q-ID, description,
+  tag, or a new candidate, each with a corroboration threshold. Edges are not.
+  Measured across the 94,490 edges of the named full read:
+
+    kadmos_paragraph_density   53,122   56.2%   "co_mentions_in_paragraph"
+    kadmos_cross_paragraph     18,689   19.8%   "shares_entities_with"
+    kadmos_mentions             7,229    7.7%
+    kadmos_relation             6,489    6.9%   <- the only judged relations
+    kadmos_source_attribution   4,513    4.8%
+    kadmos_paragraph_concept    2,036    2.2%
+    kadmos_extraction           1,206    1.3%
+    kadmos_source_hierarchy     1,206    1.3%
+
+  Only `kadmos_relation` carries a relation the reading model actually asserted.
+  Everything else says "these appeared near each other". The named relations that
+  would answer the founding demo question are `father_of` (190), `mother_of`
+  (183) and `son_of` (180) — 0.6% of the graph, against 53k proximity edges.
+
+  DOCTRINAL DIVERGENCE: MESH_SUBSTRATE §Edge lists `creation_context` as
+  `kadmos_extraction`, `oneiros_consolidation`, `argus_proposal`,
+  `hebbian_co_fire`, `frame_routing`, `agent_repair`. Six of the eight contexts
+  in use are not in that list, and the two largest — 76% of all edges — are bulk
+  co-occurrence, a category the doctrine does not describe at all.
+
+  MEASURED, AND THIS IS THE PART THAT ARGUES AGAINST A HASTY FIX: removing them
+  does not change the answer. Gold recall on "Who are the children of Cronus?"
+  against a 14-node proxy gold set:
+
+    all edges                      94,490   3/14   ranks 1, 3, 19
+    judged relations only           6,489   3/14   ranks 1, 2, 19
+    everything except co-occurrence 41,368   3/14   ranks 1, 2, 25
+    neither co-occ nor cross-para  22,679   3/14   ranks 1, 2, 25
+
+  Dropping 93% of the graph moves two ranks and changes no counts. The answer is
+  decided at seeding, not in propagation. Spreading activation is not idle — it
+  fills 22 of every 30 constellation slots, measured identically across six
+  questions — but what it fills them with is proximity, not relation.
+
+  So there are two separate questions and they should not be conflated:
+
+  (a) Should edges be asserted without judgement at all? On the doctrine's own
+      terms, no: nodes get a graded identity decision and edges get none, and the
+      contexts doing the asserting are not in the doctrine's vocabulary. This is
+      a real divergence and worth resolving deliberately.
+
+  (b) Would resolving it improve retrieval? On this corpus, measurably not. The
+      demo question fails at seeding. Removing the unjudged edges is a
+      correctness-and-doctrine argument, not a quality argument, and it should
+      be made on those grounds rather than on a promise of better answers.
+
+  Suggested order: decide (a) as a doctrine question — either the contexts get
+  written into MESH_SUBSTRATE with their rationale, or the bulk co-occurrence
+  pass gets a judging step. Do not motivate either by retrieval quality until a
+  measurement supports it.
+
+relates_to:
+  - PHX-1064   # the demo question, whose failure this does NOT explain
+  - PHX-1049   # the cross-paragraph pass that emits the second-largest context
+linked_scripts:
+  - src/theogony/mesh/ingestion/kadmos_v2.py
+  - docs/MESH_SUBSTRATE.md
