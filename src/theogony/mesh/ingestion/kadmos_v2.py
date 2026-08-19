@@ -374,7 +374,7 @@ class MeshParagraphReader:
                     ]
                     decision = self.linker.link_reference(
                         label=concept.label,
-                        description=concept.description,
+                        description=_entity_description(concept.label, concept.description),
                         tags=_concept_tags(concept),
                         qids=qids,
                         semantic_vector=semantic_vector,
@@ -796,7 +796,9 @@ class MeshParagraphReader:
         self,
         concepts: list[LLMConcept],
     ) -> list[tuple[list[float], list[float], list[float]]]:
-        descriptions = [concept.description or concept.label for concept in concepts]
+        # Same text the node will carry, so the stored description and the
+        # vector that matches against it cannot drift apart.
+        descriptions = [_entity_description(c.label, c.description) for c in concepts]
         labels = [concept.label for concept in concepts]
         semantic_vectors = await self.vectorizer.semantic_many(descriptions)
         frame_vectors = await self.vectorizer.frame_many(labels)
@@ -967,8 +969,49 @@ class MeshParagraphReader:
         return anomalies, recommendations
 
 
+def _entity_description(label: str, description: str) -> str:
+    """Compose the doctrine's Tier-1 description: name **plus** discriminators.
+
+    MESH_SUBSTRATE §"Tier-1+ — Consolidated Node" specifies `description` as
+    "short discriminating text — for entities: name + key discriminators". The
+    reading model returns those two apart: a label ("Zeus") and a bare
+    discriminator ("King of the gods, god of the sky and thunder, son of
+    Cronos"). Storing only the discriminator throws the identity away.
+
+    Measured before this change: 8 of 8 concepts lost their name on the way in.
+    No node in a 6,816-node Theogony mesh was called Cronus, three distinct
+    nymphs all read "A nymph whose name derives from a land over which she
+    presides", and eight separate nodes described Zeus as son of Cronos without
+    any of them saying Zeus. Identity matching, deduplication and name queries
+    all ran on text that had had the name removed (PHX-1065).
+
+    The name goes at the head so every mention of one entity shares a prefix —
+    that is what makes two descriptions of the same figure land near each other
+    under `description_vector`, which is the identity-matching surface.
+    """
+    name = (label or "").strip()
+    body = (description or "").strip()
+    if not name:
+        return body
+    if not body:
+        return name
+    if body.lower().startswith(name.lower()):
+        return body
+    return f"{name} — {body}"
+
+
 def _concept_tags(concept: LLMConcept) -> list[str]:
-    tags = list(dict.fromkeys(concept.tags))
+    """Tags for a concept, with its name first.
+
+    The label is a discriminating feature and belongs in the keyword cloud; it
+    is also what makes the node findable by name, since the label index is built
+    from description plus tags. Without it, `find_consolidated_by_labels("Zeus")`
+    could only match nodes whose *description text* happened to contain the word.
+    """
+    tags = [concept.label.strip()] if concept.label and concept.label.strip() else []
+    for tag in dict.fromkeys(concept.tags):
+        if tag and tag not in tags:
+            tags.append(tag)
     if concept.entity_type and concept.entity_type not in tags:
         tags.append(concept.entity_type)
     return tags or ["concept"]
