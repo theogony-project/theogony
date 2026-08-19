@@ -210,6 +210,7 @@ class MeshParagraphReader:
         llm_failure_count = 0
         llm_schema_failures = 0
         signal_counts: dict[str, int] = {key: 0 for key in _SIGNAL_TO_TIER}
+        qid_claims_dropped = 0
         paragraph_units: list[_ParagraphUnit] = []
         entity_source_links: set[tuple[str, str]] = set()
         paragraph_anchor_count = 0
@@ -380,7 +381,12 @@ class MeshParagraphReader:
                         frame_vector=frame_vector,
                         description_vector=description_vector,
                         context_node_ids=resolved_entity_ids,
+                        # The reading model asserts these; nothing corroborates
+                        # them. They may still find a node the wikidata5m seed
+                        # put there, but they must not be written (PHX-1063).
+                        qids_are_authoritative=False,
                     )
+                    qid_claims_dropped += len(qids)
                     signal_counts[decision.signal] += 1
                     resolved_by_label[concept.label] = decision.node
                     resolved_entity_ids.add(str(decision.node.id))
@@ -394,6 +400,8 @@ class MeshParagraphReader:
                             "node_id": str(decision.node.id),
                             "signal": decision.signal,
                             "score": round(decision.score, 4),
+                            # Kept as a claim so it can be corroborated later.
+                            "qid_claims": [q.qid for q in qids],
                             "paragraph": paragraph_index,
                             "source_identifier": source_identifier,
                         },
@@ -652,11 +660,12 @@ class MeshParagraphReader:
         )
 
         resolution_summary = ResolutionSummary(
+            qid_claims_dropped=qid_claims_dropped,
             tier_counts={
                 _SIGNAL_TO_TIER[signal]: count
                 for signal, count in signal_counts.items()
                 if count > 0
-            }
+            },
         )
         parse_error_rate = relation_drop_count / max(
             1,

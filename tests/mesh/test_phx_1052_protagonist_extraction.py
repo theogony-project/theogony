@@ -29,6 +29,7 @@ import pytest
 
 from theogony.agents.llm import StubLLMProvider
 from theogony.mesh.ingestion.kadmos_v2 import SYSTEM_PROMPT, MeshParagraphReader
+from theogony.mesh.ingestion.linker import EagerLinker
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 
 # The foam-birth passage from Hesiod's Theogony — the one that produced the
@@ -141,8 +142,53 @@ def test_protagonist_becomes_its_own_node_not_only_the_paragraph_concept(
     assert protagonist != paragraph_concept
 
 
-def test_protagonist_carries_its_identity_evidence(mesh_runtime: MeshRuntime) -> None:
-    """A protagonist without its Q-ID cannot bridge to the same figure elsewhere."""
+def test_identity_evidence_persists_when_the_caller_vouches_for_it(
+    mesh_runtime: MeshRuntime,
+) -> None:
+    """PHX-1053's guarantee, kept where it is real.
+
+    A Q-ID handed over by a caller that vouches for it — the wikidata5m seed
+    import — must survive the merge and stay Q-ID-addressable. That was the
+    PHX-1053 failure: Aphrodite's Q35500 merged into a hymn concept and
+    evaporated with the process.
+    """
+    from datetime import UTC, datetime
+
+    from theogony.mesh.schemas import QIDTag
+
+    linker = EagerLinker(
+        mesh_runtime.nodes,
+        mesh_runtime.edges,
+        semantic_dim=mesh_runtime.semantic_dim,
+        frame_dim=mesh_runtime.frame_dim,
+    )
+    linker.link_reference(
+        label="Aphrodite",
+        description="Greek goddess of love born from sea foam",
+        tags=["goddess"],
+        qids=[QIDTag(qid="Q35500", confidence=0.99, attached_at=datetime.now(UTC))],
+        semantic_vector=[0.1] * mesh_runtime.semantic_dim,
+        frame_vector=[0.0] * mesh_runtime.frame_dim,
+        description_vector=[0.1] * mesh_runtime.semantic_dim,
+        qids_are_authoritative=True,
+    )
+
+    assert mesh_runtime.nodes.get_consolidated_by_qid("Q35500") is not None
+
+
+def test_the_reader_does_not_vouch_for_the_model(mesh_runtime: MeshRuntime) -> None:
+    """The other side of that boundary, and the reason it exists.
+
+    Of 130 Q-IDs the reading model wrote into the founding mesh, 3 were
+    plausible, 122 named an unrelated entity and 5 did not exist: Gaia carried
+    the identifier of analytical chemistry, Cronus that of Anubis, Hera that of
+    Willy Brandt. Stored, those are durable and Q-ID-addressable — a later
+    reference carrying the same identifier merges straight into the wrong node.
+
+    The protagonist itself must still be materialised; that is PHX-1052 and it
+    is asserted above. What must not happen is the guess being written down
+    (PHX-1063).
+    """
     llm = StubLLMProvider(responses={f"PARAGRAPH:\n{FOAM_BIRTH}": _READING_WITH_PROTAGONIST})
     reader = MeshParagraphReader(mesh_runtime, llm=llm, max_paragraphs=5)
     asyncio.run(
@@ -155,8 +201,9 @@ def test_protagonist_carries_its_identity_evidence(mesh_runtime: MeshRuntime) ->
         )
     )
 
-    node = mesh_runtime.nodes.get_consolidated_by_qid("Q35500")
-    assert node is not None, "the protagonist's Q-ID was not persisted (see PHX-1053)"
+    assert mesh_runtime.nodes.get_consolidated_by_qid("Q35500") is None
+    descriptions = [(n.description or "") for n in mesh_runtime.nodes.iter_consolidated()]
+    assert [d for d in descriptions if "goddess of love" in d], "protagonist still required"
 
 
 # ---------------------------------------------------------------------------

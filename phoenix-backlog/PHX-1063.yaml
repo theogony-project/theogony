@@ -1,0 +1,77 @@
+id: PHX-1063
+category: identity-integrity
+priority: high
+status: in_progress
+generation_target: MESH migration — reading at scale (S2)
+title: "Q-IDs asserted by the reading model were stored as identity evidence; 127 of 130 are wrong"
+filed_by: Claude Code (measured against Wikidata, 2026-08-19)
+created_at: 2026-08-19
+description: >
+  The founding mesh holds 130 Q-IDs. Checked against Wikidata:
+
+    plausible (the Wikidata label appears on the node)     3   (2.3%)
+    names an unrelated entity                            122  (93.8%)
+    the Q-ID does not exist                                5   (3.8%)
+
+  Gaia carried the Q-ID of analytical chemistry, Cronus that of Anubis, Achilles
+  that of a sumo wrestler, Hera that of Willy Brandt, Hades that of solar energy.
+  Even two of the three "plausible" ones sit on the same node (Apollo and Venus),
+  so at least one is wrong: effectively none are trustworthy.
+
+  Asked the same paragraph three times through a minimal prompt, the model
+  returned three DIFFERENT Q-IDs per figure, each at confidence 1.0 — Rhea as
+  Q107722, then Q41602, then Q107722; Hestia as Q169130, Q41469, Q41613.
+
+  PROVENANCE, corrected: these predate the Theogony full read. The mesh held 130
+  Q-IDs before it and 130 after, so that run wrote none — through the full Kadmos
+  prompt this model emits no Q-IDs at all. They come from an earlier ingest under
+  a different model or prompt. The hazard is therefore latent rather than active:
+  the same model DOES confabulate Q-IDs when the instruction is more prominent,
+  so any provider change can start writing them again without warning.
+
+  WHY IT MATTERS: a stored Q-ID is durable and Q-ID-addressable. A later
+  reference carrying the same identifier merges straight into the wrong node via
+  the tier-4 path — the strongest signal the substrate has, bypassing the
+  description and tag corroboration entirely. The existing code comment at that
+  branch already named this "the strongest remaining identity-corruption vector
+  after the PHX-1051 naming guard"; this ticket measures it.
+
+  FIX — the cut is between looking up and writing down, not between using and
+  refusing. `link_reference` gains `qids_are_authoritative`. Unverified Q-IDs are
+  still used to LOOK UP a node, because a match against a Q-ID the mesh already
+  holds from the wikidata5m seed import is precisely what tier 4 is for, and a
+  made-up identifier simply finds nothing. What they no longer do is get
+  persisted by `merge_identity_evidence` or written onto a new node. The reader
+  passes `qids_are_authoritative=False`; the seed path is untouched and both
+  wikidata5m hand-off tests still pass unchanged.
+
+  Claims are kept in the audit trail (`qid_claims` on each link decision) so they
+  can be corroborated later, and `ResolutionSummary.qid_claims_dropped` makes the
+  volume visible instead of silent.
+
+  TENSION WITH PHX-1053, flagged per AGENTS.md §6. That ticket required a
+  protagonist's Q-ID to survive a merge ("the protagonist's Q-ID was not
+  persisted"). Its machinery is correct and stays: `merge_identity_evidence`
+  still persists what an authoritative caller hands it, and a test now pins that
+  down directly. What changes is that the reader no longer counts as such a
+  caller. PHX-1053's premise — that the reader's Q-ID is worth keeping — does not
+  survive the measurement.
+
+  NOT DONE HERE: corroborating Q-IDs against Wikidata during ingest. The client
+  exists (`extraction/wikidata_client.py`) and verification is cheap and precise
+  — fetch the claimed Q-ID's label and compare it to the concept label, which
+  would have rejected 127 of 130. But note that Wikidata SEARCH is not a safe
+  substitute: top-1 for "Demeter" is a male given name, for "Hestia" a plant
+  genus, for "Rhea" a bird genus. Only Zeus and Cronus resolve correctly at rank
+  1. Any future corroboration must verify a claimed identifier, not search for one.
+
+  STILL TO PURGE: the 130 false Q-IDs already in `data/mesh-founding`.
+
+relates_to:
+  - PHX-1053   # its guarantee is preserved for authoritative callers only
+  - PHX-1051   # the identity-attractor guard this sits beside
+  - PHX-1054   # candidate-set changes are identity changes
+linked_scripts:
+  - src/theogony/mesh/ingestion/linker.py
+  - src/theogony/mesh/ingestion/kadmos_v2.py
+  - src/theogony/reporting/models.py

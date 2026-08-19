@@ -1,4 +1,12 @@
-"""Q-ID uniqueness — same Q-ID creates one Tier-1 node across paragraphs."""
+"""One node per entity across paragraphs — without trusting the model's Q-ID.
+
+The same figure mentioned in two paragraphs must end up as one node. It used to
+be the asserted Q-ID that made that happen; it no longer is. Model-asserted
+Q-IDs are refused as identity evidence (3 of 130 correct on the founding mesh —
+PHX-1063), so the merge has to hold on corroborated signal, which is what this
+test now pins down. If it ever fails, deduplication has genuinely regressed
+rather than merely lost a shortcut.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +18,7 @@ from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 
 
-def test_same_qid_creates_one_tier1_node(mesh_runtime: MeshRuntime) -> None:
+def test_one_node_per_entity_across_paragraphs(mesh_runtime: MeshRuntime) -> None:
     response = json.dumps(
         {
             "concepts": [
@@ -44,9 +52,12 @@ def test_same_qid_creates_one_tier1_node(mesh_runtime: MeshRuntime) -> None:
         )
     )
 
-    qid_nodes = [
+    addison = [
         node
         for node in mesh_runtime.nodes.load_all_consolidated()
-        if any(qid.qid == "Q336997" for qid in node.qids)
+        if "Addison" in (node.description or "")
     ]
-    assert len(qid_nodes) == 1
+    assert len(addison) == 1, "the same figure in two paragraphs must be one node"
+    # And the guess itself was not written into the substrate.
+    stored = {qid.qid for node in mesh_runtime.nodes.load_all_consolidated() for qid in node.qids}
+    assert "Q336997" not in stored

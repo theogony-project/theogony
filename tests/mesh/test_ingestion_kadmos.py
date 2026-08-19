@@ -214,8 +214,12 @@ def test_paragraph_reader_accepts_string_qids(mesh_runtime: MeshRuntime) -> None
     assert result["concepts"] == 2
     assert result["relations"] == 1
     assert result["paragraph_concept_nodes"] == 0
-    qids = {qid.qid for node in mesh_runtime.nodes.load_all_consolidated() for qid in node.qids}
-    assert {"Q44114", "Q172"} <= qids
+    # The bare-string form is coerced and reaches the linker as a lookup key.
+    # It is not written to the mesh: a Q-ID the reading model asserts is a guess
+    # (3 of 130 correct, measured — PHX-1063), so the reader hands it over for
+    # matching against seeded identity and the store never learns it.
+    stored = {qid.qid for node in mesh_runtime.nodes.load_all_consolidated() for qid in node.qids}
+    assert not ({"Q44114", "Q172"} & stored)
 
 
 def test_paragraph_reader_reuses_unqid_concept_via_candidate_search(

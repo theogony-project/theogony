@@ -128,6 +128,16 @@ class ResolutionSummary(BaseModel):
     cache_hits: int = Field(default=0, ge=0)
     failures_after_retry: int = Field(default=0, ge=0)
     manual_resolution_needed: int = Field(default=0, ge=0)
+    qid_claims_dropped: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Q-IDs the reading model asserted that were refused as identity "
+            "evidence. Kept visible rather than silent: a run that drops "
+            "hundreds is a run whose extractor is confabulating identities "
+            "(PHX-1063)."
+        ),
+    )
 
     @property
     def total_resolved(self) -> int:
