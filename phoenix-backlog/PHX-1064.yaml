@@ -1,7 +1,7 @@
 id: PHX-1064
 category: substrate-retrieval
 priority: high
-status: open
+status: superseded
 generation_target: MESH migration — S5 (consolidation)
 title: "The demo question fails on entity fragmentation, not on retrieval — consolidation is still a stub"
 filed_by: Claude Code (measured on the post-full-read founding mesh, 2026-08-19)
@@ -49,7 +49,34 @@ description: >
   both together so the two are not confused: reclaiming slots is not the same as
   filling them well.
 
+  CORRECTED 2026-08-19 — THE DIAGNOSIS ABOVE WAS WRONG. This ticket blamed the
+  stubbed consolidation phase. The cause was PHX-1065: the substrate discarded
+  the entity's name at write time, so eight paraphrases of Zeus had nothing to
+  match on. After the name fix and a second full read of the same corpus:
+
+    nodes for the same text        6,816 -> 5,002   (-27%)
+    entities with a legible name     38% -> 84%
+    "Zeus" nodes            eight paraphrases -> one, tags [Zeus, Jupiter, Jove]
+    merge candidates at cos>=0.95    1,823 -> 8     (and all 8 correctly rejected)
+    true duplicates at same name   unmeasurable -> zero
+    gold recall on the demo query      6% -> 21%
+
+  Zero pairs share a name and exceed cos 0.80 across 2,954 named entities. The
+  S5 deduplication pass has nothing to do on this corpus: the fragmentation was
+  a missing string, not a missing consolidation phase. Building the merge pass
+  now would be building a mechanism for work that does not exist (AGENTS.md §8).
+
+  WHAT REMAINS, and it is smaller and different: roughly 2-3% of entity nodes are
+  referring expressions rather than names — "son of Cronos", "her father",
+  "father of men and gods" as separate nodes beside Zeus. Folding those in needs
+  coreference resolution, not similarity matching. And the demo question still
+  sits at 21% because "children of Cronus" semantically attracts every "son of X"
+  passage — a seeding and embedding problem, measured in PHX-1066 as unaffected
+  by the shape of the graph.
+
 relates_to:
+  - PHX-1065   # the actual cause
+  - PHX-1066   # why the edge mix does not explain the residue
   - PHX-1042   # degree-hub bias; anchors are that pathology on a text mesh
   - PHX-1051   # identity attractors, the same fragmentation seen at write time
   - PHX-1056   # k_seeds default; swept here and not the lever
