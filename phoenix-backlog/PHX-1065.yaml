@@ -1,0 +1,70 @@
+id: PHX-1065
+category: identity-integrity
+priority: critical
+status: in_progress
+generation_target: MESH migration — reading at scale (S2)
+title: "The entity's name was discarded at write time; no node in the Theogony mesh is called Cronus"
+filed_by: Claude Code (found while designing the S5 merge detector, 2026-08-19)
+created_at: 2026-08-19
+description: >
+  MESH_SUBSTRATE §"Tier-1+ — Consolidated Node" specifies `description` as
+  "short discriminating text — **for entities: name + key discriminators**".
+  The write path stored only the discriminators. The reading model returns a
+  label ("Zeus") and a description ("King of the gods, god of the sky and
+  thunder, son of Cronos") separately; `link_reference` received
+  `description=concept.description` and `_concept_tags` kept only
+  `concept.tags` plus `entity_type`, falling back to `["concept"]`. The label
+  reached neither field.
+
+  Measured on a live paragraph: **8 of 8 concepts lost their name.** The word
+  "Zeus" appears nowhere on the node that is about Zeus.
+
+  WHAT THIS EXPLAINS, all of it measured earlier and misattributed:
+
+  - Retrieval could not find the Kronides because no node is *called* Cronus.
+    `find_consolidated_by_labels("Zeus" | "Cronos" | "Rhea")` returned 0 hits on
+    a 30-paragraph passage about nothing else. The one earlier "zeus -> 1 node"
+    hit was a description that happened to contain the word.
+  - Deduplication is impossible on this substrate: three distinct nymphs all
+    read "A nymph whose name derives from a land over which she presides", two
+    distinct centaurs both read "A Centaur, participant in the battle", two
+    distinct years both read "A year, likely the date of a return or event".
+    A merge detector prototyped against description similarity proposed 1,823
+    pairs at cos>=0.95 and the top of the list was uniformly wrong — it would
+    have fused distinct entities, the PHX-1051 damage at scale.
+  - The eight separate "Zeus son of Cronos" nodes behind PHX-1064 are eight
+    paraphrases with no shared anchor to match on.
+
+  FIX: `_entity_description(label, description)` composes the doctrinal form,
+  putting the name at the head so that every mention of one entity shares a
+  prefix — which is what makes two descriptions of the same figure land near
+  each other under `description_vector`, the identity-matching surface. The
+  label also becomes the first tag, so the label index carries it. The same
+  composed text is used for vectorisation, so the stored description and the
+  vector that matches against it cannot drift apart.
+
+  A/B on an identical 30-paragraph passage, old behaviour vs new:
+
+    concepts                    252     261
+    entity nodes                182     179
+    nodes with a legible name    51     161
+    name hits Zeus/Cronos/Rhea  0/0/0   1/1/1
+    emergent share             0.62    0.59
+    tier-3 (description) hits    93     105
+
+  HONEST LIMIT: this does **not** reduce fragmentation. 0.72 vs 0.69 nodes per
+  concept is noise. The change makes identity *representable*; it does not merge
+  what is already split. What it does is give the S5 deduplication pass something
+  to be right about — which is why it has to land before that pass, not after.
+
+  CONSEQUENCE: `data/mesh-founding` was written under the old path and its 6,816
+  nodes are nameless. The names are not recoverable from the mesh — they were
+  never stored. A re-read of the corpus is required, which the PHX-1059..1062
+  work made affordable (2h, EUR 0.27).
+
+relates_to:
+  - PHX-1064   # the fragmentation this is a precondition for fixing
+  - PHX-1051   # identity attractors — the same failure at write time
+  - PHX-1054   # changed matching surface = changed identity decisions
+linked_scripts:
+  - src/theogony/mesh/ingestion/kadmos_v2.py

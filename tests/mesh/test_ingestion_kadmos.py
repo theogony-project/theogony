@@ -248,11 +248,17 @@ def test_paragraph_reader_reuses_unqid_concept_via_candidate_search(
         )
     )
 
+    # Matched on the discriminator, because a Tier-1 description now leads with
+    # the entity's name — "Brahmaputra River — Major river flowing from …" —
+    # per MESH_SUBSTRATE's "name + key discriminators" (PHX-1065).
     river_nodes = [
         node
         for node in mesh_runtime.nodes.load_all_consolidated()
-        if node.description == "Major river flowing from the Tibetan Plateau"
+        if "Major river flowing from the Tibetan Plateau" in (node.description or "")
     ]
 
     assert result["concepts"] == 2
-    assert len(river_nodes) == 1
+    assert len(river_nodes) == 1, "the same concept in two paragraphs must be one node"
+    assert river_nodes[0].description.startswith("Brahmaputra River"), (
+        "the node must carry the entity's name, not only its discriminators"
+    )
