@@ -287,8 +287,27 @@ class EagerLinker:
         frame_vector: list[float],
         description_vector: list[float] | None,
         context_node_ids: set[str] | None = None,
+        qids_are_authoritative: bool = True,
     ) -> LinkDecision:
+        """Resolve a reference to a node, creating one if nothing matches.
+
+        ``qids_are_authoritative=False`` says the caller got these Q-IDs from a
+        language model rather than an authority. They are still used to *look up*
+        an existing node — a match against a Q-ID the mesh already holds from the
+        wikidata5m seed is exactly what the tier-4 path is for, and a made-up
+        identifier simply finds nothing. What they must not do is get *written*:
+        storing them turns a guess into durable, Q-ID-addressable identity.
+
+        That distinction is not theoretical. Of 130 model-asserted Q-IDs found in
+        the founding mesh after the Theogony full read, 3 were plausible, 122
+        pointed at an unrelated entity and 5 did not exist — Gaia carried the
+        Q-ID of analytical chemistry, Cronus that of Anubis, Hera that of Willy
+        Brandt. Across all 1,210 paragraphs the tier-4 path fired zero times, so
+        refusing to persist them costs no merges that were happening (PHX-1063).
+        """
         context_ids = set(context_node_ids or set())
+        # Lookup uses every Q-ID offered; persistence uses only trusted ones.
+        persist_qids = qids if qids_are_authoritative else []
 
         for qid_tag in qids:
             node = self._registry.get_by_qid(qid_tag.qid)
@@ -308,9 +327,11 @@ class EagerLinker:
                 # real node that has nothing semantically to do with the reference.
                 # Fall through to the corroborated signals instead of merging.
                 continue
-            persisted = self._store.merge_identity_evidence(str(node.id), qids=qids, node=node)
+            persisted = self._store.merge_identity_evidence(
+                str(node.id), qids=persist_qids, node=node
+            )
             node = persisted or node
-            self._registry.remember(node, aliases=[label, description], qids=qids)
+            self._registry.remember(node, aliases=[label, description], qids=persist_qids)
             return LinkDecision(node=node, signal="qid", is_new=False, score=1.0)
 
         matched, score = self._best_description_match(
@@ -320,12 +341,12 @@ class EagerLinker:
             context_node_ids=context_ids,
         )
         if matched is not None and score >= 0.72:
-            if qids:
+            if persist_qids:
                 persisted = self._store.merge_identity_evidence(
-                    str(matched.id), qids=qids, node=matched
+                    str(matched.id), qids=persist_qids, node=matched
                 )
                 matched = persisted or matched
-            self._registry.remember(matched, aliases=[label, description], qids=qids)
+            self._registry.remember(matched, aliases=[label, description], qids=persist_qids)
             return LinkDecision(node=matched, signal="description", is_new=False, score=score)
 
         matched, score = self._best_tag_match(
@@ -334,19 +355,19 @@ class EagerLinker:
             context_node_ids=context_ids,
         )
         if matched is not None and score >= 0.55:
-            if qids:
+            if persist_qids:
                 persisted = self._store.merge_identity_evidence(
-                    str(matched.id), qids=qids, node=matched
+                    str(matched.id), qids=persist_qids, node=matched
                 )
                 matched = persisted or matched
-            self._registry.remember(matched, aliases=[label, description], qids=qids)
+            self._registry.remember(matched, aliases=[label, description], qids=persist_qids)
             return LinkDecision(node=matched, signal="tag", is_new=False, score=score)
 
         node = self._create_candidate(
             label=label,
             description=description,
             tags=tags,
-            qids=qids,
+            qids=persist_qids,
             semantic_vector=semantic_vector,
             frame_vector=frame_vector,
             description_vector=description_vector,
