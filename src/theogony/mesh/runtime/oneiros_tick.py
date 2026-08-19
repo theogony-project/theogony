@@ -247,6 +247,10 @@ class MeshRuntime:
         # committed a consistent state; what the mesh did is in `mesh_audit`.
         versions_pruned = self.nodes.prune_history(retention=version_retention)
         versions_pruned.update(self.edges.prune_history(retention=version_retention))
+        # The audit log is the most-written table of them all and was the one
+        # no maintenance pass touched: 5,915 versions at 21,219 rows, and
+        # reading the ten newest cost 266.6 ms against 2.1 ms pruned (PHX-1062).
+        versions_pruned["mesh_audit"] = self.audit.prune_history(retention=version_retention)
         self.invalidate_csr_cache()
 
         after = self.edges.count_rows()

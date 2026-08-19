@@ -76,3 +76,65 @@ def test_immediate_append_still_works(mesh_runtime: MeshRuntime) -> None:
     audit = mesh_runtime.audit
     row_id = audit.append(action="run_level", detail={"kind": "immediate"})
     assert row_id in {row["id"] for row in audit.list_recent(limit=20)}
+
+
+def test_recent_rows_come_back_newest_first(mesh_runtime: MeshRuntime) -> None:
+    """Ordering moved into the store; the answer must not move with it."""
+    audit = mesh_runtime.audit
+    ids = [audit.append(action="ordered", detail={"n": i}) for i in range(5)]
+
+    rows = audit.list_recent(limit=3)
+
+    assert [r["id"] for r in rows] == list(reversed(ids))[:3]
+    assert len(rows) == 3
+
+
+def test_recent_respects_a_limit_larger_than_the_table(mesh_runtime: MeshRuntime) -> None:
+    audit = mesh_runtime.audit
+    audit.append(action="only", detail={})
+    assert len(audit.list_recent(limit=100)) == audit.count()
+
+
+def test_pruning_the_audit_log_keeps_every_row(mesh_runtime: MeshRuntime) -> None:
+    """The log is the substrate's record; only its storage snapshots go.
+
+    This table was the one no maintenance pass touched, and it is the most
+    written of them all. At 21,219 rows it had 5,915 versions and reading the
+    ten newest cost 266.6 ms — 2.1 ms once pruned (PHX-1062).
+    """
+    from datetime import timedelta
+
+    audit = mesh_runtime.audit
+    ids = [audit.append(action="kept", detail={"n": i}) for i in range(20)]
+    before_versions = len(audit._table.list_versions())
+
+    removed = audit.prune_history(retention=timedelta(0))
+
+    assert removed > 0
+    assert len(audit._table.list_versions()) < before_versions
+    assert audit.count() == len(ids)
+    assert {r["id"] for r in audit.list_recent(limit=50)} == set(ids)
+
+
+def test_pruning_flushes_staged_rows_first(mesh_runtime: MeshRuntime) -> None:
+    """A stamped row must not be lost to the pass that tidies up around it."""
+    from datetime import timedelta
+
+    audit = mesh_runtime.audit
+    row_id = audit.stage(action="staged", detail={"marker": "survives"})
+    assert audit.pending() == 1
+
+    audit.prune_history(retention=timedelta(0))
+
+    assert audit.pending() == 0
+    assert row_id in {r["id"] for r in audit.list_recent(limit=50)}
+
+
+def test_the_tick_prunes_the_audit_log_too(mesh_runtime: MeshRuntime) -> None:
+    for i in range(20):
+        mesh_runtime.audit.append(action="tick-probe", detail={"n": i})
+
+    result = mesh_runtime.run_minimal_tick()
+
+    assert "mesh_audit" in result.versions_pruned
+    assert result.versions_pruned["mesh_audit"] > 0

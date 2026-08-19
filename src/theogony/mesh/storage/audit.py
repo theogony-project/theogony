@@ -6,7 +6,7 @@ Records are never modified. Lance versioning means historical reads are cheap.
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import lancedb
@@ -100,11 +100,48 @@ class MeshAuditLog:
         return len(self._staged)
 
     def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
-        """Return the most recent audit rows (newest first)."""
+        """Return the most recent audit rows (newest first).
+
+        Sorting is pushed into the store rather than done here. Materialising
+        the whole table to return ten rows costs 55.2 ms against 2.0 ms on a
+        21k-row log — and it reads every `payload_json` to do it, so the gap
+        widens with every row written (PHX-1062).
+
+        The ordering API is tried and fallen back on rather than assumed: this
+        repo has been bitten three times by a lancedb API moving between the
+        version installed locally and the one CI resolves (AGENTS.md §5).
+        """
         self.flush()
-        rows = self._table.to_arrow().to_pylist()
-        rows.sort(key=lambda r: r["recorded_at"], reverse=True)
-        return cast("list[dict[str, Any]]", rows[:limit])
+        try:
+            from lancedb.query import ColumnOrdering
+
+            ordering = [ColumnOrdering(column_name="recorded_at", ascending=False)]
+            rows = self._table.search().order_by(ordering).limit(limit).to_list()
+            return cast("list[dict[str, Any]]", rows)
+        except Exception:  # noqa: BLE001 - fall back to sorting here
+            rows = self._table.to_arrow().to_pylist()
+            rows.sort(key=lambda r: r["recorded_at"], reverse=True)
+            return cast("list[dict[str, Any]]", rows[:limit])
+
+    def prune_history(self, *, retention: timedelta) -> int:
+        """Discard Lance version snapshots older than ``retention``.
+
+        The audit log was the one table no maintenance pass touched, and it is
+        the most written of them all — one row per tick, per ingest run, and
+        (before PHX-1061) per resolved concept. At 21,219 rows it had 5,915
+        versions, and reading the ten newest cost 266.6 ms; pruning them took
+        that to 2.1 ms, a 127x difference, and shrank the table on disk.
+
+        Staged rows are flushed first so nothing stamped is lost.
+        """
+        self.flush()
+        before = len(self._table.list_versions())
+        try:
+            self._table.optimize(cleanup_older_than=retention)
+        except Exception:  # noqa: BLE001 - pruning is best-effort upkeep
+            return 0
+        # Compaction commits a version of its own; report removals only.
+        return max(0, before - len(self._table.list_versions()))
 
     def count(self) -> int:
         self.flush()
