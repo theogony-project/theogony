@@ -1,0 +1,71 @@
+id: PHX-1067
+category: evaluation
+priority: critical
+status: in_progress
+generation_target: MESH migration — S3 (retrieval quality)
+title: "No instrument existed for retrieval quality on the founding corpus; three diagnoses were wrong because of it"
+filed_by: Claude Code (2026-08-20)
+created_at: 2026-08-20
+description: >
+  Every retrieval claim made about the founding mesh rested on a gold set
+  invented at the moment of measurement, from one question. Three diagnoses were
+  drawn from that footing and all three were wrong:
+
+    - the demo question's failure was blamed on the stubbed consolidation phase
+      (PHX-1064); the cause was a discarded entity name (PHX-1065)
+    - the relation stage was reported as a second growth curve after eight
+      batches; over thirteen it peaked and fell to 0.04 s/paragraph
+    - the name fix was called "representable but not merging" from a
+      30-paragraph A/B showing 0.72 vs 0.69 nodes per concept; over 1,210
+      paragraphs it was -27%
+
+  This ships the instrument that would have caught all three: 32 questions over
+  the founding corpus, each carrying the passage that answers it, scored against
+  the live substrate through `retrieve()`.
+
+  DESIGN, and each choice paid for itself while writing it:
+
+  - Answers are entity NAMES, resolved against the mesh at evaluation time.
+    A gold set pinned to node ids would need rebuilding after every read and
+    would silently encode whatever the retriever happened to return. This is
+    only possible at all because PHX-1065 put names on nodes.
+  - Coverage and recall are reported SEPARATELY. An entity absent from the mesh
+    is a reading failure; one present but unretrieved is a retrieval failure.
+    Blending them is what produced two of the three wrong diagnoses.
+  - Authored from the corpus, not from knowledge of Greek mythology. That caught
+    three false assumptions: the volume has no "Works and Days" (so no Pandora's
+    jar, no golden race), its Pandora is Deucalion's daughter who bore Graecus,
+    and the succession passage reads "Hestia 1618" because footnote markers sit
+    inline — so name matching has to fold past digits.
+  - JSON, not YAML: pyyaml is not a declared dependency and this repo broke
+    three times in one day on a transitively-present library resolving
+    differently in CI.
+  - force-include in pyproject, the third instance of a trap already documented
+    twice there: hatchling ships only .py files inside the package.
+
+  FIRST BASELINE, on the named full-read mesh (5,002 nodes):
+
+    questions                    32
+    entities expected            83
+    present in the mesh          83   coverage 100%
+    retrieved                    40   recall 48%
+    fully answered           13 of 32
+
+  Coverage is perfect. The corpus has been read and every entity the gold set
+  asks for exists. The whole shortfall is retrieval — and it is 48%, not the 21%
+  an ad-hoc proxy set suggested on a single question. That proxy was pessimistic
+  and unrepresentative, which is the same class of error as the other three.
+
+  Ten questions score zero. The sharpest is `cronus-swallowed`: the question is
+  "Why did Cronos swallow his children?", the node is "Cronos — Titan leader,
+  father of the Olympian gods", it is in the mesh, and it does not reach the top
+  30. The name is in the question verbatim.
+
+relates_to:
+  - PHX-1064   # a wrong diagnosis this instrument would have caught
+  - PHX-1065   # names on nodes are what make name-keyed gold possible
+  - PHX-1066   # to be re-argued against this instrument rather than one question
+linked_scripts:
+  - src/theogony/mesh/eval/corpus_qa.py
+  - src/theogony/mesh/eval/gold/founding_corpus.json
+  - scripts/mesh_corpus_qa.py

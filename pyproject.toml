@@ -163,6 +163,10 @@ packages = ["src/theogony"]
 # ``theogony seed`` would fail with FileNotFoundError on a fresh wheel
 # install. Regenerate via ``python -m theogony.docs_ingest.regenerate``.
 "src/theogony/seeds/pantheon_self.jsonl.gz" = "theogony/seeds/pantheon_self.jsonl.gz"
+# PHX-1067: the founding-corpus gold set. Same trap as the two above — it is a
+# .json inside the package, so hatchling skips it and `load_gold()` raises
+# FileNotFoundError on a non-editable install.
+"src/theogony/mesh/eval/gold/founding_corpus.json" = "theogony/mesh/eval/gold/founding_corpus.json"
 
 [tool.hatch.build.targets.sdist]
 # Source distribution: ship the package + the docs / prompts / phoenix

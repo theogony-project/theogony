@@ -1,0 +1,317 @@
+{
+  "meta": {
+    "corpus": "data/raw/founding/pg348_the.txt",
+    "works": 24,
+    "words": 69340
+  },
+  "questions": [
+    {
+      "id": "cronus-children",
+      "question": "Who are the children of Cronus and Rhea?",
+      "expect": [
+        "Hestia",
+        "Demeter",
+        "Hera",
+        "Hades",
+        "Zeus"
+      ],
+      "evidence": "But Rhea was subject in love to Cronos and bare splendid children, Hestia, Demeter, and gold-shod Hera and strong Hades ... and wise Zeus"
+    },
+    {
+      "id": "heaven-titans",
+      "question": "Which children did Earth bear to Heaven?",
+      "expect": [
+        "Oceanus",
+        "Coeus",
+        "Crius",
+        "Hyperion",
+        "Iapetus",
+        "Rhea",
+        "Themis",
+        "Mnemosyne"
+      ],
+      "evidence": "with Heaven and bare deep-swirling Oceanus, Coeus and Crius and Hyperion and Iapetus, Theia and Rhea, Themis and Mnemosyne"
+    },
+    {
+      "id": "night-children",
+      "question": "What did Night bear?",
+      "expect": [
+        "Doom",
+        "Fate",
+        "Death",
+        "Sleep",
+        "Dreams"
+      ],
+      "evidence": "Night bare hateful Doom and black Fate and Death, and she bare Sleep and the tribe of Dreams"
+    },
+    {
+      "id": "fates-names",
+      "question": "What are the names of the Fates?",
+      "expect": [
+        "Clotho",
+        "Lachesis",
+        "Atropos"
+      ],
+      "evidence": "Also she bare the Destinies and ruthless avenging Fates, Clotho and Lachesis and Atropos"
+    },
+    {
+      "id": "strife-children",
+      "question": "What did Strife bear?",
+      "expect": [
+        "Toil",
+        "Forgetfulness",
+        "Famine",
+        "Sorrows"
+      ],
+      "evidence": "abhorred Strife bare painful Toil and Forgetfulness and Famine and tearful Sorrows, Fightings also, Battles, Murders"
+    },
+    {
+      "id": "hyperion-children",
+      "question": "What children did Theia bear to Hyperion?",
+      "expect": [
+        "Helius",
+        "Selene",
+        "Eos"
+      ],
+      "evidence": "love to Hyperion and bare great Helius (Sun) and clear Selene (Moon) and Eos (Dawn)"
+    },
+    {
+      "id": "styx-children",
+      "question": "What children did Styx bear to Pallas?",
+      "expect": [
+        "Zelus",
+        "Nike"
+      ],
+      "evidence": "joined to Pallas and bare Zelus (Emulation) and trim-ankled Nike (Victory)"
+    },
+    {
+      "id": "iapetus-sons",
+      "question": "Who are the sons of Iapetus?",
+      "expect": [
+        "Menoetius",
+        "Prometheus",
+        "Epimetheus"
+      ],
+      "evidence": "also she bare very glorious Menoetius and clever Prometheus, full of various wiles, and scatter-brained Epimetheus"
+    },
+    {
+      "id": "themis-children",
+      "question": "What did Themis bear to Zeus?",
+      "expect": [
+        "Horae",
+        "Eunomia",
+        "Dike",
+        "Eirene"
+      ],
+      "evidence": "married bright Themis who bare the Horae (Hours), and Eunomia (Order), Dike (Justice), and blooming Eirene (Peace)"
+    },
+    {
+      "id": "tethys-rivers",
+      "question": "Which rivers did Tethys bear to Ocean?",
+      "expect": [
+        "Nilus",
+        "Alpheus",
+        "Eridanus",
+        "Strymon"
+      ],
+      "evidence": "Tethys bare to Ocean eddying rivers, Nilus, and Alpheus, and deep-swirling Eridanus, Strymon, and Meander"
+    },
+    {
+      "id": "hephaestus-birth",
+      "question": "Which son did Hera bear without union with Zeus?",
+      "expect": [
+        "Hephaestus",
+        "Hera"
+      ],
+      "evidence": "this strife she bare without union with Zeus who holds the aegis a glorious son, Hephaestus"
+    },
+    {
+      "id": "echidna-offspring",
+      "question": "What offspring did Echidna bear to Orthus?",
+      "expect": [
+        "Echidna",
+        "Orthus"
+      ],
+      "evidence": "Echidna was subject in love to Orthus"
+    },
+    {
+      "id": "geryones-killer",
+      "question": "Who killed Geryones?",
+      "expect": [
+        "Heracles",
+        "Geryones"
+      ],
+      "evidence": "Geryones, whom mighty Heracles killed in sea-girt Erythea"
+    },
+    {
+      "id": "pegasus-birth",
+      "question": "How were Chrysaor and Pegasus born?",
+      "expect": [
+        "Chrysaor",
+        "Pegasus",
+        "Perseus"
+      ],
+      "evidence": "when Perseus cut off her head, there sprang forth great Chrysaor and the horse Pegasus"
+    },
+    {
+      "id": "bellerophon-mother",
+      "question": "Who bore Bellerophon?",
+      "expect": [
+        "Bellerophon",
+        "Glaucus",
+        "Poseidon"
+      ],
+      "evidence": "arms of Poseidon and bare in the house of Glaucus blameless Bellerophon"
+    },
+    {
+      "id": "odysseus-sons",
+      "question": "Which sons did Circe bear to Odysseus?",
+      "expect": [
+        "Agrius",
+        "Latinus",
+        "Telegonus"
+      ],
+      "evidence": "loved steadfast Odysseus and bare Agrius and Latinus who was faultless and strong: also she brought forth Telegonus"
+    },
+    {
+      "id": "ceto-graiae",
+      "question": "What did Ceto bear to Phorcys?",
+      "expect": [
+        "Graiae",
+        "Ceto",
+        "Phorcys"
+      ],
+      "evidence": "Ceto bare to Phorcys the fair-cheeked Graiae, sisters grey from their birth"
+    },
+    {
+      "id": "typhoeus-parents",
+      "question": "Who was the youngest child of Earth?",
+      "expect": [
+        "Typhoeus",
+        "Tartarus"
+      ],
+      "evidence": "huge Earth bare her youngest child Typhoeus of the love of Tartarus"
+    },
+    {
+      "id": "erinyes-birth",
+      "question": "Whom did Earth bear from the blood of Heaven?",
+      "expect": [
+        "Erinyes",
+        "Giants"
+      ],
+      "evidence": "seasons moved round she bare the strong Erinyes and the great Giants with gleaming armour"
+    },
+    {
+      "id": "nereus-daughters",
+      "question": "How many daughters sprang from Nereus?",
+      "expect": [
+        "Nereus"
+      ],
+      "evidence": "These fifty daughters sprang from blameless Nereus, skilled in excellent crafts"
+    },
+    {
+      "id": "nereus-father",
+      "question": "Who begat Nereus?",
+      "expect": [
+        "Nereus",
+        "Sea"
+      ],
+      "evidence": "And Sea begat Nereus, the eldest of his children, who is true and lies not"
+    },
+    {
+      "id": "muses-mother",
+      "question": "Who is the mother of the Muses?",
+      "expect": [
+        "Mnemosyne",
+        "Muses"
+      ],
+      "evidence": "Mnemosyne with the beautiful hair: and of her the nine gold-crowned Muses were born"
+    },
+    {
+      "id": "earth-first-bore",
+      "question": "What did Earth bear first?",
+      "expect": [
+        "Heaven",
+        "Earth"
+      ],
+      "evidence": "Earth first bare starry Heaven, equal to herself, to cover her on every side"
+    },
+    {
+      "id": "cronus-swallowed",
+      "question": "Why did Cronos swallow his children?",
+      "expect": [
+        "Cronos"
+      ],
+      "evidence": "These great Cronos swallowed as each came forth from the womb to his mother's knees"
+    },
+    {
+      "id": "stone-substitute",
+      "question": "What was given to Cronos in place of Zeus?",
+      "expect": [
+        "stone"
+      ],
+      "evidence": "stone wrapped in swaddling clothes"
+    },
+    {
+      "id": "hecate-honour",
+      "question": "Which goddess did Zeus honour above all others?",
+      "expect": [
+        "Hecate"
+      ],
+      "evidence": "conceived and bare Hecate whom Zeus the son of Cronos honoured above all"
+    },
+    {
+      "id": "aphrodite-birth",
+      "question": "From what did Aphrodite grow?",
+      "expect": [
+        "Aphrodite"
+      ],
+      "evidence": "the foam-born goddess and rich-crowned Cytherea, because she grew amid the foam"
+    },
+    {
+      "id": "cycnus-slain",
+      "question": "Who slew Cycnus?",
+      "expect": [
+        "Cycnus",
+        "Heracles",
+        "Ares"
+      ],
+      "evidence": "And he slew Cycnus, the gallant son of Ares"
+    },
+    {
+      "id": "eosphorus",
+      "question": "Which star did Erigenia bear?",
+      "expect": [
+        "Eosphorus"
+      ],
+      "evidence": "after these Erigenia bare the star Eosphorus (Dawn-bringer)"
+    },
+    {
+      "id": "frogs-mice",
+      "question": "Who sent a herald with threats of war to the Frogs?",
+      "expect": [
+        "Mice",
+        "Frogs"
+      ],
+      "evidence": "Frogs, the Mice have sent me with their threats against you, and bid you arm yourselves for war"
+    },
+    {
+      "id": "melian-fire",
+      "question": "From whom did Zeus withhold fire?",
+      "expect": [
+        "Zeus"
+      ],
+      "evidence": "would not give the power of unwearying fire to the Melian race of mortal men who live on the earth"
+    },
+    {
+      "id": "hermaon-thronia",
+      "question": "Whom did Hermaon beget with Thronia?",
+      "expect": [
+        "Thronia",
+        "Belus"
+      ],
+      "evidence": "whom worthy Hermaon begat with Thronia, daughter of the lord Belus"
+    }
+  ],
+  "_note": "Gold set for the founding corpus (Evelyn-White, Gutenberg 348). Every question carries the passage that answers it. Answers are entity NAMES resolved against the mesh at evaluation time, never node ids — a gold set pinned to ids would need rebuilding after every read and would encode whatever the retriever returned. Authored from the text, not from memory: the volume has no 'Works and Days', so no Pandora's jar and no golden race; its Pandora is Deucalion's daughter; and the succession passage reads 'Hestia 1618' because footnote markers sit inline."
+}
