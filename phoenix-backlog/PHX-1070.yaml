@@ -1,0 +1,53 @@
+id: PHX-1070
+category: substrate-retrieval
+priority: high
+status: proposed
+generation_target: MESH migration — S3 (retrieval quality)
+title: "Proposal: relation-type-aware propagation — the doctrine has no mechanism for it"
+filed_by: Claude Code (measured, not built, 2026-08-20)
+created_at: 2026-08-20
+description: >
+  PROPOSAL, deliberately not implemented. It would be a new retrieval mechanism
+  and MESH_RETRIEVAL does not describe one: its primitives are Spreading
+  Activation, diversified injection (MMR, weight-class, sub-mesh), three-factor
+  reinforcement learning and frame-sensitive resonance. `relation_descriptor` is
+  read only for display. Building it unilaterally would be routing around the
+  doctrine rather than extending it (AGENTS.md §6).
+
+  WHY IT KEEPS COMING UP. Two independent measurements point at it:
+
+  1. Edge policy cannot be decided globally. Removing co-occurrence edges is
+     +4 points on genealogical questions and -10 on narrative ones (PHX-1066).
+     Proximity is what "why did X do Y" needs; typed relation is what "whose
+     children are these" needs. One graph, two useful views.
+  2. Ceiling test on the genealogical subset: restricting propagation to the
+     1,200 kinship-descriptor edges of 94,490 takes recall from 58% to 66%.
+     That used oracle knowledge — the question type was known and the edge types
+     were hand-picked — so it is a ceiling, not a result.
+
+  SHAPE IT WOULD TAKE, if adopted. Embed the relation descriptors and compare
+  them to the query embedding, so the query selects which *kinds* of connection
+  conduct rather than which nodes activate. No rule table, no classifier: the
+  same embedding machinery already in the substrate, applied to edges instead of
+  nodes. That is close in spirit to frame routing, which scales edges by the
+  epistemic consistency of their endpoints — this would scale them by the
+  relevance of their relation.
+
+  WHAT WOULD ARGUE AGAINST IT. The descriptor vocabulary is not clean: 127
+  kinship-ish descriptors, with `father_of` (190) beside `father of` (58) and
+  `son_of` (180) beside `son of` (41). The same relation in two spellings splits
+  its weight. Normalising descriptors at extraction may be worth more than any
+  propagation change, and is a smaller intervention.
+
+  Also: the gold set is 66% genealogical because the corpus is. A mechanism
+  tuned on it could overfit to one question shape. Any adoption should be
+  measured per question type, not on the aggregate — that discipline is what
+  caught the co-occurrence trap.
+
+relates_to:
+  - PHX-1066   # the edge question this would supersede
+  - PHX-1069   # the curve showing ranking, not reach, is the constraint
+  - PHX-1068   # name anchors, which made edge quality matter at all
+linked_scripts:
+  - docs/MESH_RETRIEVAL.md
+  - src/theogony/mesh/retrieval/retrieve.py
