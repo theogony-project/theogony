@@ -1,0 +1,60 @@
+id: PHX-1072
+category: substrate-integrity
+priority: high
+status: in_progress
+generation_target: MESH migration — S2 (relation vocabulary)
+title: "Relation descriptors are free text; Edge.pids was empty on every edge"
+filed_by: Claude Code (2026-08-20)
+created_at: 2026-08-20
+description: >
+  The reading model invents a descriptor per relation. On the founding mesh:
+  **2,672 distinct descriptors across 6,489 judged edges**, 1,913 of them
+  occurring exactly once, with `father_of` (190) beside `father of` (58) and
+  `son_of` (180) beside `son of` (41). The top 100 cover 40%. A vocabulary that
+  free is not a vocabulary — nothing downstream can group by it, which is part
+  of why relation-type-aware propagation (PHX-1070) has nothing stable to stand
+  on.
+
+  `Edge.pids` exists for exactly this and was populated on **zero** edges.
+  MESH_SUBSTRATE §Edge: "P-IDs are one-to-one identifiers (each P-ID refers to
+  exactly one Wikidata property); the substrate honours this just as it honours
+  Q-ID uniqueness on nodes."
+
+  TWO REFUSALS CARRY THIS TICKET.
+
+  1. The model is never asked. It produced 130 Q-IDs for this corpus and 127
+     named something else entirely — Gaia carried the identifier of analytical
+     chemistry (PHX-1063). Asked for P-IDs it would confabulate them with the
+     same confidence. This is a curated table, every entry verified against the
+     live Wikidata API.
+
+  2. Only direction-faithful mappings exist. Our edges read
+     source-descriptor-target: `father_of(Cronos, Zeus)`. Wikidata's P22 reads
+     "male parent *of the subject*", so the same fact is `P22(Zeus, Cronos)` —
+     reversed. A table with an inversion flag works until someone forgets to
+     honour it and the genealogy is silently backwards, so relations whose
+     property reads the other way are ABSENT rather than flagged. `killed` maps
+     to nothing, because P157 is "killed by"; its inverse `killed_by` maps.
+
+  The kinship backbone resolves without any inversion once P8810 ("parent") is
+  used alongside P40 ("child"): `father_of` -> P40, `son_of` -> P8810, both
+  forwards. That pairing is what makes rule 2 affordable rather than crippling.
+
+  COVERAGE on the existing mesh, applying the table retroactively: 1,237 of
+  6,489 judged edges (19%) — P40 594, P8810 361, P276 80, P26 71, P361 60,
+  P3373 38. Small, and correct. It is a foundation for PHX-1070 rather than a
+  retrieval improvement in itself, and no retrieval claim is made for it here.
+
+  NOT DONE: resolving the long tail automatically. Wikidata property search
+  works well (`killed by` -> P157 exactly, `spouse` -> P26, `part of` -> P361)
+  but top-1 acceptance would import the direction problem wholesale — "son" and
+  "daughter" both return P40 ("child"), which is the inverse of how our
+  descriptors read. Automatic resolution needs a direction decision per mapping
+  and that is not something search results supply.
+
+relates_to:
+  - PHX-1070   # typed propagation, which needs a stable vocabulary first
+  - PHX-1063   # why the model is not asked
+linked_scripts:
+  - src/theogony/mesh/ingestion/relation_pids.py
+  - src/theogony/mesh/ingestion/vocab/relation_pids.json

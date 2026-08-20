@@ -22,13 +22,21 @@ from theogony.mesh.ingestion.reading_schemas import (
     ParagraphReadingOutput,
     normalize_reading_payload,
 )
+from theogony.mesh.ingestion.relation_pids import pid_for
 from theogony.mesh.ingestion.source_anchor import (
     build_paragraph_anchor_title,
     build_source_anchor_node,
 )
 from theogony.mesh.ingestion.vectorizer import MeshTextVectorizer
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
-from theogony.mesh.schemas import ChunkNode, ConsolidatedNode, Edge, QIDTag, SourceProvenance
+from theogony.mesh.schemas import (
+    ChunkNode,
+    ConsolidatedNode,
+    Edge,
+    PIDTag,
+    QIDTag,
+    SourceProvenance,
+)
 from theogony.reporting.models import (
     EmbeddingSummary,
     IngestRunReport,
@@ -460,6 +468,15 @@ class MeshParagraphReader:
                             relation_kind=relation.relation_kind,
                             relation_descriptor=relation.relation_descriptor,
                             description=relation.rationale,
+                            # The Wikidata property naming this relation, when one
+                            # reads the same way ours does. Curated and verified,
+                            # never asked of the model — it confabulated 127 of 130
+                            # Q-IDs on this corpus (PHX-1063, PHX-1072).
+                            pids=(
+                                [PIDTag(pid=pid, confidence=1.0, attached_at=now)]
+                                if (pid := pid_for(relation.relation_descriptor))
+                                else []
+                            ),
                             creation_context="kadmos_relation",
                         )
                     )
