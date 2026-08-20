@@ -26,6 +26,7 @@ def main() -> None:
     ap.add_argument("--top-k", default=30, type=int)
     ap.add_argument("--json", action="store_true", help="emit the summary as JSON")
     ap.add_argument("--verbose", action="store_true", help="one line per question")
+    ap.add_argument("--curve", action="store_true", help="recall as a function of top_k")
     args = ap.parse_args()
 
     runtime = MeshRuntime.open(args.root)

@@ -62,6 +62,31 @@ description: >
   pass gets a judging step. Do not motivate either by retrieval quality until a
   measurement supports it.
 
+  ANSWERED 2026-08-20, against the PHX-1067 gold set and through the real
+  pipeline. The retrieval argument is settled: DO NOT remove the co-occurrence
+  edges. Split by question type, with name-anchored seeding active:
+
+      variant            genealogical   narrative   other   overall
+      all edges              58%           90%       89%      65%
+      no co-occurrence       62%           80%       89%      67%
+
+  Removing them helps genealogical questions by 4 points and costs narrative
+  questions 10. The +2 aggregate hides both, and the gold set is 66%
+  genealogical — shipping on the aggregate would have degraded narrative
+  retrieval while reporting an improvement, with the bias concealing it.
+
+  That is a better finding than the removal would have been: proximity is what a
+  "why did X do Y" question needs, and typed relation is what "whose children
+  are these" needs. Different question types want different views of the same
+  graph. The lever is relation-type-aware propagation at query time, not a
+  global edge policy — and today `relation_descriptor` is looked up only for
+  display, never for propagation.
+
+  What remains of this ticket is the doctrine half: six of eight
+  `creation_context` values in use are absent from MESH_SUBSTRATE §Edge. They
+  earn their place on the evidence above and should be written into the doctrine
+  with that rationale, rather than gated out of the substrate.
+
 relates_to:
   - PHX-1064   # the demo question, whose failure this does NOT explain
   - PHX-1049   # the cross-paragraph pass that emits the second-largest context
