@@ -21,6 +21,7 @@ importantly, what it is not (one-factor Hebbian, not the doctrine's three-factor
 
 from __future__ import annotations
 
+import re
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -172,6 +173,101 @@ def _vector_only_constellation(
     )
 
 
+# Words that open a question and are capitalised for that reason alone. Without
+# this, "Who" and "What" would be looked up as entity names on every query.
+_QUESTION_WORDS = frozenset(
+    {
+        "who",
+        "what",
+        "which",
+        "whom",
+        "whose",
+        "when",
+        "where",
+        "why",
+        "how",
+        "did",
+        "does",
+        "do",
+        "is",
+        "are",
+        "was",
+        "were",
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "of",
+        "to",
+        "in",
+        "on",
+        "from",
+        "by",
+        "for",
+        "with",
+        "many",
+        "much",
+    }
+)
+
+# A query names a handful of things, not dozens. The cap keeps a long question
+# from flooding the seed set and drowning the ANN's contribution.
+_MAX_NAME_ANCHORS = 8
+
+
+def _name_anchor_seeds(
+    runtime: MeshRuntime,
+    query: str,
+    csr: EdgeCSR,
+    *,
+    max_anchors: int = _MAX_NAME_ANCHORS,
+) -> dict[int, float]:
+    """Seeds for entities the query names outright.
+
+    Vector search finds nodes that resemble the *question*; the answer to a
+    question usually does not resemble it. "What children did Themis bear to
+    Zeus?" is answered by Eunomia, Dike and Eirene, which rank 2345, 2578 and
+    2764 by cosine because they have nothing in common with the words of the
+    question — they are related to something *in* it. Measured on the founding
+    gold set, every expected entity sits exactly one hop from an entity the
+    question names, against a 6.6% chance baseline (PHX-1068).
+
+    So the entity named in the question is looked up by name, in the index the
+    substrate already maintains, and injected as a seed at full strength: an
+    exact name match is stronger evidence than any cosine.
+
+    Only capitalised spans are considered. Trying every n-gram would cost a
+    label read each — 14.5 ms indexed, so ~390 ms on a ten-word question — and
+    would match common nouns that happen to be node names. This is an English
+    heuristic on an English corpus, and it is the honest limitation of this
+    approach rather than a hidden one.
+    """
+    tokens = re.findall(r"[A-Za-z][A-Za-z'-]*", query or "")
+    spans: list[str] = []
+    for size in (3, 2, 1):
+        for start in range(len(tokens) - size + 1):
+            window = tokens[start : start + size]
+            if not window[0][:1].isupper():
+                continue
+            if all(word.lower() in _QUESTION_WORDS for word in window):
+                continue
+            spans.append(" ".join(window))
+    if not spans:
+        return {}
+
+    seeds: dict[int, float] = {}
+    for node in runtime.nodes.find_consolidated_by_labels(spans, limit=max_anchors * 2):
+        if node.is_source_anchor:
+            continue
+        index = csr.id_to_index.get(str(node.id))
+        if index is not None:
+            seeds[index] = 1.0
+        if len(seeds) >= max_anchors:
+            break
+    return seeds
+
+
 def retrieve(
     runtime: MeshRuntime,
     query_vector: Sequence[float],
@@ -190,6 +286,7 @@ def retrieve(
     query_frame: Sequence[float] | None = None,
     frame_threshold: float = 0.0,
     vector_column: str = "semantic_vector",
+    name_anchors: bool = True,
     query: str | None = None,
     csr: EdgeCSR | None = None,
     propagator: Propagator | None = None,
@@ -258,7 +355,12 @@ def retrieve(
                 qid=h.qids[0].qid if h.qids else None,
             )
         )
-    seeds = select_seeds(list(query_vector), candidates, k=k_seeds, lambda_=mmr_lambda)
+    seeds = dict(select_seeds(list(query_vector), candidates, k=k_seeds, lambda_=mmr_lambda))
+    if name_anchors and query:
+        t_anchor = time.perf_counter()
+        for index, weight in _name_anchor_seeds(runtime, query, csr).items():
+            seeds[index] = max(seeds.get(index, 0.0), weight)
+        timings["name_anchor_ms"] = (time.perf_counter() - t_anchor) * 1000.0
 
     active_csr = csr
     frame_routed = False

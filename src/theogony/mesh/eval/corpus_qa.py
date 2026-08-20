@@ -138,7 +138,15 @@ def evaluate(
         found = {
             node.node_id
             for node in retrieve(
-                runtime, embed(gq.question), top_k=top_k, **retrieve_kwargs
+                runtime,
+                embed(gq.question),
+                top_k=top_k,
+                # The question text, the way `mesh ask` passes it. Retrieval uses
+                # it to seed on entities the question names outright, so an
+                # evaluator that withheld it would measure a different pipeline
+                # than the one users run.
+                query=gq.question,
+                **retrieve_kwargs,
             ).constellation.nodes
         }
         result.retrieved = [name for name, ids in wanted.items() if ids & found]
