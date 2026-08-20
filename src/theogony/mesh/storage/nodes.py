@@ -26,6 +26,51 @@ def _normalize_label(label: str) -> str:
     return raw.strip()
 
 
+# A referring expression is not a name. "her father" attached to Zeus as an
+# alias would pull every later "her father" onto him, and in the next passage
+# that is someone else entirely — the PHX-1051 attractor, rebuilt from the other
+# side. Only spans that read as proper names are kept.
+_REFERRING_HEAD = re.compile(
+    r"^(the|a|an|his|her|its|their|this|that|these|those|one|another|"
+    r"son|daughter|father|mother|brother|sister|child|children|wife|husband)\b",
+    re.IGNORECASE,
+)
+
+# Descriptions arrive alongside labels at merge time and must not become tags:
+# the doctrine bounds a description at a few hundred characters, a tag is a
+# keyword.
+_MAX_ALIAS_CHARS = 40
+
+
+def _mergeable_aliases(aliases: list[str] | None, existing: list[str]) -> list[str]:
+    """Aliases worth writing onto a node when a merge discovers them.
+
+    The eager linker learns, on every merge, that some span in the text refers to
+    a node it already holds. Until now that went to an in-memory registry and
+    died with the run (PHX-1071), so the substrate could not match on it the next
+    time it read.
+
+    Kept only if it reads as a proper name. A merge on "the Earth-Shaker" teaches
+    the mesh a genuine alias for Poseidon; a merge on "her father" teaches it
+    nothing durable and would misroute the next passage that says it.
+    """
+    if not aliases:
+        return []
+    seen = {tag.strip().lower() for tag in existing}
+    out: list[str] = []
+    for raw in aliases:
+        alias = (raw or "").strip()
+        if not alias or len(alias) > _MAX_ALIAS_CHARS:
+            continue
+        if not alias[:1].isupper() or _REFERRING_HEAD.match(alias):
+            continue
+        if alias.lower() in seen:
+            continue
+        seen.add(alias.lower())
+        out.append(alias)
+    return out
+
+
 def _create_scalar_index(table: Any, column: str) -> None:
     """Build a scalar index, preferring the current API over the deprecated one.
 
@@ -455,7 +500,12 @@ class MeshNodeStore:
         return removed
 
     def merge_identity_evidence(
-        self, node_id: str, *, qids: list[QIDTag], node: ConsolidatedNode | None = None
+        self,
+        node_id: str,
+        *,
+        qids: list[QIDTag],
+        node: ConsolidatedNode | None = None,
+        aliases: list[str] | None = None,
     ) -> ConsolidatedNode | None:
         """Persist identity evidence acquired at merge time (PHX-1053).
 
@@ -475,12 +525,23 @@ class MeshNodeStore:
             return None
         known = {q.qid for q in node.qids}
         new_qids = [q for q in qids if q.qid not in known]
-        if not new_qids:
+        new_aliases = _mergeable_aliases(aliases, node.tags)
+        if not new_qids and not new_aliases:
             return node
-        updated = node.model_copy(update={"qids": [*node.qids, *new_qids]})
+        updated = node.model_copy(
+            update={
+                "qids": [*node.qids, *new_qids],
+                "tags": [*node.tags, *new_aliases],
+            }
+        )
         self.consolidated_table.delete(f'id = "{_sql_quote(node_id)}"')
         self.consolidated_table.add([self._consolidated_row(updated)])
-        self.consolidated_qid_index.add([{"qid": q.qid, "node_id": str(node_id)} for q in new_qids])
+        if new_qids:
+            self.consolidated_qid_index.add(
+                [{"qid": q.qid, "node_id": str(node_id)} for q in new_qids]
+            )
+        if new_aliases:
+            self.consolidated_label_index.add(self._label_index_rows(updated))
         return updated
 
     def get_consolidated_id_by_qid(self, qid: str) -> str | None:

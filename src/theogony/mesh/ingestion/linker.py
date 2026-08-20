@@ -328,7 +328,7 @@ class EagerLinker:
                 # Fall through to the corroborated signals instead of merging.
                 continue
             persisted = self._store.merge_identity_evidence(
-                str(node.id), qids=persist_qids, node=node
+                str(node.id), qids=persist_qids, node=node, aliases=[label]
             )
             node = persisted or node
             self._registry.remember(node, aliases=[label, description], qids=persist_qids)
@@ -341,11 +341,14 @@ class EagerLinker:
             context_node_ids=context_ids,
         )
         if matched is not None and score >= 0.72:
-            if persist_qids:
-                persisted = self._store.merge_identity_evidence(
-                    str(matched.id), qids=persist_qids, node=matched
-                )
-                matched = persisted or matched
+            # The alias goes to the store as well as the registry now: a merge
+            # that learns "this passage's 'the Earth-Shaker' is the node we call
+            # Poseidon" used to teach the substrate nothing, because the registry
+            # is in-memory and dies with the run (PHX-1071).
+            persisted = self._store.merge_identity_evidence(
+                str(matched.id), qids=persist_qids, node=matched, aliases=[label]
+            )
+            matched = persisted or matched
             self._registry.remember(matched, aliases=[label, description], qids=persist_qids)
             return LinkDecision(node=matched, signal="description", is_new=False, score=score)
 
@@ -355,11 +358,10 @@ class EagerLinker:
             context_node_ids=context_ids,
         )
         if matched is not None and score >= 0.55:
-            if persist_qids:
-                persisted = self._store.merge_identity_evidence(
-                    str(matched.id), qids=persist_qids, node=matched
-                )
-                matched = persisted or matched
+            persisted = self._store.merge_identity_evidence(
+                str(matched.id), qids=persist_qids, node=matched, aliases=[label]
+            )
+            matched = persisted or matched
             self._registry.remember(matched, aliases=[label, description], qids=persist_qids)
             return LinkDecision(node=matched, signal="tag", is_new=False, score=score)
 

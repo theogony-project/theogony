@@ -1,7 +1,7 @@
 id: PHX-1071
 category: identity-integrity
 priority: high
-status: open
+status: in_progress
 generation_target: MESH migration — S5 (consolidation)
 title: "Aliases discovered at merge time are never persisted; referring expressions stay separate nodes"
 filed_by: Claude Code (2026-08-20)
@@ -57,6 +57,36 @@ description: >
   alias-versus-category discriminator to be measured first — a merge pass that
   cannot tell "hermes" from "epic poem" would fuse the Little Iliad with the
   Aethiopis.
+
+  FIRST HALF SHIPPED. `merge_identity_evidence` now takes `aliases` and writes
+  them onto the node and into the label index, so what a merge learns about a
+  name outlives the paragraph. Measured on batch_00 of the founding corpus
+  against the same batch in the named full read:
+
+      concepts                867 -> 873   (LLM variance, same text)
+      entity nodes            649 -> 562   (-13%)
+      "Zeus" -> nodes           3 -> 1
+      "Poseidon" -> nodes       2 -> 1
+      tags per node                median 2, max 6
+
+  Three checks were set before running and all three held: fragmentation falls,
+  tags do not explode, and no attractor forms. The last is the one that would
+  have made this a regression — more name hits rather than fewer would mean a hub
+  absorbing distinct entities.
+
+  THE GUARD IS THE FEATURE. Writing every merged label back would rebuild the
+  PHX-1051 attractor from the other side: "her father" attached to Zeus pulls
+  every later occurrence of that phrase onto him, and in the next passage it is
+  someone else. Only proper-name-shaped spans survive — capitalised, not opening
+  with an article, possessive or kinship word, and short enough not to be a
+  description, since `remember()` hands over label *and* description and only one
+  of them is a name.
+
+  One batch is the sample size that misled me twice on the same day, so a
+  full-corpus measurement follows before this is claimed as a result.
+
+  SECOND HALF STILL OPEN: merging the fragments that already exist. That needs
+  the alias-versus-category discriminator measured first.
 
 relates_to:
   - PHX-1064   # this is its residual, now with a mechanism
