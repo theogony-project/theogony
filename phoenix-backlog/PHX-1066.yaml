@@ -1,7 +1,7 @@
 id: PHX-1066
 category: substrate-integrity
 priority: high
-status: open
+status: done
 generation_target: MESH migration — S2/S3
 title: "93% of edges are asserted without judgement, under creation_contexts the doctrine does not list"
 filed_by: Claude Code (measured on the named Theogony mesh, 2026-08-19)
@@ -82,7 +82,34 @@ description: >
   global edge policy — and today `relation_descriptor` is looked up only for
   display, never for propagation.
 
-  What remains of this ticket is the doctrine half: six of eight
+  DOCTRINE HALF DECIDED 2026-08-20 (delegated by the owner). MESH_SUBSTRATE
+  §Edge now names two classes of `creation_context`:
+
+    asserted relation  — something claimed a relation holds. kadmos_extraction,
+                         oneiros_consolidation, argus_proposal, agent_repair.
+                         These answer "what is true" and carry descriptors and
+                         P-IDs.
+    observed adjacency — the substrate recorded that two things occurred
+                         together, with no claim of relation. The reading
+                         contexts, plus hebbian_co_fire and frame_routing.
+                         These answer "what came with what".
+
+  The distinction was already in the doctrine unnamed: `hebbian_co_fire` sat in
+  the list of contexts, and the surrounding text says such an edge "may have
+  everything set to None — the topology has no semantic story to tell about why
+  this co-firing happened". The reading path produces that same class in bulk;
+  the six contexts it uses are now listed rather than absent.
+
+  The reasoning that settles it is the project's own non-negotiable: the refusal
+  of silent ungrounded insertion. Recording that two entities appeared in one
+  paragraph is an observation and a true one — it is neither ungrounded nor
+  silent, since the context names it exactly. What the value forbids is
+  presenting an observation *as* an assertion, and naming the class is precisely
+  what keeps that line visible. Gating the edges out would have discarded true
+  observations to avoid a labelling problem, and cost narrative retrieval 10
+  points for it.
+
+  OLD REMAINDER, now addressed: six of eight
   `creation_context` values in use are absent from MESH_SUBSTRATE §Edge. They
   earn their place on the evidence above and should be written into the doctrine
   with that rationale, rather than gated out of the substrate.
