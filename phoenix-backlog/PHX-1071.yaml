@@ -1,7 +1,7 @@
 id: PHX-1071
 category: identity-integrity
 priority: high
-status: open
+status: measured_and_rejected
 generation_target: MESH migration — S5 (consolidation)
 title: "Aliases discovered at merge time are never persisted; referring expressions stay separate nodes"
 filed_by: Claude Code (2026-08-20)
@@ -49,6 +49,36 @@ description: >
   naming Zeus seeds the Zeus node, and the passages attached to "son of Cronos"
   hang off a different node one hop further away. Recall at top_k=30 is 65%; the
   answers are reachable but not tight (PHX-1069).
+
+  FIRST HALF BUILT, MEASURED, AND REJECTED (PR #229, closed unmerged). Persisting
+  merge-time aliases onto the node was implemented behind a proper-name guard and
+  read into a full third pass of the corpus. Same 1,210 paragraphs, three
+  substrate states, one instrument:
+
+      state                  nodes   named   coverage   recall@30   full
+      nameless (1st read)     6,816    38%       59%        29%     9/32
+      named (2nd)             5,002    84%      100%        65%    18/32
+      + alias persistence     5,007    83%      100%        58%    18/32
+
+  Worse at every budget: 31/58/69/83/93 against 36/65/75/86/95 for top_k
+  10/30/50/100/200. And node count did not move — 5,007 against 5,002, so it did
+  not reduce fragmentation either.
+
+  THE MISTAKE WAS THE PREMISE, NOT THE CODE. Aliases on a node are additional
+  entries in the label index, and the name-anchored seeding of PHX-1068 reads
+  exactly that index. More entries per name means blunter anchors, so the change
+  undercuts the mechanism that took recall from 48% to 65%. Fewer fragments is
+  not the same thing as better findability, and this ticket had assumed it was.
+
+  A single batch had suggested -13% node count; the full read gave -0.1%. The
+  batch-level variance within one configuration (562 vs 646 nodes for the same
+  batch and the same code) was as large as the effect claimed from it.
+
+  WHAT SURVIVES from the comparison, and it is the larger finding: the step from
+  state 1 to state 2 is coverage 59% -> 100% and recall 29% -> 65%, from nothing
+  more than nodes carrying their own names (PHX-1065). In the nameless mesh 41%
+  of expected entities are not addressable at all — present, but with no name to
+  ask for them by.
 
   ORDER OF WORK, if taken up: persist aliases at merge time first. It is small,
   it is inside the doctrine (`merge_identity_evidence` already exists for
