@@ -311,7 +311,140 @@
         "Belus"
       ],
       "evidence": "whom worthy Hermaon begat with Thronia, daughter of the lord Belus"
+    },
+    {
+      "id": "persephone-pomegranate",
+      "question": "What did Hades secretly give Persephone to eat?",
+      "expect": [
+        "pomegranate seed"
+      ],
+      "evidence": "secretly gave her sweet pomegranate seed to eat"
+    },
+    {
+      "id": "hermes-cattle",
+      "question": "Whose cattle did Hermes steal?",
+      "expect": [
+        "Hermes",
+        "Apollo"
+      ],
+      "evidence": "he stole the cattle of far-shooting Apollo"
+    },
+    {
+      "id": "hermes-tortoise",
+      "question": "What creature did Hermes find in the cave?",
+      "expect": [
+        "tortoise",
+        "Hermes"
+      ],
+      "evidence": "he found a tortoise there and gained endless delight"
+    },
+    {
+      "id": "anchises-aeneas",
+      "question": "Which mortal did Aphrodite love, and whom did she bear him?",
+      "expect": [
+        "Anchises",
+        "Aeneas",
+        "Aphrodite"
+      ],
+      "evidence": "joined in sweet love with the hero Anchises and bare Aeneas"
+    },
+    {
+      "id": "metaneira",
+      "question": "Who was the mother of the daughters who met Demeter?",
+      "expect": [
+        "Metaneira"
+      ],
+      "evidence": "tell Metaneira, our deep-bosomed mother"
+    },
+    {
+      "id": "shield-figures",
+      "question": "What figures were wrought upon the shield?",
+      "expect": [
+        "Pursuit",
+        "Panic",
+        "Slaughter"
+      ],
+      "evidence": "Upon the shield Pursuit and Flight were wrought, and Tumult, and Panic, and Slaughter"
+    },
+    {
+      "id": "prometheus-portions",
+      "question": "What did Prometheus offer Zeus to choose between?",
+      "expect": [
+        "Prometheus",
+        "Zeus"
+      ],
+      "evidence": "take which ever of these portions"
+    },
+    {
+      "id": "delos-apollo",
+      "question": "Where did the singers first raise their strain to Apollo?",
+      "expect": [
+        "Delos",
+        "Apollo"
+      ],
+      "evidence": "Then first in Delos did I and Homer, singers both, raise our strain"
+    },
+    {
+      "id": "hundred-handed",
+      "question": "What were the names of the hundred-handed sons of Earth and Heaven?",
+      "expect": [
+        "Cottus",
+        "Briareos",
+        "Gyes"
+      ],
+      "evidence": "Cottus and Briareos and Gyes, presumptuous children"
+    },
+    {
+      "id": "muses-dwelling",
+      "question": "On which mountain do the Muses dance?",
+      "expect": [
+        "Muses",
+        "Helicon"
+      ],
+      "evidence": "let us begin to sing, who hold the great and holy mount of Helicon, and dance on soft feet about the deep-blue spring"
+    },
+    {
+      "id": "tartarus-depth",
+      "question": "What measures the depth of Tartarus?",
+      "expect": [
+        "Tartarus"
+      ],
+      "evidence": "brazen anvil falling down from heaven"
+    },
+    {
+      "id": "styx-oath",
+      "question": "By what do the gods swear their most awful oath?",
+      "expect": [
+        "Styx"
+      ],
+      "evidence": "Styx (this is the strongest and most awful oath"
+    },
+    {
+      "id": "cerberus-desc",
+      "question": "What guards the house of Hades?",
+      "expect": [
+        "Cerberus"
+      ],
+      "evidence": "brazen-voiced hound of Hades"
+    },
+    {
+      "id": "chimaera-parts",
+      "question": "What did the Chimaera breathe?",
+      "expect": [
+        "Chimaera"
+      ],
+      "evidence": "Chimaera who breathed raging fire"
+    },
+    {
+      "id": "geryones-oxen",
+      "question": "For whose oxen did Heracles kill Geryones?",
+      "expect": [
+        "Heracles",
+        "Geryones",
+        "Erythea"
+      ],
+      "evidence": "Geryones, whom mighty Heracles killed in sea-girt Erythea for the sake of his shambling oxen"
     }
   ],
-  "_note": "Gold set for the founding corpus (Evelyn-White, Gutenberg 348). Every question carries the passage that answers it. Answers are entity NAMES resolved against the mesh at evaluation time, never node ids — a gold set pinned to ids would need rebuilding after every read and would encode whatever the retriever returned. Authored from the text, not from memory: the volume has no 'Works and Days', so no Pandora's jar and no golden race; its Pandora is Deucalion's daughter; and the succession passage reads 'Hestia 1618' because footnote markers sit inline."
+  "_note": "Gold set for the founding corpus (Evelyn-White, Gutenberg 348). Every question carries the passage that answers it. Answers are entity NAMES resolved against the mesh at evaluation time, never node ids — a gold set pinned to ids would need rebuilding after every read and would encode whatever the retriever returned. Authored from the text, not from memory: the volume has no 'Works and Days', so no Pandora's jar and no golden race; its Pandora is Deucalion's daughter; and the succession passage reads 'Hestia 1618' because footnote markers sit inline. One expected answer was corrected after the fact: 'pomegranate' became 'pomegranate seed', because the corpus reads 'secretly gave her sweet pomegranate seed to eat'. The correction follows the source, not the mesh — adjusting a gold set to match whatever the system happens to hold would make the measurement circular, and the text is what settles it."
 }

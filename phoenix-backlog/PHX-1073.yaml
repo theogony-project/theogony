@@ -1,0 +1,45 @@
+id: PHX-1073
+category: evaluation
+priority: medium
+status: in_progress
+generation_target: MESH migration — S3 (retrieval quality)
+title: "The gold set was 66% genealogical, and that bias nearly waved through a regression"
+filed_by: Claude Code (2026-08-20)
+created_at: 2026-08-20
+description: >
+  The first gold set (PHX-1067) was 21 genealogical questions out of 32. The
+  corpus is a genealogy, so that came naturally — and it is exactly how a
+  measurement optimises its owner into a corner.
+
+  It nearly did. Removing the co-occurrence edges read as +2 points on the
+  aggregate and was +4 genealogical against **-10 narrative**. With two thirds of
+  the questions on one side, the aggregate hid the regression, and only splitting
+  by question type surfaced it (PHX-1066). A measure that knows one kind of
+  question will happily report progress while a different kind gets worse.
+
+  15 questions added, all from the works the set barely touched: the Homeric
+  Hymns (Persephone's pomegranate seed, Hermes and the tortoise, Anchises), the
+  Shield of Heracles, the hundred-handed sons, Styx's oath, the Chimaera.
+  Genealogical share 66% -> 51%, 32 questions -> 47, expected entities 83 -> 111.
+
+  Measured on the demo mesh with the broader set: coverage 100%, recall 68%,
+  31 of 47 answered in full — against 65% on the narrow set, so the widening did
+  not flatter the system.
+
+  TWO CORRECTIONS THE WIDENING FORCED, both worth recording because they are the
+  ways a gold set rots:
+
+  1. One expected answer read "pomegranate" where the corpus reads "pomegranate
+     seed", and the mesh holds a node by the longer name. Correcting it to match
+     the *corpus* is legitimate; correcting it to match the *mesh* would have
+     been circular, and the text is what settles which is which.
+  2. One evidence quote was "Heliconian Muses" — sixteen characters, too thin to
+     verify anything, and it turned out not to occur in the corpus in that form
+     at all. The test asserting a minimum evidence length caught it. A gold entry
+     whose evidence cannot be checked is an assertion wearing a citation.
+
+relates_to:
+  - PHX-1067   # the instrument this widens
+  - PHX-1066   # the regression the bias nearly hid
+linked_scripts:
+  - src/theogony/mesh/eval/gold/founding_corpus.json
