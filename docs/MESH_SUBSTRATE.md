@@ -280,10 +280,17 @@ class Edge(BaseModel):
                                               #   P50 (author), etc. Like Q-IDs on nodes, P-IDs
                                               #   are unique identifiers — each P-ID refers to
                                               #   exactly one Wikidata property
-    creation_context: str | None = None       # how this edge came to be:
-                                              #   "kadmos_extraction", "oneiros_consolidation",
-                                              #   "argus_proposal", "hebbian_co_fire",
-                                              #   "frame_routing", "agent_repair"
+    creation_context: str | None = None       # how this edge came to be — see
+                                              #   §"Asserted relations and observed adjacency"
+                                              #   below. Asserted: "kadmos_extraction",
+                                              #   "oneiros_consolidation", "argus_proposal",
+                                              #   "agent_repair". Observed:
+                                              #   "kadmos_paragraph_density",
+                                              #   "kadmos_cross_paragraph", "kadmos_mentions",
+                                              #   "kadmos_source_attribution",
+                                              #   "kadmos_source_hierarchy",
+                                              #   "kadmos_paragraph_concept",
+                                              #   "hebbian_co_fire", "frame_routing"
 ```
 
 Edges carry both *quantitative* fields (weight, freshness, decay tier, frame consistency, eligibility) and *optional semantic descriptors* (`relation_descriptor`, `relation_kind`, `description`, `pids`, `creation_context`). The descriptors are not the substrate's primary truth — that lives in the vectors and the topology — but they are valuable information for agents reading the mesh, performing repairs, or reasoning about the structure of the relations.
@@ -291,6 +298,22 @@ Edges carry both *quantitative* fields (weight, freshness, decay tier, frame con
 `relation_descriptor` is a short string label intended for human and agent comprehension (e.g., "owns", "located_in", "happened_in_year", "contradicts"). `relation_kind` is a broader category. `description` is a free-text longer form when the short label is not enough. `pids` lists Wikidata property identifiers — P19 (place of birth), P31 (instance of), P50 (author) — analogous to Q-IDs on nodes. P-IDs are one-to-one identifiers (each P-ID refers to exactly one Wikidata property); the substrate honours this just as it honours Q-ID uniqueness on nodes. `creation_context` records how the edge came to be (`kadmos_extraction`, `oneiros_consolidation`, `argus_proposal`, `hebbian_co_fire`, `frame_routing`, `agent_repair`).
 
 These fields are *optional* and *not enums* (with the exception of P-IDs being constrained to the Wikidata namespace when present). An edge created by pure Hebbian co-firing may have everything set to `None` — the topology has no semantic story to tell about why this co-firing happened. An edge that Kadmos extracts as "Thomas Addison was born in 1793 in Long Benton" may carry `relation_descriptor = "born_in"`, `relation_kind = "attribute"`, `pids = [(P19, 0.95, ...)]`. An edge proposed by Argus during contradiction resolution may carry `relation_descriptor = "contradicts"`, `relation_kind = "attribution"`. Agents that need this information read it; agents that don't need it ignore it.
+
+### Asserted relations and observed adjacency
+
+`creation_context` divides into two classes, and the difference is epistemic rather than technical.
+
+An **asserted relation** is one where something claimed that a relation holds between two nodes: Kadmos extracting "Cronos is the father of Zeus", Argus proposing a contradiction, Oneiros merging two candidates, an agent repairing a link. These edges answer "what is true", and they are the ones that carry `relation_descriptor` and `pids`.
+
+An **observed adjacency** is one where the substrate recorded that two things occurred together, with no claim that a relation exists between them. Two entities named in the same paragraph. Two paragraphs sharing entities. An entity and the source it was read from. Two nodes that co-fired during retrieval. These edges answer "what came with what".
+
+The doctrine already contained this distinction without naming it: `hebbian_co_fire` was listed alongside the asserted contexts, and the paragraph above notes that such an edge "may have everything set to `None` — the topology has no semantic story to tell about why this co-firing happened". The reading path produces the same class in bulk, and those contexts are now listed too.
+
+**Why both belong in the substrate.** Measured on the founding mesh (PHX-1066): observed-adjacency edges are 76% of the graph, and removing them costs narrative retrieval 10 points of recall while gaining genealogical retrieval 4. Proximity is what a "why did X do Y" question needs; asserted relation is what "whose children are these" needs. One graph, two useful readings — and a substrate that discarded proximity would answer the first class of question worse.
+
+**Why the distinction must be explicit.** The refusal of silent ungrounded insertion does not forbid recording that two things appeared together; that is an observation, and a true one. What it forbids is presenting an observation *as* an assertion. Naming the class is what keeps that line visible: a consumer filtering on asserted relations gets claims, a consumer propagating over the whole graph gets association, and neither is misled about which it holds.
+
+Consumers that need one and not the other filter on `creation_context`. Retrieval that wants to weight them differently is free to — see [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md).
 
 The substrate's automatic dynamics (decay, Hebbian update, saturation enforcement, splits, renormalisation) read only the quantitative fields — they propagate via SpMV against (source, target, weight) tuples in the edge tensor. The semantic descriptors travel with the edge for the benefit of consumers and repair logic. See [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) §"Storage choices" for how this dual nature is realised in storage: a fast PyTorch sparse CSR tensor for the runtime SpMV, a parallel Lance edge-metadata table for the rich descriptors.
 
