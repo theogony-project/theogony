@@ -101,3 +101,30 @@ def test_gold_questions_carry_their_evidence() -> None:
     for question in load_gold():
         assert isinstance(question, GoldQuestion)
         assert len(question.evidence) > 20, f"{question.id}: evidence too thin to check"
+
+
+def test_the_recall_curve_is_reported_over_several_budgets() -> None:
+    """One number at one budget is the wrong picture.
+
+    Measured on the founding mesh, recall is 65% at top_k=30 and 95% at 200 —
+    the top 4% of a 5,002-node substrate. Reading the 65% as "retrieval cannot
+    find the answers" points the next piece of work at the wrong place: the
+    ranking is largely right and the budget is tight.
+    """
+    from theogony.mesh.eval import corpus_qa
+
+    calls: list[int] = []
+
+    def fake_evaluate(runtime, embed, *, gold=None, top_k=30, **kw):  # noqa: ANN001, ANN202
+        calls.append(top_k)
+        return []
+
+    original = corpus_qa.evaluate
+    corpus_qa.evaluate = fake_evaluate  # type: ignore[assignment]
+    try:
+        curve = corpus_qa.recall_curve(None, lambda _: [], ks=(10, 30, 100))  # type: ignore[arg-type]
+    finally:
+        corpus_qa.evaluate = original  # type: ignore[assignment]
+
+    assert calls == [10, 30, 100], "every requested budget must be measured"
+    assert set(curve) == {10, 30, 100}

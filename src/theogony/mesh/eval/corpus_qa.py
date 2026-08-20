@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -152,6 +153,37 @@ def evaluate(
         result.retrieved = [name for name, ids in wanted.items() if ids & found]
         results.append(result)
     return results
+
+
+def recall_curve(
+    runtime: MeshRuntime,
+    embed: Any,
+    *,
+    ks: Sequence[int] = (10, 20, 30, 50, 100, 200),
+    gold: list[GoldQuestion] | None = None,
+    **retrieve_kwargs: Any,
+) -> dict[int, float]:
+    """Recall as a function of the answer budget.
+
+    A single number at one ``top_k`` reads as "retrieval finds 65% of the
+    answers", which is the wrong picture. Measured on the founding mesh, recall
+    is 65% at 30 and **95% at 200** — the top 4% of a 5,002-node substrate. The
+    ranking is largely right; what is tight is the budget. Confusing "cannot
+    find" with "cannot fit" points the next piece of work at the wrong place,
+    so the curve is reported rather than a point.
+
+    Cost is not what makes the budget small: 30 -> 50 is 4 ms, 30 -> 100 is
+    16 ms. Whether a wider constellation actually helps the consumer is a
+    separate question that recall cannot settle — more context can dilute an
+    answer as easily as complete it.
+    """
+    questions = gold if gold is not None else load_gold()
+    return {
+        k: summarise(evaluate(runtime, embed, gold=questions, top_k=k, **retrieve_kwargs))[
+            "recall_given_coverage"
+        ]
+        for k in ks
+    }
 
 
 def summarise(results: list[QuestionResult]) -> dict[str, float]:

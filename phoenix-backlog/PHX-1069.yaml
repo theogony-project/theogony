@@ -1,0 +1,48 @@
+id: PHX-1069
+category: evaluation
+priority: medium
+status: in_progress
+generation_target: MESH migration — S3 (retrieval quality)
+title: "Recall is 65% at top_k=30 and 95% at 200 — the ranking is right, the budget is tight"
+filed_by: Claude Code (2026-08-20)
+created_at: 2026-08-20
+description: >
+  Reported as a single number, "recall 65%" reads as "retrieval cannot find the
+  answers". Measured across budgets on the founding mesh it says something else:
+
+      top_k     10    20    30    50   100   200
+      recall   36%   54%   65%   75%   86%   95%
+      full     9/32 14/32 18/32 22/32 26/32 31/32
+
+  95% of expected entities sit in the top 200 of a 5,002-node substrate — the
+  top 4%. The ordering is largely correct; what is tight is how many slots the
+  answer gets. "Cannot find" and "cannot fit" call for different work, and the
+  point estimate cannot tell them apart, so the instrument now reports the curve.
+
+  Cost is not what keeps the budget small. Median latency, both warm in one
+  process: 30 -> 97.8 ms, 50 -> 101.8 ms, 100 -> 113.9 ms, 200 -> 139.1 ms. Ten
+  points of recall for four milliseconds.
+
+  NOT CHANGED: the default. Whether a wider constellation helps the consumer is
+  a question recall cannot settle — a constellation is read by an LLM, and more
+  context dilutes as readily as it completes. That is a product decision with
+  measured costs now attached to it, not a retrieval bug.
+
+  TWO HYPOTHESES REFUTED while getting here, both before shipping:
+
+  - Removing co-occurrence edges. Aggregate said +2 points; split by question
+    type it is +4 genealogical and **-10 narrative**, and the gold set is 66%
+    genealogical, so the bias would have hidden the regression. See PHX-1066.
+  - Excluding the question's own entities from the answer, on the theory that
+    8.4% of slots were being spent on what the user already named. But **25% of
+    expected answers are themselves question anchors** — "Who slew Cycnus?"
+    expects Cycnus and Heracles, "From what did Aphrodite grow?" expects
+    Aphrodite. Excluding them would have destroyed a quarter of the gold.
+
+relates_to:
+  - PHX-1067   # the instrument this extends
+  - PHX-1068   # name anchors, which took recall to 65% at k=30
+  - PHX-1066   # answered by the split measurement above
+linked_scripts:
+  - src/theogony/mesh/eval/corpus_qa.py
+  - scripts/mesh_corpus_qa.py
