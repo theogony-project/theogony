@@ -52,6 +52,29 @@ description: >
   descriptors read. Automatic resolution needs a direction decision per mapping
   and that is not something search results supply.
 
+  BACKFILL, so the mapping reaches edges already written. The Oneiros tick
+  annotates any edge whose descriptor maps and that lacks the P-ID. It costs
+  nothing beyond the lookup because the tick already rewrites every edge — load,
+  merge, decay, saturate, replace — and it is idempotent, so it runs on every
+  tick rather than once and picks up descriptors as the table grows.
+
+  It normalises rather than asserts: the descriptor is already on the edge and
+  the table gives it its authoritative name. Nothing new is claimed about the
+  relation, which is what makes it something a maintenance pass may do.
+
+  Run on the demo mesh: 1,237 of 94,490 edges annotated, exactly the projection —
+  P40 594, P8810 361, P276 80, P26 71, P361 60, P3373 38. `father_of` and
+  `father of` now carry the same property, which was the point.
+
+  A re-read would have produced the same 1,237 for an hour and a half and EUR
+  0.26. The outcome is deterministic from data already in the mesh, so the run
+  would have been ceremony rather than measurement.
+
+  MOVED: the table now lives at `mesh/relation_pids.py` with its JSON at
+  `mesh/vocab/`, not under `mesh.ingestion`. It is substrate vocabulary that the
+  reading path and the maintenance pass both need, and importing it into the
+  runtime from `mesh.ingestion` closed an import cycle.
+
 relates_to:
   - PHX-1070   # typed propagation, which needs a stable vocabulary first
   - PHX-1063   # why the model is not asked

@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from theogony.mesh.ingestion.relation_pids import _TABLE_PATH, known_descriptors, pid_for
+from theogony.mesh.relation_pids import _TABLE_PATH, known_descriptors, pid_for
 
 
 def test_spelling_variants_fold_together() -> None:

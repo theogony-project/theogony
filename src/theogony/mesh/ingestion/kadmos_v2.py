@@ -22,12 +22,12 @@ from theogony.mesh.ingestion.reading_schemas import (
     ParagraphReadingOutput,
     normalize_reading_payload,
 )
-from theogony.mesh.ingestion.relation_pids import pid_for
 from theogony.mesh.ingestion.source_anchor import (
     build_paragraph_anchor_title,
     build_source_anchor_node,
 )
 from theogony.mesh.ingestion.vectorizer import MeshTextVectorizer
+from theogony.mesh.relation_pids import pid_for
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.schemas import (
     ChunkNode,
