@@ -1,5 +1,9 @@
 """Map a relation descriptor onto the Wikidata property that names it.
 
+Lives beside the substrate rather than inside `mesh.ingestion` because both the
+reading path and the Oneiros maintenance pass need it, and importing it from
+`mesh.ingestion` into the runtime closes an import cycle.
+
 The reading model invents a descriptor per relation: 2,672 distinct strings
 across 6,489 judged edges on the founding mesh, 1,913 of them occurring exactly
 once, with `father_of` (190) sitting beside `father of` (58). A relation

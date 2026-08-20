@@ -251,6 +251,7 @@ def mesh_tick(
         "audit_id": result.audit_id,
         "new_lance_version": result.new_lance_version,
         "versions_pruned": sum(result.versions_pruned.values()),
+        "pids_backfilled": result.pids_backfilled,
         "run_report": report.run_id,
     }
     _console.print(Panel.fit(json.dumps(summary, indent=2), title="mesh tick"))

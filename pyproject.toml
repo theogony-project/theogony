@@ -168,7 +168,7 @@ packages = ["src/theogony"]
 # FileNotFoundError on a non-editable install.
 "src/theogony/mesh/eval/gold/founding_corpus.json" = "theogony/mesh/eval/gold/founding_corpus.json"
 # PHX-1072: the curated descriptor -> Wikidata property table. Same trap again.
-"src/theogony/mesh/ingestion/vocab/relation_pids.json" = "theogony/mesh/ingestion/vocab/relation_pids.json"
+"src/theogony/mesh/vocab/relation_pids.json" = "theogony/mesh/vocab/relation_pids.json"
 
 [tool.hatch.build.targets.sdist]
 # Source distribution: ship the package + the docs / prompts / phoenix

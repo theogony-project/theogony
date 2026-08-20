@@ -15,6 +15,8 @@ from typing import Any, cast
 
 import lancedb
 
+from theogony.mesh.relation_pids import pid_for
+from theogony.mesh.schemas import Edge, PIDTag
 from theogony.mesh.storage.audit import MeshAuditLog
 from theogony.mesh.storage.edges import (
     DEFAULT_MAX_OUT_DEGREE,
@@ -45,6 +47,33 @@ def stub_therapy_phase() -> None:
     raise NotImplementedError("Staged therapy – Step S5")
 
 
+def _backfill_relation_pids(edges: list[Edge]) -> int:
+    """Give existing relations their Wikidata property, in place.
+
+    The tick already rewrites every edge — load, merge, decay, saturate,
+    replace — so annotating them here costs nothing beyond the lookup, and it is
+    idempotent: an edge that already carries its P-ID is skipped.
+
+    This normalises rather than asserts. The descriptor is already on the edge;
+    the table gives it its authoritative name. Nothing new is claimed about the
+    relation, which is why a maintenance pass may do it at all (PHX-1072).
+
+    It runs on every tick rather than once, so that edges written before a
+    descriptor entered the table pick it up when the table grows.
+    """
+    now = datetime.now(UTC)
+    filled = 0
+    for edge in edges:
+        if edge.pids:
+            continue
+        pid = pid_for(edge.relation_descriptor)
+        if pid is None:
+            continue
+        edge.pids = [PIDTag(pid=pid, confidence=1.0, attached_at=now)]
+        filled += 1
+    return filled
+
+
 # ---- Tick result ----------------------------------------------------
 
 
@@ -57,6 +86,7 @@ class MinimalTickResult:
     new_lance_version: int
     index_status: dict[str, str] = field(default_factory=dict)
     versions_pruned: dict[str, int] = field(default_factory=dict)
+    pids_backfilled: int = 0
 
 
 # ---- Runtime --------------------------------------------------------
@@ -229,6 +259,7 @@ class MeshRuntime:
         before = self.edges.count_rows()
         drained = self.edges.delta.drain()
         base = self.edges.load_all_edges()
+        pids_backfilled = _backfill_relation_pids(base)
         merged = merge_edge_deltas(base, drained, w_max=w_max)
         decay_edges_inplace(merged, lam=lam, dt=dt)
         merged = enforce_saturation(merged, max_out_degree=max_out_degree, w_max=w_max)
@@ -267,6 +298,7 @@ class MeshRuntime:
                 "max_out_degree": max_out_degree,
                 "indices": index_status,
                 "versions_pruned": versions_pruned,
+                "pids_backfilled": pids_backfilled,
             },
         )
 
@@ -284,4 +316,5 @@ class MeshRuntime:
             new_lance_version=new_version,
             index_status=index_status,
             versions_pruned=versions_pruned,
+            pids_backfilled=pids_backfilled,
         )
