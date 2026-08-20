@@ -66,6 +66,13 @@ description: >
   a missing string, not a missing consolidation phase. Building the merge pass
   now would be building a mechanism for work that does not exist (AGENTS.md §8).
 
+  RESIDUAL MECHANISM FOUND (PHX-1071): the referring expressions carry the
+  canonical name in their own tags — "son of Cronos" is tagged [son of Cronos,
+  Zeus, Jupiter] — and were still not merged into the Zeus node. Merge-time
+  aliases are never persisted either: the linker hands them to an in-memory
+  registry that dies with the run. The "zero duplicates" result recorded below
+  was keyed on *primary* names only and is too narrow.
+
   WHAT REMAINS, and it is smaller and different: roughly 2-3% of entity nodes are
   referring expressions rather than names — "son of Cronos", "her father",
   "father of men and gods" as separate nodes beside Zeus. Folding those in needs
