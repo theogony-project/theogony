@@ -1,0 +1,63 @@
+id: PHX-1068
+category: substrate-retrieval
+priority: high
+status: in_progress
+generation_target: MESH migration — S3 (retrieval quality)
+title: "Retrieval never looked up the entities a question names; recall 48% -> 65%"
+filed_by: Claude Code (measured against the PHX-1067 gold set, 2026-08-20)
+created_at: 2026-08-20
+description: >
+  Seeding was pure vector search: find nodes that resemble the question. The
+  answer to a question usually does not resemble it. "What children did Themis
+  bear to Zeus?" is answered by Eunomia, Dike and Eirene, which rank 2345, 2578
+  and 2764 by cosine — they share nothing with the words of the question, being
+  related to something *in* it rather than similar to it.
+
+  Three measurements, taken in this order, each able to refute the one before:
+
+  1. Where do the missed entities sit in the vector ranking? Median rank 778 of
+     3,000, against 120 for the retrieved ones, and only 4 of 41 inside the
+     ANN's 64-candidate window. So it is not seed *selection* — no parameter
+     lifts them.
+  2. Does the graph connect the question to its answer? Every expected entity —
+     62 of 62 — sits exactly one hop from an entity the question names. Control:
+     random nodes are one hop from those anchors 6.6% of the time, and a median
+     node sees 0.21% of the mesh in one hop. Fifteen-fold enrichment, so the
+     one-hop result is structure and not density.
+  3. Does seeding on those anchors help? 48% -> 65% recall on the gold set,
+     questions answered in full 13 of 32 -> 18, for 8 ms per query (median
+     90.6 -> 98.3 ms, both warm in the same process).
+
+  The substrate already maintains the index this needs. `find_consolidated_by_labels`
+  is an exact, indexed lookup used by the eager linker for identity; retrieval
+  never touched it. Only capitalised spans are tried, minus a question-word list,
+  because trying every n-gram would cost a label read each and would match common
+  nouns. That is an English heuristic on an English corpus and it is stated in the
+  code rather than hidden.
+
+  INTERACTION WITH PHX-1066, and it runs both ways. Edge quality was measured as
+  irrelevant when seeding was vague — dropping 93% of the graph left recall
+  unchanged. With name anchors it is not:
+
+      edges                    without anchors   with anchors
+      all              94,490        48%             57%
+      no co-occurrence 41,368        43%             64%
+      judged only       7,695        42%             61%
+
+  Co-occurrence edges are reach for a retriever that entered the graph in the
+  wrong place, and dilution for one that entered it in the right place. The
+  earlier "removing them changes nothing" was measured under the wrong
+  condition, not wrongly.
+
+  INSTRUMENT ERROR FOUND AND CORRECTED while doing this: the prototype seeded
+  over `description_vector` while `retrieve()` defaults to `semantic_vector`,
+  which put its baseline at 39% against the benchmark's 48%. It surfaced only
+  because PHX-1067 supplied an independent number for the prototype to disagree
+  with. The measurement in point 1 above was re-run on the correct column.
+
+relates_to:
+  - PHX-1067   # the instrument that caught the prototype's error
+  - PHX-1066   # edge quality, which this makes matter
+  - PHX-1064   # the demo question, now led by Cronos itself
+linked_scripts:
+  - src/theogony/mesh/retrieval/retrieve.py
