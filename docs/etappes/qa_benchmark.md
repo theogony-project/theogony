@@ -251,6 +251,33 @@ tune half, and reports only that configuration on the held-out half:
 dense kNN** — on held-out questions, with the configuration chosen without seeing
 them.
 
+**Re-verified 2026-08-20 against current `main`**, a month and roughly forty PRs
+later — indices, entity names, P-IDs, name-anchored seeding and a rewritten
+maintenance pass all landed in between. All three numbers reproduce bit for bit,
+including the configuration each one selects on its tuning half:
+
+| dataset | selected on tune | held-out SA@5 | held-out kNN@5 | Δ |
+|---|---|---:|---:|---:|
+| 2WikiMultihopQA | hybrid, S=2 | 0.818 | 0.717 | +0.102 |
+| HotpotQA | passage, S=3 | 0.857 | 0.827 | +0.030 |
+| PopQA (control) | passage, S=10 | 0.497 | 0.503 | −0.007 |
+
+Two things the re-run makes plainer than the first pass did.
+
+**The advantage is sharply peaked in S.** On 2Wiki: 0.723 at S=1, **0.818 at
+S=2**, 0.747 at S=3, and exactly kNN's 0.717 at S=5 where rescue falls to 0.000
+and seed retention to 1.000. A sweep whose grid skips S=2 selects S=1 and reports
++0.007 — which is what happened on the first re-run here, before the grid was
+widened. The number is real and it is also one grid point wide, and anyone
+quoting it should know that.
+
+**The same shape appears on a different corpus with a different harness.** On the
+founding mesh, seeding on the entities a question *names* — an exact index
+lookup rather than vector similarity — moved recall from 48% to 65% (PHX-1068),
+while the graph's own contribution was unchanged. Two corpora, two independent
+measurements, one conclusion: **the graph carries the answer, and its value is
+decided at the point of entry.** That claim is not in the MESH triplet.
+
 The control behaves exactly as it should: on single-hop PopQA the tuning half
 selected the **widest** seeding on offer (S=10), i.e. it found no benefit in
 letting the graph work and settled on the configuration closest to plain kNN —
