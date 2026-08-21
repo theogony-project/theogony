@@ -1,0 +1,62 @@
+id: PHX-1076
+category: build-integrity
+priority: high
+status: open
+generation_target: repository hygiene
+title: "Unbounded dependency ranges took CI red four times in one week"
+filed_by: Claude Code (2026-08-21)
+created_at: 2026-08-21
+description: >
+  Four separate CI failures in one week, all the same shape: `pyproject` declares
+  a lower bound only, CI resolves fresh, and something upstream changed.
+
+    1. Typer metavar handling (#191)
+    2. `LanceQueryBuilder.metric` moved to the vector subclass (#213)
+    3. sentence-transformers began shipping type information, so an unannotated
+       attribute became a mypy error in a file nobody had touched (#218)
+    4. anthropic 1.0.0 swapped the SDK's HTTP dependency from httpx to httpx2
+       (this ticket)
+
+  The fourth is the worst of them and is pinned here as an immediate unblock:
+  `anthropic>=0.30.0` resolved to 1.0.0, whose client type-checks what it is
+  handed. 0.96 rejects an `httpx2.AsyncClient`; 1.0 rejects an
+  `httpx.AsyncClient`. **No single hardcoded choice passes in both
+  environments**, so a version-adaptive test helper was written and then thrown
+  away: the tests mock with `respx`, which targets httpx, so under 1.0 the mock
+  would stop intercepting and the tests would attempt real HTTP. The break is
+  wider than the type error that surfaces it.
+
+  Pinned to `<1.0` in the three places anthropic is declared. That unblocks CI
+  and is defensible on its own terms — a major release changed the transport
+  layer — but it is a patch on the instance, not on the pattern.
+
+  THE PATTERN IS THE TICKET. Three observations from the four incidents:
+
+  - Every one was invisible locally. The venv holds whatever was resolved when it
+    was built; CI resolves at run time. "Local green" carries no information
+    about CI for any unpinned dependency, which AGENTS.md §5 already records as a
+    lesson learned three times.
+  - Two of the four broke files nobody had edited, so they surfaced on unrelated
+    PRs and cost a diagnosis each before anyone could look at the actual change.
+  - The failures are not correlated with risk. sentence-transformers adding type
+    hints is a *good* upstream change; it broke us because we had no upper bound
+    and no lockfile.
+
+  OPTIONS, for the owner rather than for me:
+
+  (a) A lockfile for CI (uv.lock / pip-tools) with the declared ranges left open
+      for consumers. Reproducible CI, deliberate upgrades, no constraint imposed
+      on anyone installing the package.
+  (b) Upper bounds on the direct dependencies that have actually moved.
+      Cheaper, weaker — it stops majors, not the sentence-transformers class of
+      change.
+  (c) A scheduled job that resolves fresh and reports drift, so breakage arrives
+      as a notification rather than as a red PR belonging to someone else.
+
+  (a) and (c) compose and are what I would suggest, but the trade — reproducible
+  CI against silently ageing dependencies — is a project decision.
+
+relates_to: []
+linked_scripts:
+  - pyproject.toml
+  - AGENTS.md

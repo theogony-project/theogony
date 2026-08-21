@@ -82,7 +82,14 @@ dev = [
     "ruff>=0.4.0",
     "mypy>=1.9.0",
     "openai>=1.0.0",
-    "anthropic>=0.30.0",
+    # Pinned below 1.0: that major release swaps the SDK's HTTP dependency from
+    # httpx to httpx2, and it type-checks the client it is handed — 0.96 rejects
+    # an httpx2.AsyncClient, 1.0 rejects an httpx.AsyncClient, so no single choice
+    # passes both. The tests' mocking layer (respx) also targets httpx, so the
+    # break is wider than the type error it surfaces. Fourth dependency drift to
+    # take CI red this week and the first that would have taken main with it;
+    # the pinning strategy overall is an open decision (PHX-1076).
+    "anthropic>=0.30.0,<1.0",
     # google-genai is mirrored from `gemini` so the test suite for
     # GeminiLLMProvider can `from google.genai import types` even
     # when the user has not installed the gemini extra. Cheap; the
@@ -108,7 +115,14 @@ openai = [
     "openai>=1.0.0",
 ]
 anthropic = [
-    "anthropic>=0.30.0",
+    # Pinned below 1.0: that major release swaps the SDK's HTTP dependency from
+    # httpx to httpx2, and it type-checks the client it is handed — 0.96 rejects
+    # an httpx2.AsyncClient, 1.0 rejects an httpx.AsyncClient, so no single choice
+    # passes both. The tests' mocking layer (respx) also targets httpx, so the
+    # break is wider than the type error it surfaces. Fourth dependency drift to
+    # take CI red this week and the first that would have taken main with it;
+    # the pinning strategy overall is an open decision (PHX-1076).
+    "anthropic>=0.30.0,<1.0",
 ]
 # Optional Model Context Protocol (MCP) server integration so any
 # MCP-compatible host (Claude Desktop, Cursor, ChatGPT Desktop, Codex,
@@ -125,7 +139,7 @@ research = [
 eval = [
     "pykeen>=1.10",
     "matplotlib>=3.8",
-    "anthropic>=0.40",
+    "anthropic>=0.40,<1.0",
 ]
 
 [project.scripts]

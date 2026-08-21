@@ -94,6 +94,7 @@ Each has `migrated_from: PHX-XXXX`.
 | PHX-1027 | PHX-0071 | Mnemosyne — self-reflective backlog auditor | open |
 | PHX-1028 | PHX-0072 | Proteus — twin-agent A/B testing | open |
 | PHX-1029 | PHX-0074 | Iris — the Pantheon Cockpit | open |
+| PHX-1076 | Unbounded dependency ranges took CI red four times in one week | open | high | Typer metavar (#191), `LanceQueryBuilder.metric` (#213), sentence-transformers shipping type info (#218), and now **anthropic 1.0.0 swapping httpx for httpx2**. The last is mutually exclusive — 0.96 rejects an `httpx2.AsyncClient`, 1.0 rejects an `httpx.AsyncClient` — and `respx` mocks httpx, so a version-adaptive helper was written and discarded as insufficient. Pinned `<1.0` to unblock. **Every one was invisible locally**, two broke files nobody had edited, and one was a *good* upstream change. Options for the owner: CI lockfile, upper bounds, or a drift-watch job. YAML: [`PHX-1076.yaml`](../phoenix-backlog/PHX-1076.yaml). |
 
 ### Tickets absorbed into MESH doctrine
 
