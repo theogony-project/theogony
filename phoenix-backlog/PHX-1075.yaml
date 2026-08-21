@@ -1,0 +1,55 @@
+id: PHX-1075
+category: substrate-performance
+priority: medium
+status: proposed
+generation_target: MESH migration — S2/S5 (storage)
+title: "Proposal: 56% of the edge table is derivable and need not be stored"
+filed_by: Claude Code (measured, not built, 2026-08-20)
+created_at: 2026-08-20
+description: >
+  PROPOSAL with one thing measured and two things not. Recorded so the next
+  attempt starts from the measurement rather than the idea.
+
+  MEASURED, EXACTLY. The co-occurrence edges are the transitive closure of the
+  `mentions` edges within each paragraph, with no remainder:
+
+      derivable pairs                   53,122
+      of those, actually stored         53,122
+      stored but NOT derivable               0
+
+  53,122 edges — 56% of the whole table — are implied by 7,229 `mentions` edges.
+  A 7.3x compression of the dominant edge class, and the same reduction in every
+  O(E) pass the tick performs.
+
+  It is also the physical form of the distinction written into MESH_SUBSTRATE
+  today (PHX-1066): asserted relations are stored, observed adjacency is derived.
+  The doctrine says these are different in kind; this would make them different
+  in storage.
+
+  NOT MEASURED, and both could sink it:
+
+  1. **Whether deriving is faster end to end.** The closure has to be computed at
+     CSR-build time. It is a set operation over 1,185 paragraphs, but it grows
+     quadratically in entities per paragraph — the founding mesh has a median of
+     5 and a maximum of 53, and 53 entities alone yield 2,756 pairs. A corpus
+     with denser paragraphs pays much more. PHX-1049 already caps a related
+     quadratic for this reason.
+
+  2. **Whether retrieval survives it.** Derived edges have no weight history. A
+     co-mention pair that Hebbian reinforcement strengthened would lose that on
+     the next derivation, and decay would no longer differentiate one pair from
+     another. The honest shape is a derived base plus a stored overlay for pairs
+     that have actually been reinforced — which is more machinery than "just
+     derive them", and the overlay's size is unmeasured.
+
+  Both are cheap to test against the PHX-1067 gold set before anything is built.
+  Note when doing so that recall is only comparable at equal tick count
+  (PHX-1074).
+
+relates_to:
+  - PHX-1066   # the asserted/observed distinction this would physicalise
+  - PHX-1074   # the tick profile that motivated looking here
+  - PHX-1049   # the quadratic cap on the related cross-paragraph pass
+linked_scripts:
+  - src/theogony/mesh/storage/edges.py
+  - src/theogony/mesh/ingestion/kadmos_v2.py
