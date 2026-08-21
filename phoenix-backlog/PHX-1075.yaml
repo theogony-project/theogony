@@ -1,7 +1,7 @@
 id: PHX-1075
 category: substrate-performance
 priority: medium
-status: proposed
+status: measured_viable
 generation_target: MESH migration — S2/S5 (storage)
 title: "Proposal: 56% of the edge table is derivable and need not be stored"
 filed_by: Claude Code (measured, not built, 2026-08-20)
@@ -42,9 +42,44 @@ description: >
      that have actually been reinforced — which is more machinery than "just
      derive them", and the overlay's size is unmeasured.
 
-  Both are cheap to test against the PHX-1067 gold set before anything is built.
-  Note when doing so that recall is only comparable at equal tick count
-  (PHX-1074).
+  BOTH MEASURED 2026-08-21, and both objections fall.
+
+  **Retrieval is identical**, not merely close. Compared at equal tick count on
+  two fresh copies of the same mesh:
+
+      stored (reference)                 65%   28/47
+      derived, reconstructed weights     65%   28/47
+      derived, flat weight 0.30          60%   27/47
+
+  The derived pair set equals the stored one exactly — set equality, not a count
+  match. With the right weights the answer does not move at all; a flat weight
+  costs 5 points, so the weight is the part that has to be got right.
+
+  **And it can be.** The objection assumed per-edge history to lose. There is
+  none: the 53,122 co-occurrence edges carry **13 distinct weights**, falling
+  monotonically with creation time — 0.2802 for the oldest (17:00) to 0.3380 for
+  the newest (18:00, the last batch of thirteen). The weight is exactly an
+  initial value aged by the number of ticks since `born_at`, so it reconstructs
+  from data the derived edge already has. Reinforcement would in principle
+  diverge from that, but PHX-1077 measured a Hebbian delta at 6.8e-05 — three
+  orders below the spacing of those 13 buckets.
+
+  **Speed favours it clearly on the write side.** Tick 3.71 s -> 1.86 s, halved,
+  because 53,122 of 94,490 rows stop being loaded, merged, decayed, saturated
+  and written back every pass. CSR build goes 171 ms -> ~200 ms, the same order:
+  reading fewer rows from Lance nearly pays for computing the closure.
+
+  WHAT REMAINS IS ENGINEERING, not a question. The weight has to be computed
+  from `born_at` plus tick count rather than inherited by a formula — my first
+  attempt inherited an average from the paragraph's `mentions` edges and landed
+  at 60%. A stored overlay is still needed for any pair that reinforcement has
+  genuinely moved, though on current evidence that set is empty.
+
+  MEASUREMENT NOTE, learned the hard way here: an earlier run of this comparison
+  read 56% and looked like a real loss. Two confounds, both mine — the invented
+  weight formula, and six extra ticks on the derived mesh against none on the
+  reference. At 0.75 recall points per tick (PHX-1074) that alone was 4.5 points.
+  Equal tick count is not a nicety.
 
 relates_to:
   - PHX-1066   # the asserted/observed distinction this would physicalise
