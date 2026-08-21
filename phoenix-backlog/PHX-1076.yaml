@@ -42,6 +42,18 @@ description: >
     hints is a *good* upstream change; it broke us because we had no upper bound
     and no lockfile.
 
+  A THIRD CATEGORY, added 2026-08-21 after it appeared: **fetched-at-build-time
+  infrastructure**. The merge run for #237 went red on an HTTP 504 from the
+  GitHub release URL for `en_core_web_sm`, while the same commit had passed on
+  its own PR minutes earlier. Nothing changed — code, dependencies or otherwise;
+  a third party was briefly unavailable.
+
+  The workflow caches that model but downloads it unconditionally, so the cache
+  does not protect the step. The download is now retried three times with
+  backoff, which is the proportionate fix for a transient failure. Making it a
+  declared dependency instead of a URL fetch would remove the exposure entirely
+  and is the better answer if this recurs.
+
   OPTIONS, for the owner rather than for me:
 
   (a) A lockfile for CI (uv.lock / pip-tools) with the declared ranges left open
