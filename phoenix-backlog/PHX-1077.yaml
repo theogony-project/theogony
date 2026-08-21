@@ -1,0 +1,69 @@
+id: PHX-1077
+category: substrate-dynamics
+priority: high
+status: open
+generation_target: MESH migration — S5 (Oneiros tick)
+title: "Decay and reinforcement are three orders of magnitude apart; the loop balances at ~179,000 queries per tick"
+filed_by: Claude Code (measured 2026-08-21)
+created_at: 2026-08-21
+description: >
+  PHX-1074 found that each maintenance tick costs about 0.75 recall points on a
+  mesh nothing is reinforcing. The doctrine's clause is "working concepts
+  evaporate fast **unless reinforced**", and `mesh ask --hebbian` implements the
+  reinforcing half. It had never been measured against retrieval, so this closes
+  that gap — and the loop does not close.
+
+  EXPERIMENT. The gold set was split so reinforcement and measurement never see
+  the same questions: 23 questions reinforced, 24 measured, disjoint. The control
+  is a bare tick, because a tick already costs recall on its own — the comparison
+  that matters is (reinforce + tick) against (tick alone), not against doing
+  nothing.
+
+      state                     recall   full     deltas
+      baseline                    80%   20/24
+      tick only (control)         78%   19/24          0
+      reinforce + tick            78%   19/24      1,472
+
+  1,472 deltas written, and the outcome is identical to the control.
+
+  WHY, quantitatively. The weight sums say it plainly:
+
+      tick costs        -777.5 weight
+      reinforcement adds   +0.1 weight
+
+  A factor of 7,775. Even at the theoretical ceiling (1,472 deltas x learning
+  rate 0.01 = 14.7) it is 53x too small, and the realised gain is far below that
+  because each delta is credited in proportion to the product of its endpoints'
+  activations, which sit around 0.1.
+
+  WHERE THE LOOP WOULD BALANCE. At the measured 6.8e-05 weight per delta,
+  offsetting one tick needs ~11.4 million deltas — about **179,000 queries per
+  tick** at the 64-delta cap. The alternative lever is worse: the learning rate
+  would have to be 77.8 rather than 0.01, which would drive every traversed edge
+  to saturation on first contact.
+
+  SO IT IS NOT A DEFECT IN EITHER MECHANISM. Decay works as specified and
+  reinforcement works as specified; nothing calibrates them against each other,
+  and the defaults assume a traffic level that does not exist. On the founding
+  mesh, with a handful of queries between ticks, decay is unopposed.
+
+  PROPOSAL, not built: **tick on query volume rather than on a clock.** Then the
+  forgetting a mesh does is proportional to the thinking it has done, which is
+  the same shape as the doctrine's existing invariant that "forgetting is a
+  function of how much room the mesh has to think" (MESH_SUBSTRATE §4). A quiet
+  mesh would stop eroding, and a busy one would still forget. The alternative —
+  scaling lambda by observed traffic — reaches the same place with a knob nobody
+  can set from first principles.
+
+  CONSEQUENCE MEANWHILE: on a low-traffic mesh, ticking often is harmful.
+  Anything that ticks for an unrelated reason — index upkeep, version pruning,
+  the P-ID backfill — pays recall for it. That is the mechanism behind the
+  68% -> 65% drop recorded in PHX-1074.
+
+relates_to:
+  - PHX-1074   # the tick-costs-recall measurement this explains
+  - PHX-1067   # the instrument both rest on
+linked_scripts:
+  - src/theogony/mesh/retrieval/retrieve.py
+  - src/theogony/mesh/storage/edges.py
+  - src/theogony/mesh/runtime/oneiros_tick.py
