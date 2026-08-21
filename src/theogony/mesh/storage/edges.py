@@ -177,6 +177,19 @@ def merge_edge_deltas(
     weight rather than to whichever happened to be last: repeated observation of
     the same relation should not weaken it, and summing would drive every
     much-repeated edge to the cap regardless of evidence.
+
+    The copy is **shallow**, and that is the whole cost of this function. A deep
+    copy of every edge measured 1.63 s of a 4.90 s tick on the founding mesh —
+    a third of the pass — against 0.35 s shallow and 0.25 s with no copy at all.
+    Shallow is the right point on that curve rather than the cheapest: the caller
+    mutates `weight` on the result (`decay_edges_inplace` does exactly that), and
+    a shallow copy gives every scalar field its own storage, so the input list is
+    unaffected.
+
+    The boundary that remains, named here rather than discovered later: **list
+    fields are shared with the input**. Assigning `edge.pids = [...]` on a
+    result is safe; calling `edge.pids.append(...)` would reach through into
+    `base`. Nothing does the latter today (PHX-1074).
     """
 
     def _key(e: Edge) -> tuple[str, str, str | None]:
@@ -187,7 +200,7 @@ def merge_edge_deltas(
         k = _key(e)
         existing = by_key.get(k)
         if existing is None or e.weight > existing.weight:
-            by_key[k] = e.model_copy(deep=True)
+            by_key[k] = e.model_copy()
 
     for d in deltas:
         s = str(d["source_id"])

@@ -1,0 +1,73 @@
+id: PHX-1074
+category: substrate-performance
+priority: medium
+status: in_progress
+generation_target: MESH migration — S5 (Oneiros tick)
+title: "The tick deep-copied every edge to merge nothing; and it costs recall on an unreinforced mesh"
+filed_by: Claude Code (2026-08-20)
+created_at: 2026-08-20
+description: >
+  Two findings from profiling the maintenance pass, one cheap to fix and one that
+  is not a bug but needs to be known.
+
+  FIRST — WHERE THE TICK'S TIME ACTUALLY GOES. A proposal to make decay lazy
+  (compute it from `last_fired_at` at read time instead of materialising it every
+  tick) was measured before it was built, and refuted:
+
+      load_all_edges        1.09 s   23%
+      merge_edge_deltas     1.63 s   34%
+      decay_edges_inplace   0.02 s    0.4%   <- the proposal's target
+      enforce_saturation    0.15 s
+      replace_all_edges     1.88 s   39%
+      total                 4.83 s   on 94,490 edges
+
+  Decay is 0.4% of the pass. Five minutes of measurement saved a day of building
+  the wrong thing — and pointed at the real one: `merge_edge_deltas` spends
+  1.63 s to merge **zero** deltas, because it deep-copies every edge in the base
+  before the delta loop runs.
+
+      deep copy (before)   1.63 s
+      shallow copy         0.35 s
+      no copy at all       0.25 s
+
+  Shallow is the chosen point, not the cheapest: the caller mutates `weight` on
+  the result (`decay_edges_inplace` does exactly that), and a shallow copy gives
+  each scalar its own storage. What it does not give is independent *list*
+  fields, so assigning `edge.pids = [...]` is safe while `edge.pids.append(...)`
+  reaches through into the input. That boundary is pinned by a test rather than
+  left to be discovered.
+
+  Tick 4.90 s -> 3.80 s, -22%, on an unchanged substrate: same node count, same
+  edge count, same P-ID count, identical retrieval.
+
+  SECOND — THE TICK IS NOT RETRIEVAL-NEUTRAL, and this one is a property rather
+  than a defect. Measured across five successive ticks on the founding mesh with
+  nothing reinforcing it:
+
+      ticks   edge weight sum   recall   fully answered
+        0          35,750        65%        28/47
+        1          34,973        63%        27/47
+        2          34,234        64%        27/47
+        3          33,531        63%        27/47
+        4          32,861        62%        27/47
+
+  Roughly 0.75 recall points per tick, monotone with the weight sum. It explains
+  a discrepancy that had looked like a regression: 68% measured before the P-ID
+  backfill tick, 65% after, with no code change between.
+
+  This is decay working as specified — MESH_SUBSTRATE: "working concepts
+  evaporate fast **unless reinforced**". The clause is the point. Reinforcement
+  is off by default (`mesh ask --hebbian`) and nothing is querying in a loop, so
+  the loop the design assumes is open and decay is pure loss.
+
+  CONSEQUENCE FOR MEASUREMENT: a recall figure is only comparable against another
+  taken at the same tick count. The benchmark should record how many ticks the
+  mesh has seen, or the next person to compare two numbers will find a regression
+  that is really a maintenance pass.
+
+relates_to:
+  - PHX-1067   # the instrument that caught the 68 -> 65 discrepancy
+  - PHX-1061   # the same one-transaction/one-copy-per-item shape
+linked_scripts:
+  - src/theogony/mesh/storage/edges.py
+  - src/theogony/mesh/runtime/oneiros_tick.py
