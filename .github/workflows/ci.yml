@@ -74,7 +74,20 @@ jobs:
         run: pip install -e ".[dev,research]"
 
       - name: Install spaCy English model
-        run: python -m spacy download en_core_web_sm
+        # Fetched from a GitHub release URL on every run, so an upstream blip
+        # takes the build red with nothing changed: a 504 on that URL failed the
+        # merge run for #237 while the same commit passed on its PR. Three tries
+        # with backoff, because the failure is transient by nature.
+        run: |
+          for attempt in 1 2 3; do
+            if python -m spacy download en_core_web_sm; then
+              exit 0
+            fi
+            echo "spaCy model download failed (attempt $attempt/3)"
+            sleep $((attempt * 15))
+          done
+          echo "spaCy model download failed three times — treating as a real failure"
+          exit 1
 
       - name: Run tests
         run: pytest tests/ -v --tb=short
