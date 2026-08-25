@@ -84,7 +84,7 @@ def assemble_constellation(
     activation: torch.Tensor,
     csr: EdgeCSR,
     *,
-    top_k: int = 30,
+    top_k: int = 50,  # see DEFAULT_TOP_K in retrieve.py for why
     seed_indices: set[int] | None = None,
     operator: str = "ppr",
     query: str | None = None,

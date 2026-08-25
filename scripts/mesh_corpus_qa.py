@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Run the founding-corpus gold set against a mesh.
 
-    scripts/mesh_corpus_qa.py [--root data/mesh-founding] [--top-k 30]
+    scripts/mesh_corpus_qa.py [--root data/mesh-founding] [--top-k 50] [--curve]
 
 Prints coverage and recall separately. Read them separately: low coverage is a
 reading problem, low recall on covered entities is a retrieval problem, and the
@@ -15,7 +15,8 @@ import asyncio
 import json
 from pathlib import Path
 
-from theogony.mesh.eval.corpus_qa import evaluate, summarise
+from theogony.mesh.eval.corpus_qa import evaluate, recall_curve, summarise
+from theogony.mesh.retrieval.retrieve import DEFAULT_TOP_K
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.seeds.wikidata5m.embedder import BGESmallEnEmbedder
 
@@ -23,7 +24,7 @@ from theogony.mesh.seeds.wikidata5m.embedder import BGESmallEnEmbedder
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default="data/mesh-founding", type=Path)
-    ap.add_argument("--top-k", default=30, type=int)
+    ap.add_argument("--top-k", default=DEFAULT_TOP_K, type=int)
     ap.add_argument("--json", action="store_true", help="emit the summary as JSON")
     ap.add_argument("--verbose", action="store_true", help="one line per question")
     ap.add_argument("--curve", action="store_true", help="recall as a function of top_k")
@@ -34,6 +35,13 @@ def main() -> None:
 
     def embed(text: str) -> list[float]:
         return asyncio.run(embedder.embed_many([text]))[0]
+
+    if args.curve:
+        curve = recall_curve(runtime, embed)
+        print(f"{'top_k':>6s}  {'Recall':>7s}")
+        for k, recall in curve.items():
+            print(f"{k:6d}  {recall:6.0%}")
+        return
 
     results = evaluate(runtime, embed, top_k=args.top_k)
     summary = summarise(results)

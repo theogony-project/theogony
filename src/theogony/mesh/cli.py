@@ -442,7 +442,7 @@ def mesh_ask(
     operator: str = typer.Option(
         "ppr", "--operator", help="Propagation operator: ppr | degnorm | raw."
     ),
-    top_k: int = typer.Option(30, "--top-k", help="Max nodes in the returned Constellation."),
+    top_k: int = typer.Option(50, "--top-k", help="Max nodes in the returned Constellation."),
     k_seeds: int = typer.Option(8, "--seeds", help="Diversified seed count (MMR + weight-class)."),
     hops: int = typer.Option(3, "--hops", help="Hops for raw/degnorm operators."),
     ann_limit: int = typer.Option(64, "--ann-limit", help="Vector-search candidates before MMR."),

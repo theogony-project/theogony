@@ -268,12 +268,26 @@ def _name_anchor_seeds(
     return seeds
 
 
+# How many nodes a Constellation carries. Measured against the founding gold set
+# on `data/mesh-founding` (47 questions, 5,002 nodes): recall runs 65% at 30 and
+# 74% at 50, for a median 87.2 ms -> 90.4 ms. Three milliseconds for nine points
+# (PHX-1069). The previous 30 was never justified by cost — nothing was measuring
+# the trade at all until the gold set existed.
+#
+# Deliberately not higher. 100 reaches 85% for 15 ms, and 200 reaches 95%, so the
+# ranking is largely right and what is tight is the budget. But a Constellation is
+# read by a language model, and there is no measurement yet of whether more context
+# completes an answer or dilutes it. That measurement, not the latency, is what
+# gates going further.
+DEFAULT_TOP_K = 50
+
+
 def retrieve(
     runtime: MeshRuntime,
     query_vector: Sequence[float],
     *,
     operator: str = "ppr",
-    top_k: int = 30,
+    top_k: int = DEFAULT_TOP_K,
     k_seeds: int = 8,
     ann_limit: int = 64,
     mmr_lambda: float = 0.6,
