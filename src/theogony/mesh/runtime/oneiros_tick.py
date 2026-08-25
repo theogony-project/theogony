@@ -27,6 +27,7 @@ from theogony.mesh.storage.edges import (
     merge_edge_deltas,
 )
 from theogony.mesh.storage.nodes import _DEFAULT_VERSION_RETENTION, MeshNodeStore
+from theogony.mesh.typed_edges import build_typed_boosted_csr
 
 # ---- S5 stubs -------------------------------------------------------
 
@@ -129,6 +130,10 @@ class MeshRuntime:
         # Same cache discipline for edge descriptors (see :meth:`descriptor_index`).
         self._descriptor_cache: dict[tuple[str, str], str | None] | None = None
         self._descriptor_cache_key: int | None = None
+        # And for the typed-edge re-weighting, which walks every edge position
+        # once (see :meth:`typed_boosted_csr`).
+        self._typed_csr_cache: EdgeCSR | None = None
+        self._typed_csr_cache_key: tuple[tuple[int, int], float] | None = None
 
     @classmethod
     def open(
@@ -210,6 +215,8 @@ class MeshRuntime:
         self._csr_cache_key = None
         self._descriptor_cache = None
         self._descriptor_cache_key = None
+        self._typed_csr_cache = None
+        self._typed_csr_cache_key = None
 
     def rebuild_csr(self, *, force: bool = False) -> EdgeCSR:
         """Return the edge CSR, reusing a resident cache when the graph is unchanged.
@@ -243,6 +250,25 @@ class MeshRuntime:
         self._descriptor_cache = index
         self._descriptor_cache_key = key
         return index
+
+    def typed_boosted_csr(self, boost: float, *, force: bool = False) -> EdgeCSR:
+        """CSR with P-ID-carrying edges scaled by ``boost``, cached like the CSR.
+
+        Building it walks every edge position to look the descriptor up, which is
+        O(E) Python — 94k edges on the founding mesh. Keyed on the CSR fingerprint
+        *and* the boost, so a query loop pays it once rather than once per query.
+        ``boost=1.0`` short-circuits to the plain CSR: the lever is free while off.
+        """
+        csr = self.rebuild_csr()
+        if boost == 1.0:
+            return csr
+        key = (self._csr_cache_fingerprint(), float(boost))
+        if not force and self._typed_csr_cache is not None and self._typed_csr_cache_key == key:
+            return self._typed_csr_cache
+        boosted = build_typed_boosted_csr(csr, self.descriptor_index(), boost=boost)
+        self._typed_csr_cache = boosted
+        self._typed_csr_cache_key = key
+        return boosted
 
     # ---- tick -------------------------------------------------------
 

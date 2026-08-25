@@ -297,6 +297,7 @@ def retrieve(
     ppr_iters: int = 12,
     degree_beta: float = 0.0,
     hub_mask_top_n: int = 0,
+    typed_edge_boost: float = 1.0,
     query_frame: Sequence[float] | None = None,
     frame_threshold: float = 0.0,
     vector_column: str = "semantic_vector",
@@ -320,12 +321,23 @@ def retrieve(
     ``hub_mask_top_n`` > 0 zeroes the activation of the top-N global in-degree nodes
     before Constellation assembly (seeds are never masked — they were chosen by
     query-relevant ANN + MMR, not by degree).
+
+    A third, also default-off: ``typed_edge_boost`` > 1.0 scales edges whose relation
+    resolves to a Wikidata property, so asserted relations conduct more strongly than
+    observed adjacency. On the founding gold set a boost of 3 takes recall 74% -> 79%
+    (82 -> 88 of 111 entities, 33 -> 36 questions answered in full) while regressing
+    no question at all; higher values buy one more entity and start costing individual
+    questions. Weighting rather than *selecting* those edges is what keeps the
+    narrative questions whole. See :mod:`theogony.mesh.typed_edges` for the curve, the
+    controls, and why it is not on by default (PHX-1070).
     """
     timings: dict[str, float] = {}
 
     t0 = time.perf_counter()
     if csr is None:
-        csr = runtime.rebuild_csr()
+        # An explicitly supplied csr is used as given: the caller may already have
+        # applied a re-weighting, and silently boosting it again would compound.
+        csr = runtime.typed_boosted_csr(typed_edge_boost)
     timings["csr_ms"] = (time.perf_counter() - t0) * 1000.0
     n = len(csr.node_ids)
 
