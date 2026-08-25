@@ -1,7 +1,7 @@
 id: PHX-1070
 category: substrate-retrieval
 priority: high
-status: proposed
+status: measured_and_shipped_as_a_lever
 generation_target: MESH migration — S3 (retrieval quality)
 title: "Proposal: relation-type-aware propagation — the doctrine has no mechanism for it"
 filed_by: Claude Code (measured, not built, 2026-08-20)
@@ -44,10 +44,69 @@ description: >
   measured per question type, not on the aggregate — that discipline is what
   caught the co-occurrence trap.
 
+  RESOLVED 2026-08-25, and smaller than proposed. The mechanism sketched above —
+  embed the relation descriptors, let the query select which kinds conduct — was
+  not needed. A plain multiplier on edges whose relation already resolves to a
+  Wikidata property gets most of it, with no classifier, no descriptor embedding
+  and no new primitive.
+
+  The old ceiling number is superseded. "58% -> 66% restricting propagation to
+  kinship edges" was measured before name anchors and at top_k=30; the baseline
+  has since moved to 74% at top_k=50, above that ceiling. Re-measured at today's
+  baseline, all three graphs at equal tick count:
+
+      graph                              total  geneal.  narrat.
+      full (baseline)         94,490       74%      64%      81%
+      typed edges only         1,237       76%      89%      67%
+      kinship oracle           1,303       77%      93%      66%
+
+  Two things in there. 1.3% of the edges beat the whole graph on aggregate. And
+  the curated P-ID table lands within four points of a hand-picked kinship
+  oracle — the table is doing real work, not approximating it.
+
+  BUT SELECTING IS THE WRONG OPERATION. It costs the narrative questions
+  fourteen points, because the typed subgraph reaches only 121 of 163 gold
+  entities. Weighting keeps every node reachable and only reorders. Measured
+  through the shipped lever:
+
+      boost      1      3     10     30    100
+      total     74%    79%    80%    80%    78%
+      geneal.   64%    75%    75%    75%    70%
+      narrat.   81%    82%    84%    84%    84%
+      full     33/47  36/47  35/47  35/47  33/47
+
+  At 3, three questions improve and none regress. `iapetus-sons` goes 0/3 to
+  3/3, `cronus-children` 3/5 to 5/5 — enumerations, where the answer is a set
+  of siblings that typed edges connect directly.
+
+  CONTROLS, because "typing is informative" was not the only fit. Against an
+  edge-level boost of 30: all 6,388 asserted edges gives 78%, a random 1,237
+  asserted edges gives 76%, the 1,237 typed ones give 82%. Part of the effect is
+  merely asserted-beats-structural — but typed beats a same-size random sample
+  by six points, so the Wikidata typing carries its own signal.
+
+  WHAT THIS COST TO FIND. The first version of the lever did nothing at all,
+  because `descriptor_index` reported 7 typed edges where the store held 1,420.
+  That turned out to be PHX-1078: 99% of typed node pairs were displaying their
+  co-mention. The retrieval work found a correctness bug that had been in every
+  Constellation the substrate ever returned.
+
+  STILL OPEN, and named rather than quietly dropped: the lever is pair-level,
+  because the typing is read from a pair-keyed index. Boosting only the typed
+  edge itself scores two entities better (91 vs 89 of 111) and needs the
+  descriptor as a column on the edge table. Two entities did not justify the
+  migration today.
+
+  DEFAULT OFF. One corpus, one gold set, and that gold set is 66% genealogical
+  because the corpus is — exactly the shape this lever favours. It ships with
+  its measurements attached, like `degree_beta` and `hub_mask_top_n`.
+
 relates_to:
   - PHX-1066   # the edge question this would supersede
   - PHX-1069   # the curve showing ranking, not reach, is the constraint
   - PHX-1068   # name anchors, which made edge quality matter at all
+  - PHX-1078   # the correctness bug this measurement uncovered
 linked_scripts:
   - docs/MESH_RETRIEVAL.md
+  - src/theogony/mesh/typed_edges.py
   - src/theogony/mesh/retrieval/retrieve.py
