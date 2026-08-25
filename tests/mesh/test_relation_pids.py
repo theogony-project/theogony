@@ -46,12 +46,42 @@ def test_kinship_reads_in_our_direction() -> None:
 def test_inverse_reading_relations_are_refused() -> None:
     """The whole reason there is no inversion flag."""
     assert pid_for("killed") is None, "P157 is 'killed by' — the other direction"
-    assert pid_for("authored") is None, "P50 is 'author' — attached to the work"
-    assert pid_for("includes") is None, "P361 is 'part of' — the other direction"
+    assert pid_for("slew") is None, "same relation, same refusal"
+    assert pid_for("attributed_to") is None, "the work is the source, the creator the target"
     # Their inverses, which do read forwards, are mapped.
     assert pid_for("killed_by") == "P157"
     assert pid_for("authored_by") == "P50"
     assert pid_for("part_of") == "P361"
+
+
+def test_a_faithful_property_is_preferred_over_refusing_the_relation() -> None:
+    """Refusal is for relations with no forward-reading property, not for all of them.
+
+    `includes` was refused while the only candidate considered was P361 "part
+    of", which reads the other way. P527 "has part(s)" reads ours — `Gorgons
+    --includes--> Medusa` is P527(Gorgons, Medusa) — so the relation is mapped
+    rather than dropped, and its inverse keeps P361.
+    """
+    assert pid_for("includes") == "P527"
+    assert pid_for("contains") == "P527"
+    assert pid_for("part_of") == "P361"
+
+
+def test_rejected_candidates_stay_out_of_the_mappings() -> None:
+    """The table documents what it refused; the refusals must actually hold.
+
+    Each of these resolves in Wikidata and reads plausibly from the descriptor
+    alone. Each was then checked against the edges carrying it and failed —
+    `authored` runs backwards in this corpus (`Theogony --authored--> Works and
+    Days`), `quotes` targets phrases rather than works, `describes` would call
+    thirty incidental subjects the "main" one. See `_rejected` in the table.
+    """
+    raw = json.loads(Path(_TABLE_PATH).read_text(encoding="utf-8"))
+    assert raw["_rejected"], "the reasoning has to travel with the table"
+    for descriptor in ("authored", "quotes", "cites", "describes", "owns", "gave_birth_in"):
+        assert pid_for(descriptor) is None, descriptor
+    for prop in ("P800", "P2860", "P921", "P1830"):
+        assert prop not in set(raw["mappings"].values()), prop
 
 
 def test_the_long_tail_maps_to_nothing() -> None:
@@ -70,3 +100,8 @@ def test_the_table_is_not_empty_and_covers_kinship() -> None:
     covered = known_descriptors()
     assert {"father_of", "mother_of", "son_of", "daughter_of"} <= covered
     assert len(covered) >= 20
+    # Plurals and tense variants are the same relation, and the reading model
+    # emits all of them: `daughters_of` (10) beside `daughter_of`, `fathered`
+    # and `begot` beside `father_of`.
+    assert {"sons_of", "daughters_of", "children_of"} <= covered
+    assert {"fathered", "begot", "brought_forth"} <= covered

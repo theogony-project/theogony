@@ -1,6 +1,14 @@
 {
   "_note": "Descriptor -> Wikidata property. Curated and verified against the live Wikidata API; nothing enters this file that wbgetentities does not resolve. Only DIRECTION-FAITHFUL mappings are listed: the property must read the same way our edge does, source-to-target. A relation whose Wikidata property reads the other way round is deliberately absent rather than carried with an inversion flag — `killed(Zeus, Asclepius)` would be `P157(Asclepius, Zeus)` because P157 is 'killed by', and an unnoticed flag inverts the graph. Absence is the safe encoding for that case.",
   "_direction": "source --descriptor--> target maps to property(source, target)",
+  "_rejected": {
+    "_why": "Every candidate below resolves in Wikidata and looked right from the descriptor alone. Each was then read against the actual edges carrying it, and each failed. Keeping the list here so the next widening does not re-derive them from the same plausible reasoning.",
+    "P800 notable work": "for `authored` (68 edges, the largest single candidate). The edges run backwards and worse: `Theogony --authored--> Works and Days`, `Theogony --authored--> Aphrodite`. The source is the work, not a person. Nothing to map.",
+    "P2860 cites work": "for `quotes` (43) and `cites` (34). P2860 requires the target to be a work; most targets are phrases — `Theogony --quotes--> sinful father`. A minority (`Scholiast on Apollonius Rhodius --quotes--> Great Eoiae`) are genuine, and are not worth the majority being mistyped.",
+    "P921 main subject": "for `describes` (31). The Theogony 'describes' man, feast, libations and Tethys alike. P921 names the *main* subject; stamping it on thirty incidental ones asserts far more than the edge does.",
+    "P1830 owner of": "for `owns` (12). Direction is right but the edges are not — `Trito --owns--> Tethys`. Too little volume to be worth the noise.",
+    "P40 for `gave_birth_in` / `bore_children_to`": "locative and co-parental, not parental. `Alcmene --gave_birth_in--> Thebes` is a place; `Cytherea --bore_children_to--> Ares` names the other parent. A greedy `gave_birth_*` pattern would have typed both as child relations."
+  },
   "properties": {
     "P40":   "child — subject has object as child",
     "P8810": "parent — parent of the subject",
@@ -9,7 +17,10 @@
     "P50":   "author — main creator of a written work",
     "P157":  "killed by",
     "P361":  "part of",
+    "P527":  "has part(s) — the group, and its members",
     "P276":  "location",
+    "P19":   "place of birth",
+    "P31":   "instance of",
     "P180":  "depicts",
     "P138":  "named after"
   },
@@ -20,26 +31,65 @@
     "bore": "P40",
     "bare": "P40",
     "begat": "P40",
+    "begot": "P40",
+    "fathered": "P40",
+    "mothered": "P40",
+    "sired": "P40",
+    "brought_forth": "P40",
     "gave_birth_to": "P40",
+    "had_son": "P40",
+    "had_daughter": "P40",
+
     "son_of": "P8810",
     "daughter_of": "P8810",
     "child_of": "P8810",
     "born_of": "P8810",
+    "sons_of": "P8810",
+    "daughters_of": "P8810",
+    "children_of": "P8810",
+    "offspring_of": "P8810",
+
     "married": "P26",
+    "married_to": "P26",
     "spouse_of": "P26",
     "wife_of": "P26",
     "husband_of": "P26",
+    "wedded": "P26",
+    "made_wife": "P26",
+
     "sibling_of": "P3373",
     "brother_of": "P3373",
     "sister_of": "P3373",
     "twin_of": "P3373",
+    "siblings_of": "P3373",
+    "brothers_of": "P3373",
+    "sisters_of": "P3373",
+
     "killed_by": "P157",
     "slain_by": "P157",
+
     "authored_by": "P50",
     "written_by": "P50",
+
     "part_of": "P361",
     "member_of": "P361",
+
+    "includes": "P527",
+    "contains": "P527",
+    "comprises": "P527",
+    "has_part": "P527",
+
     "located_in": "P276",
+    "located_on": "P276",
+    "located_at": "P276",
+    "lies_in": "P276",
+
+    "born_in": "P19",
+    "born_at": "P19",
+
+    "is_a": "P31",
+    "instance_of": "P31",
+
     "depicts": "P180",
     "named_after": "P138"
   }
