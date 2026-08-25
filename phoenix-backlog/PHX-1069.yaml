@@ -1,7 +1,7 @@
 id: PHX-1069
 category: evaluation
 priority: medium
-status: in_progress
+status: done
 generation_target: MESH migration — S3 (retrieval quality)
 title: "Recall is 65% at top_k=30 and 95% at 200 — the ranking is right, the budget is tight"
 filed_by: Claude Code (2026-08-20)
@@ -23,10 +23,22 @@ description: >
   process: 30 -> 97.8 ms, 50 -> 101.8 ms, 100 -> 113.9 ms, 200 -> 139.1 ms. Ten
   points of recall for four milliseconds.
 
-  NOT CHANGED: the default. Whether a wider constellation helps the consumer is
-  a question recall cannot settle — a constellation is read by an LLM, and more
-  context dilutes as readily as it completes. That is a product decision with
-  measured costs now attached to it, not a retrieval bug.
+  RESOLVED 2026-08-25: the default moves 30 -> 50. Re-measured on the same mesh
+  before deciding, because the numbers above were three ticks old:
+
+      top_k     10    20    30    50   100   200
+      recall   40%   53%   65%   74%   85%   95%
+      median    --    --  87.2  90.4 102.1    --   ms
+
+  The drift from the first table (75 -> 74 at 50, 86 -> 85 at 100) is the mesh
+  having moved on, not the change; the absolute latencies are lower for the same
+  reason. Nine points of recall for 3.2 ms, and the 30 was never chosen against a
+  cost in the first place — nothing was measuring the trade until PHX-1067.
+
+  STILL NOT CHANGED: anything past 50. 100 buys another eleven points for 15 ms,
+  which on latency alone would be worth taking. But a constellation is read by an
+  LLM, and whether more context completes an answer or dilutes it is a question
+  recall cannot settle. That measurement gates going further — not the cost.
 
   TWO HYPOTHESES REFUTED while getting here, both before shipping:
 

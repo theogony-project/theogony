@@ -113,7 +113,7 @@ def evaluate(
     embed: Any,
     *,
     gold: list[GoldQuestion] | None = None,
-    top_k: int = 30,
+    top_k: int = 50,  # follows the library default so the benchmark measures what users run
     **retrieve_kwargs: Any,
 ) -> list[QuestionResult]:
     """Run every gold question and score coverage and recall separately.
@@ -172,10 +172,10 @@ def recall_curve(
     find" with "cannot fit" points the next piece of work at the wrong place,
     so the curve is reported rather than a point.
 
-    Cost is not what makes the budget small: 30 -> 50 is 4 ms, 30 -> 100 is
-    16 ms. Whether a wider constellation actually helps the consumer is a
-    separate question that recall cannot settle — more context can dilute an
-    answer as easily as complete it.
+    Cost is not what makes the budget small: 30 -> 50 is 3.2 ms, 30 -> 100 is
+    15 ms. That is why the default is 50 (see DEFAULT_TOP_K). Whether a wider
+    constellation actually helps the consumer is a separate question that recall
+    cannot settle — more context can dilute an answer as easily as complete it.
     """
     questions = gold if gold is not None else load_gold()
     return {
