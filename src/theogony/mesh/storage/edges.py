@@ -28,6 +28,7 @@ import lancedb
 import pyarrow as pa
 import torch
 
+from theogony.mesh.relation_pids import pid_for
 from theogony.mesh.schemas import Edge, EdgeMetadata
 
 
@@ -155,6 +156,46 @@ class EdgeDeltaBuffer:
     def pending(self) -> int:
         with self._lock:
             return len(self._rows) + len(self._persisted())
+
+
+# ---- Asserted relations and observed adjacency ----
+
+# The descriptors the ingester writes as literals. They are bookkeeping: that two
+# names shared a paragraph, that a concept came from a source, that a section
+# belongs to a document. Everything else in the vocabulary is a relation some
+# reader judged and asserted — `father_of`, `killed`, `includes`.
+#
+# MESH_SUBSTRATE §"Asserted relations and observed adjacency" draws the line;
+# this is the machine-readable half of it, and a test pins it against the
+# ingestion module so an eleventh literal cannot appear unnoticed.
+STRUCTURAL_DESCRIPTORS = frozenset(
+    {
+        "abstracts_over",
+        "appears_in_source",
+        "co_mentions_in_paragraph",
+        "develops_across_paragraphs",
+        "extracted_from",
+        "has_paragraph_concept",
+        "is_section_of",
+        "mentions",
+        "shares_entities_with",
+        "summarised_as",
+    }
+)
+
+
+def descriptor_rank(descriptor: str | None) -> int:
+    """How much a descriptor claims — 2 named and verified, 1 asserted, 0 observed.
+
+    Used wherever one descriptor has to stand for several between the same two
+    nodes. `Cronos --father_of--> Zeus` and `Cronos --co_mentions_in_paragraph-->
+    Zeus` are both stored and both true; only one of them is worth showing.
+    """
+    if not descriptor:
+        return 0
+    if pid_for(descriptor) is not None:
+        return 2
+    return 0 if descriptor in STRUCTURAL_DESCRIPTORS else 1
 
 
 # ---- Merging helpers ----
@@ -555,7 +596,7 @@ class EdgeStore:
         return removed
 
     def descriptor_index(self) -> dict[tuple[str, str], str | None]:
-        """Relation descriptors for every edge, from one columnar scan.
+        """The most informative relation descriptor for each node pair, in one scan.
 
         Constellation assembly needs a descriptor per displayed edge. Asking for
         them with a filtered ``source_id IN (...)`` read costs ~194 ms per query on
@@ -567,6 +608,22 @@ class EdgeStore:
         :meth:`MeshRuntime.descriptor_index` then caches on the edge mutation
         generation exactly as the CSR is cached. The first query pays about what
         the CSR build already costs; every later one pays nothing.
+
+        **One pair, several edges.** The dedup key is ``(source, target,
+        relation_descriptor)``, so two nodes may legitimately be joined more than
+        once: `Cronos --father_of--> Zeus` and `Cronos
+        --co_mentions_in_paragraph--> Zeus` are different claims and both are
+        stored. This map holds one descriptor per pair, so something has to choose
+        — and until PHX-1073 that something was scan order. It chose badly: of the
+        1,323 pairs on the founding mesh carrying a relation that resolves to a
+        Wikidata property, **1,316 displayed the co-mention instead**. Every
+        Constellation the substrate had returned labelled `Cronos -> Zeus` as two
+        names that shared a paragraph, while `father_of` sat behind it unread.
+
+        The order below is by how much the descriptor claims: a typed relation
+        beats an untyped assertion, and any assertion beats observed adjacency.
+        That is the same ranking MESH_SUBSTRATE §"Asserted relations and observed
+        adjacency" draws, applied at read time.
         """
         arrow = (
             self.meta_table.search().select(["source_id", "target_id", "payload_json"]).to_arrow()
@@ -575,12 +632,17 @@ class EdgeStore:
         targets = arrow.column("target_id").to_pylist()
         payloads = arrow.column("payload_json").to_pylist()
         index: dict[tuple[str, str], str | None] = {}
+        ranks: dict[tuple[str, str], int] = {}
         for source, target, payload in zip(sources, targets, payloads, strict=True):
             try:
                 descriptor = json.loads(payload).get("relation_descriptor")
             except (json.JSONDecodeError, AttributeError):
                 descriptor = None
-            index[(str(source), str(target))] = descriptor
+            key = (str(source), str(target))
+            rank = descriptor_rank(descriptor)
+            if key not in ranks or rank > ranks[key]:
+                index[key] = descriptor
+                ranks[key] = rank
         return index
 
     def load_metadata_for_sources(

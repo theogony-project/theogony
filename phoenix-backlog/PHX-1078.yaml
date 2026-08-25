@@ -1,0 +1,65 @@
+id: PHX-1078
+category: substrate-retrieval
+priority: high
+status: done
+generation_target: MESH migration — S3 (retrieval quality)
+title: "Every Constellation showed the co-mention and hid the claim"
+filed_by: Claude Code (measured, 2026-08-25)
+created_at: 2026-08-25
+description: >
+  `descriptor_index` returns one relation descriptor per node pair. The store
+  keeps several: the dedup key is `(source, target, relation_descriptor)`, so
+  `Cronos --father_of--> Zeus` and `Cronos --co_mentions_in_paragraph--> Zeus`
+  are different claims and both are stored, deliberately (PHX-1033 records what
+  happened the last time they were collapsed).
+
+  Something therefore has to choose which one is displayed, and until now that
+  something was the order rows came back from Lance.
+
+  MEASURED on the founding mesh. Of 1,323 node pairs joined by a relation that
+  resolves to a Wikidata property, **1,316 displayed something else** — 99%.
+  Counting untyped assertions too, 5,540 pairs showed observed adjacency where
+  the substrate held a judged relation:
+
+      Cronos            -> Zeus          showed 'co_mentions_in_paragraph',
+                                         hid    'father_of'
+      Heliconian Muses  -> Zeus          showed 'co_mentions_in_paragraph',
+                                         hid    'daughters_of'
+      Cronos            -> Rhea          showed 'co_mentions_in_paragraph',
+                                         hid    'husband_of'
+
+  A Constellation is read by a language model, and `relation_descriptor` is how
+  it learns what joins two nodes. The substrate knew Cronos fathered Zeus and
+  said the two names had shared a paragraph.
+
+  THE FIX. `descriptor_rank`: a relation resolving to a P-ID (2) outranks any
+  other assertion (1), which outranks the ingester's bookkeeping vocabulary (0).
+  That is MESH_SUBSTRATE §"Asserted relations and observed adjacency" applied at
+  read time. After it, 1,323 of 1,323 typed pairs and 4,217 of 4,217 asserted-
+  but-untyped pairs display the relation.
+
+  Recall is unchanged at 74% (82/111 entities), as it must be — descriptors are
+  read for display, not for propagation. This is a correctness fix on what the
+  substrate *says*, not on what it finds.
+
+  WHAT MADE IT INVISIBLE. Nothing was wrong at the row level: every descriptor
+  in the index matched an edge that genuinely existed between those two nodes.
+  A check comparing the index against the store agrees on all 87,933 pairs. The
+  defect only appears when you ask *which* of several the pair deserved, and no
+  test asked. It surfaced from the side, while measuring something else — a
+  typed-edge retrieval lever that did nothing, because the index it read from
+  reported seven typed edges where the store held 1,420.
+
+  ALSO ADDED: `STRUCTURAL_DESCRIPTORS`, the ten descriptors the ingester writes
+  as literals, with a test scanning `theogony.mesh.ingestion` to pin the set
+  against its writer. An eleventh added without declaring it would silently
+  outrank a real assertion.
+
+relates_to:
+  - PHX-1033   # what happened when these parallel edges were collapsed for real
+  - PHX-1070   # the measurement this fell out of
+  - PHX-1063   # the other case of the substrate stating more than it knew
+linked_scripts:
+  - src/theogony/mesh/storage/edges.py
+  - src/theogony/mesh/retrieval/constellation.py
+  - tests/mesh/test_descriptor_rank.py
