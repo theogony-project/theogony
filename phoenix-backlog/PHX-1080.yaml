@@ -1,0 +1,57 @@
+id: PHX-1080
+category: evaluation
+priority: high
+status: done
+generation_target: MESH migration — S3 (retrieval quality)
+title: "The genealogical/narrative split was never checked in, so no number using it reproduced"
+filed_by: Claude Code (audit finding, 2026-08-26)
+created_at: 2026-08-26
+description: >
+  PHX-1066 is the reason every claim about this substrate is reported split by
+  question kind: removing co-occurrence edges reads as +2 on the aggregate and is
+  +4 genealogical against **-10 narrative**. The aggregate hid a regression.
+
+  The split that catches such things was never part of the instrument. It lived as
+  a regex written fresh at each measurement, in whatever script ran that day, and
+  those scripts are gone. Three separate hand-labellings of the same 47 questions:
+
+      PHX-1073 (hand-counted)   51% genealogical
+      audit verifier            57%
+      this labelling            55%
+
+  So the published split columns depended on which labelling had been written that
+  morning. Confirmed by re-measurement: the `typed_edge_boost` table in
+  `mesh/typed_edges.py` read 64%/81% genealogical/narrative at boost 1 under the
+  lost regex, and 68%/86% under the checked-in labels. **The aggregate row is
+  identical either way** — the aggregate never depended on the labelling, which is
+  exactly why the drift went unnoticed.
+
+  FIXED by making the kind a field. Every gold question carries `kind`, the rule
+  that assigns it is stated in the file, and the five borderline calls are named
+  rather than silently decided (`fates-names` and `aphrodite-birth` are the close
+  ones). `summarise_by_kind` reports the split; nobody has to remember to.
+
+  Share under the checked-in labelling: **55% by question (26/47), 68% by entity
+  (75/111)**.
+
+  ALSO CORRECTED, all quoting the retired 32-question set's 66%:
+    - `mesh/typed_edges.py` — the DEFAULT-OFF argument for the best-measured
+      retrieval lever in the repo. Re-measured; narrative recall turns out to be
+      **flat at 86% for every boost**, so the lever costs those questions nothing
+      rather than trading them away. The bias argument no longer carries the
+      decision; "one corpus, one question kind" does.
+    - `phoenix-backlog/PHX-1070.yaml`, `docs/PHOENIX_BACKLOG.md`
+    - `README.md` — still advertised "32 questions" six days after the set became
+      47, because the test asserted `len(gold) >= 30`. A floor cannot notice that
+      a published number stopped matching the file. Now an exact assertion, with
+      the entity count beside it.
+
+relates_to:
+  - PHX-1066   # the regression the split exists to catch
+  - PHX-1073   # the widening whose own share figure was also a hand-count
+  - PHX-1070   # the docstring whose split columns did not reproduce
+  - PHX-1079   # the same shape: a number nothing asserts is a number nothing protects
+linked_scripts:
+  - src/theogony/mesh/eval/gold/founding_corpus.json
+  - src/theogony/mesh/eval/corpus_qa.py
+  - tests/mesh/test_corpus_qa_eval.py

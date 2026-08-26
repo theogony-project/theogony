@@ -59,6 +59,10 @@ class GoldQuestion:
     question: str
     expect: list[str]
     evidence: str
+    # "genealogical" or "narrative". The rule and its borderline calls live in
+    # `_kinds` in the gold file; see `summarise_by_kind` for why this is a field
+    # rather than a regex at the point of measurement.
+    kind: str = "narrative"
 
 
 @dataclass
@@ -66,6 +70,7 @@ class QuestionResult:
     id: str
     question: str
     expected: list[str]
+    kind: str = "narrative"
     present: list[str] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
     retrieved: list[str] = field(default_factory=list)
@@ -84,7 +89,11 @@ def load_gold(path: Path | None = None) -> list[GoldQuestion]:
     raw: dict[str, Any] = json.loads((path or GOLD_PATH).read_text(encoding="utf-8"))
     return [
         GoldQuestion(
-            id=q["id"], question=q["question"], expect=list(q["expect"]), evidence=q["evidence"]
+            id=q["id"],
+            question=q["question"],
+            expect=list(q["expect"]),
+            evidence=q["evidence"],
+            kind=q.get("kind", "narrative"),
         )
         for q in raw["questions"]
     ]
@@ -127,7 +136,9 @@ def evaluate(
 
     results: list[QuestionResult] = []
     for gq in questions:
-        result = QuestionResult(id=gq.id, question=gq.question, expected=list(gq.expect))
+        result = QuestionResult(
+            id=gq.id, question=gq.question, expected=list(gq.expect), kind=gq.kind
+        )
         wanted: dict[str, set[str]] = {}
         for name in gq.expect:
             ids = names.get(_normalise(name), set())
@@ -185,6 +196,26 @@ def recall_curve(
         ]
         for k in ks
     }
+
+
+def summarise_by_kind(results: list[QuestionResult]) -> dict[str, dict[str, float]]:
+    """Summarise separately per question kind, and never only in aggregate.
+
+    PHX-1066 measured "removing co-occurrence edges is +2 points" and shipped
+    nothing, because the split said +4 genealogical and **-10 narrative**. With
+    55% of the questions on one side, the aggregate hid a regression large enough
+    to matter. Every claim about this substrate has been split that way since.
+
+    The split used to be a regex written fresh at each measurement, which is why
+    three hand-labellings of the same 47 questions produced 51%, 55% and 57%
+    genealogical. It is now a `kind` field on the gold question, with the rule
+    written down beside it (PHX-1080). The instrument reports the split; nobody
+    has to remember to.
+    """
+    kinds = sorted({r.kind for r in results})
+    out = {kind: summarise([r for r in results if r.kind == kind]) for kind in kinds}
+    out["all"] = summarise(results)
+    return out
 
 
 def summarise(results: list[QuestionResult]) -> dict[str, float]:
