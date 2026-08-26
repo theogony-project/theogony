@@ -1,0 +1,69 @@
+id: PHX-1081
+category: substrate-retrieval
+priority: high
+status: done
+generation_target: MESH migration — S3 (retrieval quality)
+title: "A category word in the question evicted the subject from the anchors"
+filed_by: Claude Code (audit finding, 2026-08-26)
+created_at: 2026-08-26
+description: >
+  Name-anchored seeding is worth +17 points of recall (PHX-1068): the entities a
+  question names are looked up by name and injected as seeds at full strength.
+  The spans are generated longest n-gram first and read in that order, stopping
+  at the budget.
+
+  So the first span took everything. On the founding mesh the tag
+  `greek mythology` matches 18 nodes, and a question that opens with it never
+  reached its own subject:
+
+      "Who is the father of Zeus?"
+        -> Zeus, son of Cronos, father of men and gods, ... (6 anchors)
+
+      "In Greek mythology, who is the father of Zeus?"
+        -> Theogony, "The myth of Aphrodite's birth...", "The Hecatoncheires,
+           under Zeus's counsel...", ... (8 anchors, none of them Zeus)
+
+  Worse than losing the subject: two differently-worded questions returned the
+  **identical eight anchors**. "According to Greek Mythology, who are the
+  children of Cronus?" produced the same list. The anchor step had stopped
+  responding to the question at all.
+
+  FIXED by ordering spans by fanout, narrowest first. A label matching one node
+  is a name; one matching eighteen is a category. No threshold is involved.
+
+  TWO ALTERNATIVES MEASURED AND REJECTED:
+
+  - A fanout cut-off. Across the 47 gold questions the widest real name is
+    `Hermes` at 11 nodes and the narrowest category word is `mythology` at 15.
+    The line would have sat in a four-node gap.
+  - A per-span quota. It fixed the broad case by breaking the narrow one: "Who
+    is the father of Zeus?" fell from six anchors to three, because Zeus
+    legitimately answers to six nodes.
+
+  COST. One label read per span instead of stopping early. Re-measured at
+  **1.61 ms** per read, median four spans per gold question and seven at worst;
+  end-to-end query latency 90.4 -> 96.4 ms median. The docstring's claim of
+  14.5 ms per read predates the indices and is corrected in the same change.
+
+  WHY THE INSTRUMENT MISSED IT. All 47 gold questions are phrased without a
+  category prefix, so **0 of 47 hit the truncation** — every published recall
+  figure measures a pipeline real users do not necessarily run. Rather than
+  widening the gold set (which would move every published number), the property
+  is pinned directly: three tests on a synthetic fixture assert the subject
+  survives a category prefix, that it is seeded *before* the category, and that
+  a narrow name still takes the whole budget when nothing competes. Verified to
+  bite: two of the three fail against the pre-fix code. The first draft of the
+  fixture wrote the subject before the filler, which put it inside the
+  category's own first page and made the test pass against the defect — the
+  insertion order is now deliberate and commented.
+
+  Recall on the gold set is unchanged (82/111, 33/47), as expected: the set does
+  not exercise this path.
+
+relates_to:
+  - PHX-1068   # the mechanism this repairs
+  - PHX-1080   # the other instrument gap found in the same audit
+  - PHX-1079   # a number nothing asserts is a number nothing protects
+linked_scripts:
+  - src/theogony/mesh/retrieval/retrieve.py
+  - tests/mesh/test_name_anchored_seeding.py
