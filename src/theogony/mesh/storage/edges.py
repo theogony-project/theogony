@@ -584,7 +584,14 @@ class EdgeStore:
         substrate's own history is unaffected by this (PHX-1060).
         """
         removed: dict[str, int] = {}
-        for name, table in (("mesh_edges", self.edge_table), ("edge_metadata", self.meta_table)):
+        # `edge_dedup_index` was absent from this list, so it alone kept every
+        # version ever written — 237 of them on the founding mesh, against 1 for
+        # its two siblings (PHX-1082).
+        for name, table in (
+            ("mesh_edges", self.edge_table),
+            ("edge_metadata", self.meta_table),
+            ("edge_dedup_index", self.dedup_index),
+        ):
             try:
                 before = len(table.list_versions())
                 table.optimize(cleanup_older_than=retention)
@@ -670,18 +677,42 @@ class EdgeStore:
         return out
 
     def replace_all_edges(self, edges: list[Edge]) -> None:
-        """Atomically replace the quantitative and metadata tables (Oneiros commit)."""
-        self.edge_table.delete("true")
-        self.meta_table.delete("true")
-        self.dedup_index.delete("true")
+        """Replace the quantitative, metadata and dedup tables (Oneiros commit).
+
+        One transaction per table, via ``mode="overwrite"``. It used to be six:
+        three ``delete("true")`` followed by three ``add()``, and the docstring
+        called that atomic. It was not. An exception anywhere in the second half
+        left all three tables **empty** — reproduced on a throwaway mesh by making
+        the first ``add`` raise: `mesh_edges`, `edge_metadata` and
+        `edge_dedup_index` all at 0 rows (PHX-1082).
+
+        The edges were recoverable, as it happens — ``prune_history`` runs later
+        in the tick, so the previous Lance snapshot was still there and
+        ``restore()`` brought them back. But nothing in this codebase calls
+        ``restore``, so recovery depended on someone knowing to try it.
+
+        Honest scope: this is atomic *per table*, not across the three. Lance
+        gives no cross-table transaction, so a failure between the first and
+        second overwrite still leaves the edge table ahead of its metadata. The
+        difference from before is that no window exists in which a table is
+        empty, which is the state that looked like total loss.
+        """
         if not edges:
+            self.edge_table.delete("true")
+            self.meta_table.delete("true")
+            self.dedup_index.delete("true")
             self._bump_mutation_generation()
             return
-        self.edge_table.add([self._edge_row(edge) for edge in edges])
+
+        self.edge_table.add([self._edge_row(edge) for edge in edges], mode="overwrite")
         meta_rows = [row for edge in edges if (row := self._metadata_row(edge)) is not None]
         if meta_rows:
-            self.meta_table.add(meta_rows)
-        self.dedup_index.add(self._dedup_rows(edges))
+            self.meta_table.add(meta_rows, mode="overwrite")
+        else:
+            # No edge carries metadata any more; the table must still be emptied,
+            # and there is no row to infer a schema from for an overwrite.
+            self.meta_table.delete("true")
+        self.dedup_index.add(self._dedup_rows(edges), mode="overwrite")
         self._bump_mutation_generation()
 
     def count_rows(self) -> int:

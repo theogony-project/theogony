@@ -211,13 +211,39 @@ def mesh_tick(
     rt = MeshRuntime.open(root)
 
     started_at = datetime.now(UTC)
-    result = rt.run_minimal_tick(
-        lam=decay_lambda,
-        dt=dt,
-        max_out_degree=max_out_degree,
-        w_max=w_max,
-        version_retention=timedelta(hours=keep_versions_hours),
-    )
+    try:
+        result = rt.run_minimal_tick(
+            lam=decay_lambda,
+            dt=dt,
+            max_out_degree=max_out_degree,
+            w_max=w_max,
+            version_retention=timedelta(hours=keep_versions_hours),
+        )
+    except Exception as exc:
+        # `verdict="good"` used to be written unconditionally, below, after a call
+        # that had no error path at all — so a tick that died mid-rewrite left no
+        # report whatsoever, and the substrate's own record showed nothing had
+        # happened (PHX-1082).
+        failed_at = datetime.now(UTC)
+        RunReportWriter(settings.run_reports_dir).write(
+            MeshTickReport(
+                started_at=started_at,
+                finished_at=failed_at,
+                duration_s=(failed_at - started_at).total_seconds(),
+                status="failed",
+                verdict="poor",
+                verdict_reasoning=f"tick raised {type(exc).__name__}: {exc}",
+                edges_before=0,
+                edges_after=0,
+                delta_drained=0,
+                decay_lambda=decay_lambda,
+                dt=dt,
+                max_out_degree=max_out_degree,
+                w_max=w_max,
+            )
+        )
+        _console.print(Panel.fit(f"tick failed: {exc}", title="mesh tick", style="red"))
+        raise typer.Exit(code=1) from exc
     finished_at = datetime.now(UTC)
 
     report = MeshTickReport(
