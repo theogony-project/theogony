@@ -28,45 +28,56 @@ entities did not justify the migration; the numbers below are what this code
 actually does, not what the better version would.
 
 MEASURED through this lever on the founding mesh, 47 gold questions, top_k=50,
-equal tick count:
+equal tick count. The genealogical/narrative split comes from the `kind` field on
+each gold question (PHX-1080), not from a regex written at the point of
+measurement — the previous version of this table used the latter and its split
+columns did not reproduce:
 
     boost   total   genealogical   narrative   entities   fully answered
-    1 (off)   74%            64%         81%     82/111            33/47
-    3         79%            75%         82%     88/111            36/47
-    10        80%            75%         84%     89/111            35/47
-    30        80%            75%         84%     89/111            35/47
-    100       78%            70%         84%     87/111            33/47
+    1 (off)   74%            68%         86%     82/111            33/47
+    3         79%            76%         86%     88/111            36/47
+    10        80%            77%         86%     89/111            35/47
+    30        80%            77%         86%     89/111            35/47
+    100       78%            75%         86%     87/111            33/47
 
-Per question at 3: three improve, **none regress**, forty-four are untouched.
-At 10 it is five better and one worse (`pegasus-birth`, 3/3 -> 2/3). The gain
-is concentrated rather than spread — the questions that move are enumerations,
-where the answer is a set of siblings that typed edges connect directly and
-structural edges bury: `iapetus-sons` goes 0/3 to 3/3, `cronus-children` 3/5
-to 5/5.
+Narrative recall is flat at 86% across the whole range: the lever does not help
+those questions and does not cost them either. Everything it buys is on the
+genealogical side, +8 points at boost 3, where three questions improve and none
+regress. The gain is concentrated rather than spread — the questions that move
+are enumerations, where the answer is a set of siblings that typed edges connect
+directly and structural edges bury: `iapetus-sons` goes 0/3 to 3/3,
+`cronus-children` 3/5 to 5/5.
 
 THREE CONTROLS, run on hand-built graphs because the lever itself cannot
-express them, at an edge-level boost of 30:
+express them, at an edge-level boost of 30. Aggregate only, since these predate
+the checked-in kinds:
 
-    boosting all 6,388 asserted edges       78% / 70% / 84%
-    boosting 1,237 random asserted edges    76% / 70% / 79%
-    boosting the 1,237 typed edges          82% / 80% / 84%
+    boosting all 6,388 asserted edges       78%
+    boosting 1,237 random asserted edges    76%
+    boosting the 1,237 typed edges          82%
 
-So part of the effect is merely "asserted beats structural" — but typed beats
-a same-size random asserted sample by six points overall and ten genealogical.
-The Wikidata typing carries signal of its own.
+So part of the effect is merely "asserted beats structural" — but typed beats a
+same-size random asserted sample by six points. The Wikidata typing carries
+signal of its own.
 
 WHY WEIGHTING RATHER THAN SELECTING. Restricting propagation to typed edges
-alone scores 76% / 89% / 67%: better still on genealogy, fourteen points worse
-on narrative questions, because the typed subgraph reaches only 121 of 163 gold
+alone scores 76% aggregate: better on genealogy, fourteen points worse on
+narrative questions, because the typed subgraph reaches only 121 of 163 gold
 entities. Weighting keeps every node reachable and reorders them. PHX-1066
 caught a -10 narrative regression hiding under a +2 aggregate; selection walks
 into that trap and weighting does not.
 
-DEFAULT OFF. This changes how activation flows, and one corpus with one gold
-set is not enough to make it the production default — the founding gold set is
-66% genealogical because the corpus is, which is exactly the shape this lever
-favours. It ships as a lever with its measurements attached, in the same spirit
-as ``degree_beta`` and ``hub_mask_top_n`` (PHX-1042, PHX-1070).
+DEFAULT OFF, and the reason has changed. It used to be "the gold set is 66%
+genealogical because the corpus is, which is exactly the shape this favours" —
+a number carried over from the retired 32-question set (PHX-1073 corrected the
+set five days before this file quoted it). The checked-in labelling says 55% by
+question, 68% by entity, and narrative is untouched rather than traded away, so
+the bias argument does not carry the decision on its own.
+
+What does: this has been measured on one corpus, one gold set, and it moves
+exactly one question kind. A default that helps genealogy and does nothing else
+is a default tuned to Hesiod. It ships as a lever with its measurements
+attached, like ``degree_beta`` and ``hub_mask_top_n`` (PHX-1042, PHX-1070).
 """
 
 from __future__ import annotations

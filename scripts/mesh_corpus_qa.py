@@ -15,7 +15,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from theogony.mesh.eval.corpus_qa import evaluate, recall_curve, summarise
+from theogony.mesh.eval.corpus_qa import evaluate, recall_curve, summarise, summarise_by_kind
 from theogony.mesh.retrieval.retrieve import DEFAULT_TOP_K
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.seeds.wikidata5m.embedder import BGESmallEnEmbedder
@@ -62,6 +62,16 @@ def main() -> None:
             print(f"{r.id:22s} {r.coverage:5.2f} {r.recall:5.2f}  {' | '.join(note)}")
         print()
 
+    by_kind = summarise_by_kind(results)
+    print(f"{'':28s} {'Fragen':>7s} {'Abdeckung':>10s} {'Recall':>8s} {'voll':>8s}")
+    for kind in [k for k in by_kind if k != "all"] + ["all"]:
+        s_ = by_kind[kind]
+        print(
+            f"{kind:28s} {s_['questions']:7.0f} {s_['coverage']:9.0%} "
+            f"{s_['recall_given_coverage']:8.0%} {s_['questions_fully_answered']:5.0f}"
+            f"/{s_['questions']:.0f}"
+        )
+    print()
     print(f"Fragen                       {summary['questions']:.0f}")
     print(f"erwartete Entitaeten         {summary['entities_expected']:.0f}")
     print(
