@@ -289,7 +289,22 @@ class MeshRuntime:
         merged = merge_edge_deltas(base, drained, w_max=w_max)
         decay_edges_inplace(merged, lam=lam, dt=dt)
         merged = enforce_saturation(merged, max_out_degree=max_out_degree, w_max=w_max)
-        self.edges.replace_all_edges(merged)
+        try:
+            self.edges.replace_all_edges(merged)
+        except Exception:
+            # `drain()` already unlinked the durable sidecar, so a failure here
+            # would destroy reinforcement that no snapshot holds — the edge tables
+            # are versioned by Lance and recoverable, the delta buffer is not.
+            # Put the deltas back before the exception leaves this frame
+            # (PHX-1082).
+            for row in drained:
+                self.edges.delta.append_hebbian_delta(
+                    source_id=str(row["source_id"]),
+                    target_id=str(row["target_id"]),
+                    weight_delta=float(row["weight_delta"]),
+                    relation_descriptor=row.get("relation_descriptor"),
+                )
+            raise
         self.invalidate_csr_cache()
 
         # The tick is the substrate's maintenance pass, so index upkeep belongs

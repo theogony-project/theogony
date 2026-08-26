@@ -1,0 +1,60 @@
+id: PHX-1082
+category: substrate-integrity
+priority: high
+status: done
+generation_target: MESH migration — S3 (substrate durability)
+title: "A failing tick emptied all three edge tables, and reported nothing at all"
+filed_by: Claude Code (audit finding, 2026-08-26)
+created_at: 2026-08-26
+description: >
+  `replace_all_edges` was three `delete("true")` calls followed by three `add()`
+  calls. Its docstring called that "atomically replace". It was six separate
+  Lance transactions, and an exception anywhere in the second half left
+  `mesh_edges`, `edge_metadata` and `edge_dedup_index` all at **zero rows**.
+
+  Reproduced on a throwaway mesh by making the first `add` raise. It is the only
+  write path for substrate dynamics: `run_minimal_tick` had no error handling at
+  all, and `theogony mesh tick` is its single production caller.
+
+  NOT AS BAD AS IT FIRST LOOKED, and the correction is worth recording. The edges
+  were recoverable — `prune_history` runs *after* the rewrite, so the previous
+  Lance snapshot was still on disk and `restore()` brought everything back.
+  Nothing in this codebase calls `restore`, so recovery depended on an operator
+  knowing to try it, but the data was there.
+
+  WORSE THAN IT LOOKED, in one respect: `drain()` unlinks the durable delta
+  sidecar *before* the write. Hebbian reinforcement a user paid for with
+  `mesh ask --hebbian` has no snapshot behind it and would simply be gone.
+
+  THREE FIXES:
+
+  - `replace_all_edges` uses `add(..., mode="overwrite")`: one transaction per
+    table instead of two. Honest scope, stated in the docstring rather than
+    implied: this is atomic *per table*, not across the three. Lance offers no
+    cross-table transaction, so a failure between the first and second overwrite
+    still leaves the edge table ahead of its metadata. What no longer exists is a
+    window in which a table is empty — the state that looked like total loss.
+  - `run_minimal_tick` puts the drained deltas back before re-raising.
+  - `theogony mesh tick` catches, writes a report with `status="failed"` and
+    `verdict="poor"`, and exits non-zero. `verdict="good"` used to be a literal
+    on a path with no error branch, so a tick that died mid-rewrite left no
+    report whatsoever and the substrate's own record showed nothing had happened.
+
+  ALSO: `prune_history` iterated `mesh_edges` and `edge_metadata` and silently
+  omitted `edge_dedup_index`, which therefore kept every version ever written.
+  Verified on a copy of the founding mesh: the first tick after this change
+  pruned **237** versions from it, against 1 each from its two siblings.
+
+  VERIFIED, not assumed. Two of the four new tests fail against the pre-fix code.
+  A real tick on a byte copy of `data/mesh-founding`: 94,490 edges in and out in
+  4.2 s, all reloadable, dedup index at 94,490 rows, 183 P-IDs backfilled.
+
+relates_to:
+  - PHX-1033   # what a careless edge rewrite cost the last time
+  - PHX-1077   # the tick's other calibration problem
+  - PHX-1060   # the Lance version pile-up this prune list exists for
+linked_scripts:
+  - src/theogony/mesh/storage/edges.py
+  - src/theogony/mesh/runtime/oneiros_tick.py
+  - src/theogony/mesh/cli.py
+  - tests/mesh/test_tick_write_safety.py
