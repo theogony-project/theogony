@@ -122,3 +122,77 @@ def test_the_anchor_count_is_capped(mesh_runtime: MeshRuntime) -> None:
     seeds = _name_anchor_seeds(mesh_runtime, question, csr, max_anchors=4)
 
     assert len(seeds) <= 4
+
+
+def test_a_broad_category_word_does_not_starve_the_entity(mesh_runtime: MeshRuntime) -> None:
+    """The subject of the question must survive a category prefix.
+
+    Anchor spans were served in generation order — longest n-gram first — and the
+    first one took the whole budget. On the founding mesh `greek mythology`
+    matches 18 nodes, so "In Greek mythology, who is the father of Zeus?" spent
+    all eight slots on paragraph summaries and never looked `Zeus` up at all.
+    Two differently-worded questions returned the identical eight anchors, none
+    of them the subject (PHX-1081).
+
+    A fanout cut-off was measured and rejected: across the 47 gold questions the
+    widest real name is `Hermes` at 11 nodes and the narrowest category word is
+    `mythology` at 15. Ordering by fanout needs no such line.
+    """
+    # The filler is written FIRST on purpose. The label index returns rows in
+    # insertion order, so writing Zeus first would put him inside the category's
+    # own first page and the test would pass against the defect it exists for.
+    filler = [
+        _node(mesh_runtime, f"A paragraph about myth {i}", ["greek mythology"]) for i in range(20)
+    ]
+    zeus = _node(mesh_runtime, "Zeus — king of the gods", ["zeus", "greek mythology"])
+    ids = [zeus, *filler]
+    csr = _csr(mesh_runtime, ids)
+
+    plain = _name_anchor_seeds(mesh_runtime, "Who is the father of Zeus?", csr)
+    prefixed = _name_anchor_seeds(
+        mesh_runtime, "In Greek mythology, who is the father of Zeus?", csr
+    )
+
+    zeus_index = csr.id_to_index[zeus]
+    assert zeus_index in plain, "sanity: the plain question must find Zeus"
+    assert zeus_index in prefixed, "the category prefix must not evict the subject"
+
+
+def test_the_named_subject_is_seeded_before_the_category(mesh_runtime: MeshRuntime) -> None:
+    """Narrow span first — that ordering IS the fix.
+
+    Not "the two questions get different anchors": both subjects here carry the
+    category tag themselves, so the category span legitimately pulls both in
+    either question. What must hold is precedence. Under generation order the
+    category ran first and the budget was gone before the subject was read.
+    """
+    filler = [
+        _node(mesh_runtime, f"A paragraph about myth {i}", ["greek mythology"]) for i in range(20)
+    ]
+    zeus = _node(mesh_runtime, "Zeus — king of the gods", ["zeus", "greek mythology"])
+    cronus = _node(mesh_runtime, "Cronus — the titan", ["cronus", "greek mythology"])
+    csr = _csr(mesh_runtime, [*filler, zeus, cronus])
+
+    for question, subject in (
+        ("In Greek mythology, who fathered Zeus?", zeus),
+        ("In Greek mythology, who was Cronus?", cronus),
+    ):
+        seeds = _name_anchor_seeds(mesh_runtime, question, csr)
+        assert list(seeds)[0] == csr.id_to_index[subject], (
+            f"{question!r}: the subject must be the first anchor, not the category"
+        )
+
+
+def test_a_narrow_name_still_gets_the_whole_budget_when_nothing_competes(
+    mesh_runtime: MeshRuntime,
+) -> None:
+    """The fix must not cap the good case to rescue the bad one.
+
+    A per-span quota was tried first and rejected for exactly this: it took "Who
+    is the father of Zeus?" from six anchors to three, because Zeus legitimately
+    answers to six nodes on the founding mesh.
+    """
+    ids = [_node(mesh_runtime, f"Zeus, aspect {i}", ["zeus"]) for i in range(6)]
+    csr = _csr(mesh_runtime, ids)
+    seeds = _name_anchor_seeds(mesh_runtime, "Who is the father of Zeus?", csr)
+    assert len(seeds) == 6, "one name answering to six nodes must seed all six"

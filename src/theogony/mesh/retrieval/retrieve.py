@@ -238,11 +238,16 @@ def _name_anchor_seeds(
     substrate already maintains, and injected as a seed at full strength: an
     exact name match is stronger evidence than any cosine.
 
-    Only capitalised spans are considered. Trying every n-gram would cost a
-    label read each — 14.5 ms indexed, so ~390 ms on a ten-word question — and
-    would match common nouns that happen to be node names. This is an English
-    heuristic on an English corpus, and it is the honest limitation of this
-    approach rather than a hidden one.
+    Only capitalised spans are considered — trying every n-gram would match
+    common nouns that happen to be node names. This is an English heuristic on an
+    English corpus, and it is the honest limitation of this approach rather than
+    a hidden one.
+
+    (The original reason given here was cost: "a label read each — 14.5 ms
+    indexed, so ~390 ms on a ten-word question". Re-measured 2026-08-26 it is
+    **1.61 ms**, and the gold questions produce a median of four capitalised
+    spans and seven at worst. The indices arrived after that sentence was
+    written. Cost is no longer the argument; ambiguity is.)
     """
     tokens = re.findall(r"[A-Za-z][A-Za-z'-]*", query or "")
     spans: list[str] = []
@@ -257,15 +262,43 @@ def _name_anchor_seeds(
     if not spans:
         return {}
 
+    # Narrowest span first. A label matching one node is a name; one matching
+    # eighteen is a category, and the two were being served in the order the
+    # spans happened to be generated — longest n-gram first. So "In Greek
+    # mythology, who is the father of Zeus?" gave `greek mythology` (18 nodes)
+    # the whole budget and never looked `Zeus` up at all: two differently-worded
+    # questions returned the identical eight anchors, none of them the subject
+    # (PHX-1081).
+    #
+    # Ordering rather than a cut-off, because the cut-off is not there to make:
+    # across the 47 gold questions the widest real name is `Hermes` at 11 nodes
+    # and the narrowest category word is `mythology` at 15. A threshold would sit
+    # in a four-node gap. And rather than a per-span quota, which fixed the broad
+    # case by breaking the narrow one — "Who is the father of Zeus?" fell from six
+    # anchors to three, because Zeus legitimately answers to six nodes.
+    #
+    # Costs one label read per span instead of stopping early: 1.61 ms each,
+    # median four spans per gold question and seven at worst, so ~6-11 ms.
+    matches: list[tuple[int, int, str, list[int]]] = []
+    for order, span in enumerate(spans):
+        indices = [
+            index
+            for node in runtime.nodes.find_consolidated_by_labels([span], limit=32)
+            if not node.is_source_anchor
+            and (index := csr.id_to_index.get(str(node.id))) is not None
+        ]
+        if indices:
+            # Ties broken by the generation order, which is longest n-gram first:
+            # between two equally narrow labels the more specific phrase wins.
+            matches.append((len(indices), order, span, indices))
+    matches.sort(key=lambda m: (m[0], m[1]))
+
     seeds: dict[int, float] = {}
-    for node in runtime.nodes.find_consolidated_by_labels(spans, limit=max_anchors * 2):
-        if node.is_source_anchor:
-            continue
-        index = csr.id_to_index.get(str(node.id))
-        if index is not None:
+    for _fanout, _order, _span, indices in matches:
+        for index in indices:
             seeds[index] = 1.0
-        if len(seeds) >= max_anchors:
-            break
+            if len(seeds) >= max_anchors:
+                return seeds
     return seeds
 
 
