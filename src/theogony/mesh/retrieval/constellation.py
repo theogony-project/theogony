@@ -15,6 +15,7 @@ from __future__ import annotations
 import torch
 from pydantic import BaseModel, ConfigDict, Field
 
+from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.storage.edges import EdgeCSR
 
@@ -84,7 +85,7 @@ def assemble_constellation(
     activation: torch.Tensor,
     csr: EdgeCSR,
     *,
-    top_k: int = 50,  # see DEFAULT_TOP_K in retrieve.py for why
+    top_k: int = DEFAULT_TOP_K,
     seed_indices: set[int] | None = None,
     operator: str = "ppr",
     query: str | None = None,

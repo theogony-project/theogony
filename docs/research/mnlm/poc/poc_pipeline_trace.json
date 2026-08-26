@@ -1,0 +1,9 @@
+{
+  "schema_version": "mnlm-smoke/1",
+  "model_id": "Qwen/Qwen2.5-1.5B-Instruct",
+  "device": "mps",
+  "num_parameters": 1543714304,
+  "prompt": "Explain the relationship between entropy and information theory.",
+  "response": "Explain the relationship between entropy and information theory. Entropy is a measure of uncertainty or randomness in a system, while information theory deals with the quantification, storage, and communication of information. The relationship between entropy and information theory lies in their shared goal of understanding how information can be transmitted efficiently.\n",
+  "forward_pass_no_nan": true
+}

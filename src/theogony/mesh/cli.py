@@ -18,6 +18,7 @@ from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
 from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
 from theogony.mesh.retrieval import RetrievalResult, retrieve
+from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.seeds.wikidata5m import (
     Wikidata5mSeedImporter,
@@ -442,7 +443,9 @@ def mesh_ask(
     operator: str = typer.Option(
         "ppr", "--operator", help="Propagation operator: ppr | degnorm | raw."
     ),
-    top_k: int = typer.Option(50, "--top-k", help="Max nodes in the returned Constellation."),
+    top_k: int = typer.Option(
+        DEFAULT_TOP_K, "--top-k", help="Max nodes in the returned Constellation."
+    ),
     k_seeds: int = typer.Option(8, "--seeds", help="Diversified seed count (MMR + weight-class)."),
     hops: int = typer.Option(3, "--hops", help="Hops for raw/degnorm operators."),
     ann_limit: int = typer.Option(64, "--ann-limit", help="Vector-search candidates before MMR."),

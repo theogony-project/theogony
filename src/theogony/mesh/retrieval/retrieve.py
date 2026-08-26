@@ -33,6 +33,7 @@ from theogony.mesh.retrieval.constellation import (
     ConstellationNode,
     assemble_constellation,
 )
+from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
 from theogony.mesh.retrieval.diversified import SeedCandidate, select_seeds
 from theogony.mesh.retrieval.frame_routing import build_frame_routed_csr
 from theogony.mesh.retrieval.propagation import Propagator, in_degree
@@ -268,18 +269,9 @@ def _name_anchor_seeds(
     return seeds
 
 
-# How many nodes a Constellation carries. Measured against the founding gold set
-# on `data/mesh-founding` (47 questions, 5,002 nodes): recall runs 65% at 30 and
-# 74% at 50, for a median 87.2 ms -> 90.4 ms. Three milliseconds for nine points
-# (PHX-1069). The previous 30 was never justified by cost — nothing was measuring
-# the trade at all until the gold set existed.
-#
-# Deliberately not higher. 100 reaches 85% for 15 ms, and 200 reaches 95%, so the
-# ranking is largely right and what is tight is the budget. But a Constellation is
-# read by a language model, and there is no measurement yet of whether more context
-# completes an answer or dilutes it. That measurement, not the latency, is what
-# gates going further.
-DEFAULT_TOP_K = 50
+# Re-exported so `from ...retrieve import DEFAULT_TOP_K` keeps working; the
+# constant and its justification live in `defaults.py` beside its siblings.
+DEFAULT_TOP_K = DEFAULT_TOP_K
 
 
 def retrieve(
