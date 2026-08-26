@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
 from theogony.mesh.retrieval.retrieve import retrieve
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 
@@ -113,7 +114,7 @@ def evaluate(
     embed: Any,
     *,
     gold: list[GoldQuestion] | None = None,
-    top_k: int = 50,  # follows the library default so the benchmark measures what users run
+    top_k: int = DEFAULT_TOP_K,  # the benchmark must measure what users actually run
     **retrieve_kwargs: Any,
 ) -> list[QuestionResult]:
     """Run every gold question and score coverage and recall separately.

@@ -63,6 +63,7 @@ from theogony.core.store import KnowledgeStore
 from theogony.curiosity.growth_bridge import GrowthBridge
 from theogony.curiosity.verification_pool import VerificationPool, VerificationPoolStatusDTO
 from theogony.extraction.embedding import EmbeddingProvider
+from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
 from theogony.reporting.models import QueryRunReport
 from theogony.reporting.writer import RunReportWriter
 
@@ -573,7 +574,9 @@ def build_cockpit_router() -> APIRouter:
             raise HTTPException(status_code=400, detail="body must be a JSON object")
         query = str(body.get("q") or body.get("query") or "")
         try:
-            top_k = max(1, min(200, int(body.get("top_k", body.get("k", 30)) or 30)))
+            top_k = max(
+                1, min(200, int(body.get("top_k", body.get("k", DEFAULT_TOP_K)) or DEFAULT_TOP_K))
+            )
             k_seeds = max(1, min(64, int(body.get("seeds", 8) or 8)))
         except (TypeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail=f"top_k/seeds not int: {exc}") from exc

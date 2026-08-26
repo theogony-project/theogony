@@ -27,6 +27,7 @@ from typing import Any, cast
 
 from theogony.cockpit.explorer import scrub_json_floats
 from theogony.config.logging import get_logger
+from theogony.mesh.retrieval.defaults import DEFAULT_K_SEEDS, DEFAULT_TOP_K
 from theogony.mesh.retrieval.propagation import Propagator
 from theogony.mesh.retrieval.retrieve import RetrievalResult, retrieve
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
@@ -269,7 +270,12 @@ class MeshExplorerService:
         return cast(dict[str, Any], scrub_json_floats(out))
 
     async def ask(
-        self, query: str, *, top_k: int = 30, k_seeds: int = 8, operator: str = "ppr"
+        self,
+        query: str,
+        *,
+        top_k: int = DEFAULT_TOP_K,
+        k_seeds: int = DEFAULT_K_SEEDS,
+        operator: str = "ppr",
     ) -> MeshAskOutcome:
         started_at = datetime.now(UTC)
         t = time.perf_counter()
@@ -358,8 +364,8 @@ class MeshExplorerService:
         self,
         query: str,
         *,
-        top_k: int = 30,
-        k_seeds: int = 8,
+        top_k: int = DEFAULT_TOP_K,
+        k_seeds: int = DEFAULT_K_SEEDS,
         operator: str = "ppr",
     ) -> AsyncIterator[dict[str, Any]]:
         """Step through embed → index → retrieve with incremental status events for SSE."""
