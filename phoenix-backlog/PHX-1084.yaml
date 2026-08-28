@@ -1,7 +1,7 @@
 id: PHX-1084
 category: substrate-integrity
 priority: medium
-status: open
+status: done
 generation_target: MESH migration — S2 (ingestion provenance)
 title: "Every source anchor in the demo mesh points at a temp directory"
 filed_by: Claude Code (audit follow-up, 2026-08-26)
@@ -34,6 +34,28 @@ description: >
    - the code: `mesh/ingestion/source_anchor.py` should record what the source
      *is*, not the path it was read from, so a future read on a copy does not
      reproduce this.
+
+  RESOLVED 2026-08-26. `scripts/mesh_repair_anchor_provenance.py` rewrote all
+  1,219 anchors on `data/mesh-founding` to
+  "text: Hesiod, the Homeric Hymns and Homerica (batch 1)
+  (https://www.gutenberg.org/ebooks/348)", with `source_url` set to the same.
+  Verified afterwards: 5,002 nodes, 94,490 edges, 0 anchors carrying a temp path,
+  label index intact ("Zeus" -> 6), Lance indices rebuilt.
+
+  The repair drops the table's indices along with the data (`mode="overwrite"`),
+  so the script re-creates them rather than leaving it to the next tick: an
+  unindexed table answers correctly and slowly, and nothing in a status line says
+  which one you have.
+
+  Fixed forward too: `theogony mesh ingest --text-file` no longer falls back to
+  the absolute path. It uses the bare filename and prints a note that `--anchor`
+  takes a URL or a citation, because a filename is still a weak identifier and
+  passing over that silently is how this happened.
+
+  NOT CLAIMED: recall moved 76% -> 77% across the repair, which is one entity of
+  111 and comes from the index rebuild, not from the anchor text. Descriptions of
+  source anchors do not enter retrieval — `_name_index` and `_name_anchor_seeds`
+  both skip them.
 
 relates_to:
   - PHX-1042   # why anchors are on screen at all

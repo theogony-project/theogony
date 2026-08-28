@@ -333,6 +333,39 @@ class MeshNodeStore:
         if label_rows:
             self.consolidated_label_index.add(label_rows)
 
+    def replace_all_consolidated(self, nodes: list[ConsolidatedNode]) -> None:
+        """Rewrite the consolidated table and both its indices from ``nodes``.
+
+        The store is otherwise append-only, which is right: the substrate's
+        history is its record. This exists for repairs that must not leave a
+        stale row behind — see `scripts/mesh_repair_anchor_provenance.py`, which
+        corrects provenance that recorded a filesystem path instead of a source
+        (PHX-1084).
+
+        One overwrite per table rather than delete-then-add, for the reason
+        :meth:`EdgeStore.replace_all_edges` gives: the delete-then-add form left
+        every table empty when the add raised (PHX-1082).
+        """
+        if not nodes:
+            self.consolidated_table.delete("true")
+            self.consolidated_qid_index.delete("true")
+            self.consolidated_label_index.delete("true")
+            return
+
+        self.consolidated_table.add(
+            [self._consolidated_row(node) for node in nodes], mode="overwrite"
+        )
+        qid_rows = [row for node in nodes for row in self._qid_index_rows(node)]
+        if qid_rows:
+            self.consolidated_qid_index.add(qid_rows, mode="overwrite")
+        else:
+            self.consolidated_qid_index.delete("true")
+        label_rows = [row for node in nodes for row in self._label_index_rows(node)]
+        if label_rows:
+            self.consolidated_label_index.add(label_rows, mode="overwrite")
+        else:
+            self.consolidated_label_index.delete("true")
+
     def get_consolidated(self, node_id: str) -> ConsolidatedNode | None:
         rows = self.consolidated_table.search().where(f'id = "{node_id}"').limit(1).to_list()
         if not rows:
