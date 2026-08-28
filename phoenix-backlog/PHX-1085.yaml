@@ -1,0 +1,68 @@
+id: PHX-1085
+category: substrate-retrieval
+priority: high
+status: done
+generation_target: MESH migration — S3 (retrieval quality)
+title: "The vector index returned a median of 22% of the actual nearest neighbours"
+filed_by: Claude Code (found while repairing something else, 2026-08-26)
+created_at: 2026-08-26
+description: >
+  PHX-1059 gave the substrate Lance indices because it had none and every lookup
+  was a full scan. Nobody measured what the *approximate* vector index costs in
+  accuracy, and it is not a rounding error.
+
+  Measured on the founding mesh (5,002 nodes, 384-d, IVF-PQ with 8 sub-quantisers,
+  cosine), comparing the indexed top-64 against the exact top-64 for all 47 gold
+  questions:
+
+      refine_factor   overlap (median / min)   median ms
+      none                  22% /  9%             9.40
+      5                     52% / 31%            10.32
+      10                    72% / 45%            11.11
+      20                    89% / 72%            11.80
+      30                    97% / 80%            12.09
+      50                   100% / 94%            12.22
+      no index at all      100% / 100%           12.38
+
+  **A median of 22%.** That is not an approximation of the nearest neighbours, it
+  is a different answer — and the index was buying 0.4 ms for it.
+
+  `nprobes` does nothing: 22% at 20 probes and 22% at 64. The loss is the product
+  quantiser, not partition coverage, so only re-ranking against the stored vectors
+  recovers it. `refine_factor=50` does, for 2.8 ms on the ANN step and **no
+  measurable end-to-end cost** (query median 96.4 -> 95.6 ms).
+
+  EFFECT ON THE PUBLISHED NUMBERS. Gold-set recall **74% -> 76%**, questions
+  answered in full **33 -> 36**, genealogical 68% -> 71%. The demo's Beat 1 gains
+  the literal answer node: "Sea foam — Foam of the sea from which Aphrodite was
+  born" enters at rank 5, having been outside the top twelve.
+
+  HOW IT SURFACED, because the path matters. While repairing source-anchor
+  provenance (PHX-1084) on a copy, recall moved 74% -> 76%. A no-op rewrite —
+  byte-identical content written back — reproduced the same jump, which looked
+  like the published number depending on physical row order. Two wrong causes
+  were chased and discarded before the right one: sorting the label lookup made
+  no difference, and ordering it inside the query made none either, because the
+  label lookup was byte-identical on both meshes all along. The divergence was
+  the ANN candidate set, and the reason the rewritten copy scored *better* is
+  that `add(mode="overwrite")` drops the vector index — so it was searching
+  exactly.
+
+  WHY IT WAS INVISIBLE. It only shows against something exact to compare with,
+  and every measurement this project ever took was on the same indexed mesh. The
+  substrate agreed with itself.
+
+  SCOPE STATED RATHER THAN IMPLIED. 50 re-ranks `50 * limit` rows, which on a
+  5,002-node mesh is very nearly exhaustive — which is why it matches the
+  unindexed scan in both accuracy and time. That the same setting stays cheap on
+  a large mesh is reasoned, not measured: this repo has no large mesh carrying a
+  vector index to check it on (`data/mesh-wiki-100k` has no indices at all, and
+  its vectors are 1024-d).
+
+relates_to:
+  - PHX-1059   # the indices this measures the cost of
+  - PHX-1084   # the repair that surfaced it
+  - PHX-1083   # the demo Beat-1 numbers this moves again
+linked_scripts:
+  - src/theogony/mesh/storage/nodes.py
+  - tests/mesh/test_vector_search_refinement.py
