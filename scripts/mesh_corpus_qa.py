@@ -37,6 +37,7 @@ def main() -> None:
         return asyncio.run(embedder.embed_many([text]))[0]
 
     if args.curve:
+        print(f"Ticks auf diesem Mesh: {runtime.tick_count()}\n")
         curve = recall_curve(runtime, embed)
         print(f"{'top_k':>6s}  {'Recall':>7s}")
         for k, recall in curve.items():
@@ -45,6 +46,12 @@ def main() -> None:
 
     results = evaluate(runtime, embed, top_k=args.top_k)
     summary = summarise(results)
+    # Recall is only comparable at equal tick count: a tick costs ~777 units of
+    # edge weight against ~0.1 returned by reinforcement (PHX-1077), so a mesh
+    # that has been ticked more scores lower for reasons unrelated to retrieval.
+    # Reported beside every number rather than left for the reader to remember
+    # (PHX-1074).
+    summary["ticks"] = float(runtime.tick_count())
 
     if args.json:
         print(json.dumps(summary, indent=2))
@@ -72,6 +79,10 @@ def main() -> None:
             f"/{s_['questions']:.0f}"
         )
     print()
+    print(
+        f"Ticks auf diesem Mesh        {summary['ticks']:.0f}"
+        f"   (Recall ist nur bei gleicher Tick-Zahl vergleichbar)"
+    )
     print(f"Fragen                       {summary['questions']:.0f}")
     print(f"erwartete Entitaeten         {summary['entities_expected']:.0f}")
     print(
