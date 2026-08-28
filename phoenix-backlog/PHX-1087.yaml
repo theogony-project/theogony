@@ -1,0 +1,81 @@
+id: PHX-1087
+category: evaluation
+priority: high
+status: done
+generation_target: MESH migration — S3 (answer quality)
+title: "The answer step loses 62% of what retrieval delivers, and nothing was measuring it"
+filed_by: Claude Code (first end-to-end answer measurement, 2026-08-26)
+created_at: 2026-08-26
+description: >
+  Every retrieval number this repo has published answers "did the expected entity
+  reach the working set". None answered the question the working set exists for.
+  `mesh ask` returns a Constellation and synthesises nothing, and the question was
+  explicitly deferred when the answer budget moved to 50 (PHX-1069): "whether more
+  context completes an answer or dilutes it is not a question recall can settle".
+
+  Built and run. Three arms, same model (deepseek-chat, temperature 0), same 47
+  gold questions, same wording apart from where the material comes from:
+  `closed_book` (none), `vector_only` (top-50 by cosine as plain text),
+  `constellation`.
+
+      arm             answer recall   complete
+      closed_book              50%      13/47
+      vector_only              47%      12/47
+      constellation            46%      13/47
+
+  THE CLOSED-BOOK ARM IS NOT A FORMALITY. The corpus is Hesiod and the model has
+  read Hesiod, so the aggregate cannot discriminate. On the 34 questions the model
+  does *not* answer fully from memory: closed_book 29%, vector_only **45%**,
+  constellation 42%.
+
+  Retrieval earns its place: +16 points over pretraining. **The graph does not, on
+  this corpus** — against plain vector search at equal budget it wins 7 questions,
+  loses 7, ties 33. That is the arm designed to falsify the project and it does
+  not separate.
+
+  THE LARGER FINDING. Cross-referencing what retrieval delivered against what the
+  answer named:
+
+      111 expected entities, constellation arm
+                            named   not named
+      in the context           32          53
+      not in the context        0          26
+
+  Retrieval delivers 85 of 111 (77%); the answer names 32. **62% of what
+  retrieval finds is lost in the step after it**, and no instrument was looking
+  there. Every point of retrieval work since PHX-1068 was spent upstream of the
+  larger loss. (The zero matters too: in the context arms the model names nothing
+  it was not given.)
+
+  WHAT THE INSTRUMENT CANNOT DO, MEASURED RATHER THAN ASSUMED. The first prompt
+  offered an escape — "if the material does not contain the answer, reply
+  UNKNOWN" — and the model took it 20 times on questions whose answers were in
+  front of it: 31% against 52% for a wording without it. **The first draft of this
+  experiment would have reported that the substrate performs worse than the
+  model's own knowledge.**
+
+  And the noise floor, same constellations, same model, temperature 0: two points
+  of run-to-run variance, two to three more from a three-word change of prompt
+  ("Answer using…" against "Answer the question using…"). The between-arm
+  difference is one to four points. The signal is the size of the noise.
+
+  CONSEQUENCE: this corpus cannot settle whether the graph helps — canonical
+  mythology, 47 questions, and a noise floor as large as the effect. The HippoRAG
+  trio (3 x 1000 questions with gold answers, already on disk) can.
+
+resolution: >
+  `mesh/eval/corpus_answers.py` and `scripts/mesh_corpus_answers.py`: three arms,
+  scored on answer recall against the gold entities, with the closed-book control
+  and the prompt sensitivity both written into the module rather than left for the
+  next person to rediscover. First run recorded in docs/etappes/answer_quality.md.
+  Retrieval +16 points over pretraining on the discriminating slice; the graph
+  itself 7 wins / 7 losses / 33 ties against plain vector search — no separation
+  on this corpus, and the noise floor is too large for one this small to show it.
+relates_to:
+  - PHX-1069   # where this question was deferred
+  - PHX-1067   # the retrieval instrument this sits downstream of
+  - PHX-1080   # the same lesson: a number nobody can reproduce is not a measurement
+linked_scripts:
+  - src/theogony/mesh/eval/corpus_answers.py
+  - scripts/mesh_corpus_answers.py
+  - docs/etappes/answer_quality.md
