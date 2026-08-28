@@ -1,0 +1,60 @@
+id: PHX-1088
+category: substrate-retrieval
+priority: high
+status: done
+generation_target: MESH migration — S3 (what the Constellation carries)
+title: "44% of the edge budget repeated the same pair, and the ordering buried the answer"
+filed_by: Claude Code (found while chasing the answer-step loss, 2026-08-26)
+created_at: 2026-08-26
+description: >
+  PHX-1087 measured that 62% of what retrieval delivers never reaches the answer.
+  Chasing that led into the Constellation's edge list, and found two defects that
+  together hid a correct answer the substrate was holding.
+
+  On "What children did Theia bear to Hyperion?" — expected Helius, Selene, Eos —
+  the relation section opened with `Theogony authored Aphrodite`, `Phrixus
+  sacrificed_to Zeus`, and then `Theogony was jealous of Homer` **four times**.
+  Meanwhile the store holds `Theia --bare--> Helius`, `--bare--> Selene`,
+  `--bare--> Eos` and `Hyperion --father of-->` each of them. None was shown.
+
+  CAUSE ONE, ordering. `Theogony -> Homer` carries **nine distinct relations**;
+  the CSR holds a position for each and the values sum to **6.382**, against
+  **0.859** for `Theia -> Helius`. Edges were sorted by that sum, so pairs ranked
+  by how many ways they were connected rather than by their bearing on the query.
+
+  CAUSE TWO, repetition. `descriptor_index` is keyed by pair (PHX-1078), so one
+  row per CSR position printed the pair's single winning descriptor once per
+  position. Measured over the 47 gold questions at a 200-edge budget: **4,105 of
+  9,400 slots (44%)** went to repetitions of the same pair, 59% on the worst.
+
+  CORRECTION to the first reading: this is not duplicate storage. Across all 5,701
+  multi-edge pairs there are **zero** repeated descriptors and 6,557 genuinely
+  distinct extra relations. The store is right; the display was not.
+
+  FIXED: one row per *unordered* pair, keeping the direction that claims more by
+  `descriptor_rank`, ordered by the activation of the endpoints and then by claim.
+  Repetition 44% -> 0%. Retrieval unchanged at 77% / 36 of 47, as it must be —
+  edges are read for display, not for propagation.
+
+  AND IT DID NOT MOVE THE ANSWER. 46% before, 46% after, inside a measured noise
+  floor of two points. The rendering hypothesis for PHX-1087's 62% loss is
+  refuted. Stronger: dropping the relation section entirely scores **45% against
+  42%** with it. The graph's relations contribute nothing measurable to the answer
+  on this corpus — which is worth shipping the fix for anyway, because a
+  Constellation that spends 44% of its edge budget saying one thing four times is
+  wrong whether or not anyone downstream notices.
+
+resolution: >
+  One ConstellationEdge per unordered node pair, direction chosen by
+  `descriptor_rank`, ordered by endpoint activation rather than by summed edge
+  weight. Repetition over the gold set 44% -> 0%; retrieval unchanged at 77%.
+  Three of the four new tests fail against the previous code. The answer number
+  did not move (46% -> 46%), which refutes the rendering hypothesis for PHX-1087.
+relates_to:
+  - PHX-1087   # the loss this was chasing
+  - PHX-1078   # the pair-keyed descriptor index that made the repetition possible
+  - PHX-1042   # the other case of the answer budget being spent on nothing
+linked_scripts:
+  - src/theogony/mesh/retrieval/constellation.py
+  - tests/mesh/retrieval/test_constellation_edge_selection.py
+  - docs/etappes/answer_quality.md
