@@ -89,13 +89,94 @@ model, temperature 0:
 from three words of prompt.** The difference between the arms is one to four
 points. *The signal is the size of the noise.*
 
+## Second round: is the loss in how the Constellation is rendered?
+
+The first round left an obvious hypothesis: 50 entity descriptions and 120
+relation lines is a poor way to hand a graph to a model. Chasing it produced a
+concrete defect and a negative result.
+
+### What the model was actually reading
+
+For *"What children did Theia bear to Hyperion?"* — expected Helius, Selene, Eos
+— the relation section opened with:
+
+```
+- Theogony authored Aphrodite
+- Phrixus sacrificed_to Zeus
+- Theogony was jealous of Homer
+- Theogony was jealous of Homer
+- Theogony was jealous of Homer
+- Theogony was jealous of Homer
+```
+
+**The substrate holds the answer literally**: `Theia --bare--> Helius`,
+`--bare--> Selene`, `--bare--> Eos`, plus `Hyperion --father of-->` each of them.
+None of it was shown.
+
+Two causes, both measured:
+
+- `Theogony -> Homer` carries **nine distinct relations**; the CSR holds a
+  position for each and sums their weights to **6.382**, against **0.859** for
+  `Theia -> Helius`. Edges were ordered by that sum, so pairs ranked by *how many
+  ways* they were connected rather than by their bearing on the question.
+- The descriptor index is keyed by pair, so one row per CSR position printed the
+  pair's single winning descriptor nine times. Over the 47 questions at a
+  200-edge budget, **4,105 of 9,400 slots (44%) went to repetitions of the same
+  pair**; 59% on the worst question.
+
+Fixed (PHX-1088): one row per unordered pair, keeping the direction that claims
+more, ordered by the activation of the endpoints. Repetition 44% → **0%**.
+Retrieval unchanged at 77% / 36 of 47, as it must be — this is display.
+
+### And it did not move the answer
+
+| | answer recall |
+|---|---|
+| before the fix | 46% |
+| after the fix | 46% |
+
+Within the noise floor. **The 62% loss is not a rendering problem.**
+
+### Does the relation section help at all?
+
+Same constellations, three renderings:
+
+| rendering | recall | complete |
+|---|---|---|
+| nodes + relations (shipped) | 42% | 11/47 |
+| **nodes only** | **45%** | **14/47** |
+| relations only | 41% | 11/47 |
+
+**Dropping the relations improves the answer**, by three points — inside the
+noise, so the honest statement is that the graph's relations contribute nothing
+measurable here, not that they harm.
+
+### Does more context dilute?
+
+The question deferred in PHX-1069, now measured on answers rather than recall:
+
+| top_k | constellation | vector_only |
+|---|---|---|
+| 10 | 28% | 39% |
+| 20 | 36% | 45% |
+| 50 | 46% | 47% |
+| 100 | **49%** | **51%** |
+
+**More context helps, monotonically, to 100.** No dilution. And plain cosine beats
+the Constellation at every budget, most widely at the tightest — eleven points at
+ten nodes. Spreading Activation fills the top of a small budget with nodes that
+are *related* where the question wanted nodes that are *similar*.
+
 ## What follows
 
 1. **The answer step is the bottleneck, not retrieval.** 77% reaches the working
    set and 46% reaches the answer. Every point of retrieval work since PHX-1068
-   has been spent upstream of the larger loss.
-2. **This corpus cannot settle whether the graph helps.** Canonical Greek
-   mythology, 47 questions, and a noise floor as large as the effect. The
-   HippoRAG trio (3 × 1000 questions with gold answers, already on disk) can.
-3. **No claim here rests on one arm's number.** They rest on differences, and the
+   has been spent upstream of the larger loss — and the loss is not rendering.
+2. **The graph's contribution to the answer is not measurable on this corpus.**
+   Relations neutral to slightly negative; plain cosine ahead at every budget.
+   That is the arm built to falsify the project, and this round did not clear it.
+3. **This corpus cannot settle it either way.** Canonical Greek mythology, 47
+   questions, and a noise floor as large as the effect. The HippoRAG trio
+   (3 × 1000 questions with gold answers, already on disk) can.
+4. **No claim here rests on one arm's number.** They rest on differences, and the
    differences under five points are not claims.

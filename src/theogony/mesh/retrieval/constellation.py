@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
-from theogony.mesh.storage.edges import EdgeCSR
+from theogony.mesh.storage.edges import EdgeCSR, descriptor_rank
 
 
 class ConstellationNode(BaseModel):
@@ -178,15 +178,62 @@ def assemble_constellation(
     # here used to claim.
     descriptors = runtime.descriptor_index()
 
-    raw_edges: list[tuple[int, int, float]] = []
+    # One row per node PAIR, not per CSR position. Two nodes may be joined by
+    # several distinct relations — `Theogony -> Homer` carries nine on the
+    # founding mesh — and the CSR holds a position for each. The descriptor index
+    # is keyed by pair, so emitting a row per position printed the pair's single
+    # winning descriptor once per position: "Theogony was jealous of Homer", four
+    # times in one Constellation, spending four slots to say one thing. Measured
+    # across single-seed constellations, 28-50% of the edge budget went to such
+    # repetitions (PHX-1088).
+    activation_by_index = {idx: act for idx, act in keep}
+    best: dict[tuple[int, int], float] = {}
     for src_idx, _ in keep:
         start = int(csr.crow_indices[src_idx].item())
         end = int(csr.crow_indices[src_idx + 1].item())
         for pos in range(start, end):
             tgt_idx = int(csr.col_indices[pos].item())
-            if tgt_idx in topk_set:
-                raw_edges.append((src_idx, tgt_idx, float(csr.values[pos].item())))
-    raw_edges.sort(key=lambda e: e[2], reverse=True)
+            if tgt_idx not in topk_set:
+                continue
+            key = (src_idx, tgt_idx)
+            value = float(csr.values[pos].item())
+            if value > best.get(key, 0.0):
+                best[key] = value
+
+    # Ordered by how strongly the query activated the *endpoints*, not by edge
+    # weight. The CSR value sums a pair's parallel edges, so weight ranks pairs by
+    # how many ways they are connected rather than by how much they bear on the
+    # question. `Theogony -> Homer` summed to 6.382 across nine relations and
+    # outranked `Theia -> Helius` at 0.859 — on a query asking which children
+    # Theia bore, whose answer is exactly that edge. Activation is what the query
+    # produced; weight is what the corpus happened to repeat.
+    def _claim(src: int, tgt: int) -> int:
+        """How much the relation between two nodes claims (PHX-1078's ranking)."""
+        return descriptor_rank(descriptors.get((csr.node_ids[src], csr.node_ids[tgt])))
+
+    # One row per *unordered* pair, keeping the direction that claims more. Both
+    # directions are stored and both are real, but they describe the same join:
+    # `Theia --was subject in love to--> Hyperion` and `Hyperion
+    # --co_mentions_in_paragraph--> Theia` sat next to each other at the top of a
+    # Constellation, the second saying nothing the first had not.
+    undirected: dict[tuple[int, int], tuple[int, int, float]] = {}
+    for (src, tgt), weight in best.items():
+        key = (src, tgt) if src <= tgt else (tgt, src)
+        held = undirected.get(key)
+        if held is None or (_claim(src, tgt), weight) > (_claim(held[0], held[1]), held[2]):
+            undirected[key] = (src, tgt, weight)
+
+    # Ordered by how strongly the query activated the endpoints, then by how much
+    # the relation claims, then by weight.
+    def _edge_key(edge: tuple[int, int, float]) -> tuple[float, int, float]:
+        src, tgt, weight = edge
+        return (
+            min(activation_by_index.get(src, 0.0), activation_by_index.get(tgt, 0.0)),
+            _claim(src, tgt),
+            weight,
+        )
+
+    raw_edges = sorted(undirected.values(), key=_edge_key, reverse=True)
 
     edges: list[ConstellationEdge] = []
     for src_idx, tgt_idx, weight in raw_edges[:max_edges]:
