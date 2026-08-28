@@ -40,49 +40,38 @@ Honest note for the audience: the replay uses the retrieval's seed set with
 uniform weights — hop order and spread are real; ranking comes from the
 actual retrieval result.
 
-**What the default actually returns, re-measured 2026-08-26.** This section used
-to claim that seed count dominated Beat 1 — that at the Cockpit's eight seeds the
-generic Theogony-poem node took 0.596 activation, "3× the runner-up", and pushed
-*Iliad* noise above the answer, so the demo should be run with `--seeds 3`. None
-of that reproduces any more:
+**What the default actually returns.** This section used to claim that seed count
+dominated Beat 1 — that at eight seeds the generic Theogony-poem node took 0.596
+activation, "3× the runner-up", and pushed *Iliad* noise above the answer, so the
+demo should be run with `--seeds 3`. None of it reproduces: the poem node sits
+around rank 13 at a twentieth of that activation, and `--seeds 3` and `--seeds 2`
+return node-for-node identical constellations. The claim predates the re-read that
+kept entity names (PHX-1065, 6,816 → 5,002 nodes).
 
-| | claimed | measured today |
-|---|---|---|
-| rank 1 | the poem hub at 0.596 | **Aphrodite** at 0.2152 |
-| the poem hub | rank 1, 3× the runner-up | **rank 13** at 0.0499 |
-| ranks 2–4 | *Iliad* noise | Cytherea · Cyprus · Aphrodite-and-Anchises |
-| `--seeds 3` vs `--seeds 2` | different constellations | node-for-node identical |
+So run Beat 1 at the defaults, and point at the *property* rather than a rank
+table. Exact ranks move a place or two whenever the Lance vector index is rebuilt
+(PHX-1085), and a table of them is a claim that will rot again — which is what
+happened to the last one. What holds:
 
-The substrate moved past the problem. The claim dates from before the corpus was
-re-read with entity names kept (PHX-1065, 6,816 → 5,002 nodes); the hub no longer
-dominates at any seed count, and `--seeds 3` distinguishes nothing.
-
-So run Beat 1 at the defaults, and point at what is actually on screen:
-
-| rank | node |
-|---:|---|
-| 1 | Aphrodite — Goddess of love and beauty |
-| 2 | **Cytherea** — epithet, *born from sea foam* |
-| 3 | **Cyprus** — the island where she came ashore |
-| 6 | the mythological accounts of her birth |
-| 20 | the passage describing her birth from sea foam |
-
-Three of the top six are the answer, and the two that carry it — the epithet and
-the island — were never named in the question. That is the point Beat 1 was
-always trying to make; it no longer needs a seed-count caveat to make it.
-
-Source anchors sit at ranks 51–53, outside the answer budget and riding along as
-provenance (PHX-1042), so the gap report can still say where the answer came
-from without spending answer slots on it.
+- **The top three are the answer, and two of them were never named in the
+  question**: Aphrodite, then *Cytherea* — the epithet, glossed "born from sea
+  foam" — then *Cyprus*, the island she came ashore on. That is the substrate
+  reaching an answer through relations rather than through resemblance to the
+  words of the question.
+- **The generic work-node does not win.** "Theogony — A poem by Hesiod" sits
+  around rank 13. Hub suppression is doing its job (PHX-1042).
+- **Provenance rides outside the answer budget**, at ranks 51–53, so the gap
+  report can say where the answer came from without spending answer slots on it.
+  The anchors read `text: Hesiod, the Homeric Hymns and Homerica (batch 1)
+  (https://www.gutenberg.org/ebooks/348)` — repaired in PHX-1084, where they used
+  to name the temp directory the corpus was read from.
+- **The full birth narrative is reachable but not at the top**: the passage
+  describing the foam and the severed members sits around rank 20. Say so. The
+  honest state is the demo.
 
 ```bash
 theogony mesh ask "How was Aphrodite born?" --root data/mesh-founding
 ```
-
-Honest note for the audience, and it is visible on screen: the anchors currently
-read `text: Theogony named batch_01 (/private/tmp/...)`, because the founding
-mesh was read from a working copy and the anchor recorded the path it was read
-from rather than the work. Filed as PHX-1084.
 
 ## Beat 2 — Contradiction is first-class (~60s)
 

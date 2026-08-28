@@ -146,13 +146,30 @@ def mesh_ingest(
     if text_file:
         path = Path(source).resolve()
         raw_text = path.read_text(encoding="utf-8")
+        # The anchor is what every source-anchor node will *say about its own
+        # provenance*, forever. An absolute path says where the file happened to
+        # sit during one run, which is not the same thing and does not survive a
+        # copy: the founding mesh was read from a working copy — correctly — and
+        # all 1,219 of its anchors ended up reading
+        # "(/private/tmp/claude-501/.../scratchpad/...)" (PHX-1084).
+        #
+        # Falling back to the bare filename keeps that from recurring. It is still
+        # a weak identifier, so say so rather than let it pass silently: `--anchor`
+        # takes a URL or a citation and is what this wants.
+        derived_anchor = anchor or path.name
+        if anchor is None:
+            _console.print(
+                f"[yellow]note[/yellow] no --anchor given; source anchors will read "
+                f"{derived_anchor!r}. Pass --anchor with a URL or citation for "
+                f"provenance that survives moving the file."
+            )
         result = asyncio.run(
             reader.read_text(
                 text=raw_text,
                 source_type=source_type,
                 source_identifier=str(path),
                 title=title or path.stem,
-                anchor=anchor or str(path),
+                anchor=derived_anchor,
             )
         )
     else:
