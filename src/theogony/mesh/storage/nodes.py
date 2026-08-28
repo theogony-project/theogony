@@ -7,10 +7,11 @@ with per-vector HNSW indices on ``semantic_vector`` (default) and on populated
 
 from __future__ import annotations
 
+import contextlib
 import re
 from collections.abc import Iterable, Iterator
 from datetime import timedelta
-from typing import Any
+from typing import Any, cast
 
 import lancedb
 import pyarrow as pa
@@ -44,6 +45,34 @@ def _create_scalar_index(table: Any, column: str) -> None:
 
 # Below this row count a full scan beats an index, and IVF cannot train
 # partitions. Chosen so test-sized workspaces never pay for indexing.
+# Re-rank this many times ``limit`` PQ candidates against their true vectors
+# before returning. Without it the IVF-PQ index is not an approximation of the
+# nearest neighbours, it is a different answer: measured on the founding mesh
+# (5,002 nodes, 384-d), the indexed top-64 overlapped the exact top-64 by a
+# **median of 22%**, minimum 9% (PHX-1085).
+#
+#     refine_factor   overlap (median / min)   median ms
+#     none                  22% /  9%             9.40
+#     5                     52% / 31%            10.32
+#     10                    72% / 45%            11.11
+#     20                    89% / 72%            11.80
+#     30                    97% / 80%            12.09
+#     50                   100% / 94%            12.22
+#     no index at all      100% / 100%           12.38
+#
+# `nprobes` does nothing here — 22% at 20 and at 64 — so the loss is the product
+# quantiser (8 sub-vectors for a 384-d vector), not partition coverage. Only
+# re-ranking against the stored vectors recovers it.
+#
+# 50 costs 2.8 ms on this mesh and buys back the whole candidate set. It re-ranks
+# `50 * limit` rows, so on a 5,002-node mesh it is very nearly exhaustive — which
+# is why it matches the unindexed scan in both accuracy and time. On a large mesh
+# the same setting re-ranks a small fraction and the index does the work it was
+# built for. That half is reasoned rather than measured: this repo has no large
+# mesh carrying a vector index to check it on (`data/mesh-wiki-100k` has none,
+# and its vectors are 1024-d).
+_VECTOR_REFINE_FACTOR = 50
+
 _MIN_ROWS_FOR_INDEX = 512
 
 # A Lance index covers only the rows that existed when it was built; later
@@ -574,34 +603,30 @@ class MeshNodeStore:
         vector_column_name: str = "description_vector",
         limit: int = 16,
     ) -> list[ConsolidatedNode]:
+        """Nearest consolidated nodes by cosine, re-ranked against their true vectors.
+
+        See :data:`_VECTOR_REFINE_FACTOR` for why the re-ranking is not optional:
+        without it this returns a median of 22% of the actual nearest neighbours.
+        """
         if not vector or limit <= 0:
             return []
+
+        def _search(column: str) -> list[dict[str, Any]]:
+            query = as_vector_query(
+                self.consolidated_table.search(vector, vector_column_name=column)
+            ).metric("cosine")
+            # Unsupported on a table with no vector index — there is nothing to
+            # refine there, the search is already exact.
+            with contextlib.suppress(Exception):
+                query = query.refine_factor(_VECTOR_REFINE_FACTOR)
+            return cast("list[dict[str, Any]]", query.limit(limit).to_list())
+
         try:
-            rows = (
-                as_vector_query(
-                    self.consolidated_table.search(
-                        vector,
-                        vector_column_name=vector_column_name,
-                    )
-                )
-                .metric("cosine")
-                .limit(limit)
-                .to_list()
-            )
+            rows = _search(vector_column_name)
         except Exception:  # noqa: BLE001
             if vector_column_name == "semantic_vector":
                 raise
-            rows = (
-                as_vector_query(
-                    self.consolidated_table.search(
-                        vector,
-                        vector_column_name="semantic_vector",
-                    )
-                )
-                .metric("cosine")
-                .limit(limit)
-                .to_list()
-            )
+            rows = _search("semantic_vector")
         return [ConsolidatedNode.model_validate_json(row["payload_json"]) for row in rows]
 
     def iter_consolidated(self, *, page_size: int = 1000) -> Iterator[ConsolidatedNode]:
