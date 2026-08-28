@@ -240,8 +240,9 @@ class MeshRuntime:
 
         Keyed on the edge mutation generation, so it survives across queries and is
         rebuilt only after a write. Retrieval reads it once per query instead of
-        issuing a filtered metadata query, which measured ~194 ms *per query* on the
-        founding mesh against ~0 ms from this cache.
+        rebuilding it per query, which costs 290 ms on the founding mesh against
+        ~0 ms from this cache (re-measured 2026-08-26; see
+        :meth:`EdgeStore.descriptor_index`).
         """
         key = self.edges.mutation_generation
         if not force and self._descriptor_cache is not None and self._descriptor_cache_key == key:

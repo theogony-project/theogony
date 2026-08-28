@@ -1,0 +1,43 @@
+id: PHX-1084
+category: substrate-integrity
+priority: medium
+status: open
+generation_target: MESH migration — S2 (ingestion provenance)
+title: "Every source anchor in the demo mesh points at a temp directory"
+filed_by: Claude Code (audit follow-up, 2026-08-26)
+created_at: 2026-08-26
+description: >
+  All **1,219** source anchors in `data/mesh-founding` describe themselves as:
+
+      text: Theogony named batch_01 (/private/tmp/claude-501/-Users-jakobreinehr-
+      PycharmProjects-theogony/a389241c-9622-4069-8703-726f9ab20d35/scratchpad/...)
+
+  A source anchor exists to say where a claim came from. These say where the file
+  happened to sit during one session, in a directory that no longer exists and
+  that encodes a session id. Provenance that cannot be resolved is not provenance.
+
+  Visible to anyone running the demo: the anchors ride along in every
+  Constellation as the provenance band (PHX-1042), so they are on screen for
+  Beat 1 and Beat 2, where "source anchors from books that never cite each other"
+  is the talking point.
+
+  CAUSE. The full read was correctly run on a working copy rather than on the
+  demo asset, and the anchor recorded `source_identifier` as the path it read
+  from. The instruction was sound; the ingestion recorded the wrong thing about
+  it. A stable identifier — the work, the edition, a Gutenberg id — would have
+  survived the copy.
+
+  TWO PARTS, and the second is the one that matters:
+   - the data: rewrite the anchor descriptions in `data/mesh-founding` to a
+     stable identifier. A backup exists (`data/mesh-founding.backup-2026-08-26`,
+     verified readable at 5,002 nodes / 94,490 edges).
+   - the code: `mesh/ingestion/source_anchor.py` should record what the source
+     *is*, not the path it was read from, so a future read on a copy does not
+     reproduce this.
+
+relates_to:
+  - PHX-1042   # why anchors are on screen at all
+  - PHX-1065   # the other case of the write path storing the wrong string
+linked_scripts:
+  - src/theogony/mesh/ingestion/source_anchor.py
+  - demo/founding_demo.md
