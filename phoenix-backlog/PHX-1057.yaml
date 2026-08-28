@@ -1,7 +1,7 @@
 id: PHX-1057
 category: ingestion-performance
 priority: high
-status: in_progress
+status: done
 generation_target: MESH migration — reading at scale (S2)
 title: "Ingestion throughput collapse is per-candidate neighbour scans and per-edge Lance writes"
 filed_by: Claude Code (measured on the founding mesh, 2026-08-16)
@@ -65,6 +65,13 @@ description: >
   produced Rhea, Cronos and all six children, and made "Who are the children of
   Cronus?" return an actual child at rank 1.
 
+resolution: >
+  Both waves shipped: PR #208 (80e15ad) added `EdgeStore.adjacency_index()` with once-per-run priming in the eager linker and buffered/bounded-batch edge writes in the reader, cutting one paragraph on the 463-node founding mesh from 109 s to 28.6 s (mentions_resolved 37.9 s -> 3.24 s, stored ~21 s -> 0.01 s); PR #212 (a56888b) closed the follow-up by batching label hydration through `get_consolidated_many` and threading the already-held node into `merge_identity_evidence`, taking resolution 918.1 s -> 343.9 s and total ingest 1,690.8 s -> 855.3 s while keeping candidate selection order-exact (0/60 mismatches). The known ~683 ms cost of attaching a genuinely new Q-ID is recorded as accepted and bounded per ingest, not outstanding.
+linked_prs:
+  - "208"
+  - "212"
+  - "80e15ad78254b019759eb5dd17abcf4b7e225914"
+  - "a56888b8f23d2227969ba5c977fdf9c04cdd0d24"
 relates_to:
   - PHX-1047   # supersedes its diagnosis: the ANN is fast, context scoring is not
   - PHX-1050   # write amplification — the second half, now batched at the reader

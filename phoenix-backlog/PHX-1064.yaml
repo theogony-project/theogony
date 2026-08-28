@@ -81,6 +81,8 @@ description: >
   passage — a seeding and embedding problem, measured in PHX-1066 as unaffected
   by the shape of the graph.
 
+resolution: >
+  Superseded. The diagnosis holds — the demo question fails on entity fragmentation, not retrieval, and no retrieval knob rescues it (best 4 of 18) — but consolidation is documented S5-deferred work (MESH_MIGRATION_PLAN.md:117) rather than a defect. The retrieval half was answered by PHX-1068 and PHX-1069; the consolidation half waits for S5.
 relates_to:
   - PHX-1065   # the actual cause
   - PHX-1066   # why the edge mix does not explain the residue

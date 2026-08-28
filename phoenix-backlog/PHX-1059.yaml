@@ -1,7 +1,7 @@
 id: PHX-1059
 category: substrate-performance
 priority: high
-status: in_progress
+status: done
 generation_target: MESH migration — reading at scale (S2)
 title: "The substrate never built any Lance index; every lookup was a full scan"
 filed_by: Claude Code (measured on the founding mesh, 2026-08-18)
@@ -76,6 +76,13 @@ description: >
   descriptor cache). This reduces what each query COSTS. The two compose — the
   batching remains worthwhile because an indexed query is still not free.
 
+resolution: >
+  Shipped in full across PR #213 (first indices) and PR #214 (refresh): `MeshNodeStore.ensure_indices` builds scalar indices on id/label/qid and row-scaled IVF_PQ indices on both vector columns, is called from `run_minimal_tick` rather than the ingest path, skips below 512 rows, and folds rows appended after a build back in once the unindexed tail passes 512 while keeping version history (retention 3650 days). Measured 20x/15x/7.5x on the initial build and 27x/39x/8x for a refresh over a stale index; the steady-state regression test the YAML's methodological note asked for exists and passes (8/8 in tests/mesh/test_lance_indices.py).
+linked_prs:
+  - "213"
+  - "214"
+  - "faafff4"
+  - "fd47aa4"
 relates_to:
   - PHX-1057   # nested-per-item query pattern; this is the other half
   - PHX-1047   # the original throughput-collapse ticket

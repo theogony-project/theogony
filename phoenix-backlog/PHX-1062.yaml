@@ -1,7 +1,7 @@
 id: PHX-1062
 category: substrate-performance
 priority: medium
-status: in_progress
+status: done
 generation_target: MESH migration — reading at scale (S2)
 title: "The audit log was the one table no maintenance pass touched"
 filed_by: Claude Code (found during the Theogony full read, 2026-08-19)
@@ -37,6 +37,10 @@ description: >
   three times by an API moving between the locally installed version and the one
   CI resolves (AGENTS.md §5), most recently the same day in #218.
 
+resolution: >
+  Shipped in f65e451 (PR #219): the Oneiros tick now prunes `mesh_audit`'s Lance version snapshots alongside the node and edge tables, and `list_recent` pushes ordering into the store via `ColumnOrdering`, with a tried-and-fallen-back-on path for lancedb API drift. Pruning took the ten-newest read from 266.6 ms to 2.1 ms (127x); the store-side sort is a further 27x on the pruned table (55.2 ms -> 2.0 ms). A `recorded_at` scalar index was measured and deliberately rejected (2.1 -> 1.9 ms, inside the noise, AGENTS.md §8).
+linked_prs:
+  - "219"
 relates_to:
   - PHX-1061   # batched the audit writes; this maintains the table they land in
   - PHX-1060   # prune_history, which this extends to the last uncovered table

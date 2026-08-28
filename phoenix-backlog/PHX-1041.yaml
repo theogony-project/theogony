@@ -38,6 +38,16 @@ description: >
   is a latency anomaly surfaced by the first S3 end-to-end runs at 100k scale.
   Filed rather than silently absorbed (AGENTS.md §3).
 
+resolution: >
+  The two "smallest first" fixes shipped in PR #184 (61caf3c): the EdgeCSR is now held resident on the MeshRuntime and reused until the edge store's mutation generation or pending-delta count changes (`rebuild_csr`, oneiros_tick.py:221-236 — keyed on an O(1) write counter rather than Lance `list_versions`, which was itself O(version count)), and it is built from the Arrow columns `source_id`/`target_id`/`weight`/`frame_consistency` instead of one `Edge.model_validate_json()` per row (`EdgeStore.csr_from_store`, edges.py:768-778); reported at wiki-100k as ~3.4 s cold and <0.01 ms on repeat hits (commit message; no RunReport). The third bullet — the Hot-tier resident CSR + delta buffer of MESH_IMPLEMENTATION.md §"Storage tiers", built by the tick and held across processes — was not implemented, so a one-shot `mesh ask` still pays the cold build.
+remaining: >
+  The third fix bullet, in the YAML's own words: "Longer term: the Hot-tier resident CSR + delta buffer of MESH_IMPLEMENTATION.md §'Storage tiers' — this is the read-side companion to PHX-1037's tick-time incremental CSR." Nothing of it exists: the Oneiros tick does not build or persist a stable CSR (MESH_IMPLEMENTATION.md:84 requires it "Built by Oneiros at the end of each tick"), there is no RAM/GPU-resident CSR artifact outside a single Python process, and the COO delta buffer is never merged into a resident CSR at read time — a pending delta only invalidates the process-local cache and triggers a full rebuild from Lance that excludes it. Consequence still open: any fresh process, `theogony mesh ask` included (src/theogony/mesh/cli.py:516,527), pays the full cold CSR build per query; the shipped cache only amortizes across queries inside one long-lived process. Secondary, per phoenix-backlog/README.md's lifecycle: the YAML still carries no `resolution:` field and no `linked_prs:` for PR #184, and docs/PHOENIX_BACKLOG.md:29 still says "open" and still describes the per-query `load_all_edges()` rebuild as current behaviour.
+linked_prs:
+  - "184"
+  - "61caf3c"
+  - "6fa8965"
+  - "919a371"
+  - "e83f64a"
 relates_to:
   - PHX-1037   # incremental CSR + quantization (write/tick path); this ticket is the read/query path
   - PHX-1001   # S3 / S5 substrate runtime

@@ -88,6 +88,8 @@ description: >
   cannot tell "hermes" from "epic poem" would fuse the Little Iliad with the
   Aethiopis.
 
+resolution: >
+  Measured and rejected. Persisting merge-time aliases cost recall: 65% -> 58% on the founding gold set, because folding referring expressions into their referent removes the distinct nodes name-anchored seeding lands on. The diagnosis stands and the remedy does not.
 relates_to:
   - PHX-1064   # this is its residual, now with a mechanism
   - PHX-1065   # the same class: identity discarded at write time

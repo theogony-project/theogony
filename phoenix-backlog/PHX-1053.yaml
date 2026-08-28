@@ -1,7 +1,7 @@
 id: PHX-1053
 category: substrate-identity
 priority: high
-status: in_progress
+status: done
 generation_target: MESH migration — identity durability (S2/S3 foundation)
 title: "Merge-time identity evidence is not persisted — Q-IDs evaporate with the process"
 filed_by: Claude Code (founding-mesh Beat-2 verification, 2026-07-18)
@@ -24,6 +24,12 @@ description: >
   "Venus" (Q35500) reference resolve to the same node via the qid signal —
   the Greek/Roman cross-source bridge.
 
+resolution: >
+  Shipped in PR #189 (fd370c8, merged 0dbb1cb): MeshNodeStore.merge_identity_evidence() appends new Q-IDs to the stored node payload and the consolidated_qid_index (nodes.py:457-484), and EagerLinker calls it in all three merge branches (linker.py:330/345/359). The Greek/Roman bridge is pinned end-to-end — a tag-corroborated Aphrodite merge carrying Q35500 makes a follow-up Venus(Q35500) reference resolve to the same node (tests/mesh/test_ingestion_linker_evidence_persistence.py:66-100; 7 tests pass). PHX-1063 later narrowed persistence to authoritative callers, and the alias half was carried to PHX-1071 and measured-and-rejected there.
+linked_prs:
+  - "189"
+  - "fd370c8"
+  - "0dbb1cb"
 relates_to:
   - PHX-1051   # identity attractor (fixed) — sibling write-path integrity issue
   - PHX-1052   # protagonist extraction (fixed) — surfaced this as the next blocker

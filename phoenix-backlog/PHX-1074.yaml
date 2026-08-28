@@ -65,6 +65,14 @@ description: >
   mesh has seen, or the next person to compare two numbers will find a regression
   that is really a maintenance pass.
 
+resolution: >
+  The performance half shipped: `merge_edge_deltas` now takes a shallow copy (src/theogony/mesh/storage/edges.py:244, commit c71e25f / PR #237), tick 4.90 s -> 3.80 s (-22%), with the shared-list-field boundary pinned by tests/mesh/test_merge_copy_semantics.py (5 passing). The measurement consequence did not ship: the benchmark still records no tick count, so two recall figures remain silently incomparable across a maintenance pass.
+remaining: >
+  The benchmark still does not record the tick count. In the YAML's own words: "The benchmark should record how many ticks the mesh has seen, or the next person to compare two numbers will find a regression that is really a maintenance pass." Nothing in src/theogony/mesh/eval/corpus_qa.py (`summarise`, lines 221-233) or scripts/mesh_corpus_qa.py emits a tick count, and the runtime persists only `last_tick_at` (src/theogony/mesh/runtime/oneiros_tick.py:349) — no counter exists to report, so this needs both a tick counter on the substrate (or a count of `mesh_oneiros_minimal_tick` audit rows) and a field for it in the benchmark summary.
+linked_prs:
+  - "237"
+  - "c71e25f754559bb1ffeee543a81b34a5ede187cf"
+  - "1c75cde"
 relates_to:
   - PHX-1067   # the instrument that caught the 68 -> 65 discrepancy
   - PHX-1061   # the same one-transaction/one-copy-per-item shape

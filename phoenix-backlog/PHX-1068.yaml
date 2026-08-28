@@ -1,7 +1,7 @@
 id: PHX-1068
 category: substrate-retrieval
 priority: high
-status: in_progress
+status: done
 generation_target: MESH migration — S3 (retrieval quality)
 title: "Retrieval never looked up the entities a question names; recall 48% -> 65%"
 filed_by: Claude Code (measured against the PHX-1067 gold set, 2026-08-20)
@@ -55,6 +55,12 @@ description: >
   because PHX-1067 supplied an independent number for the prototype to disagree
   with. The measurement in point 1 above was re-run on the correct column.
 
+resolution: >
+  Name-anchored seeding shipped in #225 (0372bd7): capitalised spans in the question, minus a question-word list, are looked up in the exact label index the eager linker uses and injected as full-strength seeds, on by default and passed the question text by `mesh ask`, the Cockpit and the benchmark alike. Recall 48% → 65% on the founding gold set, questions answered in full 13 of 32 → 18, for 8 ms per query; the evaluator's `description_vector`/`semantic_vector` instrument error was corrected in the same change. A follow-up ordering defect — a category word eating the anchor budget — was found and fixed under PHX-1081 (2eb1359).
+linked_prs:
+  - "225"
+  - "0372bd7"
+  - "b8beb6c"
 relates_to:
   - PHX-1067   # the instrument that caught the prototype's error
   - PHX-1066   # edge quality, which this makes matter

@@ -46,6 +46,8 @@ description: >
       a published number stopped matching the file. Now an exact assertion, with
       the entity count beside it.
 
+resolution: >
+  The question kind is a field on the gold question, with its rule and five borderline calls written beside it. Three hand-labellings of the same 47 questions had given 51%, 55% and 57% genealogical; the checked-in share is 55% by question, 68% by entity. Every number quoting the retired 32-question set's 66% was corrected, including a README still advertising 32 questions.
 relates_to:
   - PHX-1066   # the regression the split exists to catch
   - PHX-1073   # the widening whose own share figure was also a hand-count

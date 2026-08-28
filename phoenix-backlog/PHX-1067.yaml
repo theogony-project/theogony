@@ -1,7 +1,7 @@
 id: PHX-1067
 category: evaluation
 priority: critical
-status: in_progress
+status: done
 generation_target: MESH migration — S3 (retrieval quality)
 title: "No instrument existed for retrieval quality on the founding corpus; three diagnoses were wrong because of it"
 filed_by: Claude Code (2026-08-20)
@@ -61,6 +61,12 @@ description: >
   father of the Olympian gods", it is in the mesh, and it does not reach the top
   30. The name is in the question verbatim.
 
+resolution: >
+  Shipped whole in 1eb95f9 (PR #224): a fixed gold set of 32 questions over the founding corpus, each carrying its answering passage, scored against the live substrate through MeshRuntime + retrieve(), with answers as entity names resolved at evaluation time and coverage reported separately from recall. First baseline 100% coverage, 48% recall, 13 of 32 fully answered. The instrument has since been the measurement basis for PHX-1068, 1069, 1073, 1079 and 1080, which widened it to 47 questions and 111 expected entities.
+linked_prs:
+  - "224"
+  - "1eb95f9"
+  - "4dca2d5"
 relates_to:
   - PHX-1064   # a wrong diagnosis this instrument would have caught
   - PHX-1065   # names on nodes are what make name-keyed gold possible

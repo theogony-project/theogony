@@ -31,6 +31,14 @@ description: >
   topology-shaping change and is flagged for doctrine review per AGENTS §6,
   not applied silently.
 
+resolution: >
+  The k-NN cap shipped and is live: each paragraph keeps its top-12 entity-sharing partners (union selection, `--structural-neighbours`, 0 = uncapped control), dropped pairs audited, connectivity preserved and pinned by 7 tests — measured -16.5% edges and -27.0% on the relations stage, but only -7.2% total, since entity resolution is 54% of the run. Outstanding: the emergent-judge A/B the ticket required was never run (and no LCC ratio was reported for either arm), and the flagged MESH_SUBSTRATE doctrine review has no record in the repo.
+remaining: >
+  Two things the YAML asks for that have no evidence of happening. (1) The quality half of its acceptance criterion: "A/B on the emergent judge + connectivity metrics (LCC ratio, isolated-node count must not regress) before/after." Only the connectivity half was measured, and only partly — the isolated-node anomaly was compared across arms, the LCC ratio was never reported for either arm, and no emergent-judge run exists for this change even though scripts/mesh_emergent_judge.py is the repo's standard A/B instrument. This is the criterion that would show whether deleting 16.5% of edges costs retrieval quality, which is the whole risk of the change. (2) The doctrine step: "MESH_SUBSTRATE governs edge behaviour — this is a topology-shaping change and is flagged for doctrine review per AGENTS §6, not applied silently." Commit 57af91e changed no doctrine document, PR #211's body contains no doctrine flag, and no MESH doc mentions the cap; the change is currently on by default with the doctrine trail existing only in a code comment (kadmos_v2.py:58-64). Also outstanding as bookkeeping: the YAML lacks `resolution:` and `linked_prs: [#211]`, and docs/PHOENIX_BACKLOG.md:37 still says `open`.
+linked_prs:
+  - "211"
+  - "57af91e"
+  - "f454661"
 relates_to:
   - PHX-1045   # surfaced by the founding-mesh topology analysis
   - PHX-1042   # hub dynamics sibling (degree-aware retrieval levers)

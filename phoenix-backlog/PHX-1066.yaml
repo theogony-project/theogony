@@ -114,6 +114,8 @@ description: >
   earn their place on the evidence above and should be written into the doctrine
   with that rationale, rather than gated out of the substrate.
 
+resolution: >
+  Edges stay. MESH_SUBSTRATE §Edge now names the two classes the doctrine drew without saying so: asserted relation against observed adjacency. Decided on the measurement, not the ratio: removing co-occurrence reads as +2 on the aggregate and is +4 genealogical against -10 narrative, so the 93% figure is a correctness question and not a quality argument.
 relates_to:
   - PHX-1064   # the demo question, whose failure this does NOT explain
   - PHX-1049   # the cross-paragraph pass that emits the second-largest context

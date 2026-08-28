@@ -1,7 +1,7 @@
 id: PHX-1051
 category: substrate-identity
 priority: critical
-status: in_progress
+status: done
 generation_target: MESH migration — identity integrity (S2/S3 foundation)
 title: "Identity attractor: generic high-degree nodes absorb entities on description-cosine alone"
 filed_by: Claude Code (founding-mesh forensics, 2026-07-18)
@@ -30,6 +30,15 @@ description: >
   eager when the evidence is clear"). Repair of already-corrupted meshes is
   immune-system work (Athene/Chronos), tracked separately.
 
+resolution: >
+  Shipped in two passes: PR #186 (96dc4b3) made a description-cosine merge require lexical corroboration — a naming tag or a known label/alias — and PR #190 (d99cb3a) tightened both the description and tag branches after measuring that shared category tags ('Titaness', 'person') routed Dione's Q-ID onto Tethys. Guard at src/theogony/mesh/ingestion/linker.py:133 and :183, reached from the live ingestion path via kadmos_v2.py:383 and :520; covered by 5 passing tests in tests/mesh/test_ingestion_linker_identity_attractor.py. Mesh repair remains immune-system work, tracked separately.
+linked_prs:
+  - "186"
+  - "190"
+  - "96dc4b3"
+  - "d99cb3a"
+  - "036adf6"
+  - "9f8b79b"
 relates_to:
   - PHX-1042   # read-side sibling: hubs dominate retrieval
   - PHX-1045   # founding demo — surfaced by the missing-Aphrodite investigation

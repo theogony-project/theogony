@@ -81,6 +81,8 @@ description: >
   reference. At 0.75 recall points per tick (PHX-1074) that alone was 4.5 points.
   Equal tick count is not a nicety.
 
+resolution: >
+  Measured and viable, not shipped. 53,122 co-occurrence edges — 56% of the table — are the exact transitive closure of 7,229 `mentions` edges within each paragraph, with zero remainder: a 7.3x compression of the dominant edge class. Not acted on, because PHX-1066 decided those edges stay and deriving them at read time is a different change from storing them.
 relates_to:
   - PHX-1066   # the asserted/observed distinction this would physicalise
   - PHX-1074   # the tick profile that motivated looking here

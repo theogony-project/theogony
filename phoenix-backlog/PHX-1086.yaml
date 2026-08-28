@@ -1,0 +1,77 @@
+id: PHX-1086
+category: process
+priority: high
+status: done
+generation_target: MESH migration — backlog hygiene
+title: "The backlog lied about the project's state, in both directions"
+filed_by: Claude Code (audit finding, verified per-ticket 2026-08-26)
+created_at: 2026-08-26
+description: >
+  The Phoenix Backlog is what work gets prioritised from, and in a research repo
+  it is also the record of what was tried and rejected. It had drifted far enough
+  that neither half could be read on its own.
+
+  Every one of the 19 `in_progress` tickets was checked against the code and git
+  history, one agent per ticket, with instructions to verify rather than assume:
+
+      really done                15
+      partially done              5   (PHX-1041, 1049, 1055, 1058, 1074)
+      really still in progress    0
+
+  FOUR DISTINCT FAILURES, and the last is the one that let the others happen:
+
+  1. Fifteen tickets sat at `in_progress` with their implementation merged, some
+     for weeks. PHX-1059, 1063, 1065, 1067, 1068 among them — the entries the
+     project's own numbers rest on.
+  2. Five had merged code AND an unwritten remainder, which is the hardest kind
+     to pick up because the code looks finished. Each now carries a `remaining:`
+     field in the ticket's own words: PHX-1041's hot-tier resident CSR, PHX-1049's
+     A/B on the emergent judge, PHX-1055's half-completed move, PHX-1058's three
+     self-declared open items, and PHX-1074's requirement that the benchmark
+     record the tick count.
+  3. The catalogue and the YAMLs disagreed on **eight rows in both directions**.
+     PHX-1041/1049/1052 read `open` in the catalogue while merged; PHX-1059/1061/
+     1062/1063 read `done` there while the YAML said `in_progress`. PHX-1060 was
+     `done` in the catalogue and had never left `open` in its YAML. And PHX-1046
+     had no catalogue row at all.
+  4. `phoenix-backlog/README.md` delegates the schema to
+     `docs/PHOENIX_BACKLOG.md#ticket-format` — **an anchor that did not exist**.
+     So nothing enumerated the allowed statuses, eight values were in use, and
+     `done` had quietly displaced the `resolved` the lifecycle rule names.
+     `resolution:` — a baseline schema field per README.md:34 — was present and
+     non-empty on **0 of 42** tickets, terminal ones included.
+
+  FIXED. Statuses reconciled on both sides. A real §"Ticket format" written, so
+  the README's link resolves and the vocabulary is one someone wrote down. The
+  three `measured_*` values are ratified rather than migrated away: the
+  distinction between "unfinished" and "finished, and the answer was no" is the
+  one this project is about, and it deserves a status of its own.
+
+  Every terminal ticket now says what was done and the number if there is one:
+  35 of 45 carry `resolution:`.
+
+  `tests/test_phoenix_backlog_consistency.py` holds it: catalogue and YAML must
+  agree, every status must be in the documented set, the documented set and the
+  test's set must match, a finished ticket must have a `resolution:`, and an
+  `in_progress` one must have a `remaining:`. Deliberately not a YAML parse —
+  pyyaml is not a declared dependency (AGENTS.md §5).
+
+  The test found two things this pass had missed on its own: PHX-1046's absent
+  catalogue row, and fourteen terminal tickets with no `resolution:` — including
+  every one filed earlier the same day.
+
+resolution: >
+  19 in_progress tickets verified one by one against code and git history: 15 done,
+  5 partially done with their remainder now written down, 0 genuinely in progress.
+  Eight catalogue/YAML disagreements reconciled and one missing row added.
+  §"Ticket format" written so the README's dangling `#ticket-format` link resolves,
+  ratifying the eight statuses in use. `resolution:` went from 0 of 42 to 35 of 45.
+  Held by tests/test_phoenix_backlog_consistency.py, which caught two gaps this
+  pass had missed.
+relates_to:
+  - PHX-1079   # the same shape in code: a value nothing asserts is a value nothing protects
+  - PHX-1080   # and in measurement
+linked_scripts:
+  - docs/PHOENIX_BACKLOG.md
+  - phoenix-backlog/README.md
+  - tests/test_phoenix_backlog_consistency.py

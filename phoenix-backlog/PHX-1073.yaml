@@ -1,7 +1,7 @@
 id: PHX-1073
 category: evaluation
 priority: medium
-status: in_progress
+status: done
 generation_target: MESH migration — S3 (retrieval quality)
 title: "The gold set was 66% genealogical, and that bias nearly waved through a regression"
 filed_by: Claude Code (2026-08-20)
@@ -38,6 +38,12 @@ description: >
      at all. The test asserting a minimum evidence length caught it. A gold entry
      whose evidence cannot be checked is an assertion wearing a citation.
 
+resolution: >
+  Shipped in PR #234 (1a4e73f): the founding-corpus gold set went from 32 questions / 83 expected entities to 47 / 111, drawing the 15 new questions from the Homeric Hymns, the Shield of Heracles, the hundred-handed sons, Styx's oath and the Chimaera; both gold-rot corrections landed with it — "pomegranate" corrected to "pomegranate seed" against the corpus rather than the mesh, and the sixteen-character "Heliconian Muses" quote removed after the minimum-evidence-length assertion (tests/mesh/test_corpus_qa_eval.py:110) rejected it. Measured on the demo mesh at coverage 100%, recall 68%, 31 of 47 answered in full. The widening's own claim of a 51% genealogical share was superseded by PHX-1080, which checked the labels in: 55% by question (26 of 47), 68% by entity (75 of 111).
+linked_prs:
+  - "234"
+  - "1a4e73f"
+  - "12542de"
 relates_to:
   - PHX-1067   # the instrument this widens
   - PHX-1066   # the regression the bias nearly hid

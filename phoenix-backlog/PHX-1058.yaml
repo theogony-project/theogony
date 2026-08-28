@@ -61,6 +61,14 @@ description: >
   displaces anything (MESH_SUBSTRATE §3). The current truncation applies that
   intent bluntly.
 
+resolution: >
+  Both reported causes are fixed and verified on main: `merge_edge_deltas` is keyed by `(source, target, relation_descriptor)` and folds full-triple duplicates to the strongest weight, Hebbian deltas carry an optional relation so an unnamed delta cannot retype an existing edge, and `DEFAULT_MAX_OUT_DEGREE` is 10,000 (doctrine's lowest tier) instead of 64 — a tick now lands exactly on the distinct-triple count (smoke 152 → 79, founding 27,824 → 18,148), covered by tests/mesh/test_tick_preserves_typed_edges.py (5 passing). Still open, exactly as the ticket names it: per-tier cap indexing, the companion weight-sum cap, and the admission rule that a new edge must be strictly stronger than the weakest incumbent (MESH_SUBSTRATE §3).
+remaining: >
+  The three items the YAML itself names as "Still not implemented, and deliberately left open rather than pretended": (a) per-tier cap indexing — MESH_SUBSTRATE §3's caps indexed by node tier (10,000 for a Tier-0 chunk rising to 1,000,000 for a Tier-3 hub) are still a single flat `DEFAULT_MAX_OUT_DEGREE = 10_000` applied to every node (src/theogony/mesh/storage/edges.py:298, 300-325); (b) "the companion weight-sum cap" — `enforce_saturation` caps out-degree count only, never the sum of outgoing weights; (c) "the admission rule that a new edge must be strictly stronger than the weakest incumbent before it displaces anything" — no admission check exists; the code truncates by weight rank after the fact, which the docstring concedes "is the same intent applied bluntly" (edges.py:310-315). No follow-up ticket in phoenix-backlog/ carries this work.
+linked_prs:
+  - "209"
+  - "9ea8088"
+  - "63843af"
 relates_to:
   - PHX-1033   # dedup index — the identity the merge should have used all along
   - PHX-1050   # write amplification — the duplicate rows this folds

@@ -1,7 +1,7 @@
 id: PHX-1065
 category: identity-integrity
 priority: critical
-status: in_progress
+status: done
 generation_target: MESH migration — reading at scale (S2)
 title: "The entity's name was discarded at write time; no node in the Theogony mesh is called Cronus"
 filed_by: Claude Code (found while designing the S5 merge detector, 2026-08-19)
@@ -62,6 +62,12 @@ description: >
   never stored. A re-read of the corpus is required, which the PHX-1059..1062
   work made affordable (2h, EUR 0.27).
 
+resolution: >
+  Shipped in full in PR #222 (5cd00be): `_entity_description` puts the name at the head of the Tier-1 description, `_concept_tags` makes the label the first tag so the label index carries it, and the same composed text is what gets vectorised, so description and `description_vector` cannot drift. The corpus was re-read the same evening — the live founding mesh holds 5,002 nodes (down from 6,816), 2,940 of them carrying the composed "name — discriminators" form, and a node called Cronus now exists. Does not reduce fragmentation, as the ticket said; it makes identity representable.
+linked_prs:
+  - "222"
+  - "5cd00be59204b3fb87bfa60d957d48b6b3c1883d"
+  - "a43f1f5"
 relates_to:
   - PHX-1064   # the fragmentation this is a precondition for fixing
   - PHX-1051   # identity attractors — the same failure at write time
