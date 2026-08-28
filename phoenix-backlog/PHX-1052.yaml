@@ -1,7 +1,7 @@
 id: PHX-1052
 category: ingestion-quality
 priority: high
-status: in_progress
+status: done
 generation_target: MESH migration — extraction fidelity (Kadmos v2 prompt/schema)
 title: "Protagonist blindness: the passage's central figure becomes a paragraph concept, not an entity"
 filed_by: Claude Code (founding-mesh acceptance, 2026-07-18)
@@ -31,6 +31,15 @@ description: >
   (both preserved as repair slices) — success = Aphrodite/Venus/Dione
   entity nodes with Q-IDs after a re-read.
 
+resolution: >
+  Fixed at the prompt level in PR #188 (ba51221): the Kadmos reading prompt now requires the passage's central figures as named concepts and forbids the paragraph_concept from standing in for them. Live-validated on the preserved repair slices — Aphrodite extracted as Q35500 and Dione as Q193181, anchoring the Beat-2 contradiction on both sides for the first time. Guarded in PR #206 by three test layers (prompt contract, pipeline behaviour, opt-in live characterization); running the live layer once immediately exposed PHX-1055. The optional `protagonist` schema field was not built, and the "with Q-IDs" half of the acceptance criterion was subsequently overturned by PHX-1063, which stops the reader persisting model-asserted Q-IDs.
+linked_prs:
+  - "188"
+  - "206"
+  - "187"
+  - "ba51221"
+  - "aec77f4"
+  - "0dac1e5"
 relates_to:
   - PHX-1045   # founding demo — Beat 2 entity layer depends on this
   - PHX-1051   # identity attractor — fixed; this is the remaining reason deities are missing

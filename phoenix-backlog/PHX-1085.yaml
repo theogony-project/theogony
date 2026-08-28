@@ -59,6 +59,8 @@ description: >
   vector index to check it on (`data/mesh-wiki-100k` has no indices at all, and
   its vectors are 1024-d).
 
+resolution: >
+  `refine_factor=50` on the vector search. The IVF-PQ index had been returning a median of 22% of the actual nearest neighbours (min 9%) while buying 0.4 ms; `nprobes` does not help because the loss is the quantiser. Recall 74% -> 76%, questions answered in full 33 -> 36, end-to-end latency unchanged.
 relates_to:
   - PHX-1059   # the indices this measures the cost of
   - PHX-1084   # the repair that surfaced it

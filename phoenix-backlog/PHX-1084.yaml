@@ -57,6 +57,8 @@ description: >
   source anchors do not enter retrieval — `_name_index` and `_name_anchor_seeds`
   both skip them.
 
+resolution: >
+  All 1,219 anchors rewritten to name the work and its Gutenberg URL rather than the temp directory the corpus was read from, and `mesh ingest --text-file` no longer falls back to an absolute path. Recall moved 76% -> 77% across the repair — one entity, from the index rebuild, not from the anchor text, which retrieval never reads.
 relates_to:
   - PHX-1042   # why anchors are on screen at all
   - PHX-1065   # the other case of the write path storing the wrong string

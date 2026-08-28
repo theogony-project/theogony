@@ -60,6 +60,8 @@ description: >
   Recall on the gold set is unchanged (82/111, 33/47), as expected: the set does
   not exercise this path.
 
+resolution: >
+  Anchor spans are ordered by fanout, narrowest first. A fanout cut-off was rejected (it would sit in a four-node gap between `Hermes` at 11 and `mythology` at 15) and so was a per-span quota (it took the plain question from six anchors to three). Cost 90.4 -> 96.4 ms. 0 of 47 gold questions exercise this path, so the property is pinned by test rather than by widening the set.
 relates_to:
   - PHX-1068   # the mechanism this repairs
   - PHX-1080   # the other instrument gap found in the same audit

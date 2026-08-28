@@ -1,7 +1,7 @@
 id: PHX-1054
 category: substrate-identity
 priority: high
-status: in_progress
+status: done
 generation_target: MESH migration — identity integrity (S2/S3 foundation)
 title: "Uncorroborated LLM Q-IDs are accepted as identity with score 1.0"
 filed_by: Claude Code (audit follow-up, 2026-08-15)
@@ -42,6 +42,12 @@ description: >
   coerced to 1.0 in reading_schemas. A confidence-aware admission rule is a
   separate change.
 
+resolution: >
+  Shipped in PR #204 (fed3ff3): the eager linker's Q-ID branch now requires corroboration before merging — either naming (incoming label is a known alias of the node, or shares a token with its description or tags) or semantics (cosine over whatever vector pairs both sides carry signal on, floor 0.35), rejecting only when the vectors are comparable, disagree, and nothing names. Vectorless callers keep the Q-ID path, so the wikidata5m seed handoff is unaffected. Four tests pin the bridge, the hallucination, the no-contamination property and the vectorless case. The confidence-aware admission rule (reading_schemas still coerces bare-string Q-IDs to 1.0, the linker still never reads that confidence) was explicitly deferred to a separate ticket by this YAML and is not part of this scope. Only the bookkeeping is unfinished: the YAML is still status: in_progress with no resolution and no linked_prs, and docs/PHOENIX_BACKLOG.md:42 repeats that stale status.
+linked_prs:
+  - "204"
+  - "fed3ff3"
+  - "227634e"
 relates_to:
   - PHX-1051   # identity attractor — closed the description and tag paths
   - PHX-1052   # protagonist extraction — same extraction surface

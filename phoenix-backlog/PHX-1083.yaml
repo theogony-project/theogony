@@ -45,6 +45,8 @@ description: >
   AND: `demo/founding_demo.md` Beat 1 no longer reproduced at all — see PHX-1056,
   whose founding-mesh evidence was the same dead table.
 
+resolution: >
+  Four cost claims corrected and dated. The full descriptor scan is 290 ms, not 790; a filtered read 73.7 ms, not 194; and the load-bearing claim that the filter rather than the parse was the cost is backwards (Arrow scan 12.6 ms, JSON parse 89.6 ms). The design is unchanged and deliberately so. Also retired the demo's Beat-1 table, which no longer reproduced at all.
 relates_to:
   - PHX-1056   # the open ticket resting on the dead Beat-1 table
   - PHX-1081   # the label-read figure corrected alongside

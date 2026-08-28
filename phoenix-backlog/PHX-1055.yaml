@@ -38,6 +38,14 @@ description: >
   Verified: the live characterization test passes against deepseek-chat after the
   fix and failed before it.
 
+resolution: >
+  The core fix shipped in aec77f4 (PR #206) and is reached in production: normalize_reading_payload (reading_schemas.py:149) runs at kadmos_v2.py:847 before the strict validate, so DeepSeek's name/subject/predicate/object readings now survive instead of failing on every paragraph. Two parts did not land: the eval path does not in fact share the implementation — scripts/mesh_qa_kadmos.py:64 still imports the function from theogony.mesh.eval.qa_retrieval, where the same commit deleted it, so the benchmark script raises ImportError on start; and `wikidata_id`, one of the four DeepSeek aliases the ticket names, is not mapped to `qids`, so provider Q-IDs are dropped.
+remaining: >
+  Two things. (1) The YAML's claim that the function "moved from the benchmark harness ... into mesh/ingestion/reading_schemas.py so the production path and the eval path share one implementation" is only half true: the move deleted normalize_reading_payload from src/theogony/mesh/eval/qa_retrieval.py without updating scripts/mesh_qa_kadmos.py:64, which still imports it from there. The eval path does not share the implementation — it cannot import at all (ImportError verified). The one-line import fix (point it at theogony.mesh.ingestion.reading_schemas, where scripts/mesh_qa_kadmos.py:67 already imports ParagraphReadingOutput from) is outstanding, plus something that would catch it (no test imports the script). (2) `wikidata_id`, one of the four DeepSeek field names the YAML itself lists, has no alias to `qids`, so DeepSeek's Q-IDs are silently discarded — the extraction that "got the content right but the spelling wrong" survives without its identity evidence, which is exactly the content the concept normalisation was supposed to rescue.
+linked_prs:
+  - "206"
+  - "aec77f4"
+  - "15f092d"
 relates_to:
   - PHX-1052   # protagonist extraction — its live test surfaced this
   - PHX-1046   # provider robustness (Anthropic streaming for long structured calls)

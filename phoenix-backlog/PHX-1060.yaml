@@ -1,7 +1,7 @@
 id: PHX-1060
 category: substrate-performance
 priority: high
-status: open
+status: done
 generation_target: MESH migration — reading at scale (S2)
 title: "Node appends slow 30x as Lance versions pile up — one tiny transaction per node"
 filed_by: Claude Code (measured 2026-08-18)
@@ -73,6 +73,10 @@ description: >
   Recommended order: (A) to unblock a full read, (B) as the real fix, with (B)
   making (A)'s retention knob mostly moot.
 
+resolution: >
+  Lance version snapshots are pruned by the Oneiros tick (PR #215, 2d3edff);
+  `prune_history` exists on all three stores and is reached from `run_minimal_tick`.
+  The catalogue recorded this as done; the YAML never left `open` (PHX-1086).
 relates_to:
   - PHX-1059   # index coverage; this is the next term after it
   - PHX-1057   # same one-transaction-per-item pattern, fixed for edges

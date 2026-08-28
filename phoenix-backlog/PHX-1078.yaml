@@ -55,6 +55,8 @@ description: >
   against its writer. An eleventh added without declaring it would silently
   outrank a real assertion.
 
+resolution: >
+  `descriptor_rank`: a named relation outranks any other assertion, which outranks the ingester's bookkeeping vocabulary. Of 1,323 node pairs joined by a relation resolving to a Wikidata property, 1,316 had been displaying the co-mention instead; 5,540 pairs corrected in all. Recall unchanged, as it must be — descriptors are read for display, not for propagation.
 relates_to:
   - PHX-1033   # what happened when these parallel edges were collapsed for real
   - PHX-1070   # the measurement this fell out of

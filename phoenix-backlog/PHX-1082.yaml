@@ -49,6 +49,8 @@ description: >
   A real tick on a byte copy of `data/mesh-founding`: 94,490 edges in and out in
   4.2 s, all reloadable, dedup index at 94,490 rows, 183 P-IDs backfilled.
 
+resolution: >
+  `replace_all_edges` uses one `mode="overwrite"` per table instead of three deletes and three adds, the tick puts drained deltas back before re-raising, and the CLI writes a failed report instead of a hard-coded `verdict="good"`. Also: `prune_history` had omitted `edge_dedup_index`, which had kept 237 versions against 1 for its siblings.
 relates_to:
   - PHX-1033   # what a careless edge rewrite cost the last time
   - PHX-1077   # the tick's other calibration problem

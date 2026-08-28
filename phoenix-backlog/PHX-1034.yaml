@@ -81,6 +81,8 @@ description: >
 linked_prs:
   - "https://github.com/theogony-project/theogony/pull/166"  # eval harnesses (link-prediction, scaling)
   - "https://github.com/theogony-project/theogony/pull/167"  # eval suite (KGE baseline, dreaming, relation-conditioned retrieval)
+resolution: >
+  PPR adopted as the production propagation operator for S3. Measured on Wikidata5m subnets: Spreading Activation overtakes kNN past mean out-degree ~3 and the gap widens with density (+0.024 at 10k to +0.051 at 100k). It is the operator every later retrieval number in this repo was measured on.
 linked_scripts:
   - scripts/mesh_relation_retrieval.py
   - scripts/mesh_tonight_experiments.py

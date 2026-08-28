@@ -1,7 +1,7 @@
 id: PHX-1061
 category: substrate-performance
 priority: high
-status: in_progress
+status: done
 generation_target: MESH migration — reading at scale (S2)
 title: "The audit log wrote one Lance transaction per resolved concept — 84% of the resolution stage"
 filed_by: Claude Code (measured on a grown mesh, 2026-08-18)
@@ -52,6 +52,11 @@ description: >
   of the resolution stage after route A, and this finding makes it smaller still.
   Route B stays closed.
 
+resolution: >
+  Shipped in bdd1b95 (PR #217): `MeshAuditLog.stage()`/`flush()` stamp the row at event time and defer only the write, `list_recent`/`count`/`prune_history` flush first, the reader flushes the audit buffer alongside the edge buffer, only the per-concept `mesh_ingest_link_decision` path stages while run-level entries still append straight through, and AGENTS.md §7 now names one-transaction-per-item as a class. Measured on the same six-paragraph slice: `mentions_resolved` 26.5 s -> 2.19 s, audit writes 22.12 s -> 0.02 s, ingest wall 76.7 s -> 51.4 s.
+linked_prs:
+  - "217"
+  - "bdd1b95"
 relates_to:
   - PHX-1060   # route B is refuted by this attribution
   - PHX-1059

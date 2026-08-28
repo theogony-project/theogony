@@ -51,6 +51,8 @@ description: >
     expects Cycnus and Heracles, "From what did Aphrodite grow?" expects
     Aphrodite. Excluding them would have destroyed a quarter of the gold.
 
+resolution: >
+  Answer budget 30 -> 50. Re-measured before deciding, because the figures in this ticket were three ticks old: recall 40/53/65/74/85/95% at top_k 10/20/30/50/100/200, median 87.2 -> 90.4 ms. Nine points for 3.2 ms. Not further: 100 buys eleven more for 15 ms, but whether a wider constellation completes an LLM's answer or dilutes it is not a question recall can settle.
 relates_to:
   - PHX-1067   # the instrument this extends
   - PHX-1068   # name anchors, which took recall to 65% at k=30

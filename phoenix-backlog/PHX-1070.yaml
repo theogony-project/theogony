@@ -115,6 +115,8 @@ description: >
   Hesiod. It ships with its measurements attached, like `degree_beta` and
   `hub_mask_top_n`.
 
+resolution: >
+  Shipped as `typed_edge_boost`, default off. The proposed mechanism (embed relation descriptors, let the query select which conduct) was not needed — a plain multiplier on edges whose relation resolves to a Wikidata property gets most of it. At boost 3 three questions improve and none regress, 33 -> 36 of 47 answered in full, and narrative recall is flat at 86% for every boost. Found PHX-1078 on the way.
 relates_to:
   - PHX-1066   # the edge question this would supersede
   - PHX-1069   # the curve showing ranking, not reach, is the constraint

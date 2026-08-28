@@ -1,7 +1,7 @@
 id: PHX-1072
 category: substrate-integrity
 priority: high
-status: in_progress
+status: done
 generation_target: MESH migration — S2 (relation vocabulary)
 title: "Relation descriptors are free text; Edge.pids was empty on every edge"
 filed_by: Claude Code (2026-08-20)
@@ -75,6 +75,11 @@ description: >
   reading path and the maintenance pass both need, and importing it into the
   runtime from `mesh.ingestion` closed an import cycle.
 
+resolution: >
+  A curated, API-verified descriptor->P-ID table (mesh/relation_pids.py, JSON at mesh/vocab/) now names relations on write (kadmos_v2.py:475-479), and the Oneiros tick back-fills edges written before it, idempotently, on every tick (oneiros_tick.py:51-75, called at :289 and reported through the audit and CLI). 1,237 of 6,489 judged edges (19%) carry a P-ID; the long tail stays unmapped on purpose, because automatic resolution cannot supply a direction per mapping.
+linked_prs:
+  - "231"
+  - "233"
 relates_to:
   - PHX-1070   # typed propagation, which needs a stable vocabulary first
   - PHX-1063   # why the model is not asked

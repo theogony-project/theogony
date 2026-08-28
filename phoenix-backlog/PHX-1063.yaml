@@ -1,7 +1,7 @@
 id: PHX-1063
 category: identity-integrity
 priority: high
-status: in_progress
+status: done
 generation_target: MESH migration — reading at scale (S2)
 title: "Q-IDs asserted by the reading model were stored as identity evidence; 127 of 130 are wrong"
 filed_by: Claude Code (measured against Wikidata, 2026-08-19)
@@ -67,6 +67,12 @@ description: >
 
   STILL TO PURGE: the 130 false Q-IDs already in `data/mesh-founding`.
 
+resolution: >
+  Shipped in full in f9c556b (PR #220): `link_reference` gained `qids_are_authoritative`, unverified Q-IDs still resolve tier-4 lookups but are never persisted or written onto a new node, the reader passes `qids_are_authoritative=False`, claims survive as `qid_claims` on every link decision and as `ResolutionSummary.qid_claims_dropped`, and PHX-1053's guarantee is pinned by a test for authoritative callers. The founding mesh was rebuilt after the fix and now holds 0 Q-IDs across 5,002 nodes (down from 130, of which 127 were wrong), so the "still to purge" item is closed; Wikidata corroboration at ingest remains deliberately out of scope. Only the YAML's own status field is stale — it still reads in_progress while the catalogue already reads done.
+linked_prs:
+  - "220"
+  - "f9c556b"
+  - "1357235"
 relates_to:
   - PHX-1053   # its guarantee is preserved for authoritative callers only
   - PHX-1051   # the identity-attractor guard this sits beside
