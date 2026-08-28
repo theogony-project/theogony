@@ -1,0 +1,80 @@
+id: PHX-1089
+category: evaluation
+priority: high
+status: done
+generation_target: MESH migration — S3 (answer quality at scale)
+title: "The central bet survives into the answer — on one dataset, at narrow seeding"
+filed_by: Claude Code (full HippoRAG end-to-end run, 2026-08-26)
+created_at: 2026-08-26
+description: >
+  PHX-1087 built the first answer measurement this repo has had and could not
+  settle anything with it: 47 questions, a 2-3 point noise floor, and a corpus of
+  canonical Greek mythology the model answers at 50% closed-book. This is the run
+  that settles it. HippoRAG_v2 shared-corpus protocol, 1,000 questions per
+  dataset, SQuAD exact match and token F1, 20,000 LLM calls.
+
+  RETRIEVAL EARNS ITS PLACE, EVERYWHERE. Exact match against closed-book:
+  2Wiki 44.0% vs 24.8%, HotpotQA 53.9% vs 30.6%, PopQA 43.2% vs 33.7% — **+19,
+  +23 and +11 points**. Both dense methods beat BM25. Unlike the founding corpus
+  these discriminate: closed-book at 25-34%, not 50%.
+
+  AND AT THE HARNESS DEFAULT THE GRAPH ADDS NOTHING. Paired McNemar over the same
+  questions: 2Wiki p=0.69, HotpotQA p=1.00, PopQA p=0.23. Indistinguishable three
+  times over, on 70-100 disagreements each.
+
+  **That would have been the headline, and it would have been wrong.** The default
+  is `passage` seeding at S=10, and the seeding study established that SA's
+  advantage exists only at narrow seeding — the published +0.102 recall@5 on 2Wiki
+  was measured at hybrid/S=2, and by S=5 SA merely re-ranks kNN's own hits
+  (rescue 0.000). The first run measured SA at exactly the configuration where it
+  is known to add nothing.
+
+  RE-RUN AT HYBRID/S=2:
+
+      2WikiMultihopQA   knn 43.4% EM / 48.4% F1 / 59.0% ceiling
+                        sa  48.4% EM / 54.9% F1 / 69.4% ceiling
+      HotpotQA          knn 54.1% / 65.6% / 77.1%
+                        sa  55.0% / 66.9% / 77.2%
+
+  **2Wiki: +5.0 exact match, +6.5 F1, +10.4 points of retrieval ceiling. Paired,
+  107 questions only SA gets right against 57 only kNN does, p < 0.001.** The
+  first confirmation in this repo that the central bet survives past retrieval
+  and into an answer.
+
+  HotpotQA: +0.9 at p=0.47 with an identical ceiling. Not a result.
+
+  NOISE FLOOR, MEASURED. kNN does not use seeding, so its two runs per dataset
+  differ only by provider non-determinism at temperature 0: **0.6 points on 2Wiki,
+  0.2 on HotpotQA**, at n=1,000 — against 2-3 points at n=47 on the founding
+  corpus. The 5.0 is an order of magnitude above it; the 0.9 is not.
+
+  A DEFECT THIS RUN FOUND. PopQA's first run scored **0.0% in every arm including
+  closed-book**. PopQA has no `answer` field — the gold is in `obj`, synonyms in
+  `possible_answers` and `o_aliases` — so `str(row.get("answer"))` made the
+  literal string `"None"` the gold for all 1,000 questions. Unnoticed because the
+  recall benchmark reads only `gold_idxs` and never touches the answer: the field
+  was carried without a consumer. Fixed, with alias forms accepted.
+
+  WHAT THIS DOES NOT SUPPORT: generalisation. One dataset of three, and it is the
+  one built for multi-hop reasoning over entity structure — the same shape the
+  recall benchmark reports (+0.102 / +0.030 / -0.007). And it says nothing about
+  the founding substrate: this harness builds its own graph from spaCy NER and
+  kNN edges and never touches `data/mesh-founding`.
+
+resolution: >
+  End-to-end answer benchmark on the HippoRAG trio, 1,000 questions each, SQuAD
+  EM/F1, paired McNemar. Retrieval is worth +11 to +23 points of exact match over
+  closed-book on all three. Spreading Activation ties kNN at the harness default
+  (p 0.23-1.00) and beats it by **+5.0 EM at p < 0.001** on 2WikiMultihopQA at
+  hybrid/S=2 — the configuration the seeding ceiling predicts, and the first
+  evidence that the bet holds into an answer rather than only into recall. Not on
+  HotpotQA (+0.9, p=0.47) or PopQA. Fixed a loader defect that had made the
+  literal string "None" the gold answer for every PopQA question.
+relates_to:
+  - PHX-1087   # the first answer measurement, which this one could settle
+  - PHX-1056   # the seeding ceiling, whose prediction this confirms end-to-end
+  - PHX-1034   # PPR as the production operator
+linked_scripts:
+  - src/theogony/mesh/eval/qa_answers.py
+  - scripts/mesh_qa_answers.py
+  - docs/etappes/hipporag_answers.md

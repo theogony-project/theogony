@@ -16,6 +16,7 @@ import random
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from theogony.mesh.eval.qa_retrieval import QAPassage, QAQuestion
 
@@ -48,6 +49,43 @@ def download(url: str, dest: Path) -> None:
 
 def normalize_title(title: str) -> str:
     return title.strip().lower()
+
+
+def _answer_key(row: dict[str, Any]) -> tuple[str, list[str]]:
+    """The gold answer and every other form the key accepts.
+
+    Not every release names the field `answer`. PopQA names it `obj`, keeps
+    synonyms in `possible_answers` and `o_aliases`, and has no `answer` field at
+    all — so reading `row["answer"]` and stringifying the result produced the
+    literal `"None"` as the gold for all 1,000 of its questions. A whole
+    end-to-end run scored 0.0% in every arm including closed-book before anyone
+    noticed, because the recall benchmark next door only ever reads `gold_idxs`
+    and never touches the answer (PHX-1089).
+
+    Returns ``("", [])`` when no answer can be found, which the caller must treat
+    as a question it cannot score rather than as a question with the answer
+    "None".
+    """
+    primary = row.get("answer")
+    if isinstance(primary, list):
+        primary = primary[0] if primary else None
+    if not primary:
+        primary = row.get("obj")
+
+    aliases: list[str] = []
+    for key in ("possible_answers", "o_aliases", "answer_aliases"):
+        value = row.get(key)
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                value = [value]
+        if isinstance(value, list):
+            aliases.extend(str(v) for v in value if v)
+
+    if not primary and aliases:
+        primary, aliases = aliases[0], aliases[1:]
+    return (str(primary) if primary else "", [a for a in aliases if a != str(primary)])
 
 
 def load_dataset(
@@ -85,6 +123,7 @@ def load_dataset(
     questions: list[QAQuestion] = []
     matched_gold = 0
     total_gold = 0
+    missing_answer = 0
     for q in raw_q:
         gold_titles: set[str] = set()
         for fact in q.get("supporting_facts", []):
@@ -103,19 +142,27 @@ def load_dataset(
                 matched_gold += 1
         if not gold:
             continue
-        ans = q.get("answer")
-        if isinstance(ans, list):
-            ans = ans[0] if ans else ""
+        answer, aliases = _answer_key(q)
+        if not answer:
+            missing_answer += 1
+            continue
         questions.append(
             QAQuestion(
                 qid=str(q.get("_id") or q.get("id") or ""),
                 question=str(q.get("question", "")),
-                answer=str(ans),
+                answer=answer,
                 gold_idxs=gold,
+                answer_aliases=aliases,
             )
         )
     if max_questions and len(questions) > max_questions:
         questions = random.Random(seed).sample(questions, max_questions)
+    if missing_answer:
+        print(
+            f"warning: {missing_answer} question(s) dropped — no answer key found. "
+            f"A silent 'None' gold here is what made a full PopQA run score 0.0% "
+            f"in every arm (PHX-1089)."
+        )
     return QADataset(
         passages=passages,
         questions=questions,

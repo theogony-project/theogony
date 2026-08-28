@@ -70,6 +70,20 @@ class QAQuestion:
     question: str
     answer: str
     gold_idxs: set[int]
+    # Every other form the answer key accepts. PopQA gives `possible_answers` and
+    # `o_aliases` — "politician", "political leader", "pol" — and scoring one
+    # string against a model that picked a synonym reports a failure that is not
+    # one (PHX-1089).
+    answer_aliases: list[str] = field(default_factory=list)
+
+    @property
+    def acceptable(self) -> list[str]:
+        """All strings that count as correct, primary first."""
+        seen: list[str] = []
+        for candidate in [self.answer, *self.answer_aliases]:
+            if candidate and candidate not in seen:
+                seen.append(candidate)
+        return seen
 
 
 # ---------------------------------------------------------------------------
@@ -612,6 +626,71 @@ def evaluate_methods(
         )
         for m in names
     ]
+
+
+def rank_methods(
+    graph: QAGraph,
+    passage_emb: torch.Tensor,
+    question_emb: torch.Tensor,
+    bm25: BM25,
+    questions: list[QAQuestion],
+    *,
+    entity_emb: torch.Tensor | None = None,
+    seed_mode: str = "passage",
+    hops: int = 3,
+    damping: float = 0.5,
+    seed_top_s: int = 10,
+    top_k: int = 5,
+) -> dict[str, list[list[int]]]:
+    """Per question, the top-``top_k`` passage indices each method retrieves.
+
+    :func:`evaluate_methods` scores the same rankings and throws them away, which
+    is right for a recall benchmark and wrong for anything downstream. An
+    end-to-end answer measurement needs the passages themselves, not the recall
+    over them — recall says the evidence was reachable, not that an answer came
+    out (PHX-1087 measured a 62% gap between the two on the founding corpus).
+
+    ``seed_mode`` and ``seed_top_s`` matter more than anything else here and are
+    therefore parameters rather than constants. Spreading Activation's published
+    advantage on 2Wiki is +0.102 recall@5 at **hybrid seeding, S=2**, and it
+    vanishes as seeding widens: by S=5 it merely re-ranks the hits dense kNN
+    already returned (rescue 0.000). Measuring the answer at the ``passage``/S=10
+    default measures SA at the configuration where it is known to add nothing.
+
+    Same adjacencies and operating point as ``evaluate_methods``, so a recall
+    number and an answer number from the two are about the same retrieval.
+    """
+    passage_unit = _l2_unit(passage_emb)
+    question_unit = _l2_unit(question_emb)
+    entity_unit = (
+        _l2_unit(entity_emb)
+        if entity_emb is not None and entity_emb.numel()
+        else torch.zeros((0, passage_emb.shape[1]), dtype=torch.float32)
+    )
+    n_nodes = len(graph.node_ids)
+    adj_raw, adj_ppr = _adjacencies(
+        graph.node_ids, graph.containment_edges + graph.knn_edges + graph.entity_edges
+    )
+
+    out: dict[str, list[list[int]]] = {m: [] for m in ("bm25", "knn", "sa_raw", "sa_ppr")}
+    for qi, q in enumerate(questions):
+        qu = question_unit[qi]
+        seed_x = build_seed_vector(
+            qu, passage_unit, entity_unit, n_nodes, mode=seed_mode, top_s=seed_top_s
+        )
+        scored = {
+            "bm25": bm25.scores(q.question),
+            "knn": passage_unit @ qu,
+            "sa_raw": sa_passage_scores(
+                adj_raw, seed_x, graph.passage_indices, hops=hops, damping=damping
+            ),
+            "sa_ppr": sa_passage_scores(
+                adj_ppr, seed_x, graph.passage_indices, hops=hops, damping=damping
+            ),
+        }
+        for method, scores in scored.items():
+            out[method].append(rank_desc(scores)[:top_k])
+    return out
 
 
 class SeedingResult(BaseModel):
