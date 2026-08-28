@@ -26,6 +26,7 @@ from theogony.mesh.eval.corpus_qa import (
     summarise,
     summarise_by_kind,
 )
+from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 
 CORPUS = Path("data/raw/founding/pg348_the.txt")
 
@@ -184,3 +185,29 @@ def test_results_are_summarised_per_kind_and_in_aggregate() -> None:
     assert by_kind["genealogical"]["recall_given_coverage"] == 1.0
     assert by_kind["narrative"]["recall_given_coverage"] == 0.0
     assert by_kind["all"]["recall_given_coverage"] == 0.5, "the aggregate hides both"
+
+
+def test_the_mesh_reports_how_many_ticks_it_has_seen(mesh_runtime: MeshRuntime) -> None:
+    """Recall is only comparable at equal tick count, so the number must be gettable.
+
+    A tick costs ~777 units of edge weight against ~0.1 returned by reinforcement
+    (PHX-1077), so a mesh that has been ticked more scores lower for reasons that
+    have nothing to do with retrieval. That was the mechanism behind an
+    unexplained 68% -> 65%, and PHX-1074 asked for this so the next person
+    comparing two figures can see whether they are comparing the same mesh.
+    """
+    assert mesh_runtime.tick_count() == 0, "a fresh mesh has seen no ticks"
+    mesh_runtime.run_minimal_tick()
+    assert mesh_runtime.tick_count() == 1
+    mesh_runtime.run_minimal_tick()
+    assert mesh_runtime.tick_count() == 2
+
+
+def test_the_tick_count_survives_maintenance(mesh_runtime: MeshRuntime) -> None:
+    """It is counted from audit rows, and pruning discards versions rather than rows."""
+    from datetime import timedelta
+
+    mesh_runtime.run_minimal_tick()
+    mesh_runtime.run_minimal_tick()
+    mesh_runtime.audit.prune_history(retention=timedelta(0))
+    assert mesh_runtime.tick_count() == 2

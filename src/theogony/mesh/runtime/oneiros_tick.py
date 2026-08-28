@@ -179,6 +179,31 @@ class MeshRuntime:
     def _write_state(self, data: dict[str, Any]) -> None:
         self._state_path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
 
+    def tick_count(self) -> int:
+        """How many Oneiros ticks this mesh has seen.
+
+        Every recall figure in this repo is only comparable at equal tick count.
+        A tick costs weight — decay removes ~777 units against ~0.1 returned by
+        reinforcement (PHX-1077) — so anything that ticks for an unrelated reason
+        (index upkeep, version pruning, P-ID backfill) pays for it in recall. That
+        was the mechanism behind an unexplained 68% -> 65%, and PHX-1074 asked for
+        this number so the next person comparing two figures can see whether they
+        are comparing the same mesh.
+
+        Counted from the audit log rather than a stored counter, so it is right
+        for meshes that predate this method. `prune_history` discards Lance
+        version snapshots, not rows, so the count survives maintenance — but it is
+        a count of *recorded* ticks, and a tick that died before writing its audit
+        row is not in it (PHX-1082 made such a tick report itself as failed).
+        """
+        try:
+            rows = (
+                self.audit._table.search().where("action = 'mesh_oneiros_minimal_tick'").to_list()
+            )
+        except Exception:  # noqa: BLE001 - a mesh with no audit table has seen no ticks
+            return 0
+        return len(rows)
+
     def last_tick_at(self) -> datetime | None:
         raw = self._read_state().get("last_tick_at")
         if raw is None:
