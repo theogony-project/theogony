@@ -1,0 +1,56 @@
+id: PHX-1083
+category: documentation
+priority: medium
+status: done
+generation_target: MESH migration — S3
+title: "Four measured cost claims had rotted, and one had inverted"
+filed_by: Claude Code (audit finding, 2026-08-26)
+created_at: 2026-08-26
+description: >
+  This repo puts measured numbers in docstrings, which is right. It had no habit
+  of re-checking them, which is where it goes wrong.
+
+  `EdgeStore.descriptor_index` carried four, and its ~194 ms figure was repeated
+  verbatim in three other files as the justification for caching. Re-measured on
+  a copy of the founding mesh (94,490 edges):
+
+      claim                                  was      is
+      unfiltered columnar scan            ~790 ms   290 ms
+      filtered `source_id IN (...)` read  ~194 ms    73.7 ms  (50-node set)
+      "the cost is the filter"                 --   INVERTED
+      "first query costs about a CSR build"    --   2.5x a CSR build (118 ms)
+
+  The inverted one is the load-bearing error. The docstring argued that narrowing
+  the read could not help *because the filter was the cost*; measured, the Arrow
+  scan is 12.6 ms and the JSON parse of 94,490 payloads is 89.6 ms. The filter was
+  never the cost.
+
+  THE DESIGN IS UNCHANGED, and deliberately so. Two real reasons survive the
+  correction: `typed_edge_mask` needs a descriptor per CSR position and a
+  working-set-filtered read cannot supply that at all; and against a 73.7 ms
+  filtered read the full index amortises after about four queries on a reused
+  runtime. What is genuinely wasteful is the one-shot path (`mesh ask`): 290 ms
+  over 87,933 pairs to label at most 200 edges. That is worth improving, and
+  narrowing the filter is not how.
+
+  The old numbers predate the Lance indices (PHX-1059) and the audit-log batching
+  (PHX-1061). They were true when written; nothing re-checked them, and three
+  files quoted them onward.
+
+  ALSO CORRECTED in the same pass: `_name_anchor_seeds` claimed a label read costs
+  14.5 ms indexed, "so ~390 ms on a ten-word question". Measured: **1.61 ms**, and
+  the gold questions produce a median of four capitalised spans. That argument was
+  retired in PHX-1081, which needed the true figure to justify reading every span.
+
+  AND: `demo/founding_demo.md` Beat 1 no longer reproduced at all — see PHX-1056,
+  whose founding-mesh evidence was the same dead table.
+
+relates_to:
+  - PHX-1056   # the open ticket resting on the dead Beat-1 table
+  - PHX-1081   # the label-read figure corrected alongside
+  - PHX-1080   # the same failure mode in the gold-set share
+linked_scripts:
+  - src/theogony/mesh/storage/edges.py
+  - src/theogony/mesh/retrieval/constellation.py
+  - src/theogony/mesh/typed_edges.py
+  - src/theogony/mesh/runtime/oneiros_tick.py

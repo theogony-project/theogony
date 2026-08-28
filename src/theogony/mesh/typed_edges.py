@@ -92,8 +92,10 @@ def typed_edge_mask(csr: EdgeCSR, descriptors: dict[tuple[str, str], str | None]
     """Boolean mask over ``csr`` edge positions: does this edge resolve to a P-ID?
 
     ``descriptors`` is :meth:`MeshRuntime.descriptor_index`, which is cached on
-    the edge mutation generation — a filtered metadata query costs ~194 ms and
-    this must not pay it per call.
+    the edge mutation generation. Building it costs 290 ms on the founding mesh
+    and this must not pay that per call; see :meth:`EdgeStore.descriptor_index`
+    for the full cost breakdown and for why a narrower read cannot serve this
+    caller at all.
     """
     n = len(csr.node_ids)
     if n == 0 or csr.col_indices.numel() == 0:

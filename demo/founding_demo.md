@@ -40,28 +40,49 @@ Honest note for the audience: the replay uses the retrieval's seed set with
 uniform weights — hop order and spread are real; ranking comes from the
 actual retrieval result.
 
-**Seed count matters more than anything else here — measured, not guessed.**
-The Cockpit currently seeds 8 nodes, which on this mesh lets the generic
-Theogony-poem node take 0.596 activation (3× the runner-up) and pushes *Iliad*
-noise above the answer. Narrowing the seeds forces propagation to do the work:
+**What the default actually returns, re-measured 2026-08-26.** This section used
+to claim that seed count dominated Beat 1 — that at the Cockpit's eight seeds the
+generic Theogony-poem node took 0.596 activation, "3× the runner-up", and pushed
+*Iliad* noise above the answer, so the demo should be run with `--seeds 3`. None
+of that reproduces any more:
 
-| seeds | poem hub | what sits at ranks 2–4 |
-|---:|---:|---|
-| 8 (current default) | **0.596** | Iliad noise — "the god who cares for Aeneas" |
-| 3 | 0.236 | Kypris epithet · **the white foam around the severed members** · the Hesiod source paragraph |
-| 2 | 0.169 | **the Hesiod source paragraph at rank 2** — provenance surfaces on its own |
+| | claimed | measured today |
+|---|---|---|
+| rank 1 | the poem hub at 0.596 | **Aphrodite** at 0.2152 |
+| the poem hub | rank 1, 3× the runner-up | **rank 13** at 0.0499 |
+| ranks 2–4 | *Iliad* noise | Cytherea · Cyprus · Aphrodite-and-Anchises |
+| `--seeds 3` vs `--seeds 2` | different constellations | node-for-node identical |
 
-At 2–3 seeds the constellation shows the actual birth narrative and its source
-anchor, which is what Beat 1 claims. This is the founding-mesh instance of the
-benchmark's seeding-ceiling result ([`docs/etappes/qa_benchmark.md`](../docs/etappes/qa_benchmark.md)):
-seeded as widely as the working set is deep, Spreading Activation can only
-re-rank what the embedding already returned. Whether the product default should
-change is PHX-1056; until then, run the CLI form with `--seeds 3` if you want the
-strongest Beat 1:
+The substrate moved past the problem. The claim dates from before the corpus was
+re-read with entity names kept (PHX-1065, 6,816 → 5,002 nodes); the hub no longer
+dominates at any seed count, and `--seeds 3` distinguishes nothing.
+
+So run Beat 1 at the defaults, and point at what is actually on screen:
+
+| rank | node |
+|---:|---|
+| 1 | Aphrodite — Goddess of love and beauty |
+| 2 | **Cytherea** — epithet, *born from sea foam* |
+| 3 | **Cyprus** — the island where she came ashore |
+| 6 | the mythological accounts of her birth |
+| 20 | the passage describing her birth from sea foam |
+
+Three of the top six are the answer, and the two that carry it — the epithet and
+the island — were never named in the question. That is the point Beat 1 was
+always trying to make; it no longer needs a seed-count caveat to make it.
+
+Source anchors sit at ranks 51–53, outside the answer budget and riding along as
+provenance (PHX-1042), so the gap report can still say where the answer came
+from without spending answer slots on it.
 
 ```bash
-theogony mesh ask "How was Aphrodite born?" --root data/mesh-founding --seeds 3 --top-k 8
+theogony mesh ask "How was Aphrodite born?" --root data/mesh-founding
 ```
+
+Honest note for the audience, and it is visible on screen: the anchors currently
+read `text: Theogony named batch_01 (/private/tmp/...)`, because the founding
+mesh was read from a working copy and the anchor recorded the path it was read
+from rather than the work. Filed as PHX-1084.
 
 ## Beat 2 — Contradiction is first-class (~60s)
 

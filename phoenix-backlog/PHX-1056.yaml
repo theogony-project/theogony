@@ -16,15 +16,27 @@ description: >
   (2Wiki, hybrid S=2) and +0.030 (HotpotQA, passage S=3), with no single-hop
   regression on PopQA.
 
-  The same effect is visible on the founding mesh, on the demo's own Beat-1 query
-  ("How was Aphrodite born?"):
+  WITHDRAWN 2026-08-26 — the founding-mesh half of this ticket. It read:
 
     seeds  poem-hub activation  ranks 2-4
     8      0.596 (3x runner-up) Iliad noise ("the god who cares for Aeneas")
     3      0.236                Kypris epithet, the sea foam, the Hesiod source paragraph
     2      0.169                the Hesiod source paragraph at rank 2
 
-  At the current default the generic work-node dominates and irrelevant Iliad
+  None of it reproduces. Re-measured through `retrieve()` at the defaults: rank 1
+  is Aphrodite at 0.2152 and the poem node is at **rank 13, activation 0.0499** —
+  4.3x below the top, not 3x above it. Ranks 2-4 are Cytherea, Cyprus and an
+  Aphrodite/Anchises paragraph, not Iliad noise. `--seeds 3` and `--seeds 2`
+  return node-for-node identical constellations. The cause is the re-read that
+  kept entity names (PHX-1065, 6,816 -> 5,002 nodes), not name anchoring: the
+  table fails with `name_anchors=False` too.
+
+  This matters beyond the demo, which is why it is recorded rather than quietly
+  deleted: **this ticket proposes changing the production `k_seeds` default, and
+  this was its founding-mesh evidence.** The 2Wiki/HotpotQA half stands and is
+  untouched; a decision on the default needs a fresh measurement on this corpus.
+
+  (Historical text follows.) At the current default the generic work-node dominates and irrelevant Iliad
   material outranks the answer; at 2-3 seeds the actual birth narrative and its
   source anchor surface. Notably this achieves what the PHX-1042 levers
   (degree_beta, hub_mask_top_n) were built for, without enabling either.

@@ -605,16 +605,34 @@ class EdgeStore:
     def descriptor_index(self) -> dict[tuple[str, str], str | None]:
         """The most informative relation descriptor for each node pair, in one scan.
 
-        Constellation assembly needs a descriptor per displayed edge. Asking for
-        them with a filtered ``source_id IN (...)`` read costs ~194 ms per query on
-        the founding mesh — and the cost is the *filter*, not the parsing (Pydantic
-        validation of the same 995 rows is 6.9 ms). Adding a target constraint made
-        it worse still, at 255 ms.
+        Constellation assembly needs a descriptor per displayed edge, and one
+        unfiltered columnar scan builds the whole map. :meth:`MeshRuntime
+        .descriptor_index` caches it on the edge mutation generation exactly as
+        the CSR is cached, so a session pays for it once.
 
-        One unfiltered columnar scan builds the whole map in ~790 ms, which
-        :meth:`MeshRuntime.descriptor_index` then caches on the edge mutation
-        generation exactly as the CSR is cached. The first query pays about what
-        the CSR build already costs; every later one pays nothing.
+        Re-measured 2026-08-26 on a copy of the founding mesh (94,490 edges),
+        because every number this docstring used to give was wrong and one of
+        them was backwards:
+
+            full scan (this method)          290 ms   (claimed ~790 ms)
+              of which Arrow scan             12.6 ms
+              of which JSON parse             89.6 ms
+            filtered read, 50-node working set 73.7 ms (claimed ~194 ms)
+            rebuild_csr(force=True)          118 ms
+
+        **The cost is the parse, not the filter** — the previous text asserted
+        the opposite and used it to argue against narrowing the read. The
+        argument for the full index is the other one, and it still holds:
+        :func:`theogony.mesh.typed_edges.typed_edge_mask` needs a descriptor per
+        CSR position, which a working-set-filtered read cannot supply at all, and
+        against a 73.7 ms filtered read the full index amortises after about four
+        queries. On a one-shot path (``mesh ask``) it is 290 ms spent on 87,933
+        pairs to label at most 200 edges. That is the case worth improving, and
+        it is not improved by narrowing the filter.
+
+        The old numbers predate the Lance indices (PHX-1059) and the audit-log
+        batching (PHX-1061); they were true when written and nothing re-checked
+        them.
 
         **One pair, several edges.** The dedup key is ``(source, target,
         relation_descriptor)``, so two nodes may legitimately be joined more than

@@ -171,9 +171,11 @@ def assemble_constellation(
         )
 
     name_by_id = {node.node_id: node.name for node in nodes}
-    # Cached on the edge mutation generation, like the CSR: a filtered metadata
-    # query cost ~194 ms on every call, and the cost was the filter rather than the
-    # parsing, so narrowing it only made things worse.
+    # Cached on the edge mutation generation, like the CSR: building the index
+    # costs 290 ms on the founding mesh, and it must not be paid per query. See
+    # `EdgeStore.descriptor_index` for the measured breakdown — the dominant cost
+    # is the JSON parse, not the filter, which is the opposite of what the note
+    # here used to claim.
     descriptors = runtime.descriptor_index()
 
     raw_edges: list[tuple[int, int, float]] = []
