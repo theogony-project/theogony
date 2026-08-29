@@ -38,6 +38,12 @@ def main() -> None:
     ap.add_argument("--root", default="data/mesh-founding", type=Path)
     ap.add_argument("--top-k", default=DEFAULT_TOP_K, type=int)
     ap.add_argument("--limit", type=int, default=0, help="First N questions only (0 = all).")
+    ap.add_argument(
+        "--seeds",
+        type=int,
+        default=None,
+        help="k_seeds for the constellation arm (default: the library default).",
+    )
     ap.add_argument("--arms", default=",".join(ARMS))
     ap.add_argument("--out", type=Path, help="Write per-answer detail as JSON here.")
     ap.add_argument("--verbose", action="store_true")

@@ -1,0 +1,64 @@
+id: PHX-1090
+category: substrate-retrieval
+priority: high
+status: measured_viable
+generation_target: MESH migration — S3 (retrieval quality)
+title: "The shipped seed count sits on the wrong side of the seeding ceiling"
+filed_by: Claude Code (prediction from PHX-1089, tested 2026-08-26)
+created_at: 2026-08-26
+description: >
+  PHX-1089 produced a testable prediction for the founding substrate: Spreading
+  Activation's advantage lives at *narrow* seeding — +5.0 exact match end-to-end
+  at hybrid/S=2 on 2WikiMultihopQA and nothing at S=10. Every founding
+  measurement was taken at the shipped `k_seeds=8`, the wide end.
+
+  RETRIEVAL CONFIRMS IT, monotonically (47 questions, 14 ticks, top_k=50):
+
+      k_seeds    1     2     3     5     8    16    32
+      recall    84%   81%   81%   80%   77%   71%   64%
+      full     36    36    37    38    36    33    27
+                                      ^ shipped default
+
+  **The default costs seven points of recall against k_seeds=1.** Tuned honestly
+  on alternating halves with ties broken toward the narrower setting: chose k=1 on
+  A, held-out B unchanged at 82%; chose k=3 on B, held-out A **73% -> 79%**. Never
+  negative.
+
+  THE ANSWER DOES NOT MOVE. 46/45/47/44% at k_seeds 1/2/3/8, against 46% for the
+  plain vector arm and 49% closed-book — flat inside a 2-3 point noise floor.
+  Seven points of retrieval reach the working set and none reach the answer, which
+  is PHX-1087's 62% gap swallowing the improvement whole.
+
+  NOT CHANGED, and the reason is doctrine rather than evidence.
+  `MESH_RETRIEVAL` §"Diversified injection" specifies "K seeds from each class …
+  typically 5-25 per class, total 20-100". The implementation uses 8 *total*,
+  because weight-class stratification is a hub-cap over 64 ANN hits with no class
+  seats (open audit finding). The shipped 8 already does not honour the doctrine's
+  number, and narrowing to 3 moves further from a figure that assumes a mechanism
+  which does not exist.
+
+  Two readings the evidence does not choose between:
+   - Narrow it. Seven points of recall, +5.0 EM end-to-end on the external
+     benchmark, and the doctrine's forbidden pattern is *top-K by cosine* — which
+     narrowing MMR while keeping name anchors moves away from. At k_seeds=1 the
+     real seed count is still a median of 3; name anchors contribute two.
+   - Build stratification first. Tuning a number whose mechanism is missing tunes
+     the symptom.
+
+  Reproducible: `scripts/mesh_corpus_qa.py --root data/mesh-founding --seed-sweep`.
+
+resolution: >
+  Measured and left as a decision. The seeding ceiling predicted by PHX-1089
+  reproduces on the founding substrate: recall 77% at the shipped k_seeds=8
+  against 84% at k_seeds=1, monotone, and +6 points held-out in a tune/test split.
+  The answer is unmoved (44-47% across the sweep), so the gain does not reach a
+  consumer on this corpus. Not shipped as a default change because the doctrine's
+  seed-count figure assumes weight-class stratification, which the implementation
+  does not have. Evidence attached to PHX-1056, which proposes the change.
+relates_to:
+  - PHX-1089   # the prediction this tests
+  - PHX-1056   # the open ticket that proposes the change
+  - PHX-1087   # the answer-step gap that swallows the gain
+linked_scripts:
+  - scripts/mesh_corpus_qa.py
+  - docs/etappes/answer_quality.md
