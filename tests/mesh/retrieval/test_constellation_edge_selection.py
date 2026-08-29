@@ -153,3 +153,49 @@ def test_display_selection_does_not_touch_the_node_set(mesh_runtime: MeshRuntime
 
     constellation = assemble_constellation(mesh_runtime, activation, csr, top_k=10)
     assert {n.name for n in constellation.nodes} == {"A", "B"}
+
+
+def test_edges_touching_a_seed_come_first(mesh_runtime: MeshRuntime) -> None:
+    """A seed is where the query entered; an edge touching one is on a path from it.
+
+    Everything else is scenery the propagation happened to light up. Measured on
+    the 47 gold questions, answer recall through a language model, three runs per
+    arm: every edge among the kept nodes scores 50/50/51 — **the worst arm, worse
+    than showing no relations at all** — against 50/53/53 for the edges touching a
+    seed and 57/52/52 for no relations (PHX-1096).
+
+    This is a ranking and not a filter: the Constellation still carries the rest,
+    because its contract is the activated subgraph rather than one reader's
+    preferred slice. Cutting to the seed-touching ones is the consumer's job.
+    """
+    seed, near, far_a, far_b = (_node(mesh_runtime, n) for n in ("Seed", "Near", "FarA", "FarB"))
+    mesh_runtime.nodes.append_consolidated_many([seed, near, far_a, far_b])
+    mesh_runtime.edges.append_edges(
+        [
+            # The far pair is heavier and its endpoints are more activated, so
+            # without the seed term it would outrank the edge the query reached.
+            _edge(str(far_a.id), str(far_b.id), "co_mentions_in_paragraph", 0.99),
+            _edge(str(seed.id), str(near.id), "father_of", 0.10),
+        ]
+    )
+    mesh_runtime.invalidate_csr_cache()
+    csr = mesh_runtime.rebuild_csr()
+
+    activation = torch.zeros(len(csr.node_ids))
+    activation[csr.id_to_index[str(seed.id)]] = 0.5
+    activation[csr.id_to_index[str(near.id)]] = 0.5
+    activation[csr.id_to_index[str(far_a.id)]] = 0.9
+    activation[csr.id_to_index[str(far_b.id)]] = 0.9
+
+    edges = assemble_constellation(
+        mesh_runtime,
+        activation,
+        csr,
+        top_k=10,
+        seed_indices={csr.id_to_index[str(seed.id)]},
+    ).edges
+    assert edges[0].relation_descriptor == "father_of", (
+        "the edge touching the seed must come first, even though the other pair is "
+        "both heavier and more activated"
+    )
+    assert len(edges) == 2, "ranking, not filtering — the other edge is still carried"

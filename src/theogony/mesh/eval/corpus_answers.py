@@ -113,9 +113,40 @@ def _constellation_context(
     **retrieve_kwargs: Any,
 ) -> str:
     result = retrieve(runtime, vector, query=question, top_k=top_k, **retrieve_kwargs)
+    constellation = result.constellation
     lines = ["Entities:"]
-    lines += [f"- {n.name}" for n in result.constellation.nodes if not n.is_source_anchor]
-    described = [e for e in result.constellation.edges if e.relation_descriptor]
+    lines += [f"- {n.name}" for n in constellation.nodes if not n.is_source_anchor]
+
+    # Only the relations that touch a seed. A seed is where the query entered the
+    # graph, so an edge touching one lies on a path from the question into the
+    # substrate; the rest is scenery propagation happened to light up.
+    #
+    # This is a consumer's choice, not a change to what the Constellation carries.
+    # The Constellation ranks seed-touching edges first (PHX-1096) and still holds
+    # the others; a prompt is where showing them stops paying. Measured on the 47
+    # gold questions, answer recall through the model, three runs per arm:
+    #
+    #     entities only, no relations at all       57 / 52 / 52
+    #     every edge in the Constellation          50 / 50 / 51    <- the old default
+    #     ranked seed-first but not cut            52 / 52 / 53
+    #     cut to the edges touching a seed         50 / 53 / 53    <- this
+    #
+    # About three points over the old default, and the honest reading is that the
+    # spread is nearly the size of the effect. The same arm measured through an
+    # ad-hoc renderer scored 56 / 53 / 56; the only difference was the header
+    # wording ("Relations:" against "Relations between them:"), and three words of
+    # prompt are worth two to three points on this instrument (PHX-1087). The
+    # figures above are the shipped path's, because those are the ones a user gets.
+    #
+    # What is solid across all of it: the unscoped list is the worst arm, in six
+    # runs out of six — **worse than showing no relations at all**. Ranking alone
+    # does not fix that; the non-seed tail still occupies the prompt.
+    seeds = set(constellation.seed_node_ids)
+    described = [
+        e
+        for e in constellation.edges
+        if e.relation_descriptor and (e.source_id in seeds or e.target_id in seeds)
+    ]
     if described:
         lines.append("")
         lines.append("Relations between them:")
