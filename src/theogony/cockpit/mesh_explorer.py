@@ -73,6 +73,7 @@ class MeshExplorerService:
         self._runtime: MeshRuntime | None = None
         self._csr: EdgeCSR | None = None
         self._propagator: Propagator | None = None
+        self._index_fingerprint: tuple[int, int, int] | None = None
         # A pre-supplied embedder (e.g. for tests / non-default dims) skips auto-selection.
         self._embedder: MeshEmbedder | None = embedder
         self._index_lock = asyncio.Lock()
@@ -125,16 +126,25 @@ class MeshExplorerService:
         return (await embedder.embed_many([query], batch_size=1))[0]
 
     async def ensure_index(self) -> int:
-        """Build + cache the CSR and Propagator once. Returns the one-time build ms (else 0)."""
+        """Build the CSR and Propagator, rebuilding when the substrate has moved.
+
+        This used to return early on `self._propagator is not None`, so the index
+        froze at the first query and the Cockpit served that graph until restart.
+        Keyed on the runtime's own CSR fingerprint (edge mutation generation plus
+        pending deltas) — the same key `rebuild_csr` uses, so a tick or an ingest
+        in another process is picked up rather than ignored (PHX-1093).
+        """
         async with self._index_lock:
-            if self._propagator is not None:
-                return 0
             rt = self.runtime()
+            fingerprint = rt._csr_cache_fingerprint()
+            if self._propagator is not None and self._index_fingerprint == fingerprint:
+                return 0
             t = time.perf_counter()
             csr = await asyncio.to_thread(rt.rebuild_csr)
             propagator = await asyncio.to_thread(Propagator, csr)
             self._csr = csr
             self._propagator = propagator
+            self._index_fingerprint = fingerprint
             self.index_build_ms = int((time.perf_counter() - t) * 1000.0)
             log.info(
                 "mesh explorer: built activation index (%d nodes) in %d ms",
