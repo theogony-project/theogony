@@ -1,0 +1,65 @@
+id: PHX-1092
+category: substrate-integrity
+priority: high
+status: done
+generation_target: MESH migration — S3
+title: "Four load-bearing decisions that nothing asserted"
+filed_by: Claude Code (audit finding, mutation-verified 2026-08-26)
+created_at: 2026-08-26
+description: >
+  Mutation against a green baseline of 1,753 tests. Each of these survived a
+  change that should have been catastrophic:
+
+      a backwards P-ID mapping (`child_of` -> P40)      1753 passed
+      the saturation cap from 10,000 to 4               1753 passed
+      the linker's identity threshold 0.72 -> 0.20      1753 passed
+      its corroboration threshold 0.55 -> 0.99          1753 passed
+
+  None are tuning knobs. A wrong P-ID is a permanent false claim about a Wikidata
+  property — no consumer reads the P-ID's identity, so nothing downstream moves,
+  but it lands on `Edge.pids` and the tick skips edges that already carry pids, so
+  no later pass corrects it. A wrong saturation cap silently deletes edges on the
+  next tick, and `_DEFAULT_VERSION_RETENTION` is zero, so they go in the same pass
+  that discarded them. A wrong linker threshold decides which references are the
+  same entity, which is what PHX-1063 and PHX-1051 were both about.
+
+  MEASURED WHILE PINNING, because the tiers are not what their thresholds suggest.
+  The description score is not a bare cosine: it composes cosine with context
+  overlap, tag overlap and a label match, and PHX-1051 added a guard requiring
+  *lexical* corroboration. Which tier fires depends on both:
+
+      label "Zeus the Thunderer", tag "zeus", node "Zeus"
+        cosine 0.20, 0.50  ->  tag          (score 1.075)
+        cosine 0.70, 0.90  ->  description  (score 0.780, 0.980)
+
+      label "Cloud-gatherer", tag "zeus", node "Zeus"
+        every cosine including 1.00  ->  emergent, never merges
+
+  So the tag tier is alive but narrow — it catches a *name variant* whose
+  description has drifted, not a referring expression. A referring expression
+  sharing a tag but not a name never merges at any cosine. That is deliberate and
+  it is why persisting merge-time aliases cost recall rather than gaining it
+  (PHX-1071); the tests now pin it so a future loosening is a decision.
+
+  ALSO FIXED, not only pinned: `_ensure_dedup_index` read "not empty" as
+  "complete". `append_edges` writes the edge rows and then the dedup rows, so a
+  crash between the two — real on any long seed import — left an index that was
+  neither, and the guard refused to repair it. The exact check sat unused beside
+  it: `_dedup_rows` emits one row per edge, so equal counts is constructively
+  completeness (94,490 == 94,490 on the founding mesh). A partial index is now
+  cleared before backfilling, because the backfill only adds.
+
+resolution: >
+  `tests/mesh/test_substrate_invariants.py` pins all four: inverse descriptor
+  pairs may never share a P-ID, the kinship families by value, saturation keeping
+  the strongest rather than the weakest edges, the doctrine's 10,000 cap, and both
+  identity tiers against the measured cosine ranges. Every one of the four
+  mutations above now fails it. `_ensure_dedup_index` fixed to compare counts
+  rather than test for emptiness.
+relates_to:
+  - PHX-1079   # the same shape: a value nothing asserts is a value nothing protects
+  - PHX-1051   # the lexical-corroboration guard these tests pin
+  - PHX-1071   # why a referring expression must not merge on a shared tag
+linked_scripts:
+  - tests/mesh/test_substrate_invariants.py
+  - src/theogony/mesh/storage/edges.py
