@@ -33,13 +33,13 @@ from theogony.mesh.retrieval.constellation import (
     ConstellationNode,
     assemble_constellation,
 )
-from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
+from theogony.mesh.retrieval.defaults import DEFAULT_K_SEEDS, DEFAULT_TOP_K
 from theogony.mesh.retrieval.diversified import SeedCandidate, select_seeds
 from theogony.mesh.retrieval.frame_routing import build_frame_routed_csr
 from theogony.mesh.retrieval.propagation import Propagator, in_degree
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.schemas import ConsolidatedNode
-from theogony.mesh.storage.edges import EdgeCSR
+from theogony.mesh.storage.edges import EdgeCSR, in_strength
 
 
 @dataclass
@@ -103,15 +103,6 @@ def append_hebbian_deltas(
         )
         written += 1
     return written
-
-
-def _in_strength(csr: EdgeCSR) -> torch.Tensor:
-    n = len(csr.node_ids)
-    if n == 0 or csr.col_indices.numel() == 0:
-        return torch.zeros(n, dtype=torch.float32)
-    return torch.zeros(n, dtype=torch.float32).scatter_add_(
-        0, csr.col_indices, csr.values.to(torch.float32)
-    )
 
 
 def _aligned_node_frames(runtime: MeshRuntime, csr: EdgeCSR) -> torch.Tensor:
@@ -313,7 +304,7 @@ def retrieve(
     *,
     operator: str = "ppr",
     top_k: int = DEFAULT_TOP_K,
-    k_seeds: int = 8,
+    k_seeds: int = DEFAULT_K_SEEDS,
     ann_limit: int = 64,
     mmr_lambda: float = 0.6,
     hops: int = 3,
@@ -385,7 +376,7 @@ def retrieve(
             timings_ms=timings,
         )
 
-    strength = _in_strength(csr)
+    strength = in_strength(csr)
     candidates: list[SeedCandidate] = []
     for h in hits:
         node_id = str(h.id)
@@ -406,7 +397,19 @@ def retrieve(
                 qid=h.qids[0].qid if h.qids else None,
             )
         )
-    seeds = dict(select_seeds(list(query_vector), candidates, k=k_seeds, lambda_=mmr_lambda))
+    # Global class boundaries, cached on the runtime by CSR generation. Without
+    # them `select_seeds` takes quantiles over whichever candidates the ANN
+    # returned, so a node's weight class depended on who else was retrieved
+    # (PHX-1091).
+    seeds = dict(
+        select_seeds(
+            list(query_vector),
+            candidates,
+            k=k_seeds,
+            lambda_=mmr_lambda,
+            weight_classes_global=runtime.weight_classes(),
+        )
+    )
     if name_anchors and query:
         t_anchor = time.perf_counter()
         for index, weight in _name_anchor_seeds(runtime, query, csr).items():

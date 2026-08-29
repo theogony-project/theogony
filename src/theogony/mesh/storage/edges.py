@@ -397,6 +397,27 @@ def build_csr_from_columns(
     )
 
 
+def in_strength(csr: EdgeCSR) -> torch.Tensor:
+    """Accumulated inbound edge weight per node — the substrate's `node_potential`.
+
+    MESH_SUBSTRATE §"Node anatomy" defines node potential as accumulated edge
+    weight, and `ConsolidatedNode.node_potential_cache` exists for it and has
+    never been written. Computing it from the CSR instead is not a workaround: it
+    is always current, where a cached field would need maintaining by the tick and
+    would be wrong between ticks.
+
+    Lives here rather than in retrieval because both the query path and the
+    runtime's weight-class cache need it, and importing it from `mesh.retrieval`
+    into the runtime would close a cycle (PHX-1091).
+    """
+    n = len(csr.node_ids)
+    if n == 0 or csr.col_indices.numel() == 0:
+        return torch.zeros(n, dtype=torch.float32)
+    return torch.zeros(n, dtype=torch.float32).scatter_add_(
+        0, csr.col_indices, csr.values.to(torch.float32)
+    )
+
+
 def build_csr_from_edges(edges: list[Edge]) -> EdgeCSR:
     """Build a PyTorch CSR tensor where conductance = weight × frame_consistency."""
     return build_csr_from_columns(

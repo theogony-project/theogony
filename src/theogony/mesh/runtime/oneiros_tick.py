@@ -24,9 +24,11 @@ from theogony.mesh.storage.edges import (
     EdgeStore,
     decay_edges_inplace,
     enforce_saturation,
+    in_strength,
     merge_edge_deltas,
 )
 from theogony.mesh.storage.nodes import _DEFAULT_VERSION_RETENTION, MeshNodeStore
+from theogony.mesh.stratification import WeightClasses, global_weight_classes
 from theogony.mesh.typed_edges import build_typed_boosted_csr
 
 # ---- S5 stubs -------------------------------------------------------
@@ -134,6 +136,11 @@ class MeshRuntime:
         # once (see :meth:`typed_boosted_csr`).
         self._typed_csr_cache: EdgeCSR | None = None
         self._typed_csr_cache_key: tuple[tuple[int, int], float] | None = None
+        # Weight-class boundaries, same discipline again: a node's class is a
+        # property of the substrate, so it must not be recomputed per query from
+        # whichever candidates the ANN returned (PHX-1091).
+        self._weight_classes: WeightClasses | None = None
+        self._weight_classes_key: tuple[tuple[int, int], int] | None = None
 
     @classmethod
     def open(
@@ -242,6 +249,8 @@ class MeshRuntime:
         self._descriptor_cache_key = None
         self._typed_csr_cache = None
         self._typed_csr_cache_key = None
+        self._weight_classes = None
+        self._weight_classes_key = None
 
     def rebuild_csr(self, *, force: bool = False) -> EdgeCSR:
         """Return the edge CSR, reusing a resident cache when the graph is unchanged.
@@ -295,6 +304,35 @@ class MeshRuntime:
         self._typed_csr_cache = boosted
         self._typed_csr_cache_key = key
         return boosted
+
+    def weight_classes(self, *, force: bool = False) -> WeightClasses:
+        """Global weight-class boundaries over the answerable population.
+
+        Answerable means consolidated and not a source anchor. Quantiles over
+        *every* CSR node put 1,560 nodes in the micro class of which only 354
+        could be hydrated at all — 252 source anchors and 102 unconsolidated
+        fragments — and seating those would undo PHX-1042, which removed anchors
+        from the answer budget because they carry nothing to read.
+
+        Cached on the CSR fingerprint plus the node count, so it survives across
+        queries and is rebuilt after a write. It costs one pass over the
+        consolidated table (3,783 of 6,208 nodes on the founding mesh).
+        """
+        csr = self.rebuild_csr()
+        key = (self._csr_cache_fingerprint(), self.nodes.consolidated_count())
+        if not force and self._weight_classes is not None and self._weight_classes_key == key:
+            return self._weight_classes
+        strength = in_strength(csr)
+        potentials = [
+            float(strength[index])
+            for node in self.nodes.iter_consolidated()
+            if not node.is_source_anchor
+            and (index := csr.id_to_index.get(str(node.id))) is not None
+        ]
+        classes = global_weight_classes(potentials)
+        self._weight_classes = classes
+        self._weight_classes_key = key
+        return classes
 
     # ---- tick -------------------------------------------------------
 

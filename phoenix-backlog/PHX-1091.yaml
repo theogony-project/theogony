@@ -1,0 +1,79 @@
+id: PHX-1091
+category: substrate-retrieval
+priority: high
+status: done
+generation_target: MESH migration — S3 (diversified injection)
+title: "Weight-class stratification was a hub cap; built it, then narrowed the seed count"
+filed_by: Claude Code (2026-08-26, on Jakob's decision "first build stratification, then narrow")
+created_at: 2026-08-26
+description: >
+  PHX-1090 measured that the shipped `k_seeds=8` costs seven points of recall and
+  left the change undone, because the doctrine's seed count assumes weight-class
+  stratification and the implementation did not have it. Decision taken: build it
+  first.
+
+  WHAT WAS THERE. `MESH_MIGRATION_PLAN` §S3 lists `stratification.py` and a test
+  "seeds drawn from all four weight classes" as deliverables. Neither existed. In
+  their place, a hub cap inside `select_seeds`, differing from the doctrine twice:
+
+  - **Classes were local.** Quantiles over whichever <=64 candidates the ANN
+    returned, so a node's class depended on who else was retrieved. Measured on
+    the founding mesh: pool median p25 3.71 against a global 1.16, p95 47.14
+    against 17.13. The class being capped was a different set on every query.
+  - **No seats.** Only the hub class had a bound; the other three took whatever
+    the MMR order gave them.
+
+  THE POPULATION QUESTION, which the doctrine does not address. Quantiles over
+  *every* CSR node put 1,560 nodes in micro, of which only 354 hydrate: **252
+  source anchors and 102 unconsolidated fragments, zero consolidated entities**.
+  PHX-1042 removed anchors from the answer budget because they carry nothing to
+  read; seating them here would have undone it. Classes are therefore computed
+  over the answerable population — consolidated, not an anchor — 3,783 of 6,208.
+
+  WHY A MINIMUM SEAT RATHER THAN AN EQUAL ONE. Over the gold set: micro holds 951
+  nodes and 2 of 111 answers, both already retrieved; medium holds 1,886 and is
+  the starved class at 56% recall. Equal seats would move a quarter of the budget
+  to a route nobody travels. A guaranteed *minimum* honours the doctrine's stated
+  purpose — "rare-but-correct knowledge must have a route to the answer" — without
+  it.
+
+  TWO DESIGN ERRORS THE TESTS CAUGHT, both mine:
+
+  - Seating the lowest class before anything else meant that at k=1 the most
+    query-relevant candidate was shut out. PHX-1042's
+    `test_hub_mask_never_masks_a_seed` failed. Relevance now takes the first seat
+    unconditionally.
+  - Guaranteeing the *hub* class a seat made `hub_mask_top_n` inert, because the
+    mask never masks a seed. The doctrine caps hubs; giving them a floor as well
+    is incoherent. The hub class is excluded from the guarantee and keeps its cap.
+
+  RESULT. All four classes seated: micro 1.66 per question (1 of 47 without),
+  medium and large in every question, hub 2.09 with no floor. Stratification
+  itself is free — 5.12 ms against 5.22 ms for the local quantiles it replaces,
+  marginally cheaper because nothing is recomputed per query.
+
+  THEN NARROWED, 8 -> 5, and the value came from the split rather than the sweep.
+  The sweep alone says 1 (84% against 77%). Tuned on one half and reported on the
+  other, **k=1 loses: -2 points of recall and -9 points of questions answered in
+  full**. k=5 never loses — +6 recall and +4 full in one direction, level with 8
+  in the other. The aggregate best was overfitted to half the set.
+
+  Recall 77% -> **80%**, genealogical 71% -> 76%, questions answered in full
+  36 -> **38** of 47. Latency unchanged (k=5 and k=8 both ~105 ms in-process).
+
+resolution: >
+  `mesh/stratification.py`: global class boundaries over the answerable
+  population, cached on the runtime by CSR generation, and `class_seats` giving
+  every non-hub class present in the pool a guaranteed seat after relevance takes
+  the first. All four classes now seated on 46 of 47 gold questions, at no cost
+  (5.12 ms against 5.22). With it in place, `DEFAULT_K_SEEDS` narrowed 8 -> 5 on a
+  tune/test split — not on the sweep, which says 1 and loses 9 points of complete
+  answers held-out. Recall 77% -> 80%, full answers 36 -> 38 of 47.
+relates_to:
+  - PHX-1090   # the measurement that made the decision necessary
+  - PHX-1056   # the ticket that proposed narrowing
+  - PHX-1042   # the hub levers this had to stay compatible with
+linked_scripts:
+  - src/theogony/mesh/stratification.py
+  - src/theogony/mesh/retrieval/diversified.py
+  - tests/mesh/retrieval/test_retrieval_stratification.py

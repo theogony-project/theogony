@@ -249,7 +249,7 @@ The steps are ordered. Step N+1 must not be started until step N is merged. With
 
 **Deliverables:**
 - `src/theogony/mesh/retrieval/diversified.py` — MMR seed selection per `MESH_RETRIEVAL.md` §"Maximum Marginal Relevance".
-- `src/theogony/mesh/retrieval/stratification.py` — weight-class stratification per `MESH_RETRIEVAL.md` §"Weight-class stratification".
+- `src/theogony/mesh/stratification.py` — weight-class stratification per `MESH_RETRIEVAL.md` §"Weight-class stratification". *(Delivered PHX-1091, outside `retrieval/`: the runtime caches the class boundaries, `retrieval/__init__` imports `retrieve`, and `retrieve` imports the runtime — a module under `retrieval/` cannot be imported by the runtime without closing that cycle. Same reason `relation_pids` and `typed_edges` sit there.)*
 - `src/theogony/mesh/retrieval/submesh.py` — sub-mesh signature matching via Weisfeiler-Lehman hashing per `MESH_RETRIEVAL.md` §"Sub-mesh injection".
 - `src/theogony/mesh/retrieval/frame_routing.py` — masked-SpMV frame routing per `MESH_RETRIEVAL.md` §"Frame routing during Spreading Activation".
 - `src/theogony/mesh/retrieval/constellation.py` — Constellation assembly: nodes (with `description`), edges (with descriptors when populated), source-anchors, gaps. Returns the structured working set that downstream consumers ingest.
