@@ -17,6 +17,21 @@ consistency is defined as ``1.0`` (neutral), so frame routing is a faithful **no
 the seeded subnets. The mechanism is exercised by unit tests on synthetic frames; it
 becomes load-bearing once frame-carrying content is ingested. This is a deliberate
 "mechanism now, signal later" split, not a stub.
+
+**Unreachable outside tests.** `retrieve()` gates this on ``query_frame`` and no
+caller in `src/` or `scripts/` passes one — not the CLI, the Cockpit, the
+benchmark, or the demo GIF script — and there is no flag to set it.
+
+The justification this module used to give for that was measured and found
+false: it said frames were all zero on the structural seed and this becomes
+load-bearing "once frame-carrying content is ingested". On the founding mesh the
+frames are **not** zero — 5,002 nodes, 4,977 distinct vectors — because the
+vectorizer produces a salted SHA-256 projection of the label
+(`vectorizer.py`), which is neither of the two options `MESH_RETRIEVAL` §383 or
+`MESH_IMPLEMENTATION` §306 describe. So the frames carry a hash, not an epistemic
+stance, and ingesting more content removes the zero-vector safety net without
+supplying the signal. Routing on them today would mask edges by a hash
+(PHX-1095).
 """
 
 from __future__ import annotations

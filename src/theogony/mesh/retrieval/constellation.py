@@ -110,6 +110,21 @@ def assemble_constellation(
     # (13.8%) while carrying nothing to read: "text paragraph: Theogony
     # batch_01". They are provenance, and stay for it; they just ride along
     # outside `top_k` rather than inside it (PHX-1042).
+    #
+    # ---
+    #
+    # `MESH_IMPLEMENTATION` §"Damping and stop conditions" specifies a
+    # minimum-activation threshold "default ≈ 0.05" per node, and says correctness
+    # comes from damping plus that threshold. **There is no threshold here**: nodes
+    # are kept on `v > 0.0` and cut by `top_k`.
+    #
+    # Adding the documented one would not be a fix. Measured over the 47 gold
+    # questions: a median of 9 nodes clear 0.05 (min 5, max 23) against a budget of
+    # 50, the 50th-ranked activation is 0.0106, and the peak is 0.1903. The figure
+    # is calibrated for `x_{t+1} = damping · A · x_t + injection`, where activation
+    # accumulates; what runs is PPR — mass-preserving, alpha 0.15, 12 iterations —
+    # on a different scale entirely. The budget is doing the stopping, and doing it
+    # on the right scale (PHX-1095).
     k = min(top_k + _ANCHOR_HEADROOM, n)
     top_vals, top_idx = torch.topk(activation, k)
     prelim = [

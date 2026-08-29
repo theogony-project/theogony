@@ -1,0 +1,67 @@
+id: PHX-1095
+category: documentation
+priority: high
+status: done
+generation_target: MESH migration — S3 (doctrine drift)
+title: "Four docstrings described mechanisms as active that do not run"
+filed_by: Claude Code (audit finding, each re-measured 2026-08-26)
+created_at: 2026-08-26
+description: >
+  The audit found five doctrine mechanisms inert. Four of them were described in
+  the code as if they worked, which is the part that is a defect rather than a
+  deferral. Each re-measured on the founding mesh before being written down.
+
+  **`decay_tier`** is 0 on all 94,490 edges, so `_k` always returns 2 and the
+  k=1.5 and k=1.2 branches are unreachable. Nothing writes the field. Deriving it
+  from the endpoints — the obvious one-line fix — would not help: every node is
+  `consolidation_tier` 1, because node-tier promotion is S5 and S5 has not run
+  (MESH_MIGRATION_PLAN:117). It would assign one constant instead of another and
+  shift decay globally while differentiating nothing. Left as a comment, not a
+  patch.
+
+  **`frame_consistency`** is exactly 1.0 on all 94,490 edges, so the documented
+  "conductance = weight x frame_consistency" is a multiplication by one. The two
+  doctrine documents disagree about whose job it is: MESH_RETRIEVAL asks Oneiros
+  to maintain it, and MESH_IMPLEMENTATION's 17-step tick order has no frame phase.
+  The endpoint frames exist and are distinct, so the cosine is computable — this
+  is a missing pass, not missing data.
+
+  **Frame routing** is unreachable outside tests: `retrieve()` gates on
+  ``query_frame`` and no caller in `src/` or `scripts/` passes one, nor is there a
+  flag. The module's own justification was measured and is **false** — it said the
+  frames are all zero on the structural seed. They are not: 5,002 nodes, 4,977
+  distinct vectors. But the vectorizer produces a salted SHA-256 projection of the
+  label, which is neither option the doctrine describes, so the frames carry a
+  hash rather than an epistemic stance. Ingesting more content would remove the
+  zero-vector safety net without supplying the signal.
+
+  **The minimum-activation threshold** of MESH_IMPLEMENTATION §"Damping and stop
+  conditions" ("default ≈ 0.05", and "correctness comes from damping + threshold")
+  does not exist; nodes are kept on `v > 0.0` and cut by `top_k`. Adding it would
+  not be a fix: measured over the 47 gold questions, a median of **9** nodes clear
+  0.05 (min 5, max 23) against a budget of 50, the 50th-ranked activation is
+  0.0106 and the peak is 0.1903. The figure is calibrated for an accumulating
+  operator; what runs is PPR, mass-preserving at alpha 0.15. The budget does the
+  stopping, on the right scale.
+
+  NOTHING WAS IMPLEMENTED HERE, deliberately. Three of the four are doctrine
+  decisions — implement the mechanism, or mark it deferred in the documents — and
+  those belong to the repo owner. What could not stay is code that describes them
+  as working.
+
+resolution: >
+  Four docstrings corrected to the measured state, each with the number and the
+  reason it is not simply fixed: `decay_tier` (all edges 0, all nodes tier 1, so a
+  derivation would be constant), `frame_consistency` (all edges 1.0, and the two
+  doctrine documents disagree about whose pass maintains it), frame routing (no
+  caller anywhere, and its stated justification is false — the frames are non-zero
+  but carry a salted hash), and the absent 0.05 activation threshold (would leave
+  a median of 9 nodes of a 50 budget; calibrated for a different operator). No
+  mechanism changed; the decisions remain open.
+relates_to:
+  - PHX-1042   # the hub levers that do the work the threshold was meant to
+  - PHX-1091   # stratification, the fifth mechanism — that one was built
+linked_scripts:
+  - src/theogony/mesh/storage/edges.py
+  - src/theogony/mesh/retrieval/frame_routing.py
+  - src/theogony/mesh/retrieval/constellation.py

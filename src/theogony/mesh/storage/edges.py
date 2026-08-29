@@ -282,6 +282,15 @@ def decay_edges_inplace(edges: list[Edge], *, lam: float = 0.05, dt: float = 1.0
             return 1.5
         return 1.2
 
+    # **`decay_tier` is 0 on every edge**, so `_k` always returns 2 and the 1.5 and
+    # 1.2 branches are unreachable in production. Nothing writes the field.
+    #
+    # Deriving it from the endpoints would not help, and the measurement says why:
+    # every node on the founding mesh is `consolidation_tier` 1, because node-tier
+    # promotion is S5 and S5 has not run (MESH_MIGRATION_PLAN:117). A derivation
+    # would therefore assign one constant instead of another and shift decay
+    # globally while differentiating nothing — worse than leaving it, which is why
+    # this is a comment and not a patch (PHX-1095).
     for e in edges:
         k = _k(e.decay_tier)
         w = float(e.weight)
@@ -332,6 +341,17 @@ def build_csr_from_columns(
     frame_consistencies: Iterable[float] | None = None,
 ) -> EdgeCSR:
     """Build a PyTorch CSR tensor where conductance = weight × frame_consistency.
+
+    **`frame_consistency` is 1.0 on every edge of every mesh this repo has built**
+    — all 94,490 on the founding mesh — because nothing produces it. So the
+    multiplication is by one and the formula above describes an intention rather
+    than a computation. `MESH_RETRIEVAL` §"Frame routing" asks Oneiros to maintain
+    it and `run_minimal_tick` has no frame phase; the 17-step order in
+    `MESH_IMPLEMENTATION` §"Oneiros — implementation order" does not list one
+    either, so the two documents disagree. Recorded rather than quietly fixed:
+    the endpoint frame vectors *do* exist and are distinct (5,002 nodes, 4,977
+    distinct), so the cosine is computable and this is a missing pass, not
+    missing data (PHX-1095).
 
     Prefer this over :func:`build_csr_from_edges` on the query hot path — it
     consumes columnar Lance fields and avoids per-edge JSON deserialization
