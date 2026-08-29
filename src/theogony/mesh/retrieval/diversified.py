@@ -23,6 +23,8 @@ from dataclasses import dataclass
 
 import torch
 
+from theogony.mesh.stratification import WeightClasses, class_seats
+
 
 @dataclass(frozen=True)
 class SeedCandidate:
@@ -107,45 +109,46 @@ def select_seeds(
     lambda_: float = 0.6,
     n_classes: int = 4,
     max_hub_fraction: float = 0.5,
+    weight_classes_global: WeightClasses | None = None,
+    min_per_class: int = 1,
 ) -> dict[int, float]:
     """Pick up to ``k`` diversified, weight-stratified seeds.
 
     Returns ``{csr_index: weight}`` where weight is the query-cosine relevance
     (floored to a small positive), so closer seeds inject more activation.
+
+    With ``weight_classes_global`` this is stratification as the doctrine
+    describes it: classes are a property of the substrate and each one present in
+    the pool is guaranteed ``min_per_class`` seats. Without it, the old behaviour
+    — quantiles over whichever candidates the ANN returned, and a cap on the
+    class that happened to land highest. That fallback exists for callers with no
+    runtime to ask, and it is not stratification: measured on the founding mesh
+    the pool's median p25 is 3.71 against a global 1.16 (PHX-1091).
     """
     if not candidates or k <= 0:
         return {}
 
     vectors = [c.vector for c in candidates]
     order = mmr_order(query_vector, vectors, lambda_=lambda_)
-    classes = weight_classes([c.potential for c in candidates], n_classes=n_classes)
+    classes = (
+        [weight_classes_global.of(c.potential) for c in candidates]
+        if weight_classes_global is not None
+        else weight_classes([c.potential for c in candidates], n_classes=n_classes)
+    )
 
     query = _normalized_matrix([query_vector])[0]
     cand_mat = _normalized_matrix(vectors)
     relevance = (cand_mat @ query).tolist()
 
-    hub_class = n_classes - 1
-    hub_budget = max(1, int(round(max_hub_fraction * k)))
+    chosen = class_seats(
+        classes,
+        order,
+        k=k,
+        min_per_class=min_per_class if weight_classes_global is not None else 0,
+        hub_class=n_classes - 1,
+        max_hub_fraction=max_hub_fraction,
+    )
     seeds: dict[int, float] = {}
-    hub_used = 0
-    for pos in order:
-        if len(seeds) >= k:
-            break
-        cand = candidates[pos]
-        if classes[pos] == hub_class:
-            if hub_used >= hub_budget:
-                continue
-            hub_used += 1
-        weight = max(float(relevance[pos]), 1e-3)
-        seeds[cand.index] = seeds.get(cand.index, 0.0) + weight
-
-    # If hub-capping starved us below k, top up from the remaining MMR order.
-    if len(seeds) < k:
-        for pos in order:
-            if len(seeds) >= k:
-                break
-            cand = candidates[pos]
-            if cand.index in seeds:
-                continue
-            seeds[cand.index] = max(float(relevance[pos]), 1e-3)
+    for pos in chosen:
+        seeds[candidates[pos].index] = max(float(relevance[pos]), 1e-3)
     return seeds

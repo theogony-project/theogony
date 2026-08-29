@@ -27,8 +27,28 @@ from __future__ import annotations
 # gates going further.
 DEFAULT_TOP_K = 50
 
-# Seeds drawn by diversified injection (MMR over the ANN candidates).
-DEFAULT_K_SEEDS = 8
+# Seeds drawn by diversified injection (MMR over the ANN candidates, with a
+# guaranteed seat per weight class since PHX-1091).
+#
+# Narrowed 8 -> 5 on the founding gold set, and the value is the tune/test split
+# rather than the sweep. The sweep alone says 1:
+#
+#     k_seeds     1     2     3     5     8    16    32
+#     recall     84%   82%   78%   80%   77%   71%   64%
+#     full       36    35    36    38    37    33    27
+#
+# But tuned on one half and reported on the other, k=1 loses: -2 points of recall
+# and **-9 points of questions answered in full** on held-out data. k=5 never
+# loses — +6 recall and +4 full in one direction, level with 8 in the other. The
+# aggregate best was overfitted to half the set, which is the failure this repo
+# has walked into twice before (PHX-1090).
+#
+# Why this is not simply "narrower is better": Spreading Activation's advantage
+# does live at narrow seeding — that is the seeding ceiling, confirmed end-to-end
+# at +5.0 exact match on 2WikiMultihopQA at S=2 (PHX-1089) — but at k=1 the class
+# seats have nothing to allocate, so stratification goes inert and the guarantee
+# the doctrine asks for disappears. 5 is where both hold.
+DEFAULT_K_SEEDS = 5
 
 # ANN candidates the seed selector chooses from.
 DEFAULT_ANN_LIMIT = 64
