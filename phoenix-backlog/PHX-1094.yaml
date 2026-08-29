@@ -1,0 +1,41 @@
+id: PHX-1094
+category: documentation
+priority: medium
+status: done
+generation_target: MESH migration — demo
+title: "Demo Beat 3 asked the audience to read a delta from two identical panels"
+filed_by: Claude Code (audit finding, 2026-08-26)
+created_at: 2026-08-26
+description: >
+  Beat 3 ran `mesh status` before and after `scripts/mesh_oneiros_dream.py` and
+  told the operator to "note edge count BEFORE" and "edge count AFTER". The two
+  numbers are necessarily identical: the script loads the substrate read-only,
+  runs its rounds over an **in-memory** copy of the edges — the same
+  `merge_edge_deltas`, `decay_edges_inplace` and `enforce_saturation` the tick
+  applies — and writes nothing back but its report JSON.
+
+  Replacing it with `theogony mesh tick` would not repair the beat either: the
+  delta buffer is empty, so a tick only decays, and `edges_after` can only fall.
+
+  The number that carries the claim exists and is the strongest the founding mesh
+  has produced (`data/run_reports/mesh_eval/oneiros_dream_*.json`): held-out
+  link-prediction MRR **0.4433 -> 0.5977, +34.8%**, against a kNN control flat at
+  0.2401 — the control matters, because it shows the gain came from the graph
+  rather than from the embeddings, which never changed.
+
+  Rewritten so the two `status` calls are the **control** rather than the result:
+  nothing new was read and nothing was stored, which is what makes the MRR mean
+  anything. The instruction to "show one concrete new connection that stood in no
+  single source text" is dropped rather than faked — the script reports rounds,
+  edge counts, deltas and MRR, and names no node. Giving it that instrument is
+  open work.
+resolution: >
+  Beat 3 rewritten: the two identical `mesh status` panels are presented as the
+  control, the claim rests on the run report's MRR 0.4433 -> 0.5977 (+34.8%) with
+  the kNN control flat at 0.2401, and the unbacked "show one concrete new
+  connection" instruction is removed with a note saying why.
+relates_to:
+  - PHX-1083   # Beat 1, whose table had rotted the same way
+linked_scripts:
+  - demo/founding_demo.md
+  - scripts/mesh_oneiros_dream.py

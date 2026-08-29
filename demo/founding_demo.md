@@ -87,14 +87,45 @@ subgraphs side by side and say so — the honest state is the demo.
 ## Beat 3 — The permanent dream (~60s)
 
 ```bash
-theogony mesh status --root data/mesh-founding          # note edge count BEFORE
+theogony mesh status --root data/mesh-founding
 python scripts/mesh_oneiros_dream.py --root data/mesh-founding --rounds 3 --n-seeds 200
-theogony mesh status --root data/mesh-founding          # edge count AFTER
+theogony mesh status --root data/mesh-founding
 ```
 
-Show one concrete new connection that stood in no single source text, plus
-the dream run's report. Line for the audience: *"The chronicle grew wiser
-without reading new text."*
+**The two `status` calls are the control, not the result.** They are identical,
+and they must be: `mesh_oneiros_dream.py` reads the substrate and works on an
+in-memory copy of the edges — the same `merge_edge_deltas`, decay and saturation
+the tick applies — and writes nothing back but its report. Nothing new was read
+and nothing was stored. That is what makes the next number mean anything.
+
+This section used to ask the operator to read a delta out of those two panels
+(PHX-1094). There was never one to read.
+
+**The result is in the run report**, and it is the strongest number the founding
+mesh has produced:
+
+| | before | after 3 rounds |
+|---|---|---|
+| Spreading Activation, held-out link prediction (MRR) | 0.4433 | **0.5977** |
+| kNN control (same test set, no graph) | 0.2401 | 0.2401 |
+
+**+34.8%, against a control that does not move.** The substrate reorganised what
+it already had into better predictions of relations it was never shown — the kNN
+arm proves the gain came from the graph rather than from the embeddings, because
+the embeddings never changed.
+
+Line for the audience: *"It got better at the material without reading any more
+of it."*
+
+Honest scope, and say it out loud: this is one run on one corpus, self-measured,
+and the dream is a simulation over a working copy rather than a write to the
+substrate. `theogony mesh tick` is the pass that would actually commit such
+changes, and running it here would show nothing — the delta buffer is empty, so a
+tick only decays, and `edges_after` can only fall.
+
+*(The old script cannot name a single new connection — it reports rounds, edge
+counts, deltas and MRR, and no node. The instruction to "show one concrete new
+connection" is dropped rather than faked; giving it an instrument is open work.)*
 
 ## What this does NOT prove
 
