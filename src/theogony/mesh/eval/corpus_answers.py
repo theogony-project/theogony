@@ -105,8 +105,14 @@ def _score(answer: str, expected: list[str]) -> tuple[list[str], list[str]]:
     return found, [name for name in expected if name not in found]
 
 
-def _constellation_context(runtime: MeshRuntime, question: str, vector: Any, top_k: int) -> str:
-    result = retrieve(runtime, vector, query=question, top_k=top_k)
+def _constellation_context(
+    runtime: MeshRuntime,
+    question: str,
+    vector: Any,
+    top_k: int,
+    **retrieve_kwargs: Any,
+) -> str:
+    result = retrieve(runtime, vector, query=question, top_k=top_k, **retrieve_kwargs)
     lines = ["Entities:"]
     lines += [f"- {n.name}" for n in result.constellation.nodes if not n.is_source_anchor]
     described = [e for e in result.constellation.edges if e.relation_descriptor]
@@ -143,8 +149,16 @@ def answer_gold_set(
     gold: list[GoldQuestion] | None = None,
     top_k: int = DEFAULT_TOP_K,
     max_output_tokens: int = 120,
+    **retrieve_kwargs: Any,
 ) -> list[AnswerResult]:
-    """Ask every gold question once per arm and score what comes back."""
+    """Ask every gold question once per arm and score what comes back.
+
+    ``retrieve_kwargs`` reach the constellation arm only — the vector arm is a
+    plain ANN read by construction. `k_seeds` is the one worth sweeping: the
+    HippoRAG run (PHX-1089) found Spreading Activation's whole advantage lives at
+    *narrow* seeding, +5.0 exact match at S=2 and nothing at S=10, so a founding
+    measurement taken at the default 8 may be measuring the same ceiling.
+    """
     questions = gold if gold is not None else load_gold()
     runtime.rebuild_csr()
     results: list[AnswerResult] = []
@@ -156,7 +170,7 @@ def answer_gold_set(
                 system, prompt = _SYSTEM_CLOSED, f"Question: {gq.question}"
             else:
                 context = (
-                    _constellation_context(runtime, gq.question, vector, top_k)
+                    _constellation_context(runtime, gq.question, vector, top_k, **retrieve_kwargs)
                     if arm == "constellation"
                     else _vector_context(runtime, vector, top_k)
                 )

@@ -180,3 +180,86 @@ are *related* where the question wanted nodes that are *similar*.
    (3 × 1000 questions with gold answers, already on disk) can.
 4. **No claim here rests on one arm's number.** They rest on differences, and the
    differences under five points are not claims.
+
+---
+
+# Third round: the seeding ceiling, on this corpus
+
+*2026-08-26, after PHX-1089.*
+
+The HippoRAG run produced a testable prediction for the founding substrate:
+Spreading Activation's advantage lives at **narrow** seeding — +5.0 exact match
+at hybrid/S=2 on 2WikiMultihopQA and nothing at S=10. The founding measurements
+were all taken at the shipped default of `k_seeds=8`, which is the wide end.
+
+## Retrieval says the prediction holds, and sharply
+
+`scripts/mesh_corpus_qa.py --seed-sweep`, 47 questions, 14 ticks, top_k=50:
+
+| k_seeds | recall | fully answered |
+|---|---|---|
+| 1 | **84%** | 36/47 |
+| 2 | 81% | 36/47 |
+| 3 | 81% | 37/47 |
+| 5 | 80% | **38/47** |
+| **8 (shipped default)** | 77% | 36/47 |
+| 16 | 71% | 33/47 |
+| 32 | 64% | 27/47 |
+
+Monotone. **The shipped default costs seven points of recall against `k_seeds=1`**
+— and this is the mechanism the seeding-ceiling result predicted, reproduced on a
+different corpus and a different pipeline.
+
+Tuned honestly rather than read off the aggregate — alternating halves, ties
+broken toward the narrower setting:
+
+| tuned on | chose | held-out | today (k=8) | at the chosen value |
+|---|---|---|---|---|
+| A | k=1 | B | 82% | 82% (+0) |
+| B | k=3 | A | 73% | **79% (+6)** |
+
+Never negative; +6 in one direction and flat in the other. Same shape as the
+answer-budget split: one half has headroom, the other is saturated.
+
+## The answer does not move
+
+| k_seeds | answer recall |
+|---|---|
+| 1 | 46% |
+| 2 | 45% |
+| 3 | 47% |
+| 8 | 44% |
+| *vector_only (no seeding)* | *46%* |
+| *closed_book* | *49%* |
+
+Flat, inside the two-to-three point noise floor. **Seven points of retrieval
+recall reach the working set and none of them reach the answer** — the same 62%
+gap PHX-1087 measured, swallowing the improvement whole.
+
+## What this leaves open, and for whom
+
+The retrieval finding is unambiguous and it is about a **shipped production
+default**. It is also a doctrine question rather than a tuning one, which is why
+it is written down here rather than changed:
+
+`MESH_RETRIEVAL` §"Diversified injection" specifies "K seeds from each class …
+typically 5–25 per class, total 20–100". The implementation uses **8 total**,
+because weight-class stratification is a hub-cap over 64 ANN hits with no class
+seats (audit finding, still open). So the shipped 8 already does not honour the
+doctrine's number, and narrowing to 3 moves further from a figure that assumes a
+mechanism which does not exist.
+
+Two honest readings, and the evidence does not choose between them:
+
+- **Narrow it.** Seven points of recall, +5.0 end-to-end exact match on the
+  external benchmark where the answer step is not the bottleneck, and the
+  forbidden pattern in the doctrine is *top-K by cosine* — which narrowing MMR
+  while keeping name anchors moves away from, not toward. At `k_seeds=1` the
+  actual seed count is still a median of 3, because name anchors contribute two.
+- **Build stratification first.** The doctrine's 20–100 assumes four weight
+  classes with their own seats. Tuning a number whose mechanism is missing tunes
+  the symptom.
+
+PHX-1056 proposes the change and has been open since before either measurement.
+It now has fresh evidence — its earlier founding-mesh evidence was withdrawn as
+non-reproducing (PHX-1083).

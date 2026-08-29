@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 
 from theogony.mesh.eval.corpus_qa import evaluate, recall_curve, summarise, summarise_by_kind
-from theogony.mesh.retrieval.retrieve import DEFAULT_TOP_K
+from theogony.mesh.retrieval.defaults import DEFAULT_K_SEEDS, DEFAULT_TOP_K
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.seeds.wikidata5m.embedder import BGESmallEnEmbedder
 
@@ -28,6 +28,11 @@ def main() -> None:
     ap.add_argument("--json", action="store_true", help="emit the summary as JSON")
     ap.add_argument("--verbose", action="store_true", help="one line per question")
     ap.add_argument("--curve", action="store_true", help="recall as a function of top_k")
+    ap.add_argument(
+        "--seed-sweep",
+        action="store_true",
+        help="recall as a function of k_seeds — the seeding ceiling, on this corpus.",
+    )
     args = ap.parse_args()
 
     runtime = MeshRuntime.open(args.root)
@@ -35,6 +40,22 @@ def main() -> None:
 
     def embed(text: str) -> list[float]:
         return asyncio.run(embedder.embed_many([text]))[0]
+
+    if args.seed_sweep:
+        # The seeding ceiling. On HippoRAG, Spreading Activation's entire
+        # advantage lives at narrow seeding: +5.0 exact match end-to-end at S=2
+        # and nothing at S=10 (PHX-1089). The same shape holds here — and the
+        # shipped default sits on the wrong side of it (PHX-1090).
+        print(f"Ticks auf diesem Mesh: {runtime.tick_count()}\n")
+        print(f"{'k_seeds':>8s} {'Recall':>8s} {'voll':>8s}")
+        for k in (1, 2, 3, 5, 8, 16, 32):
+            s_ = summarise(evaluate(runtime, embed, top_k=args.top_k, k_seeds=k))
+            marker = "  <- Default" if k == DEFAULT_K_SEEDS else ""
+            print(
+                f"{k:8d} {s_['recall_given_coverage']:7.0%} "
+                f"{s_['questions_fully_answered']:5.0f}/{s_['questions']:.0f}{marker}"
+            )
+        return
 
     if args.curve:
         print(f"Ticks auf diesem Mesh: {runtime.tick_count()}\n")
