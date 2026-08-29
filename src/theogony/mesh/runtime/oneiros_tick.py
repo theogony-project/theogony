@@ -95,6 +95,22 @@ class MinimalTickResult:
 # ---- Runtime --------------------------------------------------------
 
 
+# Without a read-consistency interval, lancedb pins every table handle to the
+# version it was opened at. A long-lived reader is then not merely stale — it
+# breaks. Reproduced (PHX-1093):
+#
+#     reader opens                     sees 1 edge
+#     writer appends two               writer sees 3, reader still sees 1
+#     writer runs prune_history        reader raises
+#         LanceError(IO): Not found — the data files it was pinned to are gone
+#
+# The tick calls `prune_history`, so any process holding a runtime across a tick
+# — the Cockpit does — starts throwing rather than serving old answers. A zero
+# interval means "check on every operation": measured at 0.10 ms against 0.08 ms
+# for `count_rows`, which is not a trade worth thinking about.
+_READ_CONSISTENCY = timedelta(0)
+
+
 class MeshRuntime:
     """Warm-tier mesh opened from a filesystem directory.
 
@@ -114,7 +130,7 @@ class MeshRuntime:
         self.frame_dim = frame_dim
 
         root.mkdir(parents=True, exist_ok=True)
-        self.db = lancedb.connect(str(root / "lance"))
+        self.db = lancedb.connect(str(root / "lance"), read_consistency_interval=_READ_CONSISTENCY)
 
         self.nodes = MeshNodeStore(self.db, semantic_dim=semantic_dim, frame_dim=frame_dim)
         # Durable delta sidecar: reinforcement written by `mesh ask --hebbian` in one
@@ -128,19 +144,19 @@ class MeshRuntime:
         # (Do not key on Lance list_versions — that is O(version_count) and can
         # take tens of seconds on busy 100k workspaces.)
         self._csr_cache: EdgeCSR | None = None
-        self._csr_cache_key: tuple[int, int] | None = None
+        self._csr_cache_key: tuple[int, int, int] | None = None
         # Same cache discipline for edge descriptors (see :meth:`descriptor_index`).
         self._descriptor_cache: dict[tuple[str, str], str | None] | None = None
         self._descriptor_cache_key: int | None = None
         # And for the typed-edge re-weighting, which walks every edge position
         # once (see :meth:`typed_boosted_csr`).
         self._typed_csr_cache: EdgeCSR | None = None
-        self._typed_csr_cache_key: tuple[tuple[int, int], float] | None = None
+        self._typed_csr_cache_key: tuple[tuple[int, int, int], float] | None = None
         # Weight-class boundaries, same discipline again: a node's class is a
         # property of the substrate, so it must not be recomputed per query from
         # whichever candidates the ANN returned (PHX-1091).
         self._weight_classes: WeightClasses | None = None
-        self._weight_classes_key: tuple[tuple[int, int], int] | None = None
+        self._weight_classes_key: tuple[tuple[int, int, int], int] | None = None
 
     @classmethod
     def open(
@@ -157,7 +173,7 @@ class MeshRuntime:
         remember them.
         """
         root = root.resolve()
-        db = lancedb.connect(str(root / "lance"))
+        db = lancedb.connect(str(root / "lance"), read_consistency_interval=_READ_CONSISTENCY)
         resp = db.list_tables()
         tables = resp.tables or []
         if "chunk_nodes" in tables:
@@ -238,8 +254,24 @@ class MeshRuntime:
 
     # ---- CSR --------------------------------------------------------
 
-    def _csr_cache_fingerprint(self) -> tuple[int, int]:
-        return (self.edges.mutation_generation, self.edges.delta.pending())
+    def _csr_cache_fingerprint(self) -> tuple[int, int, int]:
+        """What must be equal for a cached CSR to still be the graph.
+
+        The edge table's Lance version is here because the other two are
+        **process-local**: `mutation_generation` is an in-process counter that
+        starts at zero on every fresh runtime, so a reader could not see a writer
+        at all. Measured before this: a second process appended two edges and the
+        reader's fingerprint stayed at (0, 0) while the table moved 2 -> 3
+        (PHX-1093).
+
+        `.version` is a single property at 0.095 ms, not `list_versions()`, which
+        is O(version count) and is what the warning below is about.
+        """
+        return (
+            int(self.edges.edge_table.version),
+            self.edges.mutation_generation,
+            self.edges.delta.pending(),
+        )
 
     def invalidate_csr_cache(self) -> None:
         """Drop the resident CSR (call after out-of-band edge mutations)."""
@@ -255,7 +287,7 @@ class MeshRuntime:
     def rebuild_csr(self, *, force: bool = False) -> EdgeCSR:
         """Return the edge CSR, reusing a resident cache when the graph is unchanged.
 
-        Cache key = ``(edge_mutation_generation, delta_pending)``. Set
+        Cache key = ``(edge_table_version, edge_mutation_generation, delta_pending)``. Set
         ``force=True`` to bypass the cache (tests / Oneiros tick bookkeeping).
         Building uses the columnar Lance path in :meth:`EdgeStore.csr_from_store`
         (PHX-1041). Do not key on Lance ``list_versions`` — that is O(version

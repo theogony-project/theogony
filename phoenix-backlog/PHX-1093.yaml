@@ -1,0 +1,60 @@
+id: PHX-1093
+category: substrate-integrity
+priority: high
+status: done
+generation_target: MESH migration — S3 (multi-process reads)
+title: "A long-lived reader served a pinned snapshot, then raised when it was pruned"
+filed_by: Claude Code (audit finding, reproduced 2026-08-26)
+created_at: 2026-08-26
+description: >
+  Without a read-consistency interval, lancedb pins every table handle to the
+  version it was opened at. A second process is then not merely stale — it
+  breaks. Reproduced on a throwaway mesh:
+
+      reader opens                     sees 1 edge
+      writer appends two               writer sees 3, reader still sees 1
+      writer runs prune_history        reader raises
+          LanceError(IO): Not found — the files it was pinned to are gone
+
+  The tick calls `prune_history` on every run, so any process holding a runtime
+  across a tick — the Cockpit does — starts throwing rather than serving old
+  answers.
+
+  FIXED with `read_consistency_interval=timedelta(0)` on both `lancedb.connect`
+  sites. Zero means "check on every operation": 0.10 ms against 0.08 ms for
+  `count_rows`, which is not a trade worth thinking about.
+
+  AND THE CACHE KEY WAS BLIND TOO, which the first fix exposed rather than
+  solved. `_csr_cache_fingerprint` was `(mutation_generation, delta_pending)`,
+  both **process-local** — `mutation_generation` is an in-process counter
+  starting at zero on every fresh runtime. Measured: a second process appended two
+  edges, the table moved 2 -> 3, and the reader's fingerprint stayed at (0, 0).
+  So every cache keyed on it — the CSR, the typed-boosted CSR, the weight classes
+  — would serve a stale graph to a reader forever.
+
+  The edge table's Lance version is now part of the fingerprint. It costs
+  **0.095 ms**, a tenth of a percent of a ~97 ms query. Note this is `.version`,
+  a single property, not `list_versions()` — the O(version count) call the
+  existing warning is about, and which can take tens of seconds on a busy
+  workspace (PHX-1041).
+
+  ALSO: `MeshExplorerService.ensure_index` returned early on "an index exists", so
+  the Cockpit froze its graph at the first query and served it until restart,
+  however many ticks ran underneath. Now keyed on the same fingerprint.
+
+  Recall unchanged at 80% / 38 of 47; query latency ~97 ms, inside run-to-run
+  variance.
+
+resolution: >
+  `read_consistency_interval=timedelta(0)` on both connects, the edge table's
+  Lance version added to the CSR cache fingerprint (0.095 ms), and the Cockpit's
+  index keyed on that fingerprint rather than on "does an index exist". A reader
+  now sees a writer's appends and survives the writer's prune, both pinned by
+  test. Recall and latency unchanged.
+relates_to:
+  - PHX-1041   # the cache this corrects, and the list_versions warning it respects
+  - PHX-1082   # the other case of the tick's write path breaking a reader
+linked_scripts:
+  - src/theogony/mesh/runtime/oneiros_tick.py
+  - src/theogony/cockpit/mesh_explorer.py
+  - tests/mesh/test_read_consistency.py
