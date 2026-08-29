@@ -238,11 +238,33 @@ def assemble_constellation(
         if held is None or (_claim(src, tgt), weight) > (_claim(held[0], held[1]), held[2]):
             undirected[key] = (src, tgt, weight)
 
-    # Ordered by how strongly the query activated the endpoints, then by how much
-    # the relation claims, then by weight.
-    def _edge_key(edge: tuple[int, int, float]) -> tuple[float, int, float]:
+    # Edges that touch a seed come first, then activation, then how much the
+    # relation claims, then weight.
+    #
+    # A seed is where the query entered the graph, so an edge touching one is an
+    # edge on a path from the question into the substrate. Everything else is
+    # scenery that the propagation happened to light up. Measured on the 47 gold
+    # questions, three runs each, answer recall through a language model
+    # (PHX-1096):
+    #
+    #     entities only, no relations at all     57 / 52 / 52
+    #     every edge among the kept nodes        50 / 50 / 51   <- the old order
+    #     seed-touching edges cut to             50 / 53 / 53
+    #
+    # The unscoped list was the worst arm in every run — **worse than showing no
+    # relations at all** — 200 lines of everything-connected-to-everything, of
+    # which a median of 63 touch a seed.
+    #
+    # This is a ranking, not a filter: nothing is dropped from the Constellation,
+    # the budget simply spends itself on the query's own neighbourhood first. The
+    # gain measured above needs the consumer to *stop* at the seed-touching edges
+    # as well — ranking alone scores 52 / 52 / 53 — and that cut belongs to the
+    # consumer, since the Constellation's contract is the activated subgraph and
+    # not one reader's preferred slice of it.
+    def _edge_key(edge: tuple[int, int, float]) -> tuple[bool, float, int, float]:
         src, tgt, weight = edge
         return (
+            src in seed_indices or tgt in seed_indices,
             min(activation_by_index.get(src, 0.0), activation_by_index.get(tgt, 0.0)),
             _claim(src, tgt),
             weight,
