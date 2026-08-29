@@ -509,11 +509,27 @@ class EdgeStore:
             offset += len(rows)
 
     def _ensure_dedup_index(self) -> None:
-        """Backfill the dedup index for a workspace whose edges predate it (once)."""
-        if self.edge_table.count_rows() == 0:
+        """Rebuild the dedup index whenever it does not match the edge table.
+
+        The guard used to be ``if count_rows() > 0: return`` — "not empty" read as
+        "complete". `append_edges` writes the edge rows and *then* the dedup rows,
+        so a crash between the two leaves an index that is neither, and the guard
+        then refused to repair it. Real on any long seed import (PHX-1092).
+
+        The exact check was sitting unused beside it: `_dedup_rows` emits one row
+        per edge, so equal counts is constructively completeness — 94,490 against
+        94,490 on the founding mesh.
+
+        A partial index is cleared before backfilling, because the backfill only
+        adds and would otherwise double what is already there.
+        """
+        edge_rows = self.edge_table.count_rows()
+        if edge_rows == 0:
+            return
+        if self.dedup_index.count_rows() == edge_rows:
             return
         if self.dedup_index.count_rows() > 0:
-            return
+            self.dedup_index.delete("true")
         batch: list[dict[str, str]] = []
         for key in self._iter_existing_dedup_keys():
             batch.append({"dedup_key": key})
