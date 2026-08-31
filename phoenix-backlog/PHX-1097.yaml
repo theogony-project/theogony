@@ -1,0 +1,99 @@
+id: PHX-1097
+category: substrate-runtime
+priority: high
+status: in_progress
+generation_target: MESH migration — S5 (Oneiros consolidation)
+title: "Oneiros consolidation: the substrate's identity was never settled"
+filed_by: Claude Code (2026-08-31, opening S5)
+created_at: 2026-08-31
+description: >
+  `MESH_SUBSTRATE.md` §"Why two tiers" specifies identity in two halves:
+  eager linking when Q-ID, description or tag evidence decides, and an entity
+  *candidate* whose identity Oneiros settles later when it does not. Only the
+  first half was ever built. The measurable consequence on the founding mesh:
+
+    - **every one of the 3,783 entity nodes carries `is_candidate = True`**
+    - Zeus is six nodes: `Zeus`, `son of Cronos`, `her father`,
+      `father of men and gods`, `Son of Chronos`, and a paragraph concept
+    - Apollo and Athena have **no canonical node at all** — every node for them
+      is an epithet (`Phoebus`, `Far-Shooter`, `Pythian`, `Tritogeneia`)
+
+  That is the source of the read surface PHX-1096 ran into: a Constellation
+  answering "the children of Cronus and Rhea" showed `her father`, `Host of
+  Many`, `dear mother` and `Vesta`, all of them correct retrievals displaying
+  the name of a mention rather than of an entity.
+
+  This ticket builds the consolidation pass: propose (substrate bookkeeping),
+  adjudicate (one small LLM call per pair, as doctrine specifies), apply (rewire
+  edges, fuse nodes, audit), regenerate (the description, from the members).
+
+  BLOCKED WITHIN S5, and recorded rather than worked around: **tier promotion
+  cannot run.** Doctrine earns Tier 1 -> 2 -> 3 on "number of distinct
+  activation contexts, age, breadth of incoming references". `fired_total` and
+  `fired_recent` are **0 on every node** and have no writer anywhere in `src/`.
+  Promotion would be promotion by age alone. This is the same class of finding
+  as PHX-1095's `decay_tier` — a doctrinal mechanism whose input nothing
+  produces — and it is why this pass leaves `consolidation_tier` at 1.
+resolution: >
+  Built and measured. 147 proposals -> 78 same / 34 different / 35 uncertain;
+  48 clusters, 68 nodes absorbed, 5 dropped as ambiguous, 0 dangling endpoints.
+
+  RETRIEVAL: at the shipped `k_seeds=5` it is -2 entities. The seed sweep says
+  the default is on the wrong side of the curve for *both* meshes, and at
+  **k_seeds=1 the consolidated substrate reaches 87% recall and 39/47 fully
+  answered against 84% and 36/47** — the best either number has been on this
+  gold set. Consolidation moves the peak rather than lowering it, and the
+  mechanism is the one it exists for: one seed is now the entity rather than one
+  of its six fragments.
+
+  ANSWER: no change. Paired over the same 47 questions, post is better on 7 and
+  worse on 6. The individual moves are large in both directions
+  (`hundred-handed` 0/3 -> 3/3 against `tethys-rivers` 4/4 -> 0/4), and the
+  largest regression was traced: Tethys and all four rivers were untouched by the
+  merge, so it is redistributed PPR mass, not a rewiring bug.
+
+  MEASURED, and the most useful number of the round: **the answer instrument's
+  mesh-independent closed-book control swung 43% to 52% across runs that differ
+  in nothing it can see.** Nine points of noise on the control. That is larger
+  than any answer-side effect this repo has quoted from this instrument,
+  PHX-1096's ~3 points included.
+
+  MEASURED AND REJECTED — the doctrine's structural-context signal. Identity
+  signal 2 is "description similarity + structural context". On these 147 pairs
+  the three highest context scores in the set are all *false* pairs:
+  `Erebus <- Chaos` 0.90, `Tethys <- Phoebe` 0.89, `Trojan War <- Iliou Persis`
+  0.88. In a genealogy, appearing in the same passages is the normal case for
+  entities that are related and not identical. It is recorded on the proposal
+  for the auditor and is not allowed to decide.
+
+  Not wired into the tick: consolidation needs a network and money, and the tick
+  is a synchronous offline pass. `scripts/mesh_consolidate.py` invokes it, and it
+  writes its own audit action so `tick_count()` keeps its meaning.
+remaining: >
+  The ship/adopt decision for the operator: whether to run the pass on
+  `data/mesh-founding` itself, and whether to move `DEFAULT_K_SEEDS` from 5 to 1
+  (the sweep says yes for both meshes; PHX-1091 set 5 deliberately on a different
+  split, so this is a production default worth deciding rather than flipping).
+
+  Anchor-to-anchor merges are deferred by design: Hades, Pluto and Aidoneus are
+  three anchors for one god, and a member matching several anchors is read as
+  ambiguous and dropped (5 nodes here). Settling those needs anchors adjudicated
+  against each other.
+
+  Unmeasured: the pass on a cheap model. It was launched believing it ran on
+  `deepseek-chat` and ran on `claude-sonnet-4-6` (`.env` pins `MODEL_ID`
+  independently of `PROVIDER`). `ReplayAdjudicator` makes the comparison cheap.
+
+  Also unbuilt from S5's deliverable list: Tier-0 -> Tier-1 promotion from chunk
+  clusters, splits, renormalisation, the pruner, pathology surveillance, therapy,
+  three-factor RL. This ticket is entity-candidate consolidation only.
+relates_to:
+  - PHX-1096   # which reached S5 from the answer side
+  - PHX-1064   # which reached it from the retrieval side
+  - PHX-1095   # the same shape of finding: a doctrinal input nothing writes
+  - PHX-1065   # the name-at-the-head rule the regeneration must not break
+  - PHX-1051   # the identity attractor a merged survivor makes bigger
+linked_scripts:
+  - src/theogony/mesh/runtime/consolidation.py
+  - scripts/mesh_consolidate.py
+  - tests/mesh/test_consolidation.py
