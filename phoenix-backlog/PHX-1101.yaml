@@ -1,0 +1,43 @@
+id: PHX-1101
+category: substrate-runtime
+priority: critical
+status: open
+generation_target: MESH migration — S5 (Voraussetzung)
+title: "Das Substrat führt kein Gedächtnis seiner eigenen Aktivität"
+filed_by: Claude Code (2026-08-31, aus der Doktrin-Inventur)
+created_at: 2026-08-31
+description: >
+  `fired_total` und `fired_recent` sind auf **jedem** Knoten des lebenden Substrats
+  0 (gemessen über 5.002 konsolidierte Knoten und eine Stichprobe von 400 Chunks)
+  und haben nirgends in `src/` einen Schreiber. `last_fired_at` wird bei der
+  Erzeugung gesetzt und danach nie fortgeschrieben.
+
+  Das ist keine Kleinigkeit, weil vier Doktrin-Mechanismen daraus lesen:
+
+    - Tier-Beförderung ("number of distinct activation contexts, age, breadth of
+      incoming references") — deshalb ist jeder Knoten `consolidation_tier` 1,
+      und deshalb hat PHX-1097 sie nicht gebaut
+    - gestufter Zerfall über `decay_tier`, den nichts ableiten kann
+    - Oneiros' Replay, das "strukturell wichtige" Kanten auch ohne Abfrage feuern
+      lässt, um das Seltene-aber-Wichtige vor dem superlinearen Zerfall zu schützen
+    - die Eligibility-Traces des Drei-Faktor-RL
+
+  Dazu: MESH_SUBSTRATE sagt "Kanten, die **nicht feuern**, schwächen sich".
+  `decay_edges_inplace` zerfällt unbedingt jede Kante, weil es kein Feuersignal
+  gibt, auf das es sich stützen könnte.
+
+  UMFANG: der Lesepfad schreibt zurück. `retrieve()` weiß, welche Knoten aktiviert
+  wurden — es baut die Constellation daraus. Ein Zähler je aktiviertem Knoten,
+  gepuffert wie die Hebbschen Deltas (der Sidecar-Mechanismus existiert schon) und
+  vom Tick eingearbeitet. Die Kosten der Doktrin sind ausdrücklich vorgesehen:
+  MESH_IMPLEMENTATION §"Writes — buffered, not synchronous".
+
+  ACHTUNG bei der Umsetzung: `fired_recent` ist als *rollierender* Zähler
+  spezifiziert; ohne Fenster wächst er monoton und wird zu einer zweiten Kopie von
+  `fired_total`. Und die Frage, ob ein Anker mitzählt, muss beantwortet werden —
+  Quellanker sind die höchstgradigen Knoten des Mesh und würden jede Statistik
+  dominieren.
+relates_to:
+  - PHX-1100   # die Inventur
+  - PHX-1097   # wo die Tier-Beförderung daran scheiterte
+  - PHX-1095   # decay_tier, dieselbe Form

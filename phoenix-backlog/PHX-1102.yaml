@@ -1,0 +1,45 @@
+id: PHX-1102
+category: substrate-runtime
+priority: critical
+status: open
+generation_target: MESH doctrine — die fünf Primitiven
+title: "Die Hebbsche Verstärkung ist 17- bis 254-fach zu klein gegen den Zerfall"
+filed_by: Claude Code (2026-08-31, aus der Doktrin-Inventur)
+created_at: 2026-08-31
+description: >
+  Gemessen, nicht gerechnet. Acht echte Abfragen mit `hebbian=True` gegen
+  `data/mesh-founding` schrieben 512 Deltas:
+
+      stärkstes Delta einer Abfrage      2,9e-4
+      Median-Delta                       1,9e-5
+      ein Tick Zerfall (Mediangewicht 0,3112, λ=0,05, k=2)   4,8e-3
+
+  **Die stärkste Verstärkung, die eine einzelne Abfrage einer Kante geben kann,
+  ist 17-mal kleiner als ein Tick Vergessen. Im Median 254-mal.** Und der Tick
+  zerfällt jede Kante, während eine Abfrage nur die berührt, die sie aktiviert.
+
+  Dazu kommt, dass es auf diesem Mesh nie gelaufen ist: alle 14 Tick-Records
+  tragen `delta_drained: 0`, kein Skript und kein Eval-Harness setzt `--hebbian`.
+  Jedes der 94.490 Gewichte ist reine Ingestion plus Zerfall.
+
+  Solange das so steht, ist "das Substrat lernt aus Benutzung" eine Behauptung,
+  die die eigenen Parameter widerlegen. Drei Stellschrauben, und keine davon darf
+  geraten werden:
+
+    - α anheben (`hebbian_learning_rate`, aktuell 0,01)
+    - λ senken (aktuell 0,05 je Tick)
+    - den Zerfall auf **ungefeuerte** Kanten beschränken, wie die Doktrin es
+      eigentlich sagt — was PHX-1101 voraussetzt
+
+  Die dritte ist vermutlich die richtige, weil sie die Doktrin einhält statt eine
+  Zahl gegen eine andere zu tauschen. Aber sie ist auch die einzige, die eine neue
+  Abhängigkeit einführt.
+
+  MESSPLAN: eine Simulation über N Ticks bei realistischem Abfragevolumen, gegen
+  die tatsächliche Gewichtsverteilung des Founding-Mesh — bei welcher Kombination
+  hält eine oft abgefragte Kante ihr Gewicht, ohne dass eine nie abgefragte
+  unsterblich wird? Das ist billig und beantwortet die Frage vor der ersten
+  Codeänderung.
+relates_to:
+  - PHX-1100   # die Inventur
+  - PHX-1101   # das Feuersignal, das die dritte Option braucht

@@ -1,0 +1,79 @@
+id: PHX-1100
+category: doctrine
+priority: critical
+status: done
+generation_target: MESH doctrine — state of the substrate
+title: "Inventur: von 119 Doktrin-Mechanismen laufen 9"
+filed_by: Claude Code (2026-08-31, auf Jakobs Frage nach einem Recap)
+created_at: 2026-08-31
+description: >
+  Fünfmal in Folge war beim Arbeiten an etwas anderem ein Doktrin-Mechanismus
+  aufgefallen, dessen Eingabe niemand schreibt (decay_tier, die
+  Aktivierungsschwelle, frame_consistency, der Frame-Routing-Aufrufer,
+  fired_total). Diese Inventur prüft, ob das ein Muster ist.
+
+  Es ist eines. Für jeden Mechanismus der drei Doktrindokumente wurde geprüft:
+  implementiert? von einem echten Pfad erreicht? Eingaben tatsächlich erzeugt?
+  Fünf Aufnahme-Durchgänge, danach je ein adversarialer Durchgang, der jedes
+  "läuft nicht" zu widerlegen versuchte — 110 Versuche, 105 bestätigt, 4 nach
+  oben korrigiert, 1 nach unten.
+
+      läuft        9
+      teilweise   24
+      inert       34
+      blockiert   10
+      fehlt       42
+                 119
+
+  Die Zahl 119 ist eine Zerlegungsentscheidung; die Muster darunter sind der
+  Befund. Volltext: docs/etappes/doctrine_inventory.md.
+resolution: >
+  Die Inventur liegt vor. Fünf Muster, die drei wichtigsten selbst nachgemessen:
+
+  1. DAS SUBSTRAT KANN NUR VERGESSEN. Der Zerfall läuft (14 Ticks, λ=0,05, im
+  Gewichtsspektrum sichtbar). Die Hebbsche Verstärkung hat nie gefeuert — alle 14
+  Tick-Records tragen `delta_drained: 0`. Und die Kalibrierung: acht echte
+  Abfragen mit `hebbian=True` schrieben 512 Deltas, stärkstes 2,9e-4, Median
+  1,9e-5, gegen 4,8e-3 Zerfall je Tick auf dem Mediangewicht. **Die stärkste
+  Verstärkung einer Abfrage ist 17-mal kleiner als ein Tick Vergessen, im Median
+  254-mal.** α und λ wurden nie gegeneinander gemessen. Ausgegliedert als
+  PHX-1102.
+
+  2. SIEBZEHN FELDER HALTEN IM GANZEN SUBSTRAT EINEN WERT. Gemessen über 5.002
+  Knoten und 94.490 Kanten: fired_total, fired_recent, die drei Feedback-Zähler,
+  eligibility, feedback_modulated_strength, decay_tier, frame_consistency,
+  consolidation_tier, consolidation_history, structural_vector, temporal_vector,
+  activation_entropy, node_potential_cache, is_anchor, qids. Das sind nicht
+  siebzehn Fehler, sondern einer: **das Substrat führt kein Gedächtnis seiner
+  eigenen Aktivität**, und alles, was daraus liest, liest eine Geschichte, die
+  niemand aufschreibt. Ausgegliedert als PHX-1101.
+
+  3. DIE TIER-LEITER IST VERKEHRT HERUM, wo das Substrat lebt. Für 0 < w < 1 gilt
+  w^1,2 > w^2 — ein kleinerer Exponent entfernt MEHR Gewicht. Am Mediangewicht
+  0,3112: k=2 verliert 0,00484 je Tick, k=1,2 verliert 0,01226. Jedes Gewicht
+  liegt unter 1, weil w_max es dort hält. **Das Feld ehrlich zu füllen wäre keine
+  Reparatur, sondern die Umkehrung der Absicht.** Die globale Renormalisierung
+  (nicht gebaut) muss davor kommen.
+
+  4. VERDRAHTET, ABER OHNE UNTERSCHEIDUNGSKRAFT: Frame-Routing (kein Aufrufer
+  übergibt ein query_frame, und die Frame-Vektoren sind eine gesalzene
+  SHA-256-Projektion des Labels), Dämpfung und Hop-Zahl (nur im raw/degnorm-Zweig
+  gelesen, ausgeliefert ist ppr), Sättigung (Kappe 10.000 gegen maximalen
+  Ausgangsgrad 1.093), Aktivierungsschwelle (existiert nicht).
+
+  5. ZWEI SCHREIBER, KEIN SCHLOSS, KEIN SCHNAPPSCHUSS. read_consistency=0 ist das
+  Gegenteil eines gepinnten Snapshots; checkout/restore/as_of kommen im Repo nicht
+  vor; keine Sperre irgendwo in src/. Seit PHX-1097 sind es zwei ungeschützte
+  Lese-Ändere-Schreibe-Zyklen über das ganze Substrat aus verschiedenen Prozessen.
+
+  Nebenbefund, eigenes Ticket: alle 1.206 raw_text_ref zeigen auf 13 Dateien in
+  einem gelöschten Sitzungs-Scratchpad (PHX-1103).
+remaining: ""
+relates_to:
+  - PHX-1101   # Aktivierungsgedächtnis — entsperrt vier Mechanismen
+  - PHX-1102   # α gegen λ
+  - PHX-1103   # tote raw_text_ref auf dem Demo-Mesh
+  - PHX-1095   # decay_tier und die Aktivierungsschwelle, dort zuerst gefunden
+  - PHX-1097   # Tier-Beförderung, dort als blockiert protokolliert
+linked_scripts:
+  - docs/etappes/doctrine_inventory.md
