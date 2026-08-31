@@ -1,0 +1,42 @@
+id: PHX-1098
+category: evaluation
+priority: high
+status: open
+generation_target: MESH migration — instrument quality
+title: "The founding gold set has no answer aliases, so a correct answer in other words scores zero"
+filed_by: Claude Code (2026-08-31, from the PHX-1097 measurement)
+created_at: 2026-08-31
+description: >
+  `qa_datasets.py` has carried `answer_aliases` since PHX-1089 for the HippoRAG
+  sets. `eval/gold/founding_corpus.json` has none, and `corpus_answers._score`
+  matches the gold string literally. Two consequences, both seen live while
+  measuring consolidation:
+
+    hyperion-children   expected: Helius, Selene, Eos
+      "Eos, Selene, Helios, Helius"   3/3   <- names one god twice, full marks
+      "Helios, Eos, Selene"           2/3   <- correct and non-redundant
+
+    nereus-daughters    expected: Nereus
+      "The fifty sea nymph daughters of Nereus and Doris..."   1/1
+      "Thetis, Amphitrite, Eudora, Thoe, Cymatolege, ..."      0/1
+
+  The first is the sharper one: the substrate held `Helios` and `Helius` as two
+  nodes, the model echoed both, and the scorer rewarded it. Consolidation merged
+  them, the model stopped repeating itself, and the instrument charged a point.
+  **The gold set was satisfiable by a duplication the substrate is supposed to
+  remove.**
+
+  Deliberately NOT fixed inside PHX-1097: the fix raises that change's own
+  numbers, and an instrument correction that lands with the result it flatters is
+  worth nothing. It belongs in its own change, with the affected measurements
+  re-run afterwards.
+
+  Scope: add `aliases` per expected entity in `founding_corpus.json`, teach
+  `_score` to accept any of them, and re-run the answer measurements that this
+  affects (PHX-1087, PHX-1096, PHX-1097). Note that this changes historical
+  numbers, so the re-run has to be reported as a re-measurement rather than
+  quietly replacing them.
+relates_to:
+  - PHX-1097   # where it was found
+  - PHX-1089   # where answer_aliases already exist, for the HippoRAG sets
+  - PHX-1087   # the first answer measurement, taken on this scorer

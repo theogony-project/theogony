@@ -157,62 +157,130 @@ Regenerating the description is worth two entities on its own — the name at th
 head is what name-anchored seeding reads. Summing coalesced edge weights beats
 taking the maximum by one.
 
-### The answer: no change, and the instrument is noisier than it was quoted at
+### The answer: no change, and the instrument cannot resolve what was asked of it
 
-Six answer runs, `deepseek-chat`, temperature 0:
+Two things have to be said before the numbers, because both bear on how much
+they are worth.
 
-| mesh | k_seeds | closed_book | constellation | complete |
-|---|---|---|---|---|
-| before | 5 | 51% | 53% | 17/47 |
-| after | 5 | 50% | 50% | 17/47 |
-| before | 1 | 52% | 53% | 17/47 |
-| after | 1 | 51% | 51% | 17/47 |
-| before | 1 | 50% | 52% | 16/47 |
-| after | 1 | **43%** | 52% | 18/47 |
+**A flag reached nothing.** `scripts/mesh_corpus_answers.py` declared `--seeds`
+and never passed it to `answer_gold_set`. Two runs in this round were written
+down as `k_seeds=1` and were the library default. Argparse accepts the flag, the
+script runs, the output looks right — from the outside a flag that reaches
+nothing is indistinguishable from one that works. It is wired now, the resolved
+`k_seeds` is printed in the run header beside the model and the tick count, and
+`tests/test_script_flags_reach_something.py` parses all 25 scripts and asserts
+every declared flag is read somewhere. This was the only one.
 
-**The closed-book arm swung from 43% to 52% across runs that differ in nothing
-it can see** — it gets no material, so it is mesh-independent and seed-independent
-by construction. That is **9 points of noise on the control**, and it is the most
-useful number in this table: it says the instrument cannot resolve the
-three-point differences this repo has been quoting from it. PHX-1096 hedged its
-~3 points as "the spread is nearly the size of the effect". The spread is larger
-than that, and the hedge was too generous.
+**The control is nine points wide.** Across four runs of the same 47 questions
+at temperature 0, the closed-book arm — which receives no material, so it cannot
+see the mesh, the seed count or `top_k` — scored 50%, 51%, 51% and **43%**. That
+is the arm that is constant by construction. Temperature 0 is not determinism at
+any provider, and a mixture-of-experts model batched across tenants is not close
+to it.
 
-The paired form avoids the control entirely — same 47 questions, same model, one
-mesh against the other:
+So the instrument now reports its own range (`--repeat N`), and the comparison
+that matters is the **paired** one, which survives the model's mood because both
+arms answer the same question in the same process:
 
-> **post better on 7 questions, worse on 6, equal on 34.**
+*At `k_seeds = 1`, three runs each, `deepseek-chat`, temperature 0:*
 
-That is a wash, and the individual moves are large in both directions:
-`hundred-handed` 0/3 → 3/3 and `geryones-oxen` 1/3 → 3/3 against `tethys-rivers`
-4/4 → 0/4 and `pegasus-birth` 2/3 → 0/3.
+| mesh | closed_book | constellation | complete | paired vs closed_book | slice recall |
+|---|---|---|---|---|---|
+| before | 49% [48–50] | **59%** [57–62] | 18.7/47 | 18 better / 10 worse / 19 equal | **56%** (36 q) |
+| after | 47% [46–48] | 57% [56–58] | 15.0/47 | 13 better / 8 worse / 26 equal | 47% (35 q) |
 
-On the discriminating slice — the 33 questions the model failed to answer fully
-from memory in *both* runs, so the question set is identical for both meshes —
-the constellation arm scores 49.4% before and 44.2% after, 9 complete against 8.
-The graph is worth roughly +19 points over pretraining before and +15 after, on
-33 questions; the difference between those two is smaller than what the control
-just demonstrated this instrument can invent.
+Two readings, and the first one is not about consolidation at all.
 
-**So: retrieval improves, the answer does not.** Retrieval delivers three more
-fully-covered questions at k=1 and the answer step converts none of them. That is
-consistent with everything since PHX-1087 and it now has a cleaner statement: the
-loss is not in what the substrate holds, not in what it is called, and not in
-what reaches the working set.
+**The seed count was costing the answer arm six points.** At the shipped
+`k_seeds=5` the constellation arm scored 53% and beat prior knowledge by +2. At
+k=1 it scores 59% and beats it by **+11**. The graph was contributing five times
+as much as the default let it show, and this holds on the *unconsolidated* mesh
+— it is not a consequence of anything in this PR. It is the largest single
+finding of the round and it belongs to `DEFAULT_K_SEEDS`, not to S5.
 
-### The regressions are propagation, not bookkeeping
+**Consolidation costs the answer.** 57% against 59%, and 15.0 complete answers
+against 18.7 — consistently, across three runs whose ranges do not overlap
+(56–58 against 57–62), and on the discriminating slice 47% against 56%. Recall
+went *up* over the same change: 87% against 84%, 39 fully-covered questions
+against 36.
 
-`tethys-rivers` losing all four rivers is the largest single move, so it was
-traced rather than assumed: **the Tethys node and all four river nodes were
-untouched by the merge** — no cluster contained any of them, and Tethys's
-description is byte-identical. What changed is the graph around them. Absorbing
-68 nodes and coalescing 1,080 edges redistributes PPR mass, and a node that sat
-just inside a top-50 budget can fall just outside it without anything having gone
-wrong with it.
+So the substrate delivers more of the right entities and the model answers worse
+from them. That is the round's real result, and it is not the result that was
+expected from a pass whose whole purpose was to make the read surface say
+`Zeus` instead of `her father`.
 
-That is worth stating plainly because the alternative explanation — a rewiring
-bug — is the one this pass is most likely to have, and it is the one that was
-checked first.
+**On the spread.** Within one process the three repeats sit 2–5 points apart —
+much tighter than the 43%–52% the same arm spanned across separate invocations
+hours apart. So the instrument is reasonably stable within a sitting and not
+across them, which is the worse of the two possibilities for a repository that
+compares a number measured today against one measured last week. Every figure in
+this document is from one sitting.
+
+
+
+**Retrieval improves, the answer does not.** At `k_seeds=1` retrieval delivers
+three more fully-covered questions and the answer step converts none of them.
+That is consistent with everything since PHX-1087, and it now has a cleaner
+statement than "62% is lost": the loss is not in what the substrate holds, not in
+what its nodes are called, and not in what reaches the working set.
+
+It is also, honestly, at the edge of what this instrument can say. The founding
+corpus is Hesiod and the model has read Hesiod; the aggregate cannot separate the
+arms, and the discriminating slice is 33 questions, on which a single entity is
+three points. A claim smaller than that should not be made from this gold set at
+all — including the ones this repo has already made.
+
+### Where the answer regression actually is
+
+At `k_seeds=1` the merge costs **nothing** in retrieval and gains: 93 → 97
+entities, 36 → 39 questions fully covered, one entity lost in total (`Dreams`).
+And **every question whose answer got worse had identical or better retrieval**.
+The regression is entirely in the answer step, on input that is the same or
+better.
+
+It is not dilution either: the constellation context is 7,699 chars before and
+7,798 after, 127 lines before and 117 after, 50 entity lines in both. The merge
+does not make the model read more.
+
+What is left is *what the entries say*. Reading the answers themselves:
+
+**One is a real failure, and it is the one the prompt already warns about.**
+
+    themis-children   expected: Horae, Eunomia, Dike, Eirene
+      before  "the Horae (the Seasons), including Eunomia, Dike, and Eirene"   4/4
+      after   "Moerae, Horae"                                                  1/4
+
+The model replaced the list with the name of the group — the exact failure `_ASK`
+was written to prevent ("do not replace a list of names with the name of the
+group they belong to"). The merged mesh surfaces the group node `Horae` more
+prominently, and the model took the shortcut.
+
+**Two are the scorer punishing a better answer.**
+
+    hyperion-children  expected: Helius, Selene, Eos
+      before  "Eos, Selene, Helios, Helius"    3/3
+      after   "Helios, Eos, Selene"            2/3
+
+The earlier answer names the same god twice, under both spellings, and scores
+full marks because the gold string `Helius` appears literally. The later answer
+is correct and non-redundant and loses a point. **`Helios ← Helius` is one of the
+48 merges** — consolidation removed a duplicate from the substrate, the model
+stopped repeating it, and the instrument charged for it.
+
+    nereus-daughters   expected: Nereus
+      before  "The fifty sea nymph daughters of Nereus and Doris…"   1/1
+      after   "Thetis, Amphitrite, Eudora, Thoe, Cymatolege, …"      0/1
+
+The gold answer is the single name `Nereus`; the later answer lists the Nereids
+and never says the father's name.
+
+**The founding gold set carries no answer aliases.** `qa_datasets.py` has had
+`answer_aliases` since PHX-1089 for the HippoRAG sets; `founding_corpus.json` has
+none, so `Helios` is not `Helius` and a correct answer in different words scores
+zero. Adding them would raise the post-merge number — which is exactly why it is
+**not** done in this change. An instrument fix that lands in the same commit as
+the result it flatters is worth nothing. It is filed instead, and the numbers
+above stand as measured, artefacts included.
 
 ## Which model decided
 
