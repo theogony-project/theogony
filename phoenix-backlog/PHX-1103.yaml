@@ -1,0 +1,34 @@
+id: PHX-1103
+category: data-hygiene
+priority: medium
+status: open
+generation_target: MESH — Datenhygiene auf dem Demo-Mesh
+title: "Alle 1.206 raw_text_ref zeigen auf ein gelöschtes Sitzungsverzeichnis"
+filed_by: Claude Code (2026-08-31, aus der Doktrin-Inventur)
+created_at: 2026-08-31
+description: >
+  Jeder Chunk-Knoten in `data/mesh-founding` trägt ein `raw_text_ref` der Form
+
+      /private/tmp/claude-501/…/scratchpad/fullread/batch_00.txt#p1
+
+  13 verschiedene Dateien, **keine einzige existiert noch**.
+  `SourceProvenance.source_identifier` trägt denselben toten Pfad.
+
+  MESH_SUBSTRATE nennt `raw_text_ref` ausdrücklich als das, woraus das Immunsystem
+  oder ein Oneiros-Tick einen Chunk abseits des heißen Pfads neu ableiten kann —
+  "an opaque pointer back to the source — an identifier like `gutenberg_43497#p17`".
+  Auf diesem Mesh ist das unmöglich.
+
+  PHX-1084 hat genau dieses Problem für die **Quellanker** repariert und die
+  Ingestion nach vorn korrigiert (`source_identifier` ist heute
+  `gutenberg_{book_id}`). Die Chunk-Ebene des bestehenden Mesh wurde nie
+  nachgezogen, und `scripts/mesh_repair_anchor_provenance.py` schreibt nur die
+  konsolidierte Tabelle.
+
+  Es ist also kein Code-Fehler mehr, sondern ein unbereinigtes Datenartefakt — auf
+  genau dem Mesh, das die Demo zeigt. Umfang: ein Reparaturlauf über
+  `chunk_nodes`, der den Pfadpräfix durch die Gutenberg-Kennung ersetzt und die
+  Absatznummer behält.
+relates_to:
+  - PHX-1084   # dieselbe Reparatur, für die Anker
+  - PHX-1100   # die Inventur
