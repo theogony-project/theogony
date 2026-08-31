@@ -26,9 +26,15 @@ from pathlib import Path
 
 from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
-from theogony.mesh.eval.corpus_answers import ARMS, answer_gold_set, summarise_answers
+from theogony.mesh.eval.corpus_answers import (
+    ARMS,
+    AnswerResult,
+    answer_gold_set,
+    paired_against,
+    summarise_answers,
+)
 from theogony.mesh.eval.corpus_qa import load_gold
-from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
+from theogony.mesh.retrieval.defaults import DEFAULT_K_SEEDS, DEFAULT_TOP_K
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.seeds.wikidata5m.embedder import BGESmallEnEmbedder
 
@@ -45,6 +51,12 @@ def main() -> None:
         help="k_seeds for the constellation arm (default: the library default).",
     )
     ap.add_argument("--arms", default=",".join(ARMS))
+    ap.add_argument(
+        "--repeat",
+        type=int,
+        default=1,
+        help="ask the same prompts N times; the summary then reports the spread",
+    )
     ap.add_argument("--out", type=Path, help="Write per-answer detail as JSON here.")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
@@ -62,12 +74,28 @@ def main() -> None:
         return asyncio.run(embedder.embed_many([text]))[0]
 
     arms = tuple(a.strip() for a in args.arms.split(",") if a.strip())
-    results = answer_gold_set(runtime, embed, llm, arms=arms, gold=gold, top_k=args.top_k)
+    # `--seeds` was declared and never passed. Two runs were reported as
+    # "k_seeds=1" that were the library default, and nothing said otherwise —
+    # an argparse flag that reaches nothing is indistinguishable, from the
+    # outside, from one that works (PHX-1097).
+    retrieve_kwargs = {"k_seeds": args.seeds} if args.seeds is not None else {}
+    results = answer_gold_set(
+        runtime,
+        embed,
+        llm,
+        arms=arms,
+        gold=gold,
+        top_k=args.top_k,
+        repeat=args.repeat,
+        **retrieve_kwargs,
+    )
     summary = summarise_answers(results)
 
     print(
         f"Modell {settings.llm.provider}/{settings.llm.model_id or '<default>'}   "
-        f"Ticks {runtime.tick_count()}   top_k {args.top_k}   Fragen {len(gold)}"
+        f"Ticks {runtime.tick_count()}   top_k {args.top_k}   "
+        f"k_seeds {args.seeds if args.seeds is not None else DEFAULT_K_SEEDS}   "
+        f"Fragen {len(gold)}   Laeufe {args.repeat}"
     )
     print()
     print(f"{'Arm':16s} {'Antwort-Recall':>15s} {'vollstaendig':>13s} {'verweigert':>11s}")
@@ -75,10 +103,15 @@ def main() -> None:
         s = summary.get(arm)
         if not s:
             continue
+        spread = (
+            f"  [{s['answer_recall_min']:.0%}-{s['answer_recall_max']:.0%}]"
+            if s["runs"] > 1
+            else ""
+        )
         print(
             f"{arm:16s} {s['answer_recall']:14.0%} "
-            f"{s['complete_answers']:8.0f}/{s['questions']:.0f} "
-            f"{s['declined']:10.0f}"
+            f"{s['complete_answers']:8.1f}/{s['questions']:.0f} "
+            f"{s['declined']:10.1f}{spread}"
         )
 
     if "constellation" in summary and "vector_only" in summary:
@@ -88,17 +121,38 @@ def main() -> None:
         delta = summary["constellation"]["answer_recall"] - summary["closed_book"]["answer_recall"]
         print(f"Graph gegen Vorwissen:        {delta:+.0%}")
 
+    # Paired, because the totals above are the wrong comparison when the control
+    # is this noisy: both arms' totals move with the model's mood, the pairing
+    # does not. And the slice is where the arms can differ at all — the corpus is
+    # Hesiod, and on the questions the model answers from memory every arm ties.
+    for arm in arms:
+        if arm == "closed_book" or "closed_book" not in summary:
+            continue
+        pair = paired_against(results, arm=arm)
+        print(
+            f"\n{arm} gegen closed_book, Frage fuer Frage: "
+            f"{pair['better']:.0f} besser / {pair['worse']:.0f} schlechter / "
+            f"{pair['equal']:.0f} gleich"
+        )
+        print(
+            f"  auf den {pair['slice_questions']:.0f} Fragen, die closed_book nicht "
+            f"vollstaendig beantwortet: {pair['slice_recall']:.0%}"
+        )
+
     if args.verbose:
         print()
-        by_id: dict[str, dict[str, object]] = {}
-        for r in results:
-            by_id.setdefault(r.id, {})[r.arm] = r
-        for qid, per_arm in by_id.items():
+        by_question: dict[str, dict[str, AnswerResult]] = {}
+        for row in results:
+            by_question.setdefault(row.id, {})[row.arm] = row
+        for qid, per_arm in by_question.items():
             print(f"\n{qid}")
             for arm in arms:
-                r = per_arm.get(arm)
-                if r:
-                    print(f"   {arm:14s} {len(r.found)}/{len(r.expected)}  {r.answer[:90]}")
+                shown = per_arm.get(arm)
+                if shown is not None:
+                    print(
+                        f"   {arm:14s} {len(shown.found)}/{len(shown.expected)}  "
+                        f"{shown.answer[:90]}"
+                    )
 
     if args.out:
         args.out.write_text(
@@ -117,6 +171,7 @@ def main() -> None:
                             "answer": r.answer,
                             "found": r.found,
                             "missed": r.missed,
+                            "run": r.run,
                         }
                         for r in results
                     ],
