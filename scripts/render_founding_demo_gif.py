@@ -29,22 +29,29 @@ async def main() -> None:
     emb = await _query_embedder(rt.semantic_dim, None)
     vec = (await emb.embed_many([QUERY], batch_size=1))[0]
     csr = rt.rebuild_csr()
-    result = retrieve(rt, vec, top_k=22, csr=csr, degree_beta=0.5, query=QUERY)
+    # Rendering a picture of the substrate is not using it (PHX-1101).
+    result = retrieve(rt, vec, top_k=22, csr=csr, degree_beta=0.5, query=QUERY, record_firing=False)
     c = result.constellation
     prop = Propagator(csr)
     seed_idx = {csr.id_to_index[i]: 1.0 for i in result.seed_node_ids if i in csr.id_to_index}
     frames = prop.propagate_frames(seed_idx, operator=result.operator)
     peak = max(float(f.max()) for f in frames) or 1.0
 
-    keep = [(n.node_id, csr.id_to_index[n.node_id], n.name, n.is_source_anchor)
-            for n in c.nodes if n.node_id in csr.id_to_index]
+    keep = [
+        (n.node_id, csr.id_to_index[n.node_id], n.name, n.is_source_anchor)
+        for n in c.nodes
+        if n.node_id in csr.id_to_index
+    ]
     g = nx.Graph()
     for nid, _, name, anchor in keep:
         g.add_node(nid, name=name, anchor=anchor)
     for e in c.edges:
         if e.source_id in g and e.target_id in g:
-            g.add_edge(e.source_id, e.target_id,
-                       contradiction="contradict" in (e.relation_descriptor or "").lower())
+            g.add_edge(
+                e.source_id,
+                e.target_id,
+                contradiction="contradict" in (e.relation_descriptor or "").lower(),
+            )
     pos = nx.spring_layout(g, seed=7, k=0.9)
 
     fig, ax = plt.subplots(figsize=(8, 5.6), dpi=110)
@@ -63,18 +70,29 @@ async def main() -> None:
         alphas = [0.25 + 0.75 * acts.get(n, 0.0) for n in g.nodes]
         nx.draw_networkx_nodes(g, pos, ax=ax, node_size=sizes, node_color=colors, alpha=alphas)
         top = sorted(g.nodes, key=lambda n: -acts.get(n, 0))[:6]
-        labels = {n: (g.nodes[n]["name"][:26] + "…" if len(g.nodes[n]["name"]) > 27
-                      else g.nodes[n]["name"]) for n in top}
-        nx.draw_networkx_labels(g, pos, labels=labels, ax=ax, font_size=6.5,
-                                font_color="#e2e8f0")
-        ax.set_title(f"Spreading Activation — Iteration {frame_i + 1}/{len(frames)}\n"
-                     f"“{QUERY}”", color="#94a3b8", fontsize=9)
+        labels = {
+            n: (
+                g.nodes[n]["name"][:26] + "…"
+                if len(g.nodes[n]["name"]) > 27
+                else g.nodes[n]["name"]
+            )
+            for n in top
+        }
+        nx.draw_networkx_labels(g, pos, labels=labels, ax=ax, font_size=6.5, font_color="#e2e8f0")
+        ax.set_title(
+            f"Spreading Activation — Iteration {frame_i + 1}/{len(frames)}\n“{QUERY}”",
+            color="#94a3b8",
+            fontsize=9,
+        )
 
     from matplotlib.animation import FuncAnimation, PillowWriter
+
     anim = FuncAnimation(fig, draw, frames=len(frames), interval=380)
     anim.save(str(OUT), writer=PillowWriter(fps=2.6))
-    print(f"GIF: {OUT} ({OUT.stat().st_size / 1e6:.1f} MB, {len(frames)} Frames, "
-          f"{len(g.nodes)} Knoten, {len(g.edges)} Kanten)")
+    print(
+        f"GIF: {OUT} ({OUT.stat().st_size / 1e6:.1f} MB, {len(frames)} Frames, "
+        f"{len(g.nodes)} Knoten, {len(g.edges)} Kanten)"
+    )
 
 
 asyncio.run(main())

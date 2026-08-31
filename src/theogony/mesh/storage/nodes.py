@@ -8,9 +8,12 @@ with per-vector HNSW indices on ``semantic_vector`` (default) and on populated
 from __future__ import annotations
 
 import contextlib
+import json
 import re
+import threading
 from collections.abc import Iterable, Iterator
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, cast
 
 import lancedb
@@ -154,6 +157,85 @@ _LABEL_INDEX_SCHEMA = pa.schema(
         ("node_id", pa.string()),
     ]
 )
+
+
+class NodeFiringBuffer:
+    """Append path for node firings, folded into the node tables at each Oneiros tick.
+
+    `fired_total` and `fired_recent` are declared on both node schemas and were
+    **0 on every node of every mesh this repo has built** — nothing wrote them.
+    Four mechanisms read them: tier promotion (`MESH_SUBSTRATE.md` §"Consolidation,
+    splits, and tier promotion" gates on "number of distinct activation contexts,
+    age, breadth of incoming references"), tier-modulated decay through
+    `decay_tier`, Oneiros' replay of structurally important edges, and the
+    eligibility traces of three-factor RL. All four were reading a history nobody
+    recorded (PHX-1100, PHX-1101).
+
+    **Buffered, because reading must not write.** `MESH_IMPLEMENTATION.md`
+    §"What is forbidden" names "reads that mutate the version they read from" and
+    says the write-back goes through a buffer instead. A firing is recorded on the
+    query path and applied by the tick; no Lance version moves during a read.
+
+    **One append per pass, not one per node** — the same section requires it in as
+    many words: "The flush is a single append batch, not many small appends." The
+    edge delta buffer next door does the opposite, one file open per delta under
+    the lock, measured at 3.05 ms for a single query's 64 deltas. A pass here
+    records ~50 nodes for ~0.1 ms.
+
+    Nothing on the query path reads this file. `EdgeDeltaBuffer.pending()` reparses
+    its whole sidecar and is reached from the CSR cache fingerprint, so its cost
+    grows with the backlog on every query; this buffer is written by readers and
+    read only by the tick.
+    """
+
+    def __init__(self, path: Path | None = None) -> None:
+        self._lock = threading.Lock()
+        self._rows: list[dict[str, Any]] = []
+        self._path = path
+
+    def _persisted(self) -> list[dict[str, Any]]:
+        if self._path is None or not self._path.is_file():
+            return []
+        rows: list[dict[str, Any]] = []
+        for line in self._path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                # A torn final line from a killed process costs one pass, not the tick.
+                continue
+        return rows
+
+    def append_firing(self, node_ids: Iterable[str], *, at: datetime | None = None) -> int:
+        """Record that these nodes fired together in one pass. Returns how many."""
+        ids = sorted({str(node_id) for node_id in node_ids})
+        if not ids:
+            return 0
+        row = {"at": (at or datetime.now(UTC)).isoformat(), "node_ids": ids}
+        with self._lock:
+            if self._path is None:
+                self._rows.append(row)
+                return len(ids)
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            with self._path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(row) + "\n")
+        return len(ids)
+
+    def drain(self) -> list[dict[str, Any]]:
+        with self._lock:
+            out = self._rows
+            self._rows = []
+            if self._path is not None:
+                out = out + self._persisted()
+                self._path.unlink(missing_ok=True)
+            return out
+
+    def pending_passes(self) -> int:
+        """Recorded passes not yet folded in. **Not for the query path** — this
+        reparses the sidecar, and its cost grows with the backlog."""
+        with self._lock:
+            return len(self._rows) + len(self._persisted())
 
 
 class MeshNodeStore:
@@ -680,3 +762,80 @@ class MeshNodeStore:
 
     def consolidated_count(self) -> int:
         return int(self.consolidated_table.count_rows())
+
+
+# How much of `fired_recent` survives a tick. `MESH_SUBSTRATE.md` calls the field
+# a "rolling window counter" and never says how long the window is, so this is a
+# free parameter with no measurement behind it — stated rather than buried,
+# because 1/(1-γ) ticks is the effective window and the tick itself has no
+# schedule (PHX-1100: `run_minimal_tick`'s only caller is the CLI).
+#
+# Nothing reads `fired_recent` yet. What unblocks tier promotion is `fired_total`,
+# which has no window and no free parameter. This exists because the field is in
+# the doctrine's schema and leaving it at 0 while writing its sibling would be a
+# second version of the gap PHX-1101 closes.
+DEFAULT_FIRED_RECENT_DECAY = 0.9
+
+
+def merge_node_firings(
+    nodes: list[ConsolidatedNode],
+    rows: list[dict[str, Any]],
+    *,
+    recent_decay: float = DEFAULT_FIRED_RECENT_DECAY,
+) -> tuple[list[ConsolidatedNode], int, int]:
+    """Fold recorded passes into the firing counters. Returns (nodes, touched, passes).
+
+    The dual of :func:`merge_edge_deltas` for nodes, and deliberately the same
+    shape: a pure function over a list, so the arithmetic is testable without a
+    store and the IO stays in the tick.
+
+    ``fired_total`` counts passes in which the node reached the working set.
+    ``fired_recent`` is the same count under exponential forgetting, applied to
+    **every** node and not only the ones that fired — otherwise a node that stops
+    firing keeps its old recency for ever, which is the opposite of what a rolling
+    window means.
+
+    ``last_fired_at`` moves only for nodes that actually fired, and only forward:
+    passes can be drained out of order, and a stale sidecar must not walk a
+    timestamp backwards.
+    """
+    counts: dict[str, int] = {}
+    latest: dict[str, datetime] = {}
+    for row in rows:
+        try:
+            at = datetime.fromisoformat(str(row.get("at")))
+        except (TypeError, ValueError):
+            at = datetime.now(UTC)
+        for node_id in row.get("node_ids") or []:
+            key = str(node_id)
+            counts[key] = counts.get(key, 0) + 1
+            if key not in latest or at > latest[key]:
+                latest[key] = at
+
+    touched = 0
+    out: list[ConsolidatedNode] = []
+    for node in nodes:
+        fired = counts.get(str(node.id), 0)
+        update: dict[str, Any] = {
+            "fired_total": node.fired_total + fired,
+            # **Floor, not round.** The schema types this as an int, and an
+            # integer cannot carry the tail of an exponential: with the default
+            # decay, `round(1 * 0.9)` is 1, so a node that fired once would sit at
+            # `fired_recent = 1` for ever and the field would never forget
+            # anything — the exact failure it exists to avoid. Flooring makes the
+            # decay terminate: 45 reaches 0 in about forty ticks, 1 in one.
+            "fired_recent": int(node.fired_recent * recent_decay) + fired,
+        }
+        if fired:
+            touched += 1
+            when = latest[str(node.id)]
+            if when > node.last_fired_at:
+                update["last_fired_at"] = when
+        if (
+            update["fired_total"] == node.fired_total
+            and update["fired_recent"] == node.fired_recent
+        ):
+            out.append(node)
+            continue
+        out.append(node.model_copy(update=update))
+    return out, touched, len(rows)

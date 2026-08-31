@@ -1,7 +1,7 @@
 id: PHX-1101
 category: substrate-runtime
 priority: critical
-status: open
+status: done
 generation_target: MESH migration — S5 (Voraussetzung)
 title: "Das Substrat führt kein Gedächtnis seiner eigenen Aktivität"
 filed_by: Claude Code (2026-08-31, aus der Doktrin-Inventur)
@@ -37,6 +37,58 @@ description: >
   `fired_total`. Und die Frage, ob ein Anker mitzählt, muss beantwortet werden —
   Quellanker sind die höchstgradigen Knoten des Mesh und würden jede Statistik
   dominieren.
+resolution: >
+  Gebaut. Der Lesepfad zeichnet auf, der Tick faltet ein, und keine Lance-Version
+  bewegt sich beim Lesen — `MESH_IMPLEMENTATION` §"What is forbidden" verbietet
+  Lesevorgänge, die die gelesene Version verändern, und nennt den Puffer als den
+  vorgesehenen Weg.
+
+  ZWEI QUELLEN, wie die Doktrin sie beschreibt. (1) Retrieval: jeder Knoten, der
+  ins Arbeitsset gelangt, hat gefeuert — das ist "co-fires across many distinct
+  activation contexts". (2) Ingestion: jede Referenz auf einen Knoten, den das
+  Substrat schon hatte — MESH_SUBSTRATE §"Second worked example" sagt es wörtlich
+  ("fired_total und fired_recent increment"), und das ist die Hälfte
+  "breadth of incoming references" des Beförderungs-Gates.
+
+  GEMESSEN auf einer Kopie des Founding-Mesh, 47 Gold-Fragen:
+
+      Aufzeichnen je Abfrage      0,219 ms Median (max 0,366), Sidecar 75,5 KB
+      Tick ohne Firings           4,42 s   (kein Knoten-Rewrite)
+      Tick mit Firings            6,36 s   (+1,9 s auf 5.002 Knoten)
+      get_consolidated danach     1,5 ms   (Indizes überleben den Overwrite)
+
+      fired_total distinct        1  ->  32
+      Spitze                      Zeus 45, Theogony 43, Quellanker 41,
+                                  Phoebus Apollo 40, Cronos 39, Aphrodite 39
+
+  ENTSCHEIDUNGEN, jede mit dem Grund:
+
+  - **Quellanker zählen mit.** Die Sorge, sie würden den Zähler zu einer
+    Wiederholung des Grades machen, wurde gemessen und ist falsch: sie stellen
+    5,6 % der Feuerereignisse, und Spearman(Grad, Feuerzahl) ist +0,459 mit gegen
+    +0,439 ohne. Doktrin sagt ohnehin, Anker folgen der normalen Dynamik.
+  - **Standardmäßig AN**, wo die Hebbsche Rückschreibung daneben opt-in ist. Der
+    Unterschied ist, was der Schreibvorgang ändern kann: ein Hebb-Delta bewegt ein
+    Kantengewicht und damit die nächste Antwort; ein Firing ändert nichts, was
+    eine Abfrage beobachten kann. Und opt-in ist genau der Grund, warum der
+    Hebb-Pfad in 14 Ticks nie gefeuert hat.
+  - **Die Eval-Harnesses schalten es ab, jetzt und nicht später.** Heute ist ein
+    Firing für das Retrieval folgenlos; sobald die Tier-Beförderung `fired_total`
+    liest, misst ein Harness, der aufzeichnet, seinen eigenen letzten Lauf.
+  - **Ein Anhang je Durchgang, nicht je Knoten** — Doktrin verlangt es wörtlich
+    ("a single append batch, not many small appends"), und der Kanten-Puffer
+    nebenan macht das Gegenteil (3,05 ms für 64 Deltas).
+  - **`fired_recent` floor statt round.** Bei γ=0,9 ist `round(1*0,9)` gleich 1 —
+    ein Knoten, der einmal feuerte, hätte den Wert ewig behalten und das Feld
+    hätte nie etwas vergessen. Vor dem Ausliefern gefunden und mit einem Test
+    festgenagelt.
+
+  OFFEN GELASSEN, benannt statt verschwiegen: die Faltung schreibt die ganze
+  Knotentabelle neu, 0,38 ms je Knoten — auf `data/mesh-wiki-100k` wären das
+  ~38 s je Tick mit Aktivität. Ein Tick ohne Firings zahlt nichts. Und die
+  Fensterlänge von `fired_recent` (γ=0,9) hat keine Messung hinter sich; nichts
+  liest das Feld bisher.
+remaining: ""
 relates_to:
   - PHX-1100   # die Inventur
   - PHX-1097   # wo die Tier-Beförderung daran scheiterte
