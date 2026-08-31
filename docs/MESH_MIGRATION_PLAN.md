@@ -114,7 +114,7 @@ The steps are ordered. Step N+1 must not be started until step N is merged. With
     - `audit.py` — append-only Lance audit ledger.
   - `src/theogony/mesh/runtime/` — minimal Oneiros loop and Spreading Activation.
     - `spreading.py` — single-query Spreading Activation as batched SpMV (no diversified injection yet — that is step S3).
-    - `oneiros_tick.py` — drain delta buffer → apply decay (`k = 2`, tier-modulated; tier-1+ left at gentler default in this step) → apply Hebbian merges → enforce saturation caps → rebuild CSR → commit new Lance version. Steps for consolidation, splits, pathology, therapy are stubbed (raise `NotImplementedError`) and called out as part of S5.
+    - `oneiros_tick.py` — drain delta buffer → apply decay (`k = 2`, tier-modulated; tier-1+ left at gentler default in this step) → apply Hebbian merges → enforce saturation caps → rebuild CSR → commit new Lance version. Steps for consolidation, splits, pathology, therapy are stubbed (raise `NotImplementedError`) and called out as part of S5. *(Consolidation is since built as an explicit pass rather than a tick phase — see S5 below and PHX-1097; the stub now says where it lives.)*
   - `src/theogony/mesh/cli.py` — minimal CLI: `theogony mesh status` (prints node/edge counts, current Lance version, last tick timestamp).
 - Wire the new subcommand into `src/theogony/cli.py` as `mesh` (without touching any existing subcommand).
 - Tests in `tests/mesh/`:
@@ -311,7 +311,8 @@ The steps are ordered. Step N+1 must not be started until step N is merged. With
 - S4 merged. The full retrieval and surface stack is mesh-aware.
 
 **Deliverables:**
-- `src/theogony/mesh/runtime/consolidation.py` — Oneiros consolidation: Tier-0 chunk clusters promote to Tier-1; entity-candidate merging when convergent evidence accumulates; description regeneration via LLM call with audit.
+- `src/theogony/mesh/runtime/consolidation.py` — **built (PHX-1097).** Entity-candidate merging with LLM adjudication, edge rewiring, and description regeneration with audit. Invoked explicitly by `scripts/mesh_consolidate.py`, **not** from the tick: the tick is a synchronous offline pass and this needs a network. Measured on the founding mesh in [`etappes/consolidation.md`](etappes/consolidation.md) — 48 clusters merged, and at `k_seeds=1` the consolidated substrate reaches 87% retrieval recall and 39/47 questions fully answered against 84%/36 before.
+  - **Not built, and blocked rather than deferred:** Tier-0 → Tier-1 promotion from chunk clusters, and tier promotion generally. Doctrine earns tiers on "number of distinct activation contexts, age, breadth of incoming references"; `fired_total` and `fired_recent` are 0 on every node and have no writer anywhere in `src/`. Promotion would be promotion by age alone. Same shape as PHX-1095's `decay_tier`.
 - `src/theogony/mesh/runtime/splits.py` — sub-node splits with effective-resistance preservation (`w_HS = Σ w_i`, `w_i' = w_i / (1 - p_i)`), `n ≥ 8` minimum cluster size.
 - `src/theogony/mesh/runtime/renormalisation.py` — global homeostatic renormalisation per `MESH_SUBSTRATE.md` §"Global homeostatic renormalisation".
 - `src/theogony/mesh/runtime/pruner.py` — resource-pressure-triggered pruner per `MESH_SUBSTRATE.md` §"Pruning".

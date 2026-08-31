@@ -35,7 +35,23 @@ from theogony.mesh.typed_edges import build_typed_boosted_csr
 
 
 def stub_consolidation_phase() -> None:
-    raise NotImplementedError("Consolidation phase – Step S5")
+    """The phase is built; it is deliberately not called from here (PHX-1097).
+
+    `theogony.mesh.runtime.consolidation.run_consolidation` implements it. It is
+    not wired into the minimal tick for two reasons, and both are about what the
+    tick is: the tick is a synchronous, offline, deterministic maintenance pass
+    over edges, and consolidation needs a language model, a network, and money.
+    Folding it in would make every tick fail without an API key and would put a
+    decision about *what the substrate is* on a schedule nobody chose.
+
+    So it is invoked explicitly — `scripts/mesh_consolidate.py` — and writes its
+    own audit record under a different action, so that `tick_count()` keeps
+    meaning what every recall figure in this repo is quoted against.
+    """
+    raise NotImplementedError(
+        "Consolidation is not a tick phase — call "
+        "theogony.mesh.runtime.consolidation.run_consolidation (PHX-1097)"
+    )
 
 
 def stub_split_phase() -> None:
@@ -147,7 +163,7 @@ class MeshRuntime:
         self._csr_cache_key: tuple[int, int, int] | None = None
         # Same cache discipline for edge descriptors (see :meth:`descriptor_index`).
         self._descriptor_cache: dict[tuple[str, str], str | None] | None = None
-        self._descriptor_cache_key: int | None = None
+        self._descriptor_cache_key: tuple[int, int, int] | None = None
         # And for the typed-edge re-weighting, which walks every edge position
         # once (see :meth:`typed_boosted_csr`).
         self._typed_csr_cache: EdgeCSR | None = None
@@ -304,13 +320,24 @@ class MeshRuntime:
     def descriptor_index(self, *, force: bool = False) -> dict[tuple[str, str], str | None]:
         """Return relation descriptors for every edge, cached like the CSR.
 
-        Keyed on the edge mutation generation, so it survives across queries and is
-        rebuilt only after a write. Retrieval reads it once per query instead of
+        Keyed on the same fingerprint as the CSR, so it survives across queries and
+        is rebuilt only after a write. Retrieval reads it once per query instead of
         rebuilding it per query, which costs 290 ms on the founding mesh against
         ~0 ms from this cache (re-measured 2026-08-26; see
         :meth:`EdgeStore.descriptor_index`).
+
+        It used to be keyed on `mutation_generation` alone, which is the
+        process-local counter PHX-1093 took off the CSR key for exactly this
+        reason — a writer in another process moved the table and a reader here
+        never noticed. That mattered less while every write went through a tick in
+        the reader's own process. Consolidation is a separate pass in a separate
+        process, and the half-stale state it produced is worse than either whole
+        one: the CSR refreshes on the Lance version while the descriptors stay
+        keyed to the pre-merge node pairs, so the typed-edge boost silently stops
+        applying to every rewired edge and the Constellation labels the rest
+        wrongly.
         """
-        key = self.edges.mutation_generation
+        key = self._csr_cache_fingerprint()
         if not force and self._descriptor_cache is not None and self._descriptor_cache_key == key:
             return self._descriptor_cache
         index = self.edges.descriptor_index()

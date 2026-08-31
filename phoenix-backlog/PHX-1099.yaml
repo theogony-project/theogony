@@ -1,0 +1,62 @@
+id: PHX-1099
+category: substrate-retrieval
+priority: high
+status: measured_viable
+generation_target: MESH migration — S3 (retrieval defaults)
+title: "DEFAULT_K_SEEDS costs the answer arm six points"
+filed_by: Claude Code (2026-08-31, from the PHX-1097 measurement)
+created_at: 2026-08-31
+description: >
+  Measured while looking for something else, and larger than what was being
+  looked for. On the unconsolidated founding mesh, `deepseek-chat`, three runs
+  each, 47 gold questions:
+
+      k_seeds   constellation answer recall   graph over prior knowledge
+        5  (shipped)          53%                        +2
+        1                     59%  [57-62]              +11
+
+  The graph was contributing five times as much as the shipped default let it
+  show. Retrieval says the same thing and said it first:
+
+      k_seeds    recall    fully answered
+        1         84%         36/47
+        2         82%         35/47
+        5         80%         38/47   <- shipped
+        16        71%         33/47
+        32        64%         27/47
+
+  This is on the mesh **as it stands** — it is not a consequence of
+  consolidation, and it reproduces on the consolidated mesh too (87% at k=1
+  against 78% at k=5).
+
+  PHX-1091 narrowed the default from 10 to 5 on a genealogical/narrative split.
+  The sweep says it should have gone further. It also agrees with the HippoRAG
+  seeding study (PHX-1089/1090), which found Spreading Activation's whole
+  advantage lives at narrow seeding — +5.0 exact match at S=2 and nothing at
+  S=10.
+
+  NOT SHIPPED, because it is a production default and the evidence has one
+  awkward edge: at k=5 the unconsolidated mesh answers 38/47 questions fully
+  against 36/47 at k=1, so entity recall and complete-question count disagree
+  there. On the consolidated mesh they agree (87% and 39/47 at k=1). Whether the
+  default should follow whether consolidation has run is the question to settle.
+resolution: >
+  Measured, holds up across three runs on both meshes, not shipped. The number:
+  the constellation answer arm scores 53% at the shipped k_seeds=5 and 59%
+  [57-62] at k_seeds=1 on the unconsolidated founding mesh, and the graph's
+  margin over prior knowledge goes +2 -> +11. Retrieval agrees: 80% at 5, 84% at
+  1, 64% at 32.
+
+  Left as a `measured_viable` lever rather than flipped, because it is a
+  production default that PHX-1091 set deliberately on a different split, and
+  because complete-question count and entity recall disagree at k=1 on the
+  unconsolidated mesh (36/47 against 38/47) while agreeing on the consolidated
+  one (39/47 and 87%). Flipping it is a one-line change to
+  `retrieval/defaults.py`; the decision is whose it is, not what it costs.
+relates_to:
+  - PHX-1091   # which set it to 5
+  - PHX-1089   # the HippoRAG seeding study
+  - PHX-1097   # where this was measured
+linked_scripts:
+  - src/theogony/mesh/retrieval/defaults.py
+  - scripts/mesh_corpus_qa.py

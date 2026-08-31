@@ -1,0 +1,118 @@
+id: PHX-1097
+category: substrate-runtime
+priority: high
+status: in_progress
+generation_target: MESH migration — S5 (Oneiros consolidation)
+title: "Oneiros consolidation: the substrate's identity was never settled"
+filed_by: Claude Code (2026-08-31, opening S5)
+created_at: 2026-08-31
+description: >
+  `MESH_SUBSTRATE.md` §"Why two tiers" specifies identity in two halves:
+  eager linking when Q-ID, description or tag evidence decides, and an entity
+  *candidate* whose identity Oneiros settles later when it does not. Only the
+  first half was ever built. The measurable consequence on the founding mesh:
+
+    - **every one of the 3,783 entity nodes carries `is_candidate = True`**
+    - Zeus is six nodes: `Zeus`, `son of Cronos`, `her father`,
+      `father of men and gods`, `Son of Chronos`, and a paragraph concept
+    - Apollo and Athena have **no canonical node at all** — every node for them
+      is an epithet (`Phoebus`, `Far-Shooter`, `Pythian`, `Tritogeneia`)
+
+  That is the source of the read surface PHX-1096 ran into: a Constellation
+  answering "the children of Cronus and Rhea" showed `her father`, `Host of
+  Many`, `dear mother` and `Vesta`, all of them correct retrievals displaying
+  the name of a mention rather than of an entity.
+
+  This ticket builds the consolidation pass: propose (substrate bookkeeping),
+  adjudicate (one small LLM call per pair, as doctrine specifies), apply (rewire
+  edges, fuse nodes, audit), regenerate (the description, from the members).
+
+  BLOCKED WITHIN S5, and recorded rather than worked around: **tier promotion
+  cannot run.** Doctrine earns Tier 1 -> 2 -> 3 on "number of distinct
+  activation contexts, age, breadth of incoming references". `fired_total` and
+  `fired_recent` are **0 on every node** and have no writer anywhere in `src/`.
+  Promotion would be promotion by age alone. This is the same class of finding
+  as PHX-1095's `decay_tier` — a doctrinal mechanism whose input nothing
+  produces — and it is why this pass leaves `consolidation_tier` at 1.
+resolution: >
+  Built and measured. 147 proposals -> 78 same / 34 different / 35 uncertain;
+  48 clusters, 68 nodes absorbed, 5 dropped as ambiguous, 0 dangling endpoints.
+
+  RETRIEVAL: at the shipped `k_seeds=5` it is -2 entities. The seed sweep says
+  the default is on the wrong side of the curve for *both* meshes, and at
+  **k_seeds=1 the consolidated substrate reaches 87% recall and 39/47 fully
+  answered against 84% and 36/47** — the best either number has been on this
+  gold set. Consolidation moves the peak rather than lowering it, and the
+  mechanism is the one it exists for: one seed is now the entity rather than one
+  of its six fragments.
+
+  ANSWER: worse, and the diagnosis is sharper than the number. At k_seeds=1,
+  three runs each: constellation 57% [56-58] against 59% [57-62] before, and
+  15.0 complete answers against 18.7.
+
+  But retrieval at k_seeds=1 loses nothing over the merge — 93 -> 97 entities,
+  36 -> 39 fully covered, one entity lost in total — and **every question whose
+  answer got worse had identical or better retrieval**. It is not dilution
+  either: the context is 7,699 chars before and 7,798 after, 50 entity lines in
+  both. The loss is in the answer step, on input that is the same or better.
+
+  Reading the answers: one is a real failure — `themis-children` went from "the
+  Horae, including Eunomia, Dike, and Eirene" (4/4) to "Moerae, Horae" (1/4),
+  the model replacing a list with the group name, which is the failure the
+  prompt already warns against. **Two are the scorer punishing a better answer.**
+  `hyperion-children` scored 3/3 for "Eos, Selene, Helios, Helius" — naming one
+  god twice — and 2/3 for the correct "Helios, Eos, Selene", because the gold
+  string is `Helius` and the founding gold set carries no aliases. `Helios <-
+  Helius` is one of the 48 merges: consolidation removed a duplicate, the model
+  stopped repeating it, and the instrument charged for it. Filed as PHX-1098 and
+  deliberately not fixed here, because an instrument fix that lands with the
+  result it flatters is worth nothing.
+
+  MEASURED, and it belongs to a different ticket: the shipped `k_seeds=5` is
+  costing the answer arm six points on the *unconsolidated* mesh — 53% at 5
+  against 59% at 1, and the graph's margin over prior knowledge goes +2 -> +11.
+  Filed as PHX-1099.
+
+  ALSO FIXED, because it made two of this round's own numbers wrong:
+  `scripts/mesh_corpus_answers.py` declared `--seeds` and never passed it, so two
+  runs written down as k_seeds=1 were the library default.
+  `tests/test_script_flags_reach_something.py` now parses all 25 scripts and
+  asserts every declared flag is read. And the answer harness reports its own
+  range: `--repeat N`, min/max per arm, and a paired arm comparison, because the
+  closed-book control — which cannot see the mesh or any retrieval parameter —
+  spanned 43% to 52% across separate invocations.
+
+  Not wired into the tick: consolidation needs a network and money, and the tick
+  is a synchronous offline pass. `scripts/mesh_consolidate.py` invokes it, and it
+  writes its own audit action so `tick_count()` keeps its meaning.
+remaining: >
+  The adopt decision for the operator, and it is genuinely two-sided: apply the
+  pass to `data/mesh-founding` (retrieval 84% -> 87%, 36 -> 39 fully covered) or
+  not (answer 59% -> 57%, of which at least two questions are scorer artefacts
+  that PHX-1098 would remove). The consolidated substrate is at
+  `data/mesh-s5-work`; `data/mesh-founding` is untouched.
+
+  Anchor-to-anchor merges are deferred by design: Hades, Pluto and Aidoneus are
+  three anchors for one god, and a member matching several anchors is read as
+  ambiguous and dropped (5 nodes here). Settling those needs anchors adjudicated
+  against each other.
+
+  Unmeasured: the pass on a cheap model. It was launched believing it ran on
+  `deepseek-chat` and ran on `claude-sonnet-4-6` (`.env` pins `MODEL_ID`
+  independently of `PROVIDER`). `ReplayAdjudicator` makes the comparison cheap.
+
+  Also unbuilt from S5's deliverable list: Tier-0 -> Tier-1 promotion from chunk
+  clusters, splits, renormalisation, the pruner, pathology surveillance, therapy,
+  three-factor RL. This ticket is entity-candidate consolidation only.
+relates_to:
+  - PHX-1098   # the gold-set aliases this measurement exposed
+  - PHX-1099   # the seed default this measurement exposed
+  - PHX-1096   # which reached S5 from the answer side
+  - PHX-1064   # which reached it from the retrieval side
+  - PHX-1095   # the same shape of finding: a doctrinal input nothing writes
+  - PHX-1065   # the name-at-the-head rule the regeneration must not break
+  - PHX-1051   # the identity attractor a merged survivor makes bigger
+linked_scripts:
+  - src/theogony/mesh/runtime/consolidation.py
+  - scripts/mesh_consolidate.py
+  - tests/mesh/test_consolidation.py

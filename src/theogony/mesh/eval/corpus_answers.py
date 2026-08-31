@@ -82,6 +82,7 @@ class AnswerResult:
     found: list[str] = field(default_factory=list)
     missed: list[str] = field(default_factory=list)
     said_unknown: bool = False
+    run: int = 0
 
     @property
     def recall(self) -> float:
@@ -180,6 +181,7 @@ def answer_gold_set(
     gold: list[GoldQuestion] | None = None,
     top_k: int = DEFAULT_TOP_K,
     max_output_tokens: int = 120,
+    repeat: int = 1,
     **retrieve_kwargs: Any,
 ) -> list[AnswerResult]:
     """Ask every gold question once per arm and score what comes back.
@@ -189,11 +191,24 @@ def answer_gold_set(
     HippoRAG run (PHX-1089) found Spreading Activation's whole advantage lives at
     *narrow* seeding, +5.0 exact match at S=2 and nothing at S=10, so a founding
     measurement taken at the default 8 may be measuring the same ceiling.
+
+    ``repeat`` asks the same prompts again. It exists because this instrument was
+    quoted to three points for four rounds and cannot resolve them: measured
+    across four runs of the founding gold set, the **closed-book** arm — which
+    receives no material at all, so it cannot see the mesh, the seed count or the
+    top_k — scored 50%, 51%, 51% and **43%**. Nine points of spread on the one
+    arm that is constant by construction, at temperature 0 (which no provider
+    guarantees to be deterministic, and a mixture-of-experts model batched across
+    tenants certainly is not).
+
+    Contexts are built once and reused across repeats, so a repeat measures the
+    *model's* variance and nothing else. Retrieval is deterministic here; paying
+    for it again would only add noise to the measurement of noise.
     """
     questions = gold if gold is not None else load_gold()
     runtime.rebuild_csr()
-    results: list[AnswerResult] = []
 
+    asked: list[tuple[GoldQuestion, str, str, str]] = []
     for gq in questions:
         vector = embed(gq.question)
         for arm in arms:
@@ -207,7 +222,11 @@ def answer_gold_set(
                 )
                 system = _SYSTEM
                 prompt = f"Material:\n{context}\n\nQuestion: {gq.question}"
+            asked.append((gq, arm, system, prompt))
 
+    results: list[AnswerResult] = []
+    for run in range(max(1, repeat)):
+        for gq, arm, system, prompt in asked:
             raw = asyncio.run(
                 llm.complete(
                     prompt,
@@ -229,24 +248,96 @@ def answer_gold_set(
                     found=found,
                     missed=missed,
                     said_unknown=bool(re.fullmatch(r"\W*unknown\W*", answer, re.I)),
+                    run=run,
                 )
             )
     return results
 
 
 def summarise_answers(results: list[AnswerResult]) -> dict[str, dict[str, float]]:
-    """Per arm: answer recall, complete answers, and how often it declined."""
+    """Per arm: answer recall, complete answers, how often it declined, and the spread.
+
+    With ``repeat > 1`` the headline figures are means over runs and
+    ``answer_recall_min`` / ``answer_recall_max`` bound them. Report the bound
+    whenever it exists: the closed-book arm, which cannot see the mesh or any
+    retrieval parameter, has been observed at 43% and at 52% on the same 47
+    questions at temperature 0. A single number from this instrument is a sample,
+    not a measurement, and four rounds of three-point claims were read off it as
+    if it were one.
+    """
     out: dict[str, dict[str, float]] = {}
     for arm in sorted({r.arm for r in results}):
         rows = [r for r in results if r.arm == arm]
-        expected = sum(len(r.expected) for r in rows)
-        found = sum(len(r.found) for r in rows)
+        runs = sorted({r.run for r in rows})
+        per_run: list[tuple[float, int]] = []
+        for run in runs:
+            in_run = [r for r in rows if r.run == run]
+            expected = sum(len(r.expected) for r in in_run)
+            found = sum(len(r.found) for r in in_run)
+            per_run.append(
+                (found / expected if expected else 0.0, sum(1 for r in in_run if r.complete))
+            )
+        recalls = [recall for recall, _ in per_run]
+        completes = [float(complete) for _, complete in per_run]
         out[arm] = {
-            "questions": float(len(rows)),
-            "entities_expected": float(expected),
-            "entities_named": float(found),
-            "answer_recall": found / expected if expected else 0.0,
-            "complete_answers": float(sum(1 for r in rows if r.complete)),
-            "declined": float(sum(1 for r in rows if r.said_unknown)),
+            "questions": float(len(rows) / max(1, len(runs))),
+            "runs": float(len(runs)),
+            "entities_expected": float(sum(len(r.expected) for r in rows) / max(1, len(runs))),
+            "entities_named": float(sum(len(r.found) for r in rows) / max(1, len(runs))),
+            "answer_recall": sum(recalls) / len(recalls) if recalls else 0.0,
+            "answer_recall_min": min(recalls) if recalls else 0.0,
+            "answer_recall_max": max(recalls) if recalls else 0.0,
+            "complete_answers": sum(completes) / len(completes) if completes else 0.0,
+            "complete_answers_min": min(completes) if completes else 0.0,
+            "complete_answers_max": max(completes) if completes else 0.0,
+            "declined": float(sum(1 for r in rows if r.said_unknown) / max(1, len(runs))),
         }
     return out
+
+
+def paired_against(
+    results: list[AnswerResult], *, arm: str, baseline: str = "closed_book"
+) -> dict[str, float]:
+    """Compare two arms question by question instead of arm total by arm total.
+
+    The totals are the wrong comparison when the control is this noisy, because
+    both arms' totals move with the model's mood while the *pairing* does not:
+    each question is asked of both arms from the same process on the same day.
+
+    Also reports the arm's recall on the **discriminating slice** — the questions
+    the baseline failed to answer fully. On a corpus the model has read (the
+    founding corpus is Hesiod) the aggregate cannot separate the arms at all;
+    what the substrate contributes is only visible where prior knowledge ran out.
+    """
+    by_id: dict[str, dict[str, list[AnswerResult]]] = {}
+    for row in results:
+        by_id.setdefault(row.id, {}).setdefault(row.arm, []).append(row)
+
+    def mean_found(rows: list[AnswerResult]) -> float:
+        return sum(len(r.found) for r in rows) / len(rows) if rows else 0.0
+
+    better = worse = equal = 0
+    slice_found = slice_expected = 0.0
+    slice_questions = 0
+    for per_arm in by_id.values():
+        if arm not in per_arm or baseline not in per_arm:
+            continue
+        mine, theirs = mean_found(per_arm[arm]), mean_found(per_arm[baseline])
+        if mine > theirs:
+            better += 1
+        elif mine < theirs:
+            worse += 1
+        else:
+            equal += 1
+        expected = len(per_arm[arm][0].expected)
+        if theirs < expected:  # the baseline did not answer this one fully
+            slice_questions += 1
+            slice_found += mine
+            slice_expected += expected
+    return {
+        "better": float(better),
+        "worse": float(worse),
+        "equal": float(equal),
+        "slice_questions": float(slice_questions),
+        "slice_recall": slice_found / slice_expected if slice_expected else 0.0,
+    }
