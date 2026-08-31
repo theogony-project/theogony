@@ -53,6 +53,7 @@ class RetrievalResult:
     ann_hit_count: int
     timings_ms: dict[str, float] = field(default_factory=dict)
     hebbian_deltas: int = 0
+    nodes_fired: int = 0
 
 
 def append_hebbian_deltas(
@@ -324,6 +325,7 @@ def retrieve(
     hebbian: bool = False,
     hebbian_learning_rate: float = 0.01,
     hebbian_max_deltas: int = 64,
+    record_firing: bool = True,
 ) -> RetrievalResult:
     """Run one diversified-injection + Spreading-Activation query; return a Constellation.
 
@@ -464,6 +466,34 @@ def retrieve(
     )
     timings["assemble_ms"] = (time.perf_counter() - t3) * 1000.0
 
+    # The substrate's record that this happened. Every node that reached the
+    # working set fired, which is what `MESH_SUBSTRATE.md` means by "co-fires
+    # across many distinct activation contexts" — the gate tier promotion is
+    # supposed to run on, and which nothing wrote until PHX-1101.
+    #
+    # **On by default, where the Hebbian write-back beside it is opt-in.** The
+    # distinction is what the write can change: a Hebbian delta moves an edge
+    # weight and therefore what the substrate answers next time, so recording it
+    # during a benchmark contaminates the benchmark. A firing changes nothing a
+    # query can observe — no code on the read path reads these counters. It is
+    # also the mechanism that stayed at zero for the whole life of this substrate
+    # precisely because it would have been opt-in, and nobody passes an opt-in
+    # flag (measured: 14 ticks, `delta_drained: 0` every one).
+    #
+    # That holds only while nothing reads them. The evaluation harnesses pass
+    # `record_firing=False` **now** rather than later, because the moment tier
+    # promotion reads `fired_total` a benchmark that records firings is measuring
+    # a substrate it just changed.
+    #
+    # Nothing is written to Lance here: the row goes to an append-only sidecar and
+    # the tick folds it in. `MESH_IMPLEMENTATION.md` §"What is forbidden" names
+    # "reads that mutate the version they read from".
+    nodes_fired = 0
+    if record_firing:
+        t_fire = time.perf_counter()
+        nodes_fired = runtime.firings.append_firing(node.node_id for node in constellation.nodes)
+        timings["firing_ms"] = (time.perf_counter() - t_fire) * 1000.0
+
     # Opt-in by design: a query that silently mutates the substrate would make every
     # evaluation non-reproducible and quietly contaminate the retrieval benchmarks.
     deltas = 0
@@ -485,4 +515,5 @@ def retrieve(
         ann_hit_count=len(hits),
         timings_ms=timings,
         hebbian_deltas=deltas,
+        nodes_fired=nodes_fired,
     )

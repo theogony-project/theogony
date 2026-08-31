@@ -207,6 +207,7 @@ class MeshParagraphReader:
         word_count = len(re.findall(r"\w+", " ".join(paragraphs)))
 
         nodes_upserted = 0
+        firing_passes = 0
         edges_upserted = 0
         nodes_embedded = 0
         total_mentions = 0
@@ -353,6 +354,15 @@ class MeshParagraphReader:
 
             resolved_by_label: dict[str, ConsolidatedNode] = {}
             resolved_entity_ids: set[str] = set()
+            # Nodes this paragraph referenced that the substrate already had.
+            # `MESH_SUBSTRATE.md` §"Second worked example" states the rule
+            # outright: "Each new chunk attaches a *new* reference edge to the
+            # *existing* Thomas Addison node — `fired_total` and `fired_recent`
+            # increment, the node accumulates evidence." Doctrine's firing signal
+            # therefore has two sources, and this is the one that carries the
+            # "breadth of incoming references" half of the tier-promotion gate
+            # (PHX-1101).
+            referenced_existing: set[str] = set()
             local_node_ids = {
                 str(text_anchor_node.id),
                 str(paragraph_anchor.id),
@@ -401,6 +411,8 @@ class MeshParagraphReader:
                     local_node_ids.add(str(decision.node.id))
                     if decision.is_new:
                         nodes_upserted += 1
+                    else:
+                        referenced_existing.add(str(decision.node.id))
                     self._stage_audit(
                         "mesh_ingest_link_decision",
                         {
@@ -532,6 +544,8 @@ class MeshParagraphReader:
                     paragraph_concept_node_ids.add(paragraph_concept_id)
                     if decision.is_new:
                         nodes_upserted += 1
+                    else:
+                        referenced_existing.add(str(decision.node.id))
                     paragraph_concept_count += 1
 
                     self._append_edge(
@@ -583,6 +597,15 @@ class MeshParagraphReader:
                 relation_stage_duration_s += time.monotonic() - relation_started
             else:
                 paragraph_concept_id = None
+
+            # One row per paragraph, because the paragraph is the activation
+            # context doctrine counts — "many distinct activation contexts", not
+            # many mentions in one. Buffered like the query-path firings and
+            # folded in by the tick; ingestion writes nodes directly but this is
+            # a counter update on rows it is not otherwise rewriting.
+            if referenced_existing:
+                firing_passes += 1
+                self.mesh.firings.append_firing(referenced_existing)
 
             paragraph_units.append(
                 _ParagraphUnit(
@@ -797,6 +820,10 @@ class MeshParagraphReader:
             "relations": total_relations_written,
             "paragraph_concepts": paragraph_concept_count,
             "paragraph_concept_nodes": len(paragraph_concept_node_ids),
+            # Paragraphs that referenced a node the substrate already had. Zero
+            # would mean every reference minted a fresh node — the fragmentation
+            # PHX-1097 had to clean up after the fact (PHX-1101).
+            "firing_passes": firing_passes,
             "llm_calls": total_llm_calls,
             "llm_cost_eur": round(total_llm_cost_eur, 6),
             "elapsed_s": round(elapsed, 1),

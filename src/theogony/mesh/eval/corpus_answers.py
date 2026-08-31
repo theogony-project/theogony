@@ -113,7 +113,14 @@ def _constellation_context(
     top_k: int,
     **retrieve_kwargs: Any,
 ) -> str:
-    result = retrieve(runtime, vector, query=question, top_k=top_k, **retrieve_kwargs)
+    # `record_firing=False`: a benchmark must not change the substrate it
+    # measures. Today a firing is observationally inert for retrieval, but the
+    # counters exist so that tier promotion can read them, and on the day it does
+    # a harness that recorded firings would be measuring its own last run
+    # (PHX-1101).
+    result = retrieve(
+        runtime, vector, query=question, top_k=top_k, record_firing=False, **retrieve_kwargs
+    )
     constellation = result.constellation
     lines = ["Entities:"]
     lines += [f"- {n.name}" for n in constellation.nodes if not n.is_source_anchor]

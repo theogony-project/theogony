@@ -159,6 +159,9 @@ def evaluate(
                 # evaluator that withheld it would measure a different pipeline
                 # than the one users run.
                 query=gq.question,
+                # The instrument must not move what it measures — see the same
+                # flag in `corpus_answers` (PHX-1101).
+                record_firing=False,
                 **retrieve_kwargs,
             ).constellation.nodes
         }

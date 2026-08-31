@@ -27,7 +27,13 @@ from theogony.mesh.storage.edges import (
     in_strength,
     merge_edge_deltas,
 )
-from theogony.mesh.storage.nodes import _DEFAULT_VERSION_RETENTION, MeshNodeStore
+from theogony.mesh.storage.nodes import (
+    _DEFAULT_VERSION_RETENTION,
+    DEFAULT_FIRED_RECENT_DECAY,
+    MeshNodeStore,
+    NodeFiringBuffer,
+    merge_node_firings,
+)
 from theogony.mesh.stratification import WeightClasses, global_weight_classes
 from theogony.mesh.typed_edges import build_typed_boosted_csr
 
@@ -106,6 +112,8 @@ class MinimalTickResult:
     index_status: dict[str, str] = field(default_factory=dict)
     versions_pruned: dict[str, int] = field(default_factory=dict)
     pids_backfilled: int = 0
+    firing_passes: int = 0
+    nodes_fired: int = 0
 
 
 # ---- Runtime --------------------------------------------------------
@@ -149,6 +157,10 @@ class MeshRuntime:
         self.db = lancedb.connect(str(root / "lance"), read_consistency_interval=_READ_CONSISTENCY)
 
         self.nodes = MeshNodeStore(self.db, semantic_dim=semantic_dim, frame_dim=frame_dim)
+        # Durable sidecar for node firings, same discipline as the edge deltas and
+        # for the same reason: a pass recorded by `mesh ask` in one process must
+        # survive to be folded in by `mesh tick` in another (PHX-1101).
+        self.firings = NodeFiringBuffer(root / "node_firings.jsonl")
         # Durable delta sidecar: reinforcement written by `mesh ask --hebbian` in one
         # process must survive to be drained by `mesh tick` in another.
         self.edges = EdgeStore(self.db, delta_path=root / "edge_deltas.jsonl")
@@ -403,6 +415,7 @@ class MeshRuntime:
         max_out_degree: int = DEFAULT_MAX_OUT_DEGREE,
         w_max: float = 1.0,
         version_retention: timedelta = _DEFAULT_VERSION_RETENTION,
+        fired_recent_decay: float = DEFAULT_FIRED_RECENT_DECAY,
     ) -> MinimalTickResult:
         """Drain delta buffer -> merge -> decay -> saturation -> Lance rewrite -> audit."""
         before = self.edges.count_rows()
@@ -429,6 +442,33 @@ class MeshRuntime:
                 )
             raise
         self.invalidate_csr_cache()
+
+        # Fold in what fired since the last tick. This is the node-side dual of
+        # the delta drain above, and it runs here for the same reason: reads may
+        # not mutate the version they read from (`MESH_IMPLEMENTATION.md` §"What
+        # is forbidden"), so the query path records and the tick applies.
+        #
+        # Before this the counters were 0 on every node of every mesh, and the
+        # four mechanisms that read them — tier promotion, tier-modulated decay,
+        # Oneiros' replay, RL eligibility — were reading a history nobody kept
+        # (PHX-1100, PHX-1101).
+        firing_rows = self.firings.drain()
+        nodes_fired = 0
+        if firing_rows:
+            consolidated = list(self.nodes.iter_consolidated(page_size=1024))
+            updated, nodes_fired, _ = merge_node_firings(
+                consolidated, firing_rows, recent_decay=fired_recent_decay
+            )
+            try:
+                self.nodes.replace_all_consolidated(updated)
+            except Exception:
+                # `drain()` unlinked the sidecar; put the passes back before the
+                # exception leaves this frame, exactly as the edge path does. The
+                # node tables are versioned by Lance and recoverable, the sidecar
+                # is not (PHX-1082).
+                for row in firing_rows:
+                    self.firings.append_firing(row.get("node_ids") or [], at=None)
+                raise
 
         # The tick is the substrate's maintenance pass, so index upkeep belongs
         # here rather than on the ingest hot path: a mesh that has grown past the
@@ -463,6 +503,8 @@ class MeshRuntime:
                 "indices": index_status,
                 "versions_pruned": versions_pruned,
                 "pids_backfilled": pids_backfilled,
+                "firing_passes": len(firing_rows),
+                "nodes_fired": nodes_fired,
             },
         )
 
@@ -481,4 +523,6 @@ class MeshRuntime:
             index_status=index_status,
             versions_pruned=versions_pruned,
             pids_backfilled=pids_backfilled,
+            firing_passes=len(firing_rows),
+            nodes_fired=nodes_fired,
         )

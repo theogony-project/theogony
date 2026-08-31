@@ -243,6 +243,23 @@ Aktivierungsgeschichte.
 
 ---
 
+## Nachtrag, noch am selben Tag
+
+**PHX-1101 ist gebaut**, und damit ist der erste Eintrag aus Muster 2 abgeräumt:
+der Lesepfad zeichnet jetzt auf, welche Knoten ins Arbeitsset gelangt sind, die
+Ingestion zeichnet jede Referenz auf einen bereits vorhandenen Knoten auf, und
+der Tick faltet beides ein. `fired_total` ging auf einer Kopie des Founding-Mesh
+über 47 Abfragen **von einem distinkten Wert auf 32** — Zeus 45, Theogony 43,
+der Quellanker 41, Phoebus Apollo 40.
+
+Die Aufnahme oben bleibt stehen, wie sie gemessen wurde. Sie ist der Zustand vom
+31. August, und eine Inventur, die sich rückwirkend selbst korrigiert, ist keine.
+
+Was das entsperrt: Tier-Beförderung hat jetzt eine Eingabe, der Zerfall könnte auf
+ungefeuerte Kanten beschränkt werden (die doktrintreue Antwort auf PHX-1102),
+Oneiros' Replay hat ein Signal, und die Eligibility-Traces haben eine Basis. Keins
+davon ist damit gebaut — nur nicht mehr blockiert.
+
 ## Anhang — die vollständige Aufnahme
 
 Nach Doktrindokument, innerhalb dessen nach Zustand. Jede Zeile trägt die kürzeste
