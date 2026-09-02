@@ -260,6 +260,10 @@ ungefeuerte Kanten beschränkt werden (die doktrintreue Antwort auf PHX-1102),
 Oneiros' Replay hat ein Signal, und die Eligibility-Traces haben eine Basis. Keins
 davon ist damit gebaut — nur nicht mehr blockiert.
 
+Was diese Aufnahme für die Vision bedeutet — welche Verben von *„the mesh is
+alive"* heute stimmen, welche Sätze der README nicht mehr, und was Gen 1
+ehrlich verspricht — steht in [`what_gen1_promises.md`](what_gen1_promises.md).
+
 ## Anhang — die vollständige Aufnahme
 
 Nach Doktrindokument, innerhalb dessen nach Zustand. Jede Zeile trägt die kürzeste
