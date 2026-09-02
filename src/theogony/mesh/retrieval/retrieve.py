@@ -13,10 +13,12 @@ The orchestrator is embedder-agnostic: callers pass a query vector already in th
 workspace's semantic space (the ``theogony mesh ask`` CLI does the text->vector step).
 No synthesis, no LLM.
 
-Retrieval is **read-only by default**. Passing ``hebbian=True`` additionally credits
-the traversed edges into the delta buffer, closing the query -> reinforcement ->
-tick -> denser-mesh loop; see :func:`append_hebbian_deltas` for what that does and,
-importantly, what it is not (one-factor Hebbian, not the doctrine's three-factor RL).
+Retrieval **never writes a Lance version**. By default it records which nodes
+reached the working set in an append-only sidecar that the tick folds in
+(PHX-1101); passing ``hebbian=True`` additionally credits the traversed edges into
+the delta buffer, closing the query -> reinforcement -> tick loop. See
+:func:`append_hebbian_deltas` for what that does and, importantly, what it is not
+(one-factor Hebbian, not the doctrine's three-factor RL).
 """
 
 from __future__ import annotations
@@ -62,8 +64,22 @@ def append_hebbian_deltas(
     *,
     learning_rate: float = 0.01,
     max_deltas: int = 64,
+    normalize: bool = False,
 ) -> int:
     """Reinforce the edges this query actually traversed. Returns the delta count.
+
+    ``normalize`` divides activations by the working set's peak before the
+    product, putting them on the [0, 1] scale the doctrine's alpha (≈1e-2) was
+    written for. PPR is mass-preserving over the whole graph (up to dangling
+    nodes), so its activations sit well below that scale — the working set's
+    peak around 0.2, the fiftieth-ranked node around 0.01 — the same mismatch
+    PHX-1095 found for the 0.05 threshold. Measured over 24 gold questions
+    (PHX-1102): raw deltas peak at 5.3e-4 per credited edge and median 1.8e-5,
+    normalised at 9.4e-3 and 6.3e-4, against 4.8e-3 of decay per tick at the
+    median weight — the strongest raw credit is 9x below one tick of forgetting,
+    the median 260x. Off by default: on its own it moves the most-used edges by
+    +0.004 over 20 ticks, and the knob that lets a used edge hold is gating decay
+    on firing, not the size of the credit.
 
     "Fire together, wire together": each edge in the returned Constellation is
     credited in proportion to the product of its endpoints' activation, so the
@@ -83,6 +99,9 @@ def append_hebbian_deltas(
     honest description is "the loop is closeable", not "the loop is correct".
     """
     activation = {n.node_id: n.activation for n in constellation.nodes}
+    if normalize and activation:
+        peak = max(activation.values()) or 1.0
+        activation = {k: v / peak for k, v in activation.items()}
     scored: list[tuple[float, str, str, str | None]] = []
     for edge in constellation.edges:
         source_act = activation.get(edge.source_id, 0.0)
@@ -325,6 +344,7 @@ def retrieve(
     hebbian: bool = False,
     hebbian_learning_rate: float = 0.01,
     hebbian_max_deltas: int = 64,
+    hebbian_normalize: bool = False,
     record_firing: bool = True,
 ) -> RetrievalResult:
     """Run one diversified-injection + Spreading-Activation query; return a Constellation.
@@ -504,6 +524,7 @@ def retrieve(
             constellation,
             learning_rate=hebbian_learning_rate,
             max_deltas=hebbian_max_deltas,
+            normalize=hebbian_normalize,
         )
         timings["hebbian_ms"] = (time.perf_counter() - t4) * 1000.0
 

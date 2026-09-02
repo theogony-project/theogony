@@ -1,0 +1,50 @@
+id: PHX-1104
+category: substrate-runtime
+priority: high
+status: open
+generation_target: MESH doctrine — "the mesh is alive", das Verb *lernt*
+title: "Das Substrat hält jetzt, was es benutzt — und das Retrieval sieht es nicht"
+filed_by: Claude Code (2026-09-01, aus dem PHX-1102-Herzschlag)
+created_at: 2026-09-01
+description: >
+  PHX-1102 hat das Gate ausgeliefert: Kanten, die feuern, zerfallen nicht mehr.
+  Live auf einer Kopie des Founding-Mesh über zehn Runden tut es genau das —
+  ~15.700 Kanten je Tick verschont, das stärkste Gewicht hält bei 0,905, wo der
+  ausgelieferte Zerfall es auf 0,616 drückt.
+
+  Und der Recall bewegt sich nicht. 84,8 % auf den benutzten, 82,2 % auf den
+  zurückgehaltenen Fragen — identisch in Runde 0 und Runde 10, unter dem
+  ausgelieferten Zerfall wie unter dem Gate. Kein Gold-Treffer hat sich bewegt.
+
+  Die Wachstums-Variante (Gate + Hebb auf Doktrin-Skala, α=0,1) macht es nicht
+  besser, sondern zeigt die Richtung der Pathologie: w_max sitzt ab Runde 2 an
+  der Kappe, die benutzten Fragen bleiben bei Rang 27,4 → 27,5, die
+  zurückgehaltenen fallen 82,2 → 80,0 % (Rang 30,3 → 31,0). Wachstum ohne
+  Gewichtssummen-Kappe und Renormalisierung ist die Hub-Pathologie, nicht der
+  Herzschlag.
+
+  WARUM: der ausgelieferte Operator ist PPR über die zeilennormalisierte
+  Adjazenz. Er liest Anteile, nicht Stärken. Zerfall w -> w(1-λw) ist je Knoten
+  fast gleichförmig und damit unsichtbar; das Gate erzeugt in zehn Ticks ~15 %
+  relativen Unterschied, was Reihenfolgen verschiebt (24/24) und keine
+  Gold-Mitgliedschaft (Jaccard-Median 1,000).
+
+  DREI BEDINGUNGEN, unter denen der Herzschlag messbar würde, jede mit Grund:
+    1. Längerer Horizont — 50+ Ticks statt 10. Simulation billig, live ~1 min/Tick.
+    2. Gewichtssummen-Kappe (MESH_SUBSTRATE §3) und Renormalisierung (§6), damit
+       Wachstum die Verteilung verschiebt statt an w_max zu sättigen. Ohne beides
+       ist jedes α > 0 auf Doktrin-Skala ein Pathologie-Erzeuger.
+    3. Ein Instrument mit Spielraum. Auf dem Founding-Mesh nagelt k_seeds=1 mit
+       Namensankern die Gold-Mitgliedschaft so fest, dass das Retrieval die
+       Dynamik nicht braucht. Der Rang-Messer steht jetzt im Heartbeat-Skript;
+       der Korpus muss einer sein, auf dem Recall nicht schon bei 85 % steht.
+
+  Das Verb *lernt* aus "the mesh is alive" ist von *nein* zu *hält* gewandert,
+  nicht zu *ja*.
+relates_to:
+  - PHX-1102   # das Gate, das dies sichtbar gemacht hat
+  - PHX-1100   # die Inventur: Sättigung und Renormalisierung fehlen
+  - PHX-1099   # k_seeds=1, der Grund, warum das Founding-Retrieval keinen Spielraum hat
+linked_scripts:
+  - scripts/mesh_heartbeat.py
+  - docs/etappes/hebbian_calibration.md

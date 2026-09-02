@@ -183,7 +183,19 @@ def mesh_tick(
     decay_lambda: float = typer.Option(
         0.05,
         "--decay-lambda",
-        help="Super-linear decay rate applied to every edge (0 = no forgetting).",
+        help=(
+            "Super-linear decay rate (0 = no forgetting). Applied to every edge that did "
+            "NOT fire since the last tick; see --no-decay-gate."
+        ),
+    ),
+    decay_gate: bool = typer.Option(
+        True,
+        "--decay-gate/--no-decay-gate",
+        help=(
+            "Spare edges that fired since the last tick from decay (MESH_SUBSTRATE §2: "
+            "'edges that are not fired weaken'). Measured as the one knob under which a "
+            "used edge holds (PHX-1102)."
+        ),
     ),
     dt: float = typer.Option(
         1.0,
@@ -235,6 +247,7 @@ def mesh_tick(
             max_out_degree=max_out_degree,
             w_max=w_max,
             version_retention=timedelta(hours=keep_versions_hours),
+            decay_gate=decay_gate,
         )
     except Exception as exc:
         # `verdict="good"` used to be written unconditionally, below, after a call

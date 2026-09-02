@@ -253,6 +253,19 @@ good RAG"*. Es ist ein Lese-Substrat mit dem Skelett eines lebenden, dessen
 Herzschlag noch nicht gemessen wurde — und dessen erster Herzschlag die nächste
 Arbeit ist ([`PHX-1102`](../../phoenix-backlog/PHX-1102.yaml)).
 
+## Nachtrag, am Tag danach
+
+Die Zeile *lernt aus Benutzung — nein* in der Tabelle oben ist seit PHX-1102
+ungenau, und zwar in beide Richtungen. Der Zerfall verschont jetzt, was gefeuert
+hat; das Substrat **hält, was es benutzt** — gemessen, ohne Nebenwirkung auf das
+Ungenutzte. Und der Herzschlag, „antwortet besser auf das Benutzte", ist live
+gemessen und **nicht** erschienen: Recall über zehn Runden invariant, unter jeder
+Politik. Das Verb ist von *nein* zu *hält* gewandert, nicht zu *ja*. Die
+Neuformulierung oben bleibt, wie sie am 31. August stand; der eine Satz darin,
+der sich geändert hat, ist „es lernt nicht aus Benutzung" → „es hält, was es
+benutzt, und lernt noch nicht sichtbar". Warum, und was den Herzschlag sichtbar
+machen würde: [`hebbian_calibration.md`](hebbian_calibration.md), PHX-1104.
+
 ## Was das für die Reihenfolge heißt
 
 Nichts Neues gegenüber der Inventur, nur bestätigt aus der Vision heraus: Das
