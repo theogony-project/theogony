@@ -11,6 +11,8 @@ The documents were written for different depths and different kinds of readers.
 
 **Start here if you want the development sequence:** [`../ROADMAP.md`](../ROADMAP.md) — what Theogony builds, in what order, and why.
 
+**Start here if you want to know what of that actually runs:** [`etappes/doctrine_inventory.md`](etappes/doctrine_inventory.md) — every mechanism the MESH triplet specifies, with its state (live / inert / blocked / absent) and the evidence; and [`etappes/what_gen1_promises.md`](etappes/what_gen1_promises.md) — the vision held against that inventory, and what Gen 1 honestly promises. Both in German, both dated 2026-08-31. Read these *after* the triplet, not instead of it: the triplet is the target, these are the distance to it.
+
 ## Recommended Reading Paths
 
 ### 0. The Substrate Doctrine (start here if you are technical)
@@ -20,6 +22,8 @@ For someone who wants the binding behavioural specification of the mesh — what
 1. [`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) — **the binding substrate doctrine.** Two-tier nodes (Observation Chunks Tier 0 + Consolidated Nodes Tier 1+), eager identity when Q-ID / description / structural signals are clear and emergent identity otherwise, edge anatomy with quantitative core plus optional semantic descriptors (`relation_descriptor`, `relation_kind`, `description`, P-IDs, `creation_context`), super-linear decay, saturation in count and weight, atrophy decoupled from death, global homeostatic renormalisation, effective-resistance-preserving sub-node splits, agent-driven cleanup (deduplication / contradiction resolution / false-information removal / redundancy compression), five topological pathology symptoms and five staged therapies with Mendel-weighed escalation. Two worked examples: the Thomas Addison / Thyroxine paragraph and a single biographical sentence about a house purchase showing how observations become multiple chunks linking to entity nodes (some with Q-IDs, some without).
 2. [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) — the runtime. Hot / Warm / Cold tiering. LanceDB columnar nodes with per-vector HNSW indices. PyTorch sparse CSR edge tensor + COO delta buffer + parallel Lance edge-metadata table. MVCC concurrency. Batched SpMV / SpMM for many concurrent Spreading Activation passes. Oneiros tick order. Hardware tier targets from laptop to multi-server. Migration path from the current PoC.
 3. [`MESH_RETRIEVAL.md`](MESH_RETRIEVAL.md) — the use. Diversified injection (Maximum Marginal Relevance + weight-class stratification + sub-mesh signature search via Weisfeiler-Lehman hashing). Three-factor reinforcement learning with eligibility traces, with explicit reward-hacking mitigations. Frame-sensitive resonance — how polarity, refutation, and modality are represented out of the semantic vector and into the frame. Multi-agent strategy game with parallel-universe experimentation. Multi-modal extension as a substrate affordance.
+
+4. [`etappes/doctrine_inventory.md`](etappes/doctrine_inventory.md) and [`etappes/what_gen1_promises.md`](etappes/what_gen1_promises.md) — the distance between (1)–(3) and the code, measured mechanism by mechanism, and what that distance means for the promise. The triplet says what the substrate must do; these say what it does.
 
 The MESH triplet is the operative doctrine for substrate behaviour, runtime, and use. Where older doctrine documents conflict with it at the substrate level, the triplet is operative. (Older docs remain authoritative for everything they cover that is *not* substrate mechanics.)
 
