@@ -204,4 +204,4 @@ Der dritte Punkt ist unbequem: auf dem Founding-Mesh ist das Retrieval bei
 `k_seeds=1` so gut, dass es die Dynamik nicht braucht. Der Herzschlag muss dort
 gemessen werden, wo das Retrieval Spielraum hat.
 
-Abgelegt als PHX-1104.
+Abgelegt als PHX-1104 — und dort auf 2Wiki gemessen: [`heartbeat_2wiki.md`](heartbeat_2wiki.md).

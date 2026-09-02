@@ -266,6 +266,16 @@ der sich geändert hat, ist „es lernt nicht aus Benutzung" → „es hält, wa
 benutzt, und lernt noch nicht sichtbar". Warum, und was den Herzschlag sichtbar
 machen würde: [`hebbian_calibration.md`](hebbian_calibration.md), PHX-1104.
 
+## Nachtrag II, am Tag danach
+
+Auf 2Wiki, wo das Retrieval Spielraum hat, **bewegt sich das Verb zum ersten
+Mal**: mit Gate und Hebb auf Doktrin-Skala werden die benutzten Fragen um +1,3
+Punkte besser und bleiben es über 50 Runden. Und die zurückgehaltenen werden um
+−1,5 schlechter — monoton, mit oder ohne Gutschrift. *Lernt* ist damit von
+*hält* zu **„lernt, und verdrängt dabei"** gewandert. Die Gegenkraft, die die
+Doktrin dafür vorsieht, ist die Renormalisierung (§6); sie ist das nächste Organ
+([`heartbeat_2wiki.md`](heartbeat_2wiki.md), PHX-1106).
+
 ## Was das für die Reihenfolge heißt
 
 Nichts Neues gegenüber der Inventur, nur bestätigt aus der Vision heraus: Das

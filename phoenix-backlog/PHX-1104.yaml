@@ -1,7 +1,7 @@
 id: PHX-1104
 category: substrate-runtime
 priority: high
-status: open
+status: done
 generation_target: MESH doctrine — "the mesh is alive", das Verb *lernt*
 title: "Das Substrat hält jetzt, was es benutzt — und das Retrieval sieht es nicht"
 filed_by: Claude Code (2026-09-01, aus dem PHX-1102-Herzschlag)
@@ -41,7 +41,39 @@ description: >
 
   Das Verb *lernt* aus "the mesh is alive" ist von *nein* zu *hält* gewandert,
   nicht zu *ja*.
+resolution: >
+  Auf 2WikiMultihopQA gemessen, wo das Retrieval Spielraum hat (SA@5 0,777 /
+  0,813 gegen kNN 0,650 / 0,717): 150 benutzte / 150 zurückgehaltene Fragen,
+  50 Runden, vier Politiken, im Speicher auf den echten Tick-Funktionen.
+
+      Runde 50            used@5   held@5
+      alter Zerfall        0,773    0,810
+      Gate                 0,780    0,798
+      Gate + Hebb α=0,01   0,790    0,798
+      Gate + Hebb α=0,1    0,787    0,797
+
+  DER HERZSCHLAG IST SICHTBAR: mit Gutschrift steigen die benutzten Fragen um
+  +1,3 Punkte (Sprung in Runde 1, hält über 50). Das erste Mal, dass sich das
+  Verb *lernt* auf einer Messung bewegt. UND DIE VERDRÄNGUNG AUCH: die
+  zurückgehaltenen fallen unter dem Gate um −1,5, monoton über acht
+  Messpunkte, mit oder ohne Gutschrift. 5,4 % der Kanten bleiben am Anschlag,
+  alle anderen fallen auf 0,28; ihr Anteil je Knoten wächst um das 3,5-fache,
+  und der Random Walk kippt zu den benutzten Regionen.
+
+  Gleichmäßiger Zerfall ist auch hier fast unsichtbar (72 % Gewichtsverlust,
+  −0,4 Punkte) — zweiter Korpus, dieselbe Aussage: der Operator liest Anteile.
+
+  Von den drei Bedingungen sind zwei erfüllt (Horizont, Spielraum), und die
+  dritte ist damit nicht mehr Argument, sondern Messung: ohne die globale
+  Renormalisierung (MESH_SUBSTRATE §6) heißt „mehr Anteil für das Benutzte"
+  „weniger für alles andere". → PHX-1106.
+
+  Grenzen: 1–1,5 Punkte auf 150 Fragen sind ein bis zwei Fragen; die
+  Arbeitssets waren wegen 56,8 % gleicher Gewichte nicht vollständig
+  reproduzierbar (seit dem Lauf stabil sortiert); der Kern ist der des
+  Benchmarks, nicht `mesh ask`. Volltext: docs/etappes/heartbeat_2wiki.md.
 relates_to:
+  - PHX-1106   # die Renormalisierung, jetzt gemessen motiviert
   - PHX-1102   # das Gate, das dies sichtbar gemacht hat
   - PHX-1100   # die Inventur: Sättigung und Renormalisierung fehlen
   - PHX-1099   # k_seeds=1, der Grund, warum das Founding-Retrieval keinen Spielraum hat
