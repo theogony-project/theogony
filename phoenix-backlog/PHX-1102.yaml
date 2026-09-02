@@ -1,7 +1,7 @@
 id: PHX-1102
 category: substrate-runtime
 priority: critical
-status: open
+status: done
 generation_target: MESH doctrine — die fünf Primitiven
 title: "Die Hebbsche Verstärkung ist 17- bis 254-fach zu klein gegen den Zerfall"
 filed_by: Claude Code (2026-08-31, aus der Doktrin-Inventur)
@@ -40,6 +40,34 @@ description: >
   hält eine oft abgefragte Kante ihr Gewicht, ohne dass eine nie abgefragte
   unsterblich wird? Das ist billig und beantwortet die Frage vor der ersten
   Codeänderung.
+resolution: >
+  Gemessen, nicht argumentiert — Simulation über die echte Gewichtsverteilung
+  (scripts/mesh_hebbian_calibration.py), 20 Ticks, je eine Runde von 24
+  Gold-Fragen:
+
+      Politik                          10 meistgefeuerte   nie gefeuert
+      Start                                 0,594             0,387
+      A ausgeliefert                        0,359             0,270
+      B α auf Doktrin-Skala                 0,363             0,270
+      C Gate: nur Ungefeuertes zerfällt     0,594             0,270   <- ausgeliefert
+      D B + C                               0,601             0,270
+      E λ/10                                0,558             0,370
+
+  DAS GATE IST DIE SCHRAUBE — die einzige Politik, bei der Benutztes hält, und
+  sie lässt Unbenutztes exakt so verblassen wie bisher. Es ist die Regel, die
+  MESH_SUBSTRATE §2 seit dem ersten Tag enthält; sie galt nie, weil niemand
+  aufschrieb, was gefeuert hat (PHX-1101).
+
+  AUSGELIEFERT: `decay_edges_inplace(fired=…)` + `fired_pairs()`; der Tick zieht
+  beide Sidecars vor dem Zerfall ein und stellt beide bei Fehlschlag wieder her;
+  `decay_gate=True` Default, ohne Feuer-Record ein No-op (getestet).
+  `hebbian_normalize` als Hebel, Default aus: allein +0,004, mit Gate +0,007.
+  λ unverändert — λ/10 verlangsamt alles und trennt nichts.
+
+  LIVE (scripts/mesh_heartbeat.py, 10 Runden): das Gate tut auf dem Substrat,
+  was die Simulation sagt — 15.732 Kanten verschont, w_max hält 0,905 gegen
+  0,616. Der Recall bewegt sich in keiner Variante. Warum, und was das Verb
+  *lernt* jetzt heißt, steht in PHX-1104.
 relates_to:
   - PHX-1100   # die Inventur
   - PHX-1101   # das Feuersignal, das die dritte Option braucht

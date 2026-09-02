@@ -260,6 +260,14 @@ ungefeuerte Kanten beschränkt werden (die doktrintreue Antwort auf PHX-1102),
 Oneiros' Replay hat ein Signal, und die Eligibility-Traces haben eine Basis. Keins
 davon ist damit gebaut — nur nicht mehr blockiert.
 
+**PHX-1102, am Tag danach:** Muster 1 ist zur Hälfte abgeräumt. Der Zerfall
+verschont jetzt, was gefeuert hat — die Regel aus MESH_SUBSTRATE §2, gemessen
+als die einzige der drei Stellschrauben, bei der Benutztes hält (0,594 gegen
+0,359 unter dem ausgelieferten Zerfall). Das Substrat kann nicht mehr *nur*
+vergessen. Ob es *lernt*, sieht das Retrieval auf diesem Mesh nicht — zehn
+Runden, kein Gold-Treffer bewegt — und warum, steht in
+[`hebbian_calibration.md`](hebbian_calibration.md) und PHX-1104.
+
 Was diese Aufnahme für die Vision bedeutet — welche Verben von *„the mesh is
 alive"* heute stimmen, welche Sätze der README nicht mehr, und was Gen 1
 ehrlich verspricht — steht in [`what_gen1_promises.md`](what_gen1_promises.md).

@@ -270,9 +270,127 @@ def merge_edge_deltas(
     return list(by_key.values())
 
 
-def decay_edges_inplace(edges: list[Edge], *, lam: float = 0.05, dt: float = 1.0) -> None:
+class FiredEdges:
+    """Membership test for "did this (source, target) pair fire since the last tick".
+
+    Built from the node-firing passes and the Hebbian deltas, in O(sum of pass
+    sizes) memory — not as the set of all ordered pairs. That set is O(sum k²):
+    measured at 2.45M tuples / 204 MB for 1,000 passes of 50 nodes and 5.5 GB for
+    5,000 passes of 100, independent of mesh size, because the driver is passes
+    since the last tick times `top_k` squared. A busy interval must not cost the
+    tick gigabytes, so this indexes node -> passes and answers a pair by
+    intersecting two small sets.
+    """
+
+    def __init__(self) -> None:
+        self._passes_by_node: dict[str, set[int]] = {}
+        self._delta_pairs: set[tuple[str, str]] = set()
+
+    def add_pass(self, index: int, node_ids: Iterable[str]) -> None:
+        for node_id in node_ids:
+            self._passes_by_node.setdefault(str(node_id), set()).add(index)
+
+    def add_delta(self, source_id: str, target_id: str) -> None:
+        self._delta_pairs.add((str(source_id), str(target_id)))
+
+    def __contains__(self, pair: object) -> bool:
+        if not isinstance(pair, tuple) or len(pair) != 2:
+            return False
+        source, target = str(pair[0]), str(pair[1])
+        if source == target:
+            return False
+        if (source, target) in self._delta_pairs:
+            return True
+        a = self._passes_by_node.get(source)
+        b = self._passes_by_node.get(target)
+        return bool(a and b and not a.isdisjoint(b))
+
+    def __bool__(self) -> bool:
+        return bool(self._passes_by_node or self._delta_pairs)
+
+
+def fired_pairs(
+    passes: Iterable[dict[str, Any]], deltas: Iterable[dict[str, Any]] = ()
+) -> FiredEdges:
+    """The edges that fired since the last tick, as a membership index.
+
+    An edge fires when both of its endpoints fired in the same pass — that is
+    what "co-fire" means, and the node firings PHX-1101 records are the pairs'
+    only witness. Both orientations count, because edges are stored directed and
+    a pair in a working set was traversed in whichever direction the CSR holds
+    it. Hebbian deltas name their edge outright and are folded in as well; on the
+    shipped path they are opt-in and usually absent.
+
+    Two rows are skipped on purpose. A pass stamped ``edges_applied`` has already
+    gated one edge commit and is back in the buffer only because the node fold
+    after it failed; letting it gate a second commit would spare the same edges
+    twice for one use. And a delta with a non-positive weight is ignored by the
+    merge, so it must not count as a firing here either.
+
+    **What "fired" covers.** A pass is the whole working set, so every stored
+    edge between any two of its nodes is spared — including edges between two
+    seeds that propagation never crossed, and, for an ingestion pass, the
+    co-mention edges the same paragraph just wrote. That is the doctrine's
+    co-fire definition taken literally. The calibration table in
+    :func:`decay_edges_inplace` was measured on query passes only.
+    """
+    index = FiredEdges()
+    for i, row in enumerate(passes):
+        if row.get("edges_applied"):
+            continue
+        index.add_pass(i, row.get("node_ids") or [])
+    for row in deltas:
+        if float(row.get("weight_delta", 0.0)) <= 0.0:
+            continue
+        index.add_delta(str(row["source_id"]), str(row["target_id"]))
+    return index
+
+
+def decay_edges_inplace(
+    edges: list[Edge],
+    *,
+    lam: float = 0.05,
+    dt: float = 1.0,
+    fired: FiredEdges | None = None,
+) -> int:
     """Discrete super-linear decay ``Δw = -λ · dt · w^k``, tier-modulated *k*.
     Default: ``k = 2`` (tier 0), ``k = 1.5`` (tier 1), ``k = 1.2`` (tier 2+).
+
+    Returns how many edges were spared.
+
+    **Edges that fired this tick are spared.** That is the rule as
+    `MESH_SUBSTRATE.md` §"2. Super-linear decay" states it — "Edges that are
+    **not** fired weaken" — and until PHX-1101 there was no firing record to
+    honour it with, so every edge decayed unconditionally and a just-reinforced
+    edge was decayed in the same pass that reinforced it.
+
+    It is also the knob that works, measured against the alternatives on the
+    founding mesh's real weights and the real firing pattern of the gold
+    questions, 20 ticks of one round of use each (PHX-1102):
+
+        policy                     top-10 most-fired   never fired
+        start                          0.594              0.387
+        decay all, raw Hebbian on      0.359              0.270
+        rescale alpha to doctrine      0.363              0.270
+        gate: decay unfired only       0.594              0.270   <- this
+        rescale + gate                 0.601              0.270
+        lambda / 10                    0.558              0.370
+
+    Only the gate lets a used edge hold, and it leaves an unused one fading
+    exactly as before. Rescaling alpha is worth +0.007 on top of it and nothing
+    on its own; slowing lambda slows everything and distinguishes nothing.
+    With no firing record the gate is a no-op and the tick behaves as it always
+    did. (The shipped path has Hebbian credit *off*, so "decay all" there is the
+    same fall with no credit at all.)
+
+    **What the gate does not do.** A spared edge that is also reinforced has no
+    counterforce: it ratchets to ``w_max`` and stays, where the ungated regime had
+    a frequency-dependent fixed point at ``sqrt(credit / lam)``. Measured live,
+    growth on top of the gate saturated the strongest weight by the second tick
+    and cost the held-out questions two points (PHX-1104). The counterforce the
+    doctrine specifies is global renormalisation (§6), which is not built. With
+    credit off — the default — the gate freezes a used edge at its ingestion
+    weight, which is what the table above shows.
     """
 
     def _k(tier: int) -> float:
@@ -291,11 +409,16 @@ def decay_edges_inplace(edges: list[Edge], *, lam: float = 0.05, dt: float = 1.0
     # would therefore assign one constant instead of another and shift decay
     # globally while differentiating nothing — worse than leaving it, which is why
     # this is a comment and not a patch (PHX-1095).
+    spared = 0
     for e in edges:
+        if fired and (str(e.source_id), str(e.target_id)) in fired:
+            spared += 1
+            continue
         k = _k(e.decay_tier)
         w = float(e.weight)
         delta = lam * dt * (w**k)
         e.weight = max(0.0, w - delta)
+    return spared
 
 
 # MESH_SUBSTRATE.md §3 specifies count caps indexed by node tier: 10K for a Tier-0

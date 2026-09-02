@@ -24,6 +24,7 @@ from theogony.mesh.storage.edges import (
     EdgeStore,
     decay_edges_inplace,
     enforce_saturation,
+    fired_pairs,
     in_strength,
     merge_edge_deltas,
 )
@@ -99,6 +100,28 @@ def _backfill_relation_pids(edges: list[Edge]) -> int:
     return filled
 
 
+def _restore_firings(
+    buffer: NodeFiringBuffer, rows: list[dict[str, Any]], *, edges_applied: bool = False
+) -> None:
+    """Put drained passes back with the timestamp they were recorded at.
+
+    Restoring with ``at=None`` re-stamped every pass to the restore time, and
+    `merge_node_firings` only moves `last_fired_at` forward, so one failed tick
+    silently made every fired node look as if it had fired at the moment of the
+    failure. Review caught it (PHX-1102).
+    """
+    for row in rows:
+        try:
+            at = datetime.fromisoformat(str(row.get("at")))
+        except (TypeError, ValueError):
+            at = None
+        buffer.append_firing(
+            row.get("node_ids") or [],
+            at=at,
+            edges_applied=edges_applied or bool(row.get("edges_applied")),
+        )
+
+
 # ---- Tick result ----------------------------------------------------
 
 
@@ -114,6 +137,7 @@ class MinimalTickResult:
     pids_backfilled: int = 0
     firing_passes: int = 0
     nodes_fired: int = 0
+    edges_spared_from_decay: int = 0
 
 
 # ---- Runtime --------------------------------------------------------
@@ -416,23 +440,38 @@ class MeshRuntime:
         w_max: float = 1.0,
         version_retention: timedelta = _DEFAULT_VERSION_RETENTION,
         fired_recent_decay: float = DEFAULT_FIRED_RECENT_DECAY,
+        decay_gate: bool = True,
     ) -> MinimalTickResult:
-        """Drain delta buffer -> merge -> decay -> saturation -> Lance rewrite -> audit."""
+        """Drain both buffers -> merge -> gated decay -> saturation -> rewrite -> audit."""
         before = self.edges.count_rows()
         drained = self.edges.delta.drain()
+        # Drained here rather than after the edge write, because decay needs to
+        # know what fired *before* it runs. Both sidecars are restored if the
+        # write fails (PHX-1082).
+        firing_rows = self.firings.drain()
         base = self.edges.load_all_edges()
         pids_backfilled = _backfill_relation_pids(base)
         merged = merge_edge_deltas(base, drained, w_max=w_max)
-        decay_edges_inplace(merged, lam=lam, dt=dt)
+        # "Edges that are not fired weaken" — the doctrine's rule, honoured for
+        # the first time now that there is a firing record to honour it with.
+        # Measured to be the one knob that lets a used edge hold (PHX-1102); see
+        # `decay_edges_inplace`. With nothing recorded it spares nothing.
+        fired = fired_pairs(firing_rows, drained) if decay_gate else None
+        edges_spared = decay_edges_inplace(merged, lam=lam, dt=dt, fired=fired)
         merged = enforce_saturation(merged, max_out_degree=max_out_degree, w_max=w_max)
         try:
             self.edges.replace_all_edges(merged)
         except Exception:
-            # `drain()` already unlinked the durable sidecar, so a failure here
+            # `drain()` already unlinked the durable sidecars, so a failure here
             # would destroy reinforcement that no snapshot holds — the edge tables
-            # are versioned by Lance and recoverable, the delta buffer is not.
-            # Put the deltas back before the exception leaves this frame
-            # (PHX-1082).
+            # are versioned by Lance and recoverable, the buffers are not. Put
+            # both back before the exception leaves this frame (PHX-1082).
+            #
+            # Firings first: they are one append per pass and cannot partially
+            # fail the way the per-row delta loop can, and a full disk — the
+            # likeliest cause of a Lance write failing — must not cost every
+            # pass since the last tick because the delta loop died first.
+            _restore_firings(self.firings, firing_rows)
             for row in drained:
                 self.edges.delta.append_hebbian_delta(
                     source_id=str(row["source_id"]),
@@ -452,7 +491,6 @@ class MeshRuntime:
         # four mechanisms that read them — tier promotion, tier-modulated decay,
         # Oneiros' replay, RL eligibility — were reading a history nobody kept
         # (PHX-1100, PHX-1101).
-        firing_rows = self.firings.drain()
         nodes_fired = 0
         if firing_rows:
             consolidated = list(self.nodes.iter_consolidated(page_size=1024))
@@ -463,11 +501,12 @@ class MeshRuntime:
                 self.nodes.replace_all_consolidated(updated)
             except Exception:
                 # `drain()` unlinked the sidecar; put the passes back before the
-                # exception leaves this frame, exactly as the edge path does. The
-                # node tables are versioned by Lance and recoverable, the sidecar
-                # is not (PHX-1082).
-                for row in firing_rows:
-                    self.firings.append_firing(row.get("node_ids") or [], at=None)
+                # exception leaves this frame. But the edge commit above already
+                # used them to gate decay, so they go back **marked**: a pass may
+                # fold into the node counters on the next tick, and must not
+                # spare the same edges a second time for one use. Found by review
+                # before it shipped (PHX-1102).
+                _restore_firings(self.firings, firing_rows, edges_applied=True)
                 raise
 
         # The tick is the substrate's maintenance pass, so index upkeep belongs
@@ -505,6 +544,8 @@ class MeshRuntime:
                 "pids_backfilled": pids_backfilled,
                 "firing_passes": len(firing_rows),
                 "nodes_fired": nodes_fired,
+                "decay_gate": decay_gate,
+                "edges_spared_from_decay": edges_spared,
             },
         )
 
@@ -525,4 +566,5 @@ class MeshRuntime:
             pids_backfilled=pids_backfilled,
             firing_passes=len(firing_rows),
             nodes_fired=nodes_fired,
+            edges_spared_from_decay=edges_spared,
         )

@@ -207,12 +207,25 @@ class NodeFiringBuffer:
                 continue
         return rows
 
-    def append_firing(self, node_ids: Iterable[str], *, at: datetime | None = None) -> int:
-        """Record that these nodes fired together in one pass. Returns how many."""
+    def append_firing(
+        self,
+        node_ids: Iterable[str],
+        *,
+        at: datetime | None = None,
+        edges_applied: bool = False,
+    ) -> int:
+        """Record that these nodes fired together in one pass. Returns how many.
+
+        ``edges_applied`` marks a pass the tick has already used to gate an edge
+        commit and is putting back only because the node fold after it failed.
+        `fired_pairs` skips such rows, so one use never spares its edges twice.
+        """
         ids = sorted({str(node_id) for node_id in node_ids})
         if not ids:
             return 0
-        row = {"at": (at or datetime.now(UTC)).isoformat(), "node_ids": ids}
+        row: dict[str, Any] = {"at": (at or datetime.now(UTC)).isoformat(), "node_ids": ids}
+        if edges_applied:
+            row["edges_applied"] = True
         with self._lock:
             if self._path is None:
                 self._rows.append(row)
