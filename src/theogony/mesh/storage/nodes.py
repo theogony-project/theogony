@@ -20,6 +20,7 @@ import lancedb
 import pyarrow as pa
 
 from theogony.mesh.schemas import ChunkNode, ConsolidatedNode, QIDTag
+from theogony.mesh.storage.sql import sql_in, sql_literal
 from theogony.stores.lance_typing import as_vector_query
 
 
@@ -133,10 +134,6 @@ def _refresh_indices(table: Any, *, max_unindexed: int = _MAX_UNINDEXED_ROWS) ->
     except Exception as exc:  # noqa: BLE001 - a stale index only costs speed
         return f"refresh failed: {exc}"
     return f"refreshed ({stale} rows folded in)"
-
-
-def _sql_quote(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _have_table(db: lancedb.DBConnection, name: str) -> bool:
@@ -331,7 +328,7 @@ class MeshNodeStore:
         self.chunk_table.add([self._chunk_row(node) for node in nodes])
 
     def get_chunk(self, node_id: str) -> ChunkNode | None:
-        rows = self.chunk_table.search().where(f'id = "{node_id}"').limit(1).to_list()
+        rows = self.chunk_table.search().where(f"id = {sql_literal(node_id)}").limit(1).to_list()
         if not rows:
             return None
         return ChunkNode.model_validate_json(rows[0]["payload_json"])
@@ -462,7 +459,12 @@ class MeshNodeStore:
             self.consolidated_label_index.delete("true")
 
     def get_consolidated(self, node_id: str) -> ConsolidatedNode | None:
-        rows = self.consolidated_table.search().where(f'id = "{node_id}"').limit(1).to_list()
+        rows = (
+            self.consolidated_table.search()
+            .where(f"id = {sql_literal(node_id)}")
+            .limit(1)
+            .to_list()
+        )
         if not rows:
             return None
         return ConsolidatedNode.model_validate_json(rows[0]["payload_json"])
@@ -478,8 +480,7 @@ class MeshNodeStore:
         ids = [str(n) for n in node_ids]
         if not ids:
             return {}
-        quoted = ",".join(f'"{_sql_quote(i)}"' for i in ids)
-        rows = self.consolidated_table.search().where(f"id IN ({quoted})").to_list()
+        rows = self.consolidated_table.search().where(f"id IN {sql_in(ids)}").to_list()
         out: dict[str, ConsolidatedNode] = {}
         for row in rows:
             node = ConsolidatedNode.model_validate_json(row["payload_json"])
@@ -635,7 +636,7 @@ class MeshNodeStore:
         if not new_qids:
             return node
         updated = node.model_copy(update={"qids": [*node.qids, *new_qids]})
-        self.consolidated_table.delete(f'id = "{_sql_quote(node_id)}"')
+        self.consolidated_table.delete(f"id = {sql_literal(node_id)}")
         self.consolidated_table.add([self._consolidated_row(updated)])
         self.consolidated_qid_index.add([{"qid": q.qid, "node_id": str(node_id)} for q in new_qids])
         return updated
@@ -648,7 +649,7 @@ class MeshNodeStore:
         """
         rows = (
             self.consolidated_qid_index.search()
-            .where(f'qid = "{_sql_quote(qid)}"')
+            .where(f"qid = {sql_literal(qid)}")
             .limit(1)
             .to_list()
         )
@@ -668,7 +669,7 @@ class MeshNodeStore:
             return None
         rows = (
             self.consolidated_label_index.search()
-            .where(f'label = "{_sql_quote(normalized)}"')
+            .where(f"label = {sql_literal(normalized)}")
             .limit(1)
             .to_list()
         )
@@ -706,7 +707,7 @@ class MeshNodeStore:
                 continue
             rows = (
                 self.consolidated_label_index.search()
-                .where(f'label = "{_sql_quote(normalized)}"')
+                .where(f"label = {sql_literal(normalized)}")
                 .limit(limit)
                 .to_list()
             )

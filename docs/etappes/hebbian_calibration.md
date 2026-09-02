@@ -167,6 +167,12 @@ Doku-Fehler — alle vor dem Merge behoben:
   der Modul-Docstring von `retrieve` behauptet nicht mehr „read-only by default";
   „~100× kleiner" war die Rang-50-Spitze, nicht der Peak (~0,2).
 
+Und eines, das nichts mit dem Gate zu tun hatte und trotzdem den PR aufhielt:
+der erste CI-Lauf fiel mit 40 Tests durch, weil CI lancedb 0.38 auflöst, dessen
+SQL-Dialekt `id = "…"` als Bezeichner liest. Zehn Filter im Store waren so
+gebaut. Lokal reproduziert, mit einem dialekt-festen Helfer behoben, festgenagelt
+(PHX-1105).
+
 Bestätigt: ohne Feuer-Record ist das Gate byte-genau der alte Tick; beide
 Orientierungen und alle parallelen typisierten Relationen eines Paars werden
 zusammen verschont; die Simulation spiegelt die Tick-Arithmetik; jede Flagge der

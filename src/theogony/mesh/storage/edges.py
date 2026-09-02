@@ -30,6 +30,7 @@ import torch
 
 from theogony.mesh.relation_pids import pid_for
 from theogony.mesh.schemas import Edge, EdgeMetadata
+from theogony.mesh.storage.sql import sql_in, sql_literal
 
 
 def _have_table(db: lancedb.DBConnection, name: str) -> bool:
@@ -866,8 +867,7 @@ class EdgeStore:
         ids = {str(s) for s in source_ids}
         if not ids:
             return {}
-        quoted = ",".join(f'"{sid}"' for sid in ids)
-        rows = self.meta_table.search().where(f"source_id IN ({quoted})").to_list()
+        rows = self.meta_table.search().where(f"source_id IN {sql_in(ids)}").to_list()
         out: dict[tuple[str, str], EdgeMetadata] = {}
         for row in rows:
             meta = EdgeMetadata.model_validate_json(row["payload_json"])
@@ -917,8 +917,8 @@ class EdgeStore:
         return int(self.edge_table.count_rows())
 
     def neighbor_ids(self, node_id: str) -> set[str]:
-        outgoing = self.edge_table.search().where(f'source_id = "{node_id}"').to_list()
-        incoming = self.edge_table.search().where(f'target_id = "{node_id}"').to_list()
+        outgoing = self.edge_table.search().where(f"source_id = {sql_literal(node_id)}").to_list()
+        incoming = self.edge_table.search().where(f"target_id = {sql_literal(node_id)}").to_list()
         neighbours = {str(row["target_id"]) for row in outgoing}
         neighbours.update(str(row["source_id"]) for row in incoming)
         return neighbours

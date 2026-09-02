@@ -1,0 +1,45 @@
+id: PHX-1105
+category: infrastructure
+priority: high
+status: done
+generation_target: MESH — Speicherschicht
+title: "lancedb 0.38 liest doppelte Anführungszeichen als Bezeichner — jeder Filter im Store brach"
+filed_by: Claude Code (2026-09-02, aus dem ersten CI-Lauf von PHX-1102)
+created_at: 2026-09-02
+description: >
+  Der erste Code-PR nach dem Versionssprung (lokal 0.37.1, CI löst 0.38.0 auf)
+  fiel mit 40 Tests in CI durch, bei 1.851 grünen Tests lokal. Fehlerbild:
+
+      Schema error: No field named "01M1H1A7D3BB77Z0SF36SMRG05".
+      Valid fields are id, payload_json, semantic_vector, ...
+
+  lance-datafusion 11 liest ein doppelt angeführtes Token in `where`/`delete` als
+  **Bezeichner**, wie Standard-SQL; 0.37 hatte es als String toleriert. Jeder
+  Filter in `storage/nodes.py` und `storage/edges.py` — `id = "{…}"`,
+  `id IN ("…","…")`, `label = "…"`, `qid = "…"`, `source_id = "…"` — war so
+  gebaut. Zehn Stellen.
+
+  Das ist die vierte Ausprägung derselben Lücke (AGENTS.md §5, PHX-1057,
+  PHX-1076): CI löst Paketversionen neuer auf als das lokale venv, und
+  lokal-grün heißt nichts.
+resolution: >
+  Reproduziert lokal, indem das venv auf 0.38.0 gehoben wurde (innerhalb des
+  in pyproject erlaubten `lancedb>=0.6.0`) — 66 Fehler in tests/mesh + cockpit.
+  Dann ein Helfer `storage/sql.py` mit `sql_literal()` / `sql_in()`: einfache
+  Anführungszeichen, `'` als `''` verdoppelt — Standard-SQL, von 0.37 wie 0.38
+  akzeptiert (beides gemessen). Alle zehn Stellen umgestellt, `_sql_quote`
+  (das `"` escapte) entfernt. 444 Tests in tests/mesh + cockpit grün auf 0.38.
+
+  Festgenagelt in tests/mesh/test_sql_literals.py: ein statischer Test, der die
+  Form `= "{…}"` in jeder Store-Datei verweigert, und ein funktionaler, der ein
+  Apostroph durch jede Lookup-Methode schickt.
+
+  Nicht gemacht: eine Pinning-Entscheidung. Das ist PHX-1076 und Jakobs Wahl;
+  der Dialekt-Fix ist unabhängig davon richtig.
+relates_to:
+  - PHX-1102   # der PR, der es fand
+  - PHX-1076   # Lockfile / Pinning, offen
+  - PHX-1057   # das erste Mal, dass eine lancedb-API zwischen lokal und CI wanderte
+linked_scripts:
+  - src/theogony/mesh/storage/sql.py
+  - tests/mesh/test_sql_literals.py
