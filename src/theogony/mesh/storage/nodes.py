@@ -327,6 +327,30 @@ class MeshNodeStore:
             return
         self.chunk_table.add([self._chunk_row(node) for node in nodes])
 
+    def iter_chunks(self, *, page_size: int = 1000) -> Iterator[ChunkNode]:
+        offset = 0
+        while True:
+            rows = self.chunk_table.search().limit(page_size).offset(offset).to_list()
+            if not rows:
+                return
+            for row in rows:
+                yield ChunkNode.model_validate_json(row["payload_json"])
+            offset += len(rows)
+
+    def replace_all_chunks(self, nodes: list[ChunkNode]) -> None:
+        """Rewrite the chunk table from ``nodes`` in one overwrite.
+
+        The chunk-side twin of :meth:`replace_all_consolidated`, for the same
+        kind of repair: every chunk on the founding mesh pointed its
+        ``raw_text_ref`` — the substrate's only way back to a source — at a
+        session scratch directory that no longer exists (PHX-1103). One
+        overwrite rather than delete-then-add, for the reason PHX-1082 gives.
+        """
+        if not nodes:
+            self.chunk_table.delete("true")
+            return
+        self.chunk_table.add([self._chunk_row(node) for node in nodes], mode="overwrite")
+
     def get_chunk(self, node_id: str) -> ChunkNode | None:
         rows = self.chunk_table.search().where(f"id = {sql_literal(node_id)}").limit(1).to_list()
         if not rows:

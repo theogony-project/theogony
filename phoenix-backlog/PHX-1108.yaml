@@ -1,0 +1,69 @@
+id: PHX-1108
+category: documentation
+priority: medium
+status: open
+generation_target: Doktrin und Vision — Sätze, die gemessen nicht mehr stimmen
+title: "Doktrin und Vision: die Sätze, die als Tatsache dastehen und widerlegt sind"
+filed_by: Claude Code (2026-09-07, aus dem Plan aus der Vision)
+created_at: 2026-09-07
+description: >
+  Die Vision-Ledger (620 Aussagen aus 26 Dokumenten, 258 tragend, 61 widerlegt)
+  nennt Saetze, die als Status formuliert sind und nicht mehr stimmen, oder
+  Annahmen, die als Tatsachen dastehen und gemessen widerlegt sind. Vier reine
+  Statuszeilen sind am 2026-09-07 direkt korrigiert (TARGET_ARCHITECTURE
+  §Monkey 2 und §Dichte, CHRONICLE_PRINCIPLES 12, ROADMAP §Self-improvement).
+  Der Rest steht hier, damit die Dokumente ihre Stimme behalten und trotzdem
+  nicht luegen. Nicht die Vision aendern -- die Vision ist das Ziel; die
+  Stellen aendern, an denen ein Ziel als Zustand geschrieben ist.
+
+  Zu korrigieren, mit Beleg:
+
+  - MESH_SUBSTRATE §2, die Tier-Leiter: fuer w<1 gilt w^1,2 > w^2, das Feld
+    ehrlich zu fuellen liesse konsolidierte Struktur schneller verdampfen als
+    Chunks (PHX-1100 Muster 3). Repariert mit PHX-1106; der Doktrintext
+    danach nachziehen.
+  - MESH_SUBSTRATE, Zerfallsschwelle 0,05: nie erreicht, weil der Zerfall bis
+    PHX-1102 alles gleichmaessig traf; nach dem Gate ist die Schwelle die
+    Grenze fuer Unbenutztes, nicht fuer alles.
+  - MESH_SUBSTRATE §Edge anatomy, "10-30 % der Kanten mit Deskriptor": auf
+    dem Founding-Mesh tragen alle Ingestion-Kanten einen Deskriptor; die
+    Zahl beschreibt kein gemessenes Mesh.
+  - MESH_IMPLEMENTATION, "HNSW": der Index ist IVF-PQ (Lance); HNSW steht in
+    Doktrin, INDEX und Reading-Path.
+  - BUILD_DOCTRINE:65-67, "append-only ledger", "Fehler werden abgeloest,
+    nicht ueberschrieben", "diese Struktureigenschaften kosten nichts":
+    Knoten- und Kantentabellen werden je Tick mit overwrite geschrieben und
+    auf Retention 0 geprunt (PHX-1082); ein Volllauf musste wiederholt werden,
+    weil der Name beim Schreiben verworfen wurde (PHX-1051).
+  - VISION:84, PHILOSOPHY:100, CHRONIK_SCALE:146, "Oneiros laeuft
+    ununterbrochen / alle paar Minuten": kein Scheduler; der Tick wird von
+    Hand ueber die CLI aufgerufen; der Worker mit Intervall treibt den
+    Gen-1-Store.
+  - PHILOSOPHY:102, "Oneiros schreibt dichtere Verbindungen zurueck": der
+    Erzeugungszweig ist vom Abfragepfad unerreichbar; jede Kante stammt aus
+    der Ingestion.
+  - VISION:34, "gutes Wissen wird nach Mneme befoerdert": consolidation_tier
+    ist 1 auf jedem Knoten; keine Befoerderung im Code.
+  - CHRONICLE_PRINCIPLES:36, ROADMAP:67, "Q-IDs sind das staerkste
+    Identitaetssignal": 127 von 130 waren konfabuliert (PHX-1051); das Mesh
+    hat keine mehr; der staerkste Korruptionsvektor, nicht das staerkste
+    Signal.
+  - MESH_SUBSTRATE, das Fenster von fired_recent: die Doktrin nennt ein
+    Zeitfenster; gebaut ist ein exponentielles Gedaechtnis mit gamma = 0,9
+    (PHX-1101). Den Text auf das Gebaute ziehen oder das Gebaute auf den Text.
+  - CHRONESE.md:3, "Chronese ist die native Sprache; Graph, Vektor, Text sind
+    Projektionen": TARGET_ARCHITECTURE sagt das Gegenteil und ist bindend.
+    Das Dokument als historisch markieren.
+  - DEEP_TECH:45, "ein Verbatim-Layer bewahrt Quelltext": von TARGET
+    verboten; es gibt nur den Zeiger raw_text_ref.
+
+  Fertig, wenn: jede Zeile oben entweder korrigiert ist oder mit Datum und
+  Grund als bewusst stehen gelassen markiert; `tests/test_docs_links.py`
+  gruen; die Ledger-Eintraege mit `status: corrected` nachgezogen.
+relates_to:
+  - PHX-1100   # die Inventur, die die Mechanismen zaehlte
+  - PHX-1106   # repariert die Tier-Leiter
+  - PHX-1107   # der tragende Befund
+linked_docs:
+  - docs/etappes/plan_from_the_vision_2026-09.md
+  - docs/etappes/vision_claims_ledger.json

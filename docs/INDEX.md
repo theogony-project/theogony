@@ -13,6 +13,8 @@ The documents were written for different depths and different kinds of readers.
 
 **Start here if you want to know what of that actually runs:** [`etappes/doctrine_inventory.md`](etappes/doctrine_inventory.md) — every mechanism the MESH triplet specifies, with its state (live / inert / blocked / absent) and the evidence; and [`etappes/what_gen1_promises.md`](etappes/what_gen1_promises.md) — the vision held against that inventory, and what Gen 1 honestly promises. Both in German, both dated 2026-08-31. Read these *after* the triplet, not instead of it: the triplet is the target, these are the distance to it.
 
+**Start here if you want the current plan:** [`etappes/plan_from_the_vision_2026-09.md`](etappes/plan_from_the_vision_2026-09.md) — the vision documents read as a ledger of 620 claims ([`etappes/vision_claims_ledger.json`](etappes/vision_claims_ledger.json)), held against the measurements, and the four tracks that follow from it in order: renormalisation (PHX-1106), memory of contradiction (PHX-1107), the instrument, Nous. German, dated 2026-09-07. This is the operative plan until it is replaced.
+
 ## Recommended Reading Paths
 
 ### 0. The Substrate Doctrine (start here if you are technical)

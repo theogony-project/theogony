@@ -37,9 +37,10 @@ def _default(fn: object, name: str) -> object:
 
 def test_the_constants_hold_their_measured_values() -> None:
     assert DEFAULT_TOP_K == 50, "PHX-1069: 65% at 30, 74% at 50, for 3.2 ms"
-    assert DEFAULT_K_SEEDS == 5, (
-        "PHX-1091: narrowed 8 -> 5 on a tune/test split, not on the sweep. The sweep "
-        "alone says 1, and 1 loses 9 points of complete answers on held-out data"
+    assert DEFAULT_K_SEEDS == 1, (
+        "k_seeds is set by a tune/test split on the consolidated founding mesh — k=1 "
+        "selected on the tune half in 6 of 6 splits, held-out never worse (PHX-1099); "
+        "re-run the protocol before changing it"
     )
     assert DEFAULT_ANN_LIMIT == 64
     assert DEFAULT_MMR_LAMBDA == 0.6, "MESH_RETRIEVAL: diversified injection, not pure relevance"

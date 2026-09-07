@@ -1,7 +1,7 @@
 id: PHX-1099
 category: substrate-retrieval
 priority: high
-status: measured_viable
+status: done
 generation_target: MESH migration — S3 (retrieval defaults)
 title: "DEFAULT_K_SEEDS costs the answer arm six points"
 filed_by: Claude Code (2026-08-31, from the PHX-1097 measurement)
@@ -41,18 +41,21 @@ description: >
   there. On the consolidated mesh they agree (87% and 39/47 at k=1). Whether the
   default should follow whether consolidation has run is the question to settle.
 resolution: >
-  Measured, holds up across three runs on both meshes, not shipped. The number:
-  the constellation answer arm scores 53% at the shipped k_seeds=5 and 59%
-  [57-62] at k_seeds=1 on the unconsolidated founding mesh, and the graph's
-  margin over prior knowledge goes +2 -> +11. Retrieval agrees: 80% at 5, 84% at
-  1, 64% at 32.
-
-  Left as a `measured_viable` lever rather than flipped, because it is a
-  production default that PHX-1091 set deliberately on a different split, and
-  because complete-question count and entity recall disagree at k=1 on the
-  unconsolidated mesh (36/47 against 38/47) while agreeing on the consolidated
-  one (39/47 and 87%). Flipping it is a one-line change to
-  `retrieval/defaults.py`; the decision is whose it is, not what it costs.
+  Shipped 2026-09-07: `DEFAULT_K_SEEDS = 1`, decided by the same tune/test
+  protocol PHX-1091 used to set 5 -- choose k on one half of the gold set,
+  report on the other, both directions, three shuffles -- because the
+  protocol's answer changed when the substrate did. On the unconsolidated mesh
+  k=1 lost held-out in 3 of 6 splits (-0.043/-2 full, -0.021/-2, -0.032/-2),
+  which is why 5 was right then and why this ticket stayed measured_viable.
+  On the consolidated mesh (PHX-1097, promoted to `data/mesh-founding` on
+  2026-09-02) one seed is the entity rather than one of its fragments: k=1 is
+  selected on the tune half in 6 of 6 splits and wins the held-out half in
+  5 of 6, never losing recall (+0.092/+1, +0.087/0, +0.071/0, +0.109/+1,
+  0.000/-1, +0.159/+2). Whole set: genealogical 0.747 -> 0.880, narrative
+  0.861 -> 0.861. The pin in `test_retrieval_defaults.py` follows. Said
+  plainly in the constant's comment: at k=1 weight-class stratification has
+  no seats to allocate and is inert on this corpus; the mechanism stays built
+  for callers that seed wider.
 relates_to:
   - PHX-1091   # which set it to 5
   - PHX-1089   # the HippoRAG seeding study

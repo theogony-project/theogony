@@ -1,7 +1,7 @@
 id: PHX-1103
 category: data-hygiene
 priority: medium
-status: open
+status: done
 generation_target: MESH — Datenhygiene auf dem Demo-Mesh
 title: "Alle 1.206 raw_text_ref zeigen auf ein gelöschtes Sitzungsverzeichnis"
 filed_by: Claude Code (2026-08-31, aus der Doktrin-Inventur)
@@ -29,6 +29,15 @@ description: >
   genau dem Mesh, das die Demo zeigt. Umfang: ein Reparaturlauf über
   `chunk_nodes`, der den Pfadpräfix durch die Gutenberg-Kennung ersetzt und die
   Absatznummer behält.
+resolution: >
+  Repariert auf `data/mesh-founding` (dem seit 2026-09-02 beförderten,
+  konsolidierten Mesh): `scripts/mesh_repair_chunk_provenance.py --apply`
+  schrieb alle 1.206 Chunks um — `batch_NN.txt#pM` → `gutenberg_348#p(NN·100+M)`,
+  `source_identifier` → `gutenberg_348`, die Nummerierung, die die reparierte
+  Ingestion (PHX-1084) schreibt. Gemessen vorher: Batches 00–11 tragen p1..p100,
+  Batch 12 p1..p10 — 1.210 Absätze, die Zahl des Volllaufs. Idempotent: ein
+  zweiter Lauf findet 0 zu reparierende Chunks. Dafür `MeshNodeStore.iter_chunks`
+  und `replace_all_chunks` (ein Overwrite, PHX-1082) mit Tests.
 relates_to:
   - PHX-1084   # dieselbe Reparatur, für die Anker
   - PHX-1100   # die Inventur

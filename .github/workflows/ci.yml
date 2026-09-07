@@ -71,7 +71,7 @@ jobs:
           key: spacy-${{ runner.os }}-${{ matrix.python-version }}-en_core_web_sm-v1
 
       - name: Install dependencies
-        run: pip install -e ".[dev,research]"
+        run: pip install -c constraints.txt -e ".[dev,research]"
 
       - name: Install spaCy English model
         # Fetched from a GitHub release URL on every run, so an upstream blip
@@ -135,7 +135,7 @@ jobs:
       # mypy runs under `strict = true` (pyproject) and needs the real dependency
       # types to check against, so this installs the project rather than mypy alone.
       - name: Install project
-        run: pip install -e ".[dev,research]"
+        run: pip install -c constraints.txt -e ".[dev,research]"
 
       # AGENTS.md §5 has always listed mypy as a pre-push gate; until now nothing
       # enforced it and the tree had accumulated 60 errors. It is clean as of the

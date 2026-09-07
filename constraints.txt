@@ -1,0 +1,23 @@
+# Version pins for the packages this repository has been broken by (PHX-1076, PHX-1105).
+#
+# pyproject.toml deliberately keeps loose ranges — the code is written against
+# APIs, not versions. But CI resolves a fresh set on every run and the local
+# venv does not, and four times a package moved an API between the two: lancedb
+# 0.25 renamed create_scalar_index (PHX-1057), 0.37 dropped
+# LanceQueryBuilder.metric (PHX-1058), 0.38 started reading "…" in a filter as
+# an identifier and failed 40 tests that passed locally (PHX-1105). Each time
+# the first PR after the move ate the cost.
+#
+# This file is installed with `-c` in CI and in the documented install line, so
+# that both resolve the same versions of the packages that matter. It pins only
+# those; everything else floats. Bump deliberately, in its own PR, with the
+# suite green on the new version — that is the whole point of having it.
+lancedb==0.38.0
+pyarrow==24.0.0
+torch==2.11.0
+pydantic==2.13.3
+pydantic-settings==2.14.0
+sentence-transformers==5.4.1
+transformers==5.5.4
+mcp==2.0.0
+numpy==2.4.4
