@@ -1,0 +1,75 @@
+id: PHX-1107
+category: substrate-integrity
+priority: critical
+status: open
+generation_target: MESH — Substrat-Schema und Kadmos v2
+title: "Das Substrat führt kein Gedächtnis des Widerspruchs"
+filed_by: Claude Code (2026-09-07, aus dem Plan aus der Vision)
+created_at: 2026-09-07
+description: >
+  Der eine Befund der Vision-Ledger, der die Reihenfolge festlegt. Von 258
+  tragenden Aussagen der Visionsdokumente sind 61 widerlegt; fünf davon sind
+  Nicht-Verhandelbares aus PANTHEON_VISION §"Non-Negotiable Principles", und
+  sie scheitern nicht an fehlendem Code, sondern am Datenmodell:
+
+      2  Widerspruch, Unsicherheit, konkurrierende Deutungen bleiben erhalten
+         -> keine Darstellung eines Widerspruchs, nirgends; `relation_kind` hat
+            zehn Werte, keiner ist `contradicts`
+      3  Zeit ist intrinsisch: Wandel, Abloesung, Erwartung, Zerfall
+         -> nur Zerfall; `temporal_vector` ist auf jedem Knoten None;
+            keine Gueltigkeit, keine Abloesung
+      1  jede Aussage traegt Ursprung, Basis, Revisionspfad
+         -> Provenienz ja (seit PHX-1103 wieder lebendig), Revision nein:
+            Kanten haben weder Vertrauen noch Autor noch Geschichte
+      5  Autoritaet, Zugriff, Verantwortung maschinenlesbar
+         -> kein Feld dafuer, in keinem Schema
+      "Chronik statt Enzyklopaedie" -- das Neue, Umstrittene, Abgeloeste
+         -> Gen 1 hatte DISPUTED als Status; das Mesh hat es nicht mehr
+
+  Die MESH-Doktrin hat das alles in ein Feld verlegt: `frame_vector`, die
+  epistemische Haltung eines Knotens. Und `frame_vector` ist heute eine
+  gesalzene SHA-256-Projektion des Labels (PHX-1095). Der Frame traegt einen
+  Hash, keine Haltung.
+
+  Das ist derselbe Befund wie PHX-1101, eine Ebene hoeher. Dort fuehrte das
+  Substrat kein Gedaechtnis seiner eigenen Aktivitaet, und alles, was daraus
+  las, konnte nicht laufen. Hier fuehrt es kein Gedaechtnis des Widerspruchs,
+  und alles, was daraus lesen muesste -- Athene, Chronos, das Immunsystem, die
+  Chronik, Metis, die zweite Saeule "Wissenschaftlicher Arbeitstisch" -- kann
+  nicht laufen. Das Verb *heilt* ist nicht ungebaut. Es ist unbaubar, bis das
+  Substrat weiss, was ein Widerspruch ist.
+
+  Umfang -- nicht das ganze Immunsystem, die Voraussetzung, die alle heilenden
+  Verben teilen:
+
+  1. Echte Frames. Kadmos gibt je Chunk und je Relation eine epistemische
+     Haltung aus (behauptet, verneint, hypothetisch, bestritten, abgeloest);
+     der Vectorizer projiziert sie ueber eine feste Basis in den 64-d
+     Frame-Raum statt ueber einen Hash. Frame-Routing wird damit von inert zu
+     wirksam, ohne eine Zeile im Retrieval zu aendern -- der Mechanismus
+     wartet seit S3 auf sein Signal.
+  2. `contradicts` und `supersedes` als `relation_kind`, mit `valid_from` /
+     `valid_to` auf der Kante -- die kleinste Darstellung von Zeit, die
+     Nicht-Verhandelbares 3 erfuellt. Kein neues Schema; die Felder sind frei.
+  3. Ein Widerspruchs-Gold-Set auf dem Founding-Korpus. Hesiod widerspricht
+     sich selbst (die Geburt der Aphrodite, die Eltern der Musen); Demo-Beat 2
+     hing seit PHX-1045 an genau so einer Frage.
+  4. Den Founding-Korpus neu lesen, mit Frames: 1 h 41 min, EUR 0,26 -- der
+     billigste Weg zu einem Substrat, das weiss, was es bezweifelt.
+
+  Fertig, wenn: eine Widerspruchsfrage aus dem Gold-Set beide Seiten in der
+  Constellation zurueckgibt; Frame-Routing auf dem neu gelesenen Mesh eine
+  messbare Wirkung hat (Recall auf dem Widerspruchs-Set mit gegen ohne); und
+  das Verb *heilt* zum ersten Mal einen Eingang hat, auf dem Athene etwas
+  finden koennte. Drei bis fuenf Sitzungen. Kommt nach PHX-1106, weil ein
+  Substrat, das lernt und dabei verdraengt, zuerst sicher lernen muss.
+relates_to:
+  - PHX-1095   # der Frame ist ein Hash
+  - PHX-1101   # derselbe Befund, eine Ebene tiefer
+  - PHX-1106   # kommt davor
+  - PHX-1045   # Demo-Beat 2 haengt an einer Widerspruchsfrage
+linked_docs:
+  - docs/etappes/plan_from_the_vision_2026-09.md
+  - docs/etappes/vision_claims_ledger.json
+  - docs/PANTHEON_VISION.md
+  - docs/MESH_RETRIEVAL.md

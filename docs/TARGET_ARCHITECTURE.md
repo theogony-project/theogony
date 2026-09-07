@@ -110,7 +110,7 @@ The current topology_parser produces ~0.5 edges per node. This is a parse, not a
 
 A human cortical neuron has on average ~7,000 synaptic connections. That is the biological reference point for what a genuine knowledge substrate looks like. We are not trying to match biology — we are trying to reach the density at which Spreading Activation becomes a meaningful retrieval primitive and emergent inference becomes possible.
 
-**Minimum viable density: 20:1.** Below this, the graph is too sparse for Spreading Activation to outperform kNN. Above this, multi-hop structural reasoning begins to work.
+**Minimum viable density: 20:1.** Below this, the graph is too sparse for Spreading Activation to outperform kNN. Above this, multi-hop structural reasoning begins to work. *Measured 2026-08 (PHX-1089/1090, [`etappes/qa_benchmark.md`](etappes/qa_benchmark.md)): the threshold does not hold in either direction. Spreading Activation beats kNN by +0.102 recall@5 on held-out 2WikiMultihopQA at roughly 7:1, and adding denser bridging edges moves nothing; what decides the advantage is seeding width, not density.*
 
 **Near-term target: 100–500:1.** Achievable with Kadmos structural edges + Nous synthesis edges + post-read kNN pass.
 
@@ -144,7 +144,7 @@ Three questions must be answered by running the system, not by design:
 *Status: Kadmos v1 baseline established (0.49 ratio). True Nous not yet implemented.*
 
 **Monkey 2:** Does Spreading Activation over a dense Chronik retrieve better than kNN + graph traversal?  
-*Status: Not yet run. Requires Monkey 1 first.*
+*Status: Run without Monkey 1, on the HippoRAG benchmarks (PHX-1089/1090, 2026-08). On held-out 2WikiMultihopQA, Spreading Activation over the Kadmos graph beats dense kNN by +0.102 recall@5 at narrow hybrid seeding (S=2); at S=10 the advantage is gone and SA only re-ranks what kNN already returned. The answer arm is level (PHX-1093). The heartbeat on the same graph, 50 rounds of use: used questions +1.3, held-out −1.5 (PHX-1104).*
 
 **Monkey 3:** Can the system answer questions whose answers are not present in any single source text — questions that require the system to have genuinely synthesized new knowledge from the structure of the graph?  
 *Status: This is the ultimate test. It determines whether the Chronik is a very good RAG or something new.*

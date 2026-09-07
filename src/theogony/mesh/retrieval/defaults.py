@@ -30,25 +30,27 @@ DEFAULT_TOP_K = 50
 # Seeds drawn by diversified injection (MMR over the ANN candidates, with a
 # guaranteed seat per weight class since PHX-1091).
 #
-# Narrowed 8 -> 5 on the founding gold set, and the value is the tune/test split
-# rather than the sweep. The sweep alone says 1:
+# Set to 1 on the consolidated founding mesh, by the same tune/test protocol
+# PHX-1091 used to set 5 — choose k on one half, report on the other, both
+# directions, three shuffles — because the protocol's answer changed when the
+# substrate did. On the *unconsolidated* mesh k=1 lost held-out in 3 of 6 splits
+# (−0.043 / −2 full, −0.021 / −2, −0.032 / −2), which is why 5 was right then.
+# After Oneiros consolidation merged 68 entity candidates into their entities
+# (PHX-1097), one seed *is* the entity rather than one of its six fragments, and
+# k=1 is selected on the tune half in 6 of 6 splits and wins the held-out half
+# in 5 of 6, never losing recall:
 #
-#     k_seeds     1     2     3     5     8    16    32
-#     recall     84%   82%   78%   80%   77%   71%   64%
-#     full       36    35    36    38    37    33    27
+#     held-out Δ vs k=5     +0.092/+1  +0.087/0  +0.071/0  +0.109/+1  0.000/−1  +0.159/+2
 #
-# But tuned on one half and reported on the other, k=1 loses: -2 points of recall
-# and **-9 points of questions answered in full** on held-out data. k=5 never
-# loses — +6 recall and +4 full in one direction, level with 8 in the other. The
-# aggregate best was overfitted to half the set, which is the failure this repo
-# has walked into twice before (PHX-1090).
+# Whole set, split by question kind, consolidated mesh: genealogical 0.747 → 0.880,
+# narrative 0.861 → 0.861. Answer arm (deepseek-chat, three runs): 53% → 59%,
+# graph over prior knowledge +2 → +11 (PHX-1099).
 #
-# Why this is not simply "narrower is better": Spreading Activation's advantage
-# does live at narrow seeding — that is the seeding ceiling, confirmed end-to-end
-# at +5.0 exact match on 2WikiMultihopQA at S=2 (PHX-1089) — but at k=1 the class
-# seats have nothing to allocate, so stratification goes inert and the guarantee
-# the doctrine asks for disappears. 5 is where both hold.
-DEFAULT_K_SEEDS = 5
+# What this gives up, said plainly: at k=1 weight-class stratification has no
+# seats to allocate and is inert — the doctrine's multi-scale guarantee does not
+# earn its keep on this corpus. The mechanism stays built for meshes and callers
+# that seed wider; the default follows the measurement.
+DEFAULT_K_SEEDS = 1
 
 # ANN candidates the seed selector chooses from.
 DEFAULT_ANN_LIMIT = 64

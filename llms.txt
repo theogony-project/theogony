@@ -11,9 +11,9 @@ Be the rail layer beneath AI models (which are replaceable vehicles): a knowledg
 - Knowledge as vectors + typed weighted edges; text is translated to mesh once at ingestion (Kadmos), never re-read during retrieval.
 - Retrieval = Spreading Activation, run as sparse matrix-vector multiplication over a vector-edge tensor; a query returns a constellation (an activated subgraph), not prose.
 - Two-tier nodes (Observation Chunks, Consolidated Nodes); eager identity when evidence is clear, emergent otherwise.
-- Lifelike dynamics: Hebbian update, super-linear decay, bounded saturation, atrophy decoupled from deletion.
+- Lifelike dynamics (the target): Hebbian update, super-linear decay that spares what fired, bounded saturation, atrophy decoupled from deletion. What of it runs today is inventoried in docs/etappes/doctrine_inventory.md (9 of 119 mechanisms live).
 - Post-hoc immune system (sample-based, parallel); no pre-gate ever judges content at insertion.
-- Oneiros: a permanent dreaming process that consolidates and densifies connections without new input.
+- Oneiros: the maintenance tick — decay that spares what fired, reinforcement merge, consolidation of entity candidates via a small LLM call. The permanent dreaming process is the target; today the tick is invoked by hand.
 
 ## The dimensions
 Redundancy collapse: store each concept once (~1-5B distinct concepts, bounded), let the trillions of sentences become edge density. Biological reference: the intelligence is in the edges (~7,000 synapses/neuron). Federated tiers: global public layer + institutional sub-meshes + personal sub-meshes, joined by bridge nodes, with permission-masked activation.
@@ -34,9 +34,9 @@ From imported IDs to native identity; from encyclopedia to living chronicle; fro
 Apache-2.0 open source for software and protocols (the point, not a strategy). Foundation governance (Wikimedia-model), not a market exit. Federation with knowledge sovereignty: contributors own their sub-meshes and enrich the commons through bridge concepts without surrendering control. Vendor-neutral, normatively non-negotiable. Humans contribute code/ideas/governance; institutions contribute edge density; AI agents contribute via the MCP surface and the AGENTS.md contract (this is a deliberately AI-first codebase).
 
 ## Status (honest)
-- Proven: the end-to-end runtime — ingest -> embed -> sparse-CSR adjacency -> Spreading Activation -> constellation -> Cockpit UI + MCP server; sub-second activation on a 100k-node / ~984k-edge Wikidata-seeded subnet.
+- Proven: the end-to-end runtime — ingest -> embed -> sparse-CSR adjacency -> Spreading Activation -> constellation -> Cockpit UI + MCP server; sub-second activation on a 100k-node / ~984k-edge Wikidata-seeded subnet. Measured: Spreading Activation beats dense kNN on held-out 2WikiMultihopQA by +0.102 recall@5; founding-mesh gold recall 87% at the default after consolidation; the substrate now holds what it uses and, on 2Wiki over 50 rounds, learns from use (+1.3 on used questions) while displacing what it does not use (-1.5 on held-out) — renormalisation is next.
 - Not yet proven: the central bet — that the vector-graph yields inference exceeding what any individual source text contains (the test that distinguishes it from a strong RAG).
-- Known limitations (filed openly): degree-hub bias in retrieval (PHX-1042); noisy seed labels from aliases[0] (PHX-1044); MNLM weight-training blocked on H100-class compute (PHX-1035).
+- Known limitations (filed openly): 9 of 119 doctrine mechanisms live, 34 inert, 42 absent (PHX-1100); the answer instrument on the founding corpus cannot resolve differences under ~9 points because the model has read Hesiod (PHX-1097/1098); one-factor Hebbian with no rater; MNLM weight-training blocked on H100-class compute (PHX-1035).
 
 ## What it needs most now
 Compute (GPU), research collaborators, and funding to test the central bet — not broad publicity.

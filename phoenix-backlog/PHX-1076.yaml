@@ -1,7 +1,7 @@
 id: PHX-1076
 category: build-integrity
 priority: high
-status: open
+status: done
 generation_target: repository hygiene
 title: "Unbounded dependency ranges took CI red four times in one week"
 filed_by: Claude Code (2026-08-21)
@@ -68,6 +68,16 @@ description: >
   (a) and (c) compose and are what I would suggest, but the trade — reproducible
   CI against silently ageing dependencies — is a project decision.
 
+resolution: >
+  Entschieden nach dem vierten Bruch (PHX-1105, lancedb 0.38): `constraints.txt`
+  pinnt genau die Pakete, an denen dieses Repo gebrochen ist — lancedb, pyarrow,
+  torch, pydantic, pydantic-settings, sentence-transformers, transformers, mcp,
+  numpy — und wird mit `-c` in CI und in der dokumentierten Install-Zeile
+  installiert. pyproject bleibt bewusst lose (der Code ist gegen APIs
+  geschrieben, nicht gegen Versionen); alles andere floatet. Bumps bewusst, im
+  eigenen PR, mit grüner Suite auf der neuen Version. Kein Lockfile-Werkzeug,
+  weil ein Constraints-File dasselbe Problem mit einer Datei löst, die jeder
+  lesen kann.
 relates_to: []
 linked_scripts:
   - pyproject.toml

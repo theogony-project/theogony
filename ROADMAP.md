@@ -12,6 +12,8 @@ It is not a sprint plan. It is the horizon.
 
 **Operative migration plan:** [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md) — the binding strangler-fig plan for replacing the current Generation-1 codebase with the MESH-triplet substrate. The roadmap below describes the *what* (five long-horizon phases); the migration plan describes the *how* (six PR-sized strangler steps for the substrate replacement, parallel Phoenix-backlog migration). Both are binding; they address different questions.
 
+**Current operative plan (September 2026):** [`docs/etappes/plan_from_the_vision_2026-09.md`](docs/etappes/plan_from_the_vision_2026-09.md) — the vision below, held claim by claim against what the substrate has been measured to do, and the order of work that follows: learn safely (renormalisation, PHX-1106), then give the substrate a memory of contradiction (PHX-1107), then Nous. Where this roadmap states a status the plan contradicts, the plan is current.
+
 ---
 
 ## The Core Thesis (One Paragraph)
@@ -273,7 +275,10 @@ over time:
 
 1. **Knowledge** — the chronicle already improves its own contents
    without new external input (consolidation, the immune system, Oneiros
-   "dreaming"). Live today.
+   "dreaming"). Status September 2026: consolidation runs as a pass
+   (PHX-1097); the Oneiros tick decays, gates on use and folds in firings
+   (PHX-1101/1102), invoked by hand; the immune system is not built and
+   cannot be until the substrate represents contradiction (PHX-1107).
 2. **Architecture and implementation** — Mnemosyne observes enough to
    propose, and eventually author, the next version of the system: new
    thresholds, agent configurations, schemas, substrate code. Proposals
