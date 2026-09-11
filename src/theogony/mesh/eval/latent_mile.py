@@ -300,6 +300,21 @@ class LocalReader:
     def llm_dim(self) -> int:
         return int(self.model.config.hidden_size)
 
+    def training_mode(self, on: bool) -> None:
+        """Backward passes through a frozen 3B model keep every layer's
+        activations unless they are recomputed; without checkpointing a batch of
+        eight paraphrases pushed the laptop 23 GB into swap. Checkpointing is
+        only honoured while the model is in train mode, and no parameter has a
+        gradient, so train mode changes nothing but that."""
+        if on:
+            self.model.gradient_checkpointing_enable(
+                gradient_checkpointing_kwargs={"use_reentrant": False}
+            )
+            self.model.train()
+        else:
+            self.model.gradient_checkpointing_disable()
+            self.model.eval()
+
     @property
     def name(self) -> str:
         return str(self.model.config._name_or_path)
@@ -497,6 +512,7 @@ def train_projector(
         t0 = time.time()
         examples = paraphrase_examples(train, rng, group_max=group_max, mode=mode)
         projector.train()
+        reader.training_mode(True)
         losses: list[float] = []
         nan_steps = 0
         for start in range(0, len(examples), batch_size):
@@ -521,6 +537,7 @@ def train_projector(
                     # the epoch without this
                     torch.mps.empty_cache()
         projector.eval()
+        reader.training_mode(False)
         holdout_loss: float | None = None
         if holdout:
             hold_examples = paraphrase_examples(
