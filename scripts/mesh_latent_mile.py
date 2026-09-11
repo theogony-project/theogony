@@ -67,10 +67,24 @@ def cmd_train(args: argparse.Namespace) -> None:
         nodes = nodes[: args.max_nodes]
     node_dim = len(node_vector(nodes[0], args.vectors))
     projector = fresh_projector(reader, node_dim, seed=args.seed)
+    resumed = None
+    if args.resume:
+        previous = load_projector(args.resume, reader.device)
+        if previous.mode != args.vectors or previous.projector.node_dim != node_dim:
+            raise SystemExit(
+                f"{args.resume} was trained on {previous.mode!r} vectors, this run asks for "
+                f"{args.vectors!r}"
+            )
+        projector.load_state_dict(previous.projector.state_dict())
+        resumed = (
+            f"{args.resume} after "
+            f"{len(previous.report['epochs']) if previous.report else '?'} epochs"
+        )
     _say(
         f"Leser {reader.name} auf {reader.device} ({args.dtype})   Knoten {len(nodes)}   "
         f"Vektoren {args.vectors}   Projektor {node_dim} -> {reader.llm_dim}   "
         f"Seed {args.seed}   Epochen {args.epochs}"
+        + (f"   fortgesetzt von {resumed}" if resumed else "")
     )
     report = train_projector(
         reader,
@@ -83,6 +97,7 @@ def cmd_train(args: argparse.Namespace) -> None:
         holdout_fraction=args.holdout,
         mode=args.vectors,
         checkpoint=args.projector,
+        resumed_from=resumed,
         log=_say,
     )
     save_projector(projector, args.projector, report)
@@ -252,6 +267,9 @@ def main(argv: list[str] | None = None) -> None:
     )
     t.add_argument(
         "--max-nodes", default=0, type=int, help="Train on the first N nodes only (smoke)."
+    )
+    t.add_argument(
+        "--resume", type=Path, default=None, help="Start from this projector's weights, not fresh."
     )
     t.set_defaults(func=cmd_train)
 

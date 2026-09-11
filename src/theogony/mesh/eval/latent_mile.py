@@ -410,6 +410,7 @@ class TrainingReport:
     nodes_holdout: int
     seed: int
     mode: str = "semantic"
+    resumed_from: str | None = None
     epochs: list[EpochReport] = field(default_factory=list)
 
 
@@ -546,6 +547,7 @@ def train_projector(
     recovery_sample: int = 30,
     mode: str = "semantic",
     checkpoint: Path | None = None,
+    resumed_from: str | None = None,
     log: Callable[[str], None] | None = None,
 ) -> TrainingReport:
     say = log or (lambda _msg: None)
@@ -558,6 +560,7 @@ def train_projector(
         nodes_holdout=len(holdout),
         seed=seed,
         mode=mode,
+        resumed_from=resumed_from,
     )
     rng = random.Random(seed)
     optimiser = torch.optim.AdamW(projector.parameters(), lr=lr, weight_decay=0.01)
@@ -700,6 +703,7 @@ def _report_dict(report: TrainingReport) -> dict[str, Any]:
         "nodes_holdout": report.nodes_holdout,
         "seed": report.seed,
         "mode": report.mode,
+        "resumed_from": report.resumed_from,
         "epochs": [vars(e) for e in report.epochs],
     }
 
