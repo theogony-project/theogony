@@ -1,0 +1,74 @@
+id: PHX-1109
+category: substrate-retrieval
+priority: high
+status: open
+generation_target: MESH — Konsumtion (MESH_RETRIEVAL Schritt 5), die letzte Meile
+title: "Die latente letzte Meile: die Constellation als Vektoren statt als Text übergeben"
+filed_by: Claude Code (2026-09-11, aus der Einschätzung zu latentem Reasoning)
+created_at: 2026-09-11
+description: >
+  Die Vision sagt (VISION:44): die Constellation wird dem Agenten in Vektorform
+  zurückgegeben, direkt in seinen latenten Raum injizierbar, ohne Übersetzung
+  in Text. Die Ledger führt den Satz als nicht prüfbar. Er ist es seit heute,
+  und zwar billig.
+
+  Anlass: die Berichte vom September 2026 über latentes Reasoning. Zwei
+  Befunde, getrennt. Erstens rechnen heutige Frontier-Modelle schon
+  Wesentliches, das in ihrer Gedankenkette nicht auftaucht (Baherwani,
+  Goldstein, Panda 2026: inhaltsleere Fülltokens heben die Genauigkeit um bis
+  zu 13 Punkte; Wang 2026: Reasoning ist eine latente Trajektorie, der Text
+  eine Projektion). Zweitens funktionieren Architekturen ohne Text-Zwischen-
+  schritte, aber klein: LOTUS (Fan, Svete, Lee, Juni 2026) schließt bei 3B
+  zum expliziten Chain-of-Thought auf; Kohli et al. (COLM 2026) zeigen
+  implizites Multi-Hop in einem Vorwärtsdurchlauf; kein Frontier-Lab hat
+  einen latenten Reasoner ausgeliefert. Die Richtung der Kernthese wird
+  damit respektabel. Bei uns ist sie trotzdem ungemessen, weil bei uns alles
+  durch Text läuft: Kadmos bekommt Text und gibt JSON, die Constellation wird
+  als Text gerendert und von deepseek-chat gelesen, die Antwort ist Text. Das
+  MNLM-Modul (2.400 Zeilen) ist ein Tensor-Gerüst, die KV-Injektion ein Stub,
+  PHX-1035 auf H100 blockiert. Die letzte Meile ist heute die einzige Meile.
+
+  xRAG (Cheng et al. 2024) zeigt, dass ein eingefrorener Retriever, ein
+  eingefrorenes Modell und ein kleiner trainierter Projektor genügen, um ein
+  Dokument als ein einziges Token zu übergeben: im Schnitt +10 % auf sechs
+  Wissensaufgaben bei 3,5-fach weniger FLOPs. Das MNLM-Brief hat genau diesen
+  Weg (GNP-Soft-Prompts) als verwässert abgelehnt. Das Brief hat beim
+  Horizont recht und bei der Reihenfolge nicht: der Soft-Prompt-Pfad ist der
+  Falsifikator, den wir uns leisten können.
+
+  Umfang, als Messung:
+
+  1. Leser: ein offenes Kleinmodell mit Einbettungs-Eingang, das auf dem
+     Laptop läuft (Qwen2.5-1.5B-Instruct, im Brief als PoC-Ziel genannt,
+     liegt im Cache). Eingefroren.
+  2. Projektor: von den 384-d Knotenvektoren des Founding-Mesh (bge-small-en)
+     in den 1.536-d Einbettungsraum des Lesers, ein Knoten = ein weiches
+     Token. Trainiert wie xRAG Stufe 1 (Paraphrase): aus dem weichen Token
+     soll das Modell Name und Beschreibung des Knotens erzeugen. Trainings-
+     daten sind die konsolidierten Knoten mit Beschreibung; das Gold-Set
+     bleibt unberührt.
+  3. Drei Arme, derselbe lokale Leser, dieselben k Knoten, dieselbe
+     Bewertung wie `corpus_answers.py`: closed_book; Text-Constellation (das
+     ausgelieferte Rendering); weiche Constellation (weiche Tokens statt
+     Namen, Relationen als Tripel über weichen Tokens).
+  4. Kontrolle: derselbe Projektor untrainiert. Wenn der trainierte nicht
+     über dem untrainierten liegt, hat der Leser die Vektoren nicht gelesen.
+
+  Fertig, wenn: die weiche Constellation auf dem Gold-Set gemessen ist,
+  gegen die Text-Constellation mit demselben Leser, mit Streuung. Ein
+  Nullergebnis ist ein Ergebnis: es sagt, dass die Vision-Behauptung auf
+  dieser Skala nicht gilt, und benennt, was fehlte.
+
+  Nicht Umfang: Graph-KV, Latent Flow Matching, Training des Lesers, die
+  Substrate-Resonant Recurrence. Das bleibt PHX-1035 und dem Brief.
+relates_to:
+  - PHX-1035   # das MNLM, blockiert auf GPU; dieses Ticket ist sein Falsifikator zu Fuß
+  - PHX-1087   # das Antwort-Instrument
+  - PHX-1099   # k_seeds = 1, die Constellation, die hier übergeben wird
+  - PHX-1107   # was ein latenter Leser im Substrat vorfinden muss
+linked_docs:
+  - docs/etappes/plan_from_the_vision_2026-09.md
+  - docs/etappes/mesh_native_lm_brief.md
+  - docs/VISION.md
+linked_scripts:
+  - src/theogony/mesh/eval/corpus_answers.py
