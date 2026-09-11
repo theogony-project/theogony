@@ -32,6 +32,7 @@ from theogony.mesh.eval.corpus_answers import summarise_answers
 from theogony.mesh.eval.corpus_qa import load_gold
 from theogony.mesh.eval.latent_mile import (
     ARMS,
+    CONTROL_SEED,
     DEFAULT_READER,
     VECTOR_MODES,
     LocalReader,
@@ -42,6 +43,8 @@ from theogony.mesh.eval.latent_mile import (
     paired_arms,
     report_dict,
     save_projector,
+    split_holdout,
+    token_loss_split,
     train_projector,
     training_nodes,
 )
@@ -192,6 +195,34 @@ def cmd_answer(args: argparse.Namespace) -> None:
         _say(f"\nDetail geschrieben: {args.out}")
 
 
+def cmd_diagnose(args: argparse.Namespace) -> None:
+    """Name or register: what the soft token pays for, on train and held-out nodes."""
+    reader = LocalReader.load(args.reader, dtype=args.dtype)
+    runtime = MeshRuntime.open(args.root)
+    loaded = load_projector(args.projector, reader.device)
+    nodes = training_nodes(runtime.nodes.load_all_consolidated())
+    train, holdout = split_holdout(nodes, args.holdout, args.seed)
+    control = fresh_projector(reader, loaded.projector.node_dim, seed=CONTROL_SEED)
+    _say(
+        f"Leser {reader.name}   Projektor {args.projector} "
+        f"({len(loaded.report['epochs']) if loaded.report else '?'} Epochen, {loaded.mode})   "
+        f"je {args.sample} Knoten"
+    )
+    _say(f"{'Knoten':8s} {'Vektor':10s} {'Name-Token':>11s} {'Beschreibung-Token':>19s}")
+    for name, group in (("train", train[: args.sample]), ("holdout", holdout[: args.sample])):
+        shifted = list(group[7:]) + list(group[:7])
+        for label, projector, source in (
+            ("richtig", loaded.projector, None),
+            ("fremd", loaded.projector, shifted),
+            ("Kontrolle", control, None),
+        ):
+            split = token_loss_split(reader, projector, group, mode=loaded.mode, vector_from=source)
+            _say(
+                f"{name:8s} {label:10s} {split['label_loss']:11.3f} "
+                f"{split['description_loss']:19.3f}"
+            )
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -243,6 +274,14 @@ def main(argv: list[str] | None = None) -> None:
     a.add_argument("--out", type=Path, help="Write per-answer detail as JSON here.")
     a.add_argument("--verbose", action="store_true")
     a.set_defaults(func=cmd_answer)
+
+    d = sub.add_parser("diagnose", help="Per-token loss on the name against the description.")
+    common(d)
+    d.add_argument("--projector", required=True, type=Path)
+    d.add_argument("--sample", default=60, type=int, help="Nodes per split.")
+    d.add_argument("--holdout", default=0.05, type=float, help="Must match the training run.")
+    d.add_argument("--seed", default=0, type=int, help="Must match the training run.")
+    d.set_defaults(func=cmd_diagnose)
 
     args = ap.parse_args(argv)
     args.func(args)

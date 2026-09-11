@@ -29,8 +29,17 @@ fraction of nodes says whether the mapping generalises to vectors the projector
 has not seen, which is what a live substrate would hand it every day.
 
 What a null result means: not that the vision is wrong, but that at this
-scale — a 1.5B reader, a few thousand training vectors, a laptop — the medium
+scale — a 3B reader, a few thousand training vectors, a laptop — the medium
 does not carry what the reader needs. That is a measurement the plan can use.
+`token_loss_split` says *what* it fails to carry: the loss on the name tokens
+against the loss on the description tokens, with the right vector, with another
+node's vector, and with an untrained projector.
+
+The reader is Qwen2.5-3B-Instruct. The 1.5B the MNLM brief names as the PoC
+target was tried first and set aside: it barely uses the text Constellation
+(24% against 33% closed-book on the first eight gold questions), and a reader
+that cannot use the text cannot refute the vectors. The 3B reads the text well
+(55% against 27%).
 
 The reader's `generate()` cannot be used: on MPS with transformers 5.5 it
 returns garbage for `inputs_embeds` while a plain forward pass is exact, so
@@ -64,7 +73,7 @@ from theogony.mesh.retrieval.retrieve import retrieve
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.schemas import ConsolidatedNode
 
-DEFAULT_READER = "Qwen/Qwen2.5-1.5B-Instruct"
+DEFAULT_READER = "Qwen/Qwen2.5-3B-Instruct"
 
 # An existing special token the reader never produces in text. Every occurrence
 # in a prompt is replaced, in order, by one projected node vector.
@@ -473,6 +482,54 @@ def label_recovery(
         if f" {_normalise(node_label(n))} " in f" {_normalise(answer)} ":
             hit += 1
     return hit / len(nodes)
+
+
+@torch.no_grad()
+def token_loss_split(
+    reader: LocalReader,
+    projector: NodeProjector,
+    nodes: Sequence[ConsolidatedNode],
+    *,
+    mode: str = "semantic",
+    vector_from: Sequence[ConsolidatedNode] | None = None,
+) -> dict[str, float]:
+    """What does the soft token pay for — the name, or only the register?
+
+    For each node, the paraphrase target is scored token by token under the
+    reader, and the loss is averaged separately over the tokens of the label
+    (`- Zeus`) and the tokens of the description that follows. `vector_from`
+    swaps in *another* node's vector for each prompt: the difference between
+    the two runs is the identity the vector actually carries, and a projector
+    that only learned the genre shows none.
+    """
+    label_losses: list[float] = []
+    description_losses: list[float] = []
+    for i, node in enumerate(nodes):
+        source = vector_from[i % len(vector_from)] if vector_from else node
+        prompt = SoftPrompt(
+            text=f"Entities:\n- {PLACEHOLDER}\n\n{_PARAPHRASE_ASK}",
+            vectors=[node_vector(source, mode)],
+        )
+        target = f"- {node_entry(node)}"
+        prompt_ids = reader.chat_ids(_SYSTEM_PARAPHRASE, prompt.text)
+        full_ids = reader.chat_ids(_SYSTEM_PARAPHRASE, prompt.text, assistant=target)
+        vectors = torch.tensor(prompt.vectors, dtype=torch.float32, device=reader.device)
+        embeds = splice_soft_tokens(
+            reader.embed(full_ids), full_ids, reader.placeholder_id, projector(vectors)
+        )
+        logits = reader.model(inputs_embeds=embeds.unsqueeze(0)).logits[0].float()
+        log_probs = torch.log_softmax(logits[:-1], dim=-1)
+        nll = -log_probs.gather(1, full_ids[1:].unsqueeze(1)).squeeze(1)
+        answer = nll[prompt_ids.shape[0] - 1 :]
+        label_len = len(reader.tokenizer.encode("- " + node_label(node), add_special_tokens=False))
+        label_losses.append(float(answer[:label_len].mean()))
+        if answer.shape[0] > label_len:
+            description_losses.append(float(answer[label_len:].mean()))
+    return {
+        "nodes": float(len(nodes)),
+        "label_loss": sum(label_losses) / max(1, len(label_losses)),
+        "description_loss": sum(description_losses) / max(1, len(description_losses)),
+    }
 
 
 def train_projector(
