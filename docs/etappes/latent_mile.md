@@ -183,13 +183,41 @@ weichen Tokens werden ihm zum Muster statt zur Aussage. Ob der Abstand
 zwischen den Vektorvarianten mehr als Seed-Rauschen ist, sagt der zweite Seed
 (unten).
 
+### Der zweite Seed, und alle drei Läufe nebeneinander
+
+`both`, Seed 1, fünf Epochen (Verlust 2,19 / 2,10): Vektoren **17 %**, 2/47
+vollständig; untrainiert 11 %. Gepaart: gegen untrainiert +4 (11 / 5 / 31),
+gegen Text −22 (4 / 20 / 23), gegen Vorwissen +2 (10 / 5 / 32).
+
+| Lauf | Vektoren | gegen Text | gegen untrainiert | gegen Vorwissen | genealogisch / erzählend |
+|---|---|---|---|---|---|
+| `both`, Seed 0 | 19 % | −15 (7 / 22 / 18) | +10 (12 / 5 / 30) | +9 (10 / 4 / 33) | 19 % / 27 % |
+| `both`, Seed 1 | 17 % | −22 (4 / 20 / 23) | +4 (11 / 5 / 31) | +2 (10 / 5 / 32) | 17 % / 15 % |
+| `semantic`, Seed 0 | 8 % | −24 (6 / 25 / 16) | +3 (6 / 6 / 35) | 0 (9 / 9 / 29) | 7 % / 21 % |
+
+Konstanten in jeder Zeile: Text 38 %, Vorwissen 16 %, untrainiert 9–11 %.
+
+Was über die Seeds hält: der weiche Arm mit `both` liegt bei 17–19 %, gepaart
+schlägt er den untrainierten Projektor in beiden Seeds 11–12 zu 5 und den
+Text verliert er 20–22 zu 4–7. Der Vorsprung bei erzählenden Fragen aus Seed 0
+(27 %) hält *nicht* (15 % in Seed 1) — Rauschen. Was hält, sind die Fragen,
+auf denen die Vektoren den Text schlagen: vier der sieben aus Seed 0
+wiederholen sich in Seed 1 — *Chrysaor und Pegasus* (der Text sagt „Medusa"),
+*Hermaon, Thronia*, *Ceto und Phorcys*, was die Erde zuerst gebar —, zwei davon
+auch mit dem semantischen Vektor.
+
 **Das Ergebnis, in einem Satz:** auf dieser Skala — ein 3B-Leser, 3.529
 Trainingsvektoren, fünf Epochen auf einem Laptop — ist die latente letzte Meile
-ein Kanal, der die Hälfte dessen trägt, was der Text trägt, und dabei etwas
-anderes: er findet Namen, die der Text übersieht, und verliert die Fähigkeit,
-sie aufzuzählen. VISION:44 ist damit zum ersten Mal *gemessen*, und die Messung
-sagt weder „ja" noch „unmöglich", sondern „halb, und aus einem benennbaren
-Grund".
+ein Kanal, der ein Drittel bis die Hälfte dessen trägt, was der Text trägt,
+und dabei etwas anderes: er findet reproduzierbar Namen, die der Text
+übersieht, und verliert die Fähigkeit, Listen zu bilden. VISION:44 ist damit
+zum ersten Mal *gemessen*, und die Messung sagt weder „ja" noch „unmöglich",
+sondern „ein Drittel, und aus einem benennbaren Grund".
+
+### Mehr Epochen: die Fortsetzung auf 20
+
+*(läuft; die Kurve fiel nach fünf Epochen noch: 2,46 → 2,01 zurückgehalten.
+Wird nach dem Lauf eingetragen.)*
 
 ## Grenzen
 
