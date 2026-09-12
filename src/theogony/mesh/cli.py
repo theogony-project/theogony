@@ -19,7 +19,7 @@ from theogony.config.settings import Settings
 from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
 from theogony.mesh.retrieval import RetrievalResult, retrieve
 from theogony.mesh.retrieval.defaults import DEFAULT_K_SEEDS, DEFAULT_TOP_K
-from theogony.mesh.runtime.oneiros_tick import MeshRuntime
+from theogony.mesh.runtime.oneiros_tick import DEFAULT_RENORM_SCALE, MeshRuntime
 from theogony.mesh.seeds.wikidata5m import (
     Wikidata5mSeedImporter,
     build_default_embedder,
@@ -198,12 +198,23 @@ def mesh_tick(
         ),
     ),
     renormalise: str = typer.Option(
-        "off",
+        "global",
         "--renormalise",
         help=(
-            "Homeostatic renormalisation after decay (MESH_SUBSTRATE §6): off | global "
-            "(one factor over all edges, set point = weight per node at first use) | "
-            "out | in (each node's outgoing / incoming total held). PHX-1106."
+            "Homeostatic renormalisation after decay (MESH_SUBSTRATE §6): global (one "
+            "factor over all edges; the set point is anchored at first use) | out | in "
+            "(each node's outgoing / incoming total held) | off. Measured as the one "
+            "reading that stops use from crowding out the rest (PHX-1106)."
+        ),
+    ),
+    renorm_scale: float = typer.Option(
+        DEFAULT_RENORM_SCALE,
+        "--renorm-scale",
+        help=(
+            "Set point as a fraction of the weight per node the mesh carries when "
+            "renormalisation is first switched on; only read when no set point is "
+            "stored yet. 0.9 keeps the ingested weight distinctions where 1.0 flattens "
+            "them (PHX-1106)."
         ),
     ),
     dt: float = typer.Option(
@@ -258,6 +269,7 @@ def mesh_tick(
             version_retention=timedelta(hours=keep_versions_hours),
             decay_gate=decay_gate,
             renormalise=None if renormalise == "off" else renormalise,
+            renorm_scale=renorm_scale,
         )
     except Exception as exc:
         # `verdict="good"` used to be written unconditionally, below, after a call

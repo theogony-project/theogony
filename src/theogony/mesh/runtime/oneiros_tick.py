@@ -163,6 +163,16 @@ class MinimalTickResult:
 _READ_CONSISTENCY = timedelta(0)
 
 
+# The homeostatic set point as a fraction of the weight the mesh carries when
+# renormalisation is first switched on. Swept on the 2Wiki heartbeat (PHX-1106):
+# at 1.0 the lifted edges pile up at the cap and the ingested weight
+# distinctions flatten (median 0.28 -> 0.95 after 50 ticks); at 0.9 the
+# counterforce is the same (+1.2 used / +1.2 held-out, against +1.3 / -1.5
+# without it) with the median at 0.85 and 12% at the cap; at 0.7 the held-out
+# gain is gone. On HotpotQA 0.9 costs 0.3 on the used half where 1.0 cost 0.7.
+DEFAULT_RENORM_SCALE = 0.9
+
+
 class MeshRuntime:
     """Warm-tier mesh opened from a filesystem directory.
 
@@ -447,6 +457,7 @@ class MeshRuntime:
         decay_gate: bool = True,
         renormalise: str | None = None,
         homeostatic_ratio: float | None = None,
+        renorm_scale: float = DEFAULT_RENORM_SCALE,
         renorm_epsilon: float = 0.01,
         renorm_tier_softening: float = 0.0,
     ) -> MinimalTickResult:
@@ -455,11 +466,12 @@ class MeshRuntime:
         `renormalise` is `None` (off), `"global"`, `"out"` or `"in"` — see
         `renormalise_edges_inplace`. The global set point is `homeostatic_ratio`
         (total edge weight per consolidated node, `R_ideal` in §6); when neither
-        the argument nor `mesh_state.json` carries one, the ratio the mesh has
-        *entering* this tick becomes the set point and is written to the state,
-        so a substrate's homeostasis is anchored where it was first switched on.
-        The per-node modes hold each node's total from before this tick's merge,
-        so credit redistributes within a node and decay does not drain it.
+        the argument nor `mesh_state.json` carries one, `renorm_scale` times the
+        ratio the mesh has *entering* this tick becomes the set point and is
+        written to the state, so a substrate's homeostasis is anchored where it
+        was first switched on. The per-node modes hold each node's total from
+        before this tick's merge, so credit redistributes within a node and
+        decay does not drain it.
         """
         before = self.edges.count_rows()
         drained = self.edges.delta.drain()
@@ -480,7 +492,7 @@ class MeshRuntime:
             if ratio is None:
                 ratio = state.get("homeostatic_ratio")
             if ratio is None:
-                ratio = sum(float(e.weight) for e in base) / node_count
+                ratio = renorm_scale * sum(float(e.weight) for e in base) / node_count
                 state["homeostatic_ratio"] = ratio
                 self._write_state(state)
             target_mass = float(ratio) * node_count

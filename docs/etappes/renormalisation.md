@@ -104,6 +104,110 @@ Einbruch beginnt bei Runde 30 statt 20). `free` ist keine saubere Kontrolle:
 die Kappe greift am Anfang der nächsten Runde wieder, und die Zahlen sind die
 der globalen Lesart — die echte Kontrolle, ganz ohne Kappe, steht unten.
 
+### HotpotQA, Seed 0
+
+Report `heartbeat_hotpotqa_01M2A84TFEQHWBGQ5ED3M7Q8DK.json`, 9.811 Passagen,
+61.540 Entitäten, 525.576 Kanten, 125 Minuten. Ein Korpus mit weniger
+Spielraum: kNN 0,837 / 0,827, Spreading Activation 0,850 / 0,840 — der
+Vorsprung des Graphen ist hier ein Punkt, nicht zehn.
+
+| Politik | benutzt | zurückgehalten | Δ50 benutzt | Δ50 zurückgehalten | w Mittel, Runde 50 |
+|---|---|---|---|---|---|
+| `grow01` (Baseline) | ,850 ,853 ,857 ,857 ,857 ,857 ,857 ,857 ,853 | ,840 ,830 ,827 ,830 ,830 ,837 ,830 ,823 ,817 | +0,3 | **−2,3** | 0,319 |
+| `renorm_global` | ,850 ,850 ,847 ,843 ,847 ,843 ,843 ,843 ,843 | ,840 ,827 ,830 ,830 ,830 ,830 ,830 ,830 ,833 | −0,7 | −0,7 | 0,970 |
+| `renorm_out` | ,850 ,843 ,843 ,843 ,843 ,843 ,847 ,847 ,847 | ,840 ,833 ,833 ,833 ,833 ,837 ,827 ,823 ,823 | −0,3 | −1,7 | 0,896 |
+| `renorm_in` | ,850 ,847 ,850 ,850 ,847 ,843 ,843 ,843 ,843 | ,840 ,823 ,823 ,823 ,823 ,823 ,823 ,820 ,813 | −0,7 | −2,7 | 0,896 |
+| `renorm_free` | ,850 ,853 ,850 ,847 ,843 ,847 ,847 ,843 ,843 | ,840 ,830 ,827 ,827 ,827 ,833 ,830 ,830 ,833 | −0,7 | −0,7 | 0,975 |
+
+**Hier ist nichts zu bewahren, und die Renormalisierung bewahrt es
+trotzdem.** Die Gutschrift in Runde 1 hilft dem Benutzten kaum (+0,3, später
++0,7) und kostet das Zurückgehaltene sofort (−1,0) — auf HotpotQA teilen die
+Fragen ihre Brücken nicht so, wie 2Wiki-Fragen es tun. Danach frisst die
+Drift des Gates weiter: −2,3 nach 50 Runden, stärker als auf 2Wiki. Unter
+`global` steht das Zurückgehaltene ab Runde 2 still (0,830 → 0,833), die
+Drift ist weg; der Preis ist das Benutzte, das von +0,7 auf −0,7 fällt, weil
+die Einebnung der Gewichte auf diesem Graphen etwas kostet, das die Anteile
+nicht ersetzen. Die Bedingung des Plans — benutzt ≥ +1 *und* zurückgehalten ≥
+0 — ist auf HotpotQA von keiner Politik zu erfüllen, weil schon die Baseline
+kein +1 hat: dieser Herzschlag hat hier keinen Raum, wie auf dem
+Founding-Mesh. Was sich messen lässt, ist die Verdrängung, und die nimmt
+`global` von −2,3 auf −0,7.
+
+### 2Wiki, Seed 1
+
+Report `heartbeat_2wikimultihopqa_01M2AF9A6G64V5XFBE90FPDTSZ.json`, 69 Minuten.
+Derselbe Graph, andere Hälften: kNN 0,708 / 0,715, Spreading Activation
+0,808 / 0,800.
+
+| Politik | benutzt | zurückgehalten | Δ50 benutzt | Δ50 zurückgehalten |
+|---|---|---|---|---|
+| `grow01` (Baseline) | ,808 ,807 ,805 ,803 ,803 ,803 ,805 ,805 ,802 | ,798 ,805 ,808 ,807 ,805 ,797 ,787 ,782 ,775 | −0,7 | **−2,3** |
+| `renorm_global` | ,808 ,807 ,803 ,803 ,797 ,793 ,793 ,793 ,793 | ,798 ,803 ,800 ,802 ,807 ,803 ,807 ,807 ,805 | −1,5 | **+0,7** |
+| `renorm_out` | ,808 ,807 ,803 ,803 ,803 ,803 ,797 ,797 ,797 | ,798 ,800 ,805 ,805 ,803 ,793 ,788 ,780 ,777 | −1,2 | −2,2 |
+| `renorm_in` | ,808 ,802 ,802 ,802 ,802 ,795 ,793 ,793 ,793 | ,798 ,803 ,803 ,807 ,817 ,807 ,813 ,808 ,803 | −1,5 | +0,5 |
+| `renorm_free` | ,808 ,807 ,807 ,803 ,800 ,793 ,793 ,793 ,793 | ,798 ,805 ,807 ,807 ,808 ,795 ,808 ,815 ,805 | −1,5 | +0,7 |
+
+**Der Gewinn aus Seed 0 wiederholt sich nicht, die Verdrängung schon.** Mit
+diesen Hälften bringt die Gutschrift dem Benutzten nichts (−0,7 nach 50
+Runden), und das Zurückgehaltene fällt −2,3, wie auf HotpotQA. Die +1,3 aus
+PHX-1104 waren, was der Bericht dort selbst als Möglichkeit nannte: ein bis
+zwei Fragen eines Seeds. Unter `global` fällt das Zurückgehaltene wieder nicht
+(+0,7), und das Benutzte zahlt −1,5.
+
+### Alle drei Läufe nebeneinander
+
+Δ50 in Punkten Recall@5, benutzt / zurückgehalten:
+
+| Politik | 2Wiki Seed 0 | HotpotQA Seed 0 | 2Wiki Seed 1 | Mittel benutzt | Mittel zurückgehalten |
+|---|---|---|---|---|---|
+| `grow01` (Baseline) | +1,3 / −1,5 | +0,3 / −2,3 | −0,7 / −2,3 | +0,3 | **−2,0** |
+| `renorm_global` | +1,2 / +1,5 | −0,7 / −0,7 | −1,5 / +0,7 | −0,3 | **+0,5** |
+| `renorm_out` | +0,7 / ±0 | −0,3 / −1,7 | −1,2 / −2,2 | −0,3 | −1,3 |
+| `renorm_in` | +1,2 / −1,2 | −0,7 / −2,7 | −1,5 / +0,5 | −0,3 | −1,1 |
+| `renorm_free` | +1,2 / +1,2 | −0,7 / −0,7 | −1,5 / +0,7 | −0,3 | +0,4 |
+
+Was über Datensätze und Seeds hält: **das Gate verdrängt** (−1,5, −2,3, −2,3),
+und **die globale Renormalisierung nimmt die Verdrängung jedes Mal weg**
+(+1,5, −0,7, +0,7 — im Mittel 2,5 Punkte besser als die Baseline auf dem
+Zurückgehaltenen). Was nicht hält: dass das Substrat aus Benutzung robust
+*gewinnt* — die Baseline liegt auf dem Benutzten bei +1,3, +0,3, −0,7 —, und
+die Renormalisierung kostet dort im Mittel 0,6 Punkte gegen die Baseline, in
+zwei von drei Läufen etwa einen. Die Bedingung des Plans (benutzt ≥ +1 und
+zurückgehalten ≥ 0, auf beiden Datensätzen und beiden Seeds) erfüllt keine
+Politik, weil ihre erste Hälfte schon von der Baseline nur in einem Lauf
+erfüllt wird. Die Frage, die bleibt, ist der Preis auf dem Benutzten, und ob
+er an der Einebnung hängt — dafür der Sollwert-Sweep unten.
+
+### Die Kontrolle ohne Kappe: §6, wie geschrieben
+
+Report `heartbeat_2wikimultihopqa_01M2AK99P0RBXSZ5H1MCZQ676V.json`, 2Wiki Seed
+0, 29 Minuten. Keine Kappe beim Eintritt, beim Einmischen der Gutschrift, bei
+der Sättigung: der rohe Graph (Gewichte bis 9,0), Gewichte dürfen wachsen,
+und die globale Skalierung ist die einzige Homöostase — das Regime, das §6
+beschreibt.
+
+| Politik | benutzt | zurückgehalten | Δ50 benutzt | Δ50 zurückgehalten | w Mittel / Median / max, Runde 50 |
+|---|---|---|---|---|---|
+| `grow01_uncapped` | ,777 ,793 ,793 ,793 ,793 ,793 ,793 ,793 ,790 | ,818 ,835 ,832 ,832 ,828 ,827 ,807 ,805 ,798 | +1,3 | −2,0 | 0,340 / 0,281 / 9,0 |
+| `renorm_uncapped` | ,777 ,793 ,793 ,793 ,793 ,793 ,793 ,793 ,792 | ,818 ,835 ,832 ,830 ,827 ,827 ,802 ,798 ,780 | +1,5 | **−3,8** | 0,968 / 0,568 / 41,9 |
+
+Bis Runde 10 sind die beiden bis auf die dritte Stelle gleich — die
+Skaleninvarianz des Operators, gemessen. Danach trennen sie sich, und zwar in
+die falsche Richtung: **§6, wie geschrieben, verstärkt die Verdrängung.** Die
+gefeuerten Kanten wachsen mit der Gutschrift ohne Grenze (das stärkste
+Gewicht nach 50 Runden: 41,9), die globale Skalierung schrumpft alles andere,
+damit die Masse hält, und der Anteil des Unbenutzten fällt schneller als
+unter dem Zerfall allein: −3,8 gegen −2,0. Das ist genau, was die Doktrin
+verspricht — „an edge that fires more often than average grows; one that
+fires less shrinks" — und genau das Gegenteil dessen, was das Ticket von ihr
+erhoffte. Die kleine Abweichung vor Runde 10 kommt vom quadratischen Zerfall,
+der nicht skaleninvariant ist: gehobene Gewichte verlieren absolut mehr.
+
+Die Gegenkraft, die in den Läufen oben wirkt, ist also nicht §6. Es ist §6
+*mit der Kappe*: die Skalierung hebt das Unbenutzte zurück, die Kappe hindert
+das Benutzte am Davonlaufen. Ohne die Kappe wäre die Renormalisierung ein
+Verstärker.
+
 **Der Preis, benannt:** unter `global` sitzen nach 50 Runden alle Gewichte
 bei 0,95 ± wenig (Median 0,950, Mittel 0,950). Die Warnung der Inventur trifft
 zu — die Gewichtsunterschiede des eingelesenen Graphen sind nach 50 Ticks

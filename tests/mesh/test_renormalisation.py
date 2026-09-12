@@ -105,7 +105,7 @@ def test_the_tick_anchors_its_set_point_where_it_was_first_switched_on(tmp_path:
     for e in (_edge(a.id, b.id, 0.8), _edge(b.id, c.id, 0.8), _edge(c.id, a.id, 0.8)):
         rt.edges.append_edge(e)
 
-    first = rt.run_minimal_tick(lam=0.05, renormalise="global")
+    first = rt.run_minimal_tick(lam=0.05, renormalise="global", renorm_scale=1.0)
     assert first.renormalisation is not None
     # entering mass 2.4 over 3 nodes: the set point is 0.8 weight per node
     assert rt._read_state()["homeostatic_ratio"] == pytest.approx(0.8)
@@ -115,9 +115,24 @@ def test_the_tick_anchors_its_set_point_where_it_was_first_switched_on(tmp_path:
     weights = sorted(e.weight for e in rt.edges.load_all_edges())
     assert weights == pytest.approx([0.8, 0.8, 0.8])
 
-    second = rt.run_minimal_tick(lam=0.05, renormalise="global")
+    # the set point is anchored: a later tick with another scale keeps it
+    second = rt.run_minimal_tick(lam=0.05, renormalise="global", renorm_scale=0.5)
     assert second.renormalisation is not None
     assert second.renormalisation["set_point"] == pytest.approx(2.4)
+
+
+def test_the_shipped_set_point_sits_below_the_entering_mass(tmp_path: Path) -> None:
+    """0.9 of what the mesh carries at first use: the lifted edges stay off the
+    cap, so the ingested weight distinctions survive (the 2Wiki sweep)."""
+    rt = MeshRuntime(tmp_path / "mesh", semantic_dim=8, frame_dim=4)
+    a, b = _node(), _node()
+    rt.nodes.append_consolidated(a)
+    rt.nodes.append_consolidated(b)
+    rt.edges.append_edge(_edge(a.id, b.id, 1.0))
+    result = rt.run_minimal_tick(lam=0.0, renormalise="global")
+    assert result.renormalisation is not None
+    assert result.renormalisation["set_point"] == pytest.approx(0.9)
+    assert rt.edges.load_all_edges()[0].weight == pytest.approx(0.9)
 
 
 def test_a_tick_without_renormalisation_records_none(tmp_path: Path) -> None:
