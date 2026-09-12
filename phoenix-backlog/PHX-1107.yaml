@@ -1,7 +1,7 @@
 id: PHX-1107
 category: substrate-integrity
 priority: critical
-status: open
+status: done
 generation_target: MESH — Substrat-Schema und Kadmos v2
 title: "Das Substrat führt kein Gedächtnis des Widerspruchs"
 filed_by: Claude Code (2026-09-07, aus dem Plan aus der Vision)
@@ -63,12 +63,79 @@ description: >
   das Verb *heilt* zum ersten Mal einen Eingang hat, auf dem Athene etwas
   finden koennte. Drei bis fuenf Sitzungen. Kommt nach PHX-1106, weil ein
   Substrat, das lernt und dabei verdraengt, zuerst sicher lernen muss.
+resolution: >
+  Gebaut und gemessen, 2026-09-12. Volltext docs/etappes/contradiction.md.
+
+  GEBAUT. (1) mesh/frames.py: sieben epistemische Achsen, die neun Haltungen
+  der Doktrin als Punkte darin, Query-Profile. Faktorisiert statt aufgezaehlt,
+  weil eine historische Behauptung, die auch widerlegt wurde, beides ist und
+  keine Liste von sieben Etiketten das ausdruecken kann. Veridikalitaet wiegt
+  doppelt, weil die Verneinung der Grund fuer das Feld ist. Der Cosinus traegt
+  die Kendall-Rechnung der Doktrin: Definition/aktuell 0,98, historisch 0,65,
+  widerlegt -0,50 und damit vollstaendig gedaempft. (2) Kadmos erklaert je
+  Absatz und je Relation eine Haltung; Chunks tragen sie, Entitaeten und Anker
+  sind neutral. (3) contradicts/supersedes als relation_kind, valid_from und
+  valid_to auf der Kante, beide im payload_json und damit ohne Migration.
+  (4) frame_consistency wird bei der Ingestion aus den Endpunkten gefuellt.
+  (5) runtime/contradiction.py: Kandidaten strukturell, ueber Provenienz
+  gefiltert (dieselbe Textstelle ist eine Aufzaehlung), dann adjudiziert.
+  (6) runtime/frame_promotion.py: Entitaeten erben den Schwerpunkt der Frames
+  der Absaetze ueber sie. (7) Widerspruchs-Gold-Set mit sieben Faellen, jeder
+  mit beiden Belegstellen im Korpus verifiziert. (8) mesh ask --frame-profile:
+  Frame-Routing ist zum ersten Mal von aussen erreichbar (PHX-1095 nannte es
+  "unreachable outside tests").
+
+  NEU GELESEN. 1.206 Absaetze, 2 h 27, EUR 0,39. Die Haltungen streuen ueber
+  acht Werte: current_claim 380, direct_quote 298, historical_claim 290,
+  observation 111, definition 66, disputed 39, hypothesis 20, refuted_claim 2.
+  30 contradicts-Relationen schrieb das Modell beim Lesen selbst.
+  frame_consistency traegt zum ersten Mal etwas: 5.590 von 127.402 Kanten
+  unter 1,0, davon 185 bei exakt 0.
+
+  DER PASS. 690 Kandidaten, 74 bestaetigt, 334 Kanten, 141 Absaetze auf
+  disputed. Echte Faelle darunter (Laomedon gegen Tros als Vater des
+  Ganymedes, Theia gegen Euryphaessa als Mutter von Eos und Selene), dazu
+  Extraktionsrauschen. Zwei Dinge waren noetig: Deskriptor-Normalisierung
+  (Elternschaft kommt in dreissig Schreibungen an, die Haelfte in der anderen
+  Richtung -> 202 Kandidaten statt null) und ein zweistufiger Adjudikator, der
+  zuerst fragt, ob die Relation ueberhaupt nur einen Wert zulaesst
+  (36 von 100 bestaetigt -> 3 von 60).
+
+  GEMESSEN, beide-Seiten-Recall auf sieben strittigen Fragen:
+
+      Mesh                         Profil          beide Seiten
+      alt (Hash-Frames)            any                71 % (5/7)
+      alt (Hash-Frames)            contradiction      29 % (2/7)
+      neu, geframt                 any                86 % (6/7)
+      neu, geframt                 contradiction      86 % (6/7)
+
+  Der staerkste Befund ist die zweite Zeile: auf dem alten Mesh kostet dasselbe
+  Routing 42 Punkte, weil es nach einem gesalzenen Hash maskiert. PHX-1095
+  hatte genau das vermutet; das ist die Zahl dazu.
+
+  Die Bedingung des Tickets, Teil 1 (eine Widerspruchsfrage gibt beide Seiten
+  zurueck): erfuellt, 6 von 7. Teil 3 (das Verb *heilt* hat einen Eingang):
+  erfuellt, 334 contradicts-Kanten und 141 markierte Absaetze, auf denen Athene
+  etwas finden koennte. Teil 2 (Frame-Routing hat eine messbare Wirkung):
+  erfuellt, aber erst nach der Vererbung und als Tausch, nicht als Gewinn — das
+  Widerspruchs-Profil holt die Helena-Frage, bei der der Korpus den Streit
+  selbst benennt, und verliert die Moiren-Frage, die nur strukturell uneins
+  ist. Vor der Vererbung waren alle Profile Frage fuer Frage identisch.
+
+  OFFEN, benannt statt versteckt: die Praezision des Passes (74 Bestaetigungen
+  enthalten Extraktionsrauschen wie Fragmentnummern); von den sieben
+  Gold-Faellen fand der Pass nur Aphrodite und Helena, und die mit anderen
+  Partnern als erwartet; Works and Days ist in dieser Ausgabe nicht enthalten,
+  also gibt es die Pandora- und Zeitalter-Gegensaetze nicht, die das Ticket
+  vermutet hatte; die Deskriptor-Klassen sind kuratiert und decken
+  Verwandtschaft ab, weil dieser Korpus eine Genealogie ist.
 relates_to:
   - PHX-1095   # der Frame ist ein Hash
   - PHX-1101   # derselbe Befund, eine Ebene tiefer
   - PHX-1106   # kommt davor
   - PHX-1045   # Demo-Beat 2 haengt an einer Widerspruchsfrage
 linked_docs:
+  - docs/etappes/contradiction.md
   - docs/etappes/plan_from_the_vision_2026-09.md
   - docs/etappes/vision_claims_ledger.json
   - docs/PANTHEON_VISION.md
