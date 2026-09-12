@@ -35,6 +35,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from theogony.mesh.eval.corpus_qa import GoldQuestion, _normalise, load_gold
+from theogony.mesh.retrieval.constellation import Constellation
 from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
 from theogony.mesh.retrieval.retrieve import retrieve
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
@@ -121,7 +122,17 @@ def _constellation_context(
     result = retrieve(
         runtime, vector, query=question, top_k=top_k, record_firing=False, **retrieve_kwargs
     )
-    constellation = result.constellation
+    return render_constellation(result.constellation)
+
+
+def render_constellation(constellation: Constellation) -> str:
+    """The shipped text rendering of a Constellation, the one a user's model reads.
+
+    Split out of `_constellation_context` so that the latent-mile harness
+    (PHX-1109) can hand the *same* Constellation to the same reader twice, once
+    as this text and once as vectors, and attribute any difference to the
+    medium rather than to the retrieval.
+    """
     lines = ["Entities:"]
     lines += [f"- {n.name}" for n in constellation.nodes if not n.is_source_anchor]
 

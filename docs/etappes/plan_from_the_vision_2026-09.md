@@ -217,3 +217,69 @@ Beleg in einem Satz. Der Volltext steht in
 | Hestia hat ein stehendes Abonnement auf jeden Neugier-Auslöser | CURIOSITY:143 | HestiaLite wurde in W13 gelöscht; `hestia.py` ist ein Schema ohne Laufzeit |
 | Der Oneiros-Tick läuft alle paar Minuten, mit Renormalisierung und gestuftem Zerfall | CHRONIK_SCALE:146 | kein Scheduler; nur k=2; keine Renormalisierung |
 | Neo4j ist hinter dem Store-Protokoll vollständig reversibel | GEN1_LEGACY:588 | der Migrationsplan nannte die Diskrepanz strukturell und schrieb sechs Schritte |
+
+---
+
+## Nachtrag 2026-09-11 — Spur E: die latente letzte Meile (PHX-1109)
+
+Anlass war Jakobs Frage nach den Berichten, dass Sprachmodelle ihr Denken
+zunehmend in internen Schichten erledigen und keine lesbaren Zwischenschritte
+mehr brauchen. Die Recherche ergab zwei Befunde, die man auseinanderhalten
+muss:
+
+- **Heutige Frontier-Modelle rechnen schon jetzt Wesentliches ohne Spur im
+  Text.** Baherwani, Goldstein und Panda (Juli 2026) heben mit inhaltsleeren
+  Fülltokens die Genauigkeit von 13 Frontier-Modellen um bis zu 13 Punkte;
+  Wang (April 2026) nennt die latente Trajektorie die Arbeitshypothese des
+  Feldes und den Text ihre Projektion; Anthropic übersetzt seit Mai
+  Aktivierungen per Autoencoder in Sprache und findet dort, was die Kette
+  verschweigt.
+- **Architekturen ohne Text-Zwischenschritte funktionieren, aber klein.**
+  Coconut (Meta) füttert den verborgenen Zustand zurück, ein kontinuierlicher
+  Gedanke kodiert mehrere nächste Schritte zugleich. Rekurrente Tiefe (Huginn,
+  3,5B) erreicht die Reasoning-Leistung deutlich größerer Modelle. LOTUS (Juni
+  2026) schließt bei 3B zum expliziten Chain-of-Thought auf, bei 2,5- bis
+  6,9-fach geringerer Latenz — und sagt zugleich, dass frühere latente
+  Methoden über 1B zurückfielen. Kohli et al. (COLM 2026): rekurrente
+  Transformer kombinieren in einem Vorwärtsdurchlauf Fakten, die im Training
+  nie zusammen vorkamen. Kein Frontier-Lab hat einen latenten Reasoner
+  ausgeliefert (Turing Post, Juli 2026).
+
+**Was das für Theogony heißt, in vier Sätzen.** Die Richtung der Kernthese
+wird respektabel, für eine andere Behauptung als unsere: Text ist auch *im*
+Modell nicht das Medium. Bei uns läuft trotzdem alles durch Text, deshalb ist
+VISION:44 („der Agent liest keinen Kontext, er empfängt Struktur") bei uns
+ungemessen. Was latentes Denken wegnimmt, die lesbare Spur, ist genau das, was
+ein Substrat mit Ursprung, Revisionspfad und lesbarem Widerspruch anbietet —
+**das Substrat ist die Prüfspur, die latente Modelle nicht mehr erzeugen**, und
+das gilt nur, wenn PHX-1107 existiert. Und die Konkurrenz wird schärfer: wenn
+Modelle Fakten in den Gewichten komponieren, muss das Mesh zeigen, dass es
+komponiert, was *gestern* gelesen wurde, mit Provenienz (Monkey 3).
+
+**Spur E, nach B eingeordnet, heute begonnen, weil sie das Instrument nutzt,
+das da ist.** xRAG (2024) zeigt: eingefrorener Retriever, eingefrorenes
+Modell, kleiner trainierter Projektor, ein Dokument als ein Token. Auf uns
+übertragen: Knotenvektoren aus bge-small-en, ein Projektor, der
+Einbettungsraum eines offenen Kleinlesers; die Constellation wird zu weichen
+Tokens plus Kantenstruktur statt zu einem Textblock. Drei Arme mit demselben
+lokalen Leser, dieselbe Bewertung wie das Antwort-Instrument, untrainierter
+Projektor als Kontrolle. Das MNLM-Brief hat diesen Weg als verwässert
+abgelehnt; das Brief hat beim Horizont recht und bei der Reihenfolge nicht.
+
+*Fertig, wenn:* die weiche Constellation gegen die Text-Constellation auf dem
+Gold-Set gemessen ist, mit Streuung. Ein Nullergebnis ist ein Ergebnis. An der
+Reihenfolge A → B ändert sich nichts: beide sind Voraussetzungen für jeden
+Leser, ob Text oder latent.
+
+**Ergebnis (2026-09-12, [`latent_mile.md`](latent_mile.md)):** der Vektor
+kommt an, die Antwort nicht. Ein eingefrorener 3B-Leser liest aus dem
+projizierten Knotenvektor die Identität des Knotens (2,4 gegen 6,8 nats je
+Namens-Token mit dem richtigen gegen einen fremden Vektor, auf ungesehenen
+Knoten), bildet aber aus fünfzig solchen Tokens keine Antwort: streng bewertet
+Text 49 %, Vorwissen 14 %, Vektoren 9–11 %, gegen den Text auf keiner Frage
+besser. Gebaut ist xRAG Stufe 1; der Hebel ist Stufe 2, Instruktionstuning
+mit Selbst-Destillation, und die braucht Frage-Antwort-Daten jenseits des
+Gold-Sets. VISION:44 zerfällt in „receives structure" (ja) und „no text
+translation required" (auf dieser Skala nein). Spur E bleibt nach B; die
+Reihenfolge ändert sich nicht. Nebenbefund fürs Instrument: 30 der 111
+Gold-Namen stehen in der eigenen Frage (PHX-1098).
