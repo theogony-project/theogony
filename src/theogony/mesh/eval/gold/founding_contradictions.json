@@ -1,0 +1,179 @@
+{
+  "meta": {
+    "corpus": "data/raw/founding/pg348_the.txt",
+    "built": "2026-09-12",
+    "ticket": "PHX-1107",
+    "what": "Places where this corpus contradicts itself about a matter of fact.",
+    "why": "PANTHEON_VISION Non-Negotiable 2 asks that contradiction and competing interpretations be preserved. Nothing measured whether they are, because there was no set of questions whose correct answer is 'both'. A question here is answered correctly only if the Constellation carries an entity from BOTH sides; carrying one side and not the other is the encyclopaedia behaviour the Chronik is supposed to refuse.",
+    "how": "Each side was located in the file by line number and its sentence quoted exactly. Only contradictions verifiable in this corpus are listed: Works and Days is not in this edition, so the Pandora and races-of-men contrasts that the ticket guessed at do not exist here.",
+    "note": "`expect` names are the entities that should reach the Constellation for that side, spelled as the translation spells them. Sides A and B are not ordered by correctness — neither is wrong, and the substrate is not asked to choose."
+  },
+  "questions": [
+    {
+      "id": "fates-parentage",
+      "question": "Who bore the Fates?",
+      "strength": "DIRECT",
+      "scope": "intra-work",
+      "sides": [
+        {
+          "label": "Night, without a father",
+          "expect": ["Night"],
+          "work": "Theogony ll. 211-225",
+          "lines": "195-200",
+          "evidence": "Also she bare the Destinies and ruthless avenging Fates, Clotho and Lachesis and Atropos"
+        },
+        {
+          "label": "Themis, to Zeus",
+          "expect": ["Themis"],
+          "work": "Theogony ll. 901-906",
+          "lines": "804-807",
+          "evidence": "Next he married bright Themis who bare ... the Moerae (Fates) to whom wise Zeus gave the greatest honour"
+        }
+      ],
+      "shared": ["Clotho", "Lachesis", "Atropos"]
+    },
+    {
+      "id": "asclepius-mother",
+      "question": "Who was the mother of Asclepius?",
+      "strength": "DIRECT",
+      "scope": "cross-work",
+      "sides": [
+        {
+          "label": "Arsinoe",
+          "expect": ["Arsinoe"],
+          "work": "Catalogues of Women Fr. 63",
+          "lines": "1443-1444",
+          "evidence": "And Arsinoe was joined with the son of Zeus and Leto and bare a son Asclepius"
+        },
+        {
+          "label": "Coronis",
+          "expect": ["Coronis"],
+          "work": "Hymn XVI to Asclepius",
+          "lines": "4733-4734",
+          "evidence": "In the Dotian plain fair Coronis, daughter of King Phlegyas, bare him"
+        }
+      ],
+      "shared": ["Asclepius"],
+      "corpus_flags_it": "line 1433: 'Some say (Asclepius) was the son of Arsinoe, others of Coronis.'"
+    },
+    {
+      "id": "helen-parentage",
+      "question": "Who was the mother of Helen?",
+      "strength": "DIRECT",
+      "scope": "cross-work",
+      "sides": [
+        {
+          "label": "a daughter of Ocean",
+          "expect": ["Ocean", "Oceanus"],
+          "work": "Catalogues of Women Fr. 66",
+          "lines": "1455-1456",
+          "evidence": "Hesiod, however, makes Helen the child neither of Leda nor Nemesis, but daughter of Ocean and Zeus."
+        },
+        {
+          "label": "Nemesis",
+          "expect": ["Nemesis"],
+          "work": "Cypria Fr. 8",
+          "lines": "5473-5474",
+          "evidence": "Rich-tressed Nemesis once gave her birth when she had been joined in love with Zeus"
+        }
+      ],
+      "shared": ["Helen"],
+      "corpus_flags_it": "line 1455 names and rejects both rival mothers."
+    },
+    {
+      "id": "typhoeus-parentage",
+      "question": "Who bore Typhoeus?",
+      "strength": "DIRECT",
+      "scope": "cross-work",
+      "sides": [
+        {
+          "label": "Earth, by Tartarus",
+          "expect": ["Earth", "Tartarus"],
+          "work": "Theogony ll. 820-868",
+          "lines": "736-738",
+          "evidence": "huge Earth bare her youngest child Typhoeus of the love of Tartarus"
+        },
+        {
+          "label": "Hera, alone and angry",
+          "expect": ["Hera"],
+          "work": "Hymn III to Pythian Apollo ll. 305-306",
+          "lines": "3484",
+          "evidence": "Once on a time Hera bare him because she was angry with father Zeus"
+        }
+      ],
+      "shared": ["Typhoeus", "Typhaon"]
+    },
+    {
+      "id": "nemesis-parentage",
+      "question": "Whose daughter is Nemesis?",
+      "strength": "DIRECT",
+      "scope": "cross-work",
+      "sides": [
+        {
+          "label": "Night, without a father",
+          "expect": ["Night"],
+          "work": "Theogony ll. 211-225",
+          "lines": "204",
+          "evidence": "Also deadly Night bare Nemesis (Indignation) to afflict mortal men"
+        },
+        {
+          "label": "Zeus",
+          "expect": ["Zeus"],
+          "work": "Cypria Fr. 8",
+          "lines": "5475-5476",
+          "evidence": "Nemesis tried to escape him and liked not to lie in love with her father Zeus"
+        }
+      ],
+      "shared": ["Nemesis"],
+      "note": "In the Theogony's chronology Zeus is not yet born when Night bears Nemesis."
+    },
+    {
+      "id": "aphrodite-birth",
+      "question": "How was Aphrodite born?",
+      "strength": "DIRECT",
+      "scope": "cross-work",
+      "sides": [
+        {
+          "label": "from the foam of Heaven's severed members",
+          "expect": ["foam", "Cythera", "Cyprus", "Heaven"],
+          "work": "Theogony ll. 176-206",
+          "lines": "175-176",
+          "evidence": "a white foam spread around them from the immortal flesh, and in it there grew a maiden"
+        },
+        {
+          "label": "daughter of Zeus",
+          "expect": ["Zeus"],
+          "work": "Hymn V to Aphrodite l. 81",
+          "lines": "4338",
+          "evidence": "Aphrodite, the daughter of Zeus stood before him"
+        }
+      ],
+      "shared": ["Aphrodite"],
+      "note": "Hymn VI (line 4537) backs the Theogony against Hymn V: two adjacent hymns to one goddess disagree. Side B is marked only by Zeus, who is everywhere in this corpus, so this question is the weakest of the seven to measure with."
+    },
+    {
+      "id": "hephaestus-parentage",
+      "question": "Did Hephaestus have a father?",
+      "strength": "DIRECT",
+      "scope": "intra-work",
+      "sides": [
+        {
+          "label": "Hera alone, without Zeus",
+          "expect": ["Hera"],
+          "work": "Theogony ll. 924-929",
+          "lines": "834-835",
+          "evidence": "But Hera without union with Zeus—for she was very angry and quarrelled with her mate—bare famous Hephaestus"
+        },
+        {
+          "label": "Zeus is his father",
+          "expect": ["Zeus"],
+          "work": "Theogony ll. 578-580",
+          "lines": "518-519",
+          "evidence": "worked with his own hands as a favour to Zeus his father"
+        }
+      ],
+      "shared": ["Hephaestus"],
+      "note": "Side B is marked only by Zeus; see the note on aphrodite-birth."
+    }
+  ]
+}
