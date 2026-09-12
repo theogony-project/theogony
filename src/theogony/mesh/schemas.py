@@ -109,6 +109,18 @@ class Edge(BaseModel):
     decay_tier: int = 0
     frame_consistency: float = 1.0
 
+    # When this relation is held to hold. `MESH_SUBSTRATE` gives edges a
+    # frame and a weight but no validity, so a claim that *stopped* being true
+    # was indistinguishable from one that never was — PANTHEON_VISION's
+    # Non-Negotiable 3 ("time is intrinsic: change, supersession, expectation")
+    # had no field anywhere in the schema (PHX-1107). Both optional and both
+    # absent from the Arrow columns on purpose: they ride in `payload_json`,
+    # so a mesh written before this reads back with `None` rather than needing
+    # a migration. `valid_to` is set when a `supersedes` edge overtakes this
+    # one; `None` means "still in force as far as the substrate knows".
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+
     eligibility: float = 0.0
     feedback_modulated_strength: float = 0.0
 

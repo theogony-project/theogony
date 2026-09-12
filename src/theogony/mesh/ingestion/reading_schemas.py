@@ -63,7 +63,18 @@ class LLMRelation(BaseModel):
     )
     relation_kind: str = Field(
         default="semantic",
-        description="Broader relation bucket such as causal, hierarchy, attribute, or semantic",
+        description=(
+            "Broader relation bucket: causal, hierarchy, attribute, semantic — or "
+            "contradicts / supersedes when this relation records a disagreement"
+        ),
+    )
+    stance: str = Field(
+        default="current_claim",
+        description=(
+            "Epistemic stance of this relation: current_claim, definition, "
+            "historical_claim, refuted_claim, hypothesis, observation, direct_quote, "
+            "disputed, superseded"
+        ),
     )
     rationale: str = Field(default="", description="Why this relation exists")
 
@@ -102,6 +113,14 @@ class ParagraphReadingOutput(BaseModel):
         default=None,
         description="Optional paragraph-level concept node",
     )
+    stance: str = Field(
+        default="current_claim",
+        description=(
+            "Epistemic stance of the paragraph as a whole: current_claim, definition, "
+            "historical_claim, refuted_claim, hypothesis, observation, direct_quote, "
+            "disputed, superseded"
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -132,9 +151,19 @@ _RELATION_ALIASES = {
     "predicate": "relation_descriptor",
     "descriptor": "relation_descriptor",
     "kind": "relation_kind",
+    "frame": "stance",
+    "epistemic_stance": "stance",
+    "modality": "stance",
 }
 _CONCEPT_FIELDS = {"label", "entity_type", "tags", "description", "qids"}
-_RELATION_FIELDS = {"source", "target", "relation_descriptor", "relation_kind", "rationale"}
+_RELATION_FIELDS = {
+    "source",
+    "target",
+    "relation_descriptor",
+    "relation_kind",
+    "stance",
+    "rationale",
+}
 
 
 def _rename(row: dict[str, object], aliases: dict[str, str], keep: set[str]) -> dict[str, object]:
@@ -170,6 +199,11 @@ def normalize_reading_payload(raw: dict[str, object]) -> dict[str, object]:
         "concepts": [c for c in concepts if c.get("label")],
         "relations": [r for r in relations if r.get("source") and r.get("target")],
     }
+    for key in ("stance", "frame", "epistemic_stance"):
+        value = raw.get(key)
+        if isinstance(value, str) and value.strip():
+            out["stance"] = value
+            break
     para = raw.get("paragraph_concept")
     if isinstance(para, dict):
         renamed = _rename(
