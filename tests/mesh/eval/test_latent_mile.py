@@ -23,9 +23,11 @@ from theogony.mesh.eval.latent_mile import (
     node_label,
     paired_arms,
     paraphrase_examples,
+    restated,
     soft_context,
     splice_soft_tokens,
     split_holdout,
+    strict_rows,
     training_nodes,
 )
 from theogony.mesh.retrieval.constellation import (
@@ -192,6 +194,45 @@ def test_calibrate_puts_a_fresh_projector_on_the_readers_scale() -> None:
     sample = sample / sample.norm(dim=-1, keepdim=True)
     projector.calibrate(sample, target_norm=0.05)
     assert abs(float(projector(sample).norm(dim=-1).mean()) - 0.05) < 1e-4
+
+
+def test_strict_scoring_drops_the_names_the_question_hands_out() -> None:
+    """*Who did Cycnus slay?* expects Cycnus; an answer that repeats the question
+    must not be paid for it, and a question with nothing left must vanish."""
+    from theogony.mesh.eval.corpus_qa import GoldQuestion
+
+    gold = [
+        GoldQuestion(
+            id="q1", question="Who did Cycnus slay?", expect=["Cycnus", "Heracles"], evidence=""
+        ),
+        GoldQuestion(id="q2", question="Where was Apollo born?", expect=["Apollo"], evidence=""),
+    ]
+    rows = [
+        AnswerResult(
+            id="q1",
+            arm="soft",
+            kind="n",
+            question="",
+            expected=["Cycnus", "Heracles"],
+            answer="Cycnus was slain.",
+            found=["Cycnus"],
+            missed=["Heracles"],
+        ),
+        AnswerResult(
+            id="q2",
+            arm="soft",
+            kind="n",
+            question="",
+            expected=["Apollo"],
+            answer="Apollo",
+            found=["Apollo"],
+            missed=[],
+        ),
+    ]
+    strict = strict_rows(rows, gold)
+    assert [r.id for r in strict] == ["q1"]
+    assert strict[0].expected == ["Heracles"] and strict[0].found == [] and strict[0].recall == 0.0
+    assert restated(["Cycnus", "Heracles"], "Who did Cycnus slay?") == ["Cycnus"]
 
 
 def test_pairing_counts_wins_losses_and_ties_per_question() -> None:

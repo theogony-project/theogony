@@ -1,7 +1,7 @@
 id: PHX-1109
 category: substrate-retrieval
 priority: high
-status: open
+status: done
 generation_target: MESH — Konsumtion (MESH_RETRIEVAL Schritt 5), die letzte Meile
 title: "Die latente letzte Meile: die Constellation als Vektoren statt als Text übergeben"
 filed_by: Claude Code (2026-09-11, aus der Einschätzung zu latentem Reasoning)
@@ -36,39 +36,68 @@ description: >
   Horizont recht und bei der Reihenfolge nicht: der Soft-Prompt-Pfad ist der
   Falsifikator, den wir uns leisten können.
 
-  Umfang, als Messung:
+  Umfang, als Messung: ein offener Kleinleser mit Einbettungs-Eingang,
+  eingefroren; ein Projektor von den Knotenvektoren in seinen Einbettungsraum,
+  ein Knoten = ein weiches Token, trainiert wie xRAG Stufe 1 (Paraphrase) auf
+  den konsolidierten Knoten, das Gold-Set unberührt; drei Arme mit demselben
+  Leser und derselben Bewertung wie corpus_answers plus untrainierter
+  Projektor als Kontrolle. Ein Nullergebnis ist ein Ergebnis.
+resolution: >
+  Gemessen, 2026-09-12. Der Vektor kommt an, die Antwort nicht. Volltext:
+  docs/etappes/latent_mile.md.
 
-  1. Leser: ein offenes Kleinmodell mit Einbettungs-Eingang, das auf dem
-     Laptop läuft (Qwen2.5-1.5B-Instruct, im Brief als PoC-Ziel genannt,
-     liegt im Cache). Eingefroren.
-  2. Projektor: von den 384-d Knotenvektoren des Founding-Mesh (bge-small-en)
-     in den 1.536-d Einbettungsraum des Lesers, ein Knoten = ein weiches
-     Token. Trainiert wie xRAG Stufe 1 (Paraphrase): aus dem weichen Token
-     soll das Modell Name und Beschreibung des Knotens erzeugen. Trainings-
-     daten sind die konsolidierten Knoten mit Beschreibung; das Gold-Set
-     bleibt unberührt.
-  3. Drei Arme, derselbe lokale Leser, dieselben k Knoten, dieselbe
-     Bewertung wie `corpus_answers.py`: closed_book; Text-Constellation (das
-     ausgelieferte Rendering); weiche Constellation (weiche Tokens statt
-     Namen, Relationen als Tripel über weichen Tokens).
-  4. Kontrolle: derselbe Projektor untrainiert. Wenn der trainierte nicht
-     über dem untrainierten liegt, hat der Leser die Vektoren nicht gelesen.
+  Aufbau: Qwen2.5-3B-Instruct eingefroren (der 1,5B aus dem Brief liest schon
+  das Text-Material kaum, 24 % gegen 33 % Vorwissen, und wurde verworfen),
+  Projektor 768 -> 2048 -> 2048 (semantic + description_vector; semantic
+  allein ebenfalls gemessen), Paraphrase-Training auf 3.529 Knoten mit 186
+  zurückgehalten, vier Arme über 47 Gold-Fragen, drei Projektoren (zwei
+  Seeds, eine Vektorvariante), einer auf 20 Epochen fortgesetzt.
 
-  Fertig, wenn: die weiche Constellation auf dem Gold-Set gemessen ist,
-  gegen die Text-Constellation mit demselben Leser, mit Streuung. Ein
-  Nullergebnis ist ein Ergebnis: es sagt, dass die Vision-Behauptung auf
-  dieser Skala nicht gilt, und benennt, was fehlte.
+  Was das Token trägt: auf zurückgehaltenen Knoten kostet der Name mit dem
+  richtigen Vektor 2,9 nats je Token, mit dem Vektor eines anderen Knotens
+  4,9 (fünf Epochen); 2,4 gegen 6,8 nach zwanzig. Identität fliesst, wachsend,
+  verallgemeinernd, bis der Projektor ab Epoche 15 auswendig lernt. Der
+  semantische Vektor allein trägt genauso viel wie beide zusammen.
 
-  Nicht Umfang: Graph-KV, Latent Flow Matching, Training des Lesers, die
-  Substrate-Resonant Recurrence. Das bleibt PHX-1035 und dem Brief.
+  Was der Leser daraus macht, streng bewertet (ohne die 30 von 111
+  Gold-Namen, die in der Frage selbst stehen; 39 Fragen): Text 49 %,
+  Vorwissen 14 %, Vektoren 9 / 11 / 1 / 11 % (both s0, both s1, semantic,
+  both 20 Epochen), untrainiert 0 %. Gepaart gegen Text: 0 Fragen besser in
+  jedem Lauf (24, 22, 25, 20 schlechter). Gegen untrainiert: gewinnt in jedem
+  Lauf, verliert nie. Gegen Vorwissen: gleich.
+
+  Der ausgelieferte Bewerter hätte Gleichstand gemeldet: nach 20 Epochen -2
+  gegen Text, 13 besser / 17 schlechter, 11 vollständige Antworten gegen 8.
+  Alle dreizehn Gewinne sind Fragen, deren Gold-Namen in der Frage stehen,
+  und der per Paraphrase trainierte Arm antwortet in Sätzen, die die Frage
+  nachsprechen (6 Wörter gegen 2). Die strenge Bewertung steht jetzt im
+  Harness (strict_rows), der Gold-Set-Fehler als Nachtrag in PHX-1098.
+
+  Warum: gebaut ist xRAG Stufe 1 (das Token dekodieren), nicht Stufe 2
+  (das Token unter einer Anweisung benutzen, Instruktionstuning mit
+  Selbst-Destillation vom Text-Lehrer). Mehr Epochen sind nicht der Hebel
+  (streng 9 -> 11 %), Stufe 2 ist es, und die braucht Frage-Antwort-Daten,
+  die nicht das Gold-Set sind. VISION:44 zerfällt damit in zwei gemessene
+  Hälften: "receives structure" ja, "no text translation required" auf dieser
+  Skala und mit diesem Rezept nein.
+
+  Im Repo bleibt: latent_mile.py (Projektor, Leser mit eigenem Greedy-Loop,
+  weil generate() mit inputs_embeds auf MPS unter transformers 5.5 Unsinn
+  liefert; Paraphrase-Training mit Gradient-Checkpointing; vier Arme;
+  diagnose; strenge Bewertung), scripts/mesh_latent_mile.py, Tests, die
+  Kurven aller Läufe in docs/etappes/latent_mile_runs.json.
 relates_to:
   - PHX-1035   # das MNLM, blockiert auf GPU; dieses Ticket ist sein Falsifikator zu Fuß
   - PHX-1087   # das Antwort-Instrument
+  - PHX-1098   # das Gold-Set: keine Aliase, und 30 Namen in der eigenen Frage
   - PHX-1099   # k_seeds = 1, die Constellation, die hier übergeben wird
   - PHX-1107   # was ein latenter Leser im Substrat vorfinden muss
 linked_docs:
+  - docs/etappes/latent_mile.md
   - docs/etappes/plan_from_the_vision_2026-09.md
   - docs/etappes/mesh_native_lm_brief.md
   - docs/VISION.md
 linked_scripts:
+  - scripts/mesh_latent_mile.py
+  - src/theogony/mesh/eval/latent_mile.py
   - src/theogony/mesh/eval/corpus_answers.py

@@ -1,0 +1,1059 @@
+{
+ "note": "PHX-1109, 2026-09-12. Reader Qwen2.5-3B-Instruct, mesh data/mesh-founding (14 ticks), 47 gold questions, k_seeds=1, top_k=50. 'strict' drops the 30 gold names that stand in their own question (39 questions left).",
+ "runs": {
+  "qwen3b_both_s0": {
+   "vectors": "both",
+   "training": {
+    "reader": "Qwen/Qwen2.5-3B-Instruct",
+    "node_dim": 768,
+    "llm_dim": 2048,
+    "nodes_train": 3529,
+    "nodes_holdout": 186,
+    "seed": 0,
+    "mode": "both",
+    "epochs": [
+     {
+      "epoch": 1,
+      "steps": 177,
+      "train_loss": 3.034004457926346,
+      "holdout_loss": 2.461248775323232,
+      "label_recovery_train": 0.0,
+      "label_recovery_holdout": 0.0,
+      "seconds": 899.9879341125488,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 2,
+      "steps": 176,
+      "train_loss": 2.5047794458541004,
+      "holdout_loss": 2.2077972292900085,
+      "label_recovery_train": 0.0,
+      "label_recovery_holdout": 0.0,
+      "seconds": 841.8734357357025,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 3,
+      "steps": 178,
+      "train_loss": 2.387284169036351,
+      "holdout_loss": 2.1552927692731223,
+      "label_recovery_train": 0.0,
+      "label_recovery_holdout": 0.03333333333333333,
+      "seconds": 912.2535469532013,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 4,
+      "steps": 180,
+      "train_loss": 2.2967957079410555,
+      "holdout_loss": 2.0678331553936005,
+      "label_recovery_train": 0.0,
+      "label_recovery_holdout": 0.03333333333333333,
+      "seconds": 834.0869920253754,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 5,
+      "steps": 177,
+      "train_loss": 2.2246215976564225,
+      "holdout_loss": 2.0092396835486093,
+      "label_recovery_train": 0.0,
+      "label_recovery_holdout": 0.06666666666666667,
+      "seconds": 805.9397916793823,
+      "nan_steps": 0
+     }
+    ]
+   },
+   "summary": {
+    "closed_book": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 18.0,
+     "answer_recall": 0.16216216216216217,
+     "answer_recall_min": 0.16216216216216217,
+     "answer_recall_max": 0.16216216216216217,
+     "complete_answers": 4.0,
+     "complete_answers_min": 4.0,
+     "complete_answers_max": 4.0,
+     "declined": 0.0
+    },
+    "constellation": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 42.0,
+     "answer_recall": 0.3783783783783784,
+     "answer_recall_min": 0.3783783783783784,
+     "answer_recall_max": 0.3783783783783784,
+     "complete_answers": 8.0,
+     "complete_answers_min": 8.0,
+     "complete_answers_max": 8.0,
+     "declined": 0.0
+    },
+    "soft": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 21.0,
+     "answer_recall": 0.1891891891891892,
+     "answer_recall_min": 0.1891891891891892,
+     "answer_recall_max": 0.1891891891891892,
+     "complete_answers": 6.0,
+     "complete_answers_min": 6.0,
+     "complete_answers_max": 6.0,
+     "declined": 0.0
+    },
+    "soft_untrained": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 12.0,
+     "answer_recall": 0.10810810810810811,
+     "answer_recall_min": 0.10810810810810811,
+     "answer_recall_max": 0.10810810810810811,
+     "complete_answers": 2.0,
+     "complete_answers_min": 2.0,
+     "complete_answers_max": 2.0,
+     "declined": 0.0
+    }
+   },
+   "summary_strict": {
+    "closed_book": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 11.0,
+     "answer_recall": 0.13580246913580246,
+     "answer_recall_min": 0.13580246913580246,
+     "answer_recall_max": 0.13580246913580246,
+     "complete_answers": 3.0,
+     "complete_answers_min": 3.0,
+     "complete_answers_max": 3.0,
+     "declined": 0.0
+    },
+    "constellation": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 40.0,
+     "answer_recall": 0.49382716049382713,
+     "answer_recall_min": 0.49382716049382713,
+     "answer_recall_max": 0.49382716049382713,
+     "complete_answers": 13.0,
+     "complete_answers_min": 13.0,
+     "complete_answers_max": 13.0,
+     "declined": 0.0
+    },
+    "soft": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 7.0,
+     "answer_recall": 0.08641975308641975,
+     "answer_recall_min": 0.08641975308641975,
+     "answer_recall_max": 0.08641975308641975,
+     "complete_answers": 2.0,
+     "complete_answers_min": 2.0,
+     "complete_answers_max": 2.0,
+     "declined": 0.0
+    },
+    "soft_untrained": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 0.0,
+     "answer_recall": 0.0,
+     "answer_recall_min": 0.0,
+     "answer_recall_max": 0.0,
+     "complete_answers": 0.0,
+     "complete_answers_min": 0.0,
+     "complete_answers_max": 0.0,
+     "declined": 0.0
+    }
+   },
+   "paired": {
+    "soft_vs_constellation": {
+     "questions": 47.0,
+     "better": 7.0,
+     "worse": 22.0,
+     "equal": 18.0,
+     "delta": -0.1526595744680851
+    },
+    "soft_vs_soft_untrained": {
+     "questions": 47.0,
+     "better": 12.0,
+     "worse": 5.0,
+     "equal": 30.0,
+     "delta": 0.09929078014184398
+    },
+    "soft_vs_closed_book": {
+     "questions": 47.0,
+     "better": 10.0,
+     "worse": 4.0,
+     "equal": 33.0,
+     "delta": 0.0851063829787234
+    },
+    "constellation_vs_closed_book": {
+     "questions": 47.0,
+     "better": 23.0,
+     "worse": 4.0,
+     "equal": 20.0,
+     "delta": 0.23776595744680853
+    }
+   },
+   "paired_strict": {
+    "soft_vs_constellation": {
+     "questions": 39.0,
+     "better": 0.0,
+     "worse": 24.0,
+     "equal": 15.0,
+     "delta": -0.4318376068376068
+    },
+    "soft_vs_soft_untrained": {
+     "questions": 39.0,
+     "better": 5.0,
+     "worse": 0.0,
+     "equal": 34.0,
+     "delta": 0.07692307692307693
+    },
+    "soft_vs_closed_book": {
+     "questions": 39.0,
+     "better": 3.0,
+     "worse": 3.0,
+     "equal": 33.0,
+     "delta": -0.017094017094017096
+    },
+    "constellation_vs_closed_book": {
+     "questions": 39.0,
+     "better": 23.0,
+     "worse": 1.0,
+     "equal": 15.0,
+     "delta": 0.41474358974358977
+    }
+   },
+   "words_per_answer": {
+    "closed_book": 3.4468085106382977,
+    "constellation": 2.872340425531915,
+    "soft": 2.978723404255319,
+    "soft_untrained": 2.234042553191489
+   }
+  },
+  "qwen3b_both_s1": {
+   "vectors": "both",
+   "training": {
+    "reader": "Qwen/Qwen2.5-3B-Instruct",
+    "node_dim": 768,
+    "llm_dim": 2048,
+    "nodes_train": 3529,
+    "nodes_holdout": 186,
+    "seed": 1,
+    "mode": "both",
+    "resumed_from": null,
+    "epochs": [
+     {
+      "epoch": 1,
+      "steps": 175,
+      "train_loss": 2.900136367252895,
+      "holdout_loss": 2.5010549128055573,
+      "label_recovery_train": 0.03333333333333333,
+      "label_recovery_holdout": 0.03333333333333333,
+      "seconds": 848.8632349967957,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 2,
+      "steps": 179,
+      "train_loss": 2.4742061765500285,
+      "holdout_loss": 2.3898930748303733,
+      "label_recovery_train": 0.03333333333333333,
+      "label_recovery_holdout": 0.0,
+      "seconds": 811.6608576774597,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 3,
+      "steps": 176,
+      "train_loss": 2.3584081063216384,
+      "holdout_loss": 2.272500847776731,
+      "label_recovery_train": 0.03333333333333333,
+      "label_recovery_holdout": 0.03333333333333333,
+      "seconds": 807.8005628585815,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 4,
+      "steps": 178,
+      "train_loss": 2.2737601124838496,
+      "holdout_loss": 2.1541249404350915,
+      "label_recovery_train": 0.06666666666666667,
+      "label_recovery_holdout": 0.06666666666666667,
+      "seconds": 822.3161458969116,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 5,
+      "steps": 177,
+      "train_loss": 2.1880966014107743,
+      "holdout_loss": 2.0992594063282013,
+      "label_recovery_train": 0.0,
+      "label_recovery_holdout": 0.03333333333333333,
+      "seconds": 803.1845180988312,
+      "nan_steps": 0
+     }
+    ]
+   },
+   "summary": {
+    "closed_book": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 18.0,
+     "answer_recall": 0.16216216216216217,
+     "answer_recall_min": 0.16216216216216217,
+     "answer_recall_max": 0.16216216216216217,
+     "complete_answers": 4.0,
+     "complete_answers_min": 4.0,
+     "complete_answers_max": 4.0,
+     "declined": 0.0
+    },
+    "constellation": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 42.0,
+     "answer_recall": 0.3783783783783784,
+     "answer_recall_min": 0.3783783783783784,
+     "answer_recall_max": 0.3783783783783784,
+     "complete_answers": 8.0,
+     "complete_answers_min": 8.0,
+     "complete_answers_max": 8.0,
+     "declined": 0.0
+    },
+    "soft": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 19.0,
+     "answer_recall": 0.17117117117117117,
+     "answer_recall_min": 0.17117117117117117,
+     "answer_recall_max": 0.17117117117117117,
+     "complete_answers": 2.0,
+     "complete_answers_min": 2.0,
+     "complete_answers_max": 2.0,
+     "declined": 0.0
+    },
+    "soft_untrained": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 12.0,
+     "answer_recall": 0.10810810810810811,
+     "answer_recall_min": 0.10810810810810811,
+     "answer_recall_max": 0.10810810810810811,
+     "complete_answers": 2.0,
+     "complete_answers_min": 2.0,
+     "complete_answers_max": 2.0,
+     "declined": 0.0
+    }
+   },
+   "summary_strict": {
+    "closed_book": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 11.0,
+     "answer_recall": 0.13580246913580246,
+     "answer_recall_min": 0.13580246913580246,
+     "answer_recall_max": 0.13580246913580246,
+     "complete_answers": 3.0,
+     "complete_answers_min": 3.0,
+     "complete_answers_max": 3.0,
+     "declined": 0.0
+    },
+    "constellation": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 40.0,
+     "answer_recall": 0.49382716049382713,
+     "answer_recall_min": 0.49382716049382713,
+     "answer_recall_max": 0.49382716049382713,
+     "complete_answers": 13.0,
+     "complete_answers_min": 13.0,
+     "complete_answers_max": 13.0,
+     "declined": 0.0
+    },
+    "soft": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 9.0,
+     "answer_recall": 0.1111111111111111,
+     "answer_recall_min": 0.1111111111111111,
+     "answer_recall_max": 0.1111111111111111,
+     "complete_answers": 2.0,
+     "complete_answers_min": 2.0,
+     "complete_answers_max": 2.0,
+     "declined": 0.0
+    },
+    "soft_untrained": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 0.0,
+     "answer_recall": 0.0,
+     "answer_recall_min": 0.0,
+     "answer_recall_max": 0.0,
+     "complete_answers": 0.0,
+     "complete_answers_min": 0.0,
+     "complete_answers_max": 0.0,
+     "declined": 0.0
+    }
+   },
+   "paired": {
+    "soft_vs_constellation": {
+     "questions": 47.0,
+     "better": 4.0,
+     "worse": 20.0,
+     "equal": 23.0,
+     "delta": -0.2156028368794326
+    },
+    "soft_vs_soft_untrained": {
+     "questions": 47.0,
+     "better": 11.0,
+     "worse": 5.0,
+     "equal": 31.0,
+     "delta": 0.03634751773049645
+    },
+    "soft_vs_closed_book": {
+     "questions": 47.0,
+     "better": 10.0,
+     "worse": 5.0,
+     "equal": 32.0,
+     "delta": 0.022163120567375884
+    },
+    "constellation_vs_closed_book": {
+     "questions": 47.0,
+     "better": 23.0,
+     "worse": 4.0,
+     "equal": 20.0,
+     "delta": 0.23776595744680853
+    }
+   },
+   "paired_strict": {
+    "soft_vs_constellation": {
+     "questions": 39.0,
+     "better": 0.0,
+     "worse": 22.0,
+     "equal": 17.0,
+     "delta": -0.41794871794871796
+    },
+    "soft_vs_soft_untrained": {
+     "questions": 39.0,
+     "better": 7.0,
+     "worse": 0.0,
+     "equal": 32.0,
+     "delta": 0.09081196581196581
+    },
+    "soft_vs_closed_book": {
+     "questions": 39.0,
+     "better": 5.0,
+     "worse": 3.0,
+     "equal": 31.0,
+     "delta": -0.003205128205128205
+    },
+    "constellation_vs_closed_book": {
+     "questions": 39.0,
+     "better": 23.0,
+     "worse": 1.0,
+     "equal": 15.0,
+     "delta": 0.41474358974358977
+    }
+   },
+   "words_per_answer": {
+    "closed_book": 3.4468085106382977,
+    "constellation": 2.872340425531915,
+    "soft": 2.9148936170212765,
+    "soft_untrained": 2.234042553191489
+   }
+  },
+  "qwen3b_semantic_s0": {
+   "vectors": "semantic",
+   "training": {
+    "reader": "Qwen/Qwen2.5-3B-Instruct",
+    "node_dim": 384,
+    "llm_dim": 2048,
+    "nodes_train": 3529,
+    "nodes_holdout": 186,
+    "seed": 0,
+    "mode": "semantic",
+    "epochs": [
+     {
+      "epoch": 1,
+      "steps": 177,
+      "train_loss": 3.026982090567465,
+      "holdout_loss": 2.32902284959952,
+      "label_recovery_train": 0.0,
+      "label_recovery_holdout": 0.0,
+      "seconds": 859.2654182910919,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 2,
+      "steps": 176,
+      "train_loss": 2.414262134920467,
+      "holdout_loss": 2.1509114305178323,
+      "label_recovery_train": 0.0,
+      "label_recovery_holdout": 0.0,
+      "seconds": 816.2120440006256,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 3,
+      "steps": 178,
+      "train_loss": 2.3023595267467285,
+      "holdout_loss": 2.0584155966838202,
+      "label_recovery_train": 0.0,
+      "label_recovery_holdout": 0.03333333333333333,
+      "seconds": 813.3694920539856,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 4,
+      "steps": 180,
+      "train_loss": 2.207865606413947,
+      "holdout_loss": 1.9912882695595424,
+      "label_recovery_train": 0.0,
+      "label_recovery_holdout": 0.03333333333333333,
+      "seconds": 815.8680193424225,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 5,
+      "steps": 177,
+      "train_loss": 2.134441084107437,
+      "holdout_loss": 1.9844919939835866,
+      "label_recovery_train": 0.0,
+      "label_recovery_holdout": 0.0,
+      "seconds": 806.1057000160217,
+      "nan_steps": 0
+     }
+    ]
+   },
+   "summary": {
+    "closed_book": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 18.0,
+     "answer_recall": 0.16216216216216217,
+     "answer_recall_min": 0.16216216216216217,
+     "answer_recall_max": 0.16216216216216217,
+     "complete_answers": 4.0,
+     "complete_answers_min": 4.0,
+     "complete_answers_max": 4.0,
+     "declined": 0.0
+    },
+    "constellation": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 42.0,
+     "answer_recall": 0.3783783783783784,
+     "answer_recall_min": 0.3783783783783784,
+     "answer_recall_max": 0.3783783783783784,
+     "complete_answers": 8.0,
+     "complete_answers_min": 8.0,
+     "complete_answers_max": 8.0,
+     "declined": 0.0
+    },
+    "soft": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 9.0,
+     "answer_recall": 0.08108108108108109,
+     "answer_recall_min": 0.08108108108108109,
+     "answer_recall_max": 0.08108108108108109,
+     "complete_answers": 4.0,
+     "complete_answers_min": 4.0,
+     "complete_answers_max": 4.0,
+     "declined": 0.0
+    },
+    "soft_untrained": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 10.0,
+     "answer_recall": 0.09009009009009009,
+     "answer_recall_min": 0.09009009009009009,
+     "answer_recall_max": 0.09009009009009009,
+     "complete_answers": 1.0,
+     "complete_answers_min": 1.0,
+     "complete_answers_max": 1.0,
+     "declined": 0.0
+    }
+   },
+   "summary_strict": {
+    "closed_book": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 11.0,
+     "answer_recall": 0.13580246913580246,
+     "answer_recall_min": 0.13580246913580246,
+     "answer_recall_max": 0.13580246913580246,
+     "complete_answers": 3.0,
+     "complete_answers_min": 3.0,
+     "complete_answers_max": 3.0,
+     "declined": 0.0
+    },
+    "constellation": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 40.0,
+     "answer_recall": 0.49382716049382713,
+     "answer_recall_min": 0.49382716049382713,
+     "answer_recall_max": 0.49382716049382713,
+     "complete_answers": 13.0,
+     "complete_answers_min": 13.0,
+     "complete_answers_max": 13.0,
+     "declined": 0.0
+    },
+    "soft": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 1.0,
+     "answer_recall": 0.012345679012345678,
+     "answer_recall_min": 0.012345679012345678,
+     "answer_recall_max": 0.012345679012345678,
+     "complete_answers": 1.0,
+     "complete_answers_min": 1.0,
+     "complete_answers_max": 1.0,
+     "declined": 0.0
+    },
+    "soft_untrained": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 0.0,
+     "answer_recall": 0.0,
+     "answer_recall_min": 0.0,
+     "answer_recall_max": 0.0,
+     "complete_answers": 0.0,
+     "complete_answers_min": 0.0,
+     "complete_answers_max": 0.0,
+     "declined": 0.0
+    }
+   },
+   "paired": {
+    "soft_vs_constellation": {
+     "questions": 47.0,
+     "better": 6.0,
+     "worse": 25.0,
+     "equal": 16.0,
+     "delta": -0.24131205673758865
+    },
+    "soft_vs_soft_untrained": {
+     "questions": 47.0,
+     "better": 6.0,
+     "worse": 6.0,
+     "equal": 35.0,
+     "delta": 0.031914893617021274
+    },
+    "soft_vs_closed_book": {
+     "questions": 47.0,
+     "better": 9.0,
+     "worse": 9.0,
+     "equal": 29.0,
+     "delta": -0.00354609929078014
+    },
+    "constellation_vs_closed_book": {
+     "questions": 47.0,
+     "better": 23.0,
+     "worse": 4.0,
+     "equal": 20.0,
+     "delta": 0.23776595744680853
+    }
+   },
+   "paired_strict": {
+    "soft_vs_constellation": {
+     "questions": 39.0,
+     "better": 0.0,
+     "worse": 25.0,
+     "equal": 14.0,
+     "delta": -0.48311965811965807
+    },
+    "soft_vs_soft_untrained": {
+     "questions": 39.0,
+     "better": 1.0,
+     "worse": 0.0,
+     "equal": 38.0,
+     "delta": 0.02564102564102564
+    },
+    "soft_vs_closed_book": {
+     "questions": 39.0,
+     "better": 1.0,
+     "worse": 5.0,
+     "equal": 33.0,
+     "delta": -0.06837606837606837
+    },
+    "constellation_vs_closed_book": {
+     "questions": 39.0,
+     "better": 23.0,
+     "worse": 1.0,
+     "equal": 15.0,
+     "delta": 0.41474358974358977
+    }
+   },
+   "words_per_answer": {
+    "closed_book": 3.4468085106382977,
+    "constellation": 2.872340425531915,
+    "soft": 20.148936170212767,
+    "soft_untrained": 1.7872340425531914
+   }
+  },
+  "qwen3b_both_s0_e20": {
+   "vectors": "both",
+   "training": {
+    "reader": "Qwen/Qwen2.5-3B-Instruct",
+    "node_dim": 768,
+    "llm_dim": 2048,
+    "nodes_train": 3529,
+    "nodes_holdout": 186,
+    "seed": 0,
+    "mode": "both",
+    "resumed_from": "data/latent_mile/qwen3b_both_s0.pt after 5 epochs",
+    "epochs": [
+     {
+      "epoch": 1,
+      "steps": 177,
+      "train_loss": 2.170356277692116,
+      "holdout_loss": 1.9760140031576157,
+      "label_recovery_train": 0.0,
+      "label_recovery_holdout": 0.03333333333333333,
+      "seconds": 811.4123711585999,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 2,
+      "steps": 176,
+      "train_loss": 2.0947724228555504,
+      "holdout_loss": 1.9133858233690262,
+      "label_recovery_train": 0.03333333333333333,
+      "label_recovery_holdout": 0.06666666666666667,
+      "seconds": 809.8344779014587,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 3,
+      "steps": 178,
+      "train_loss": 2.0320548328121055,
+      "holdout_loss": 1.8626109113295872,
+      "label_recovery_train": 0.0,
+      "label_recovery_holdout": 0.06666666666666667,
+      "seconds": 826.7843487262726,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 4,
+      "steps": 180,
+      "train_loss": 1.9677130301793417,
+      "holdout_loss": 1.826582446694374,
+      "label_recovery_train": 0.03333333333333333,
+      "label_recovery_holdout": 0.06666666666666667,
+      "seconds": 818.8936183452606,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 5,
+      "steps": 177,
+      "train_loss": 1.9035862879564533,
+      "holdout_loss": 1.839335560798645,
+      "label_recovery_train": 0.06666666666666667,
+      "label_recovery_holdout": 0.1,
+      "seconds": 804.8623580932617,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 6,
+      "steps": 174,
+      "train_loss": 1.8638694019153201,
+      "holdout_loss": 1.8169554124275844,
+      "label_recovery_train": 0.03333333333333333,
+      "label_recovery_holdout": 0.1,
+      "seconds": 790.442085981369,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 7,
+      "steps": 175,
+      "train_loss": 1.8180368866239276,
+      "holdout_loss": 1.8042255987723668,
+      "label_recovery_train": 0.1,
+      "label_recovery_holdout": 0.06666666666666667,
+      "seconds": 801.978490114212,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 8,
+      "steps": 180,
+      "train_loss": 1.761355158355501,
+      "holdout_loss": 1.7660176903009415,
+      "label_recovery_train": 0.03333333333333333,
+      "label_recovery_holdout": 0.1,
+      "seconds": 808.3028931617737,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 9,
+      "steps": 176,
+      "train_loss": 1.711041733622551,
+      "holdout_loss": 1.7388311227162678,
+      "label_recovery_train": 0.06666666666666667,
+      "label_recovery_holdout": 0.1,
+      "seconds": 808.4752039909363,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 10,
+      "steps": 177,
+      "train_loss": 1.6703255634523382,
+      "holdout_loss": 1.7162597229083378,
+      "label_recovery_train": 0.1,
+      "label_recovery_holdout": 0.1,
+      "seconds": 801.0561201572418,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 11,
+      "steps": 179,
+      "train_loss": 1.616437888012252,
+      "holdout_loss": 1.7391215562820435,
+      "label_recovery_train": 0.13333333333333333,
+      "label_recovery_holdout": 0.13333333333333333,
+      "seconds": 806.8540761470795,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 12,
+      "steps": 180,
+      "train_loss": 1.5807677315341102,
+      "holdout_loss": 1.760975216825803,
+      "label_recovery_train": 0.06666666666666667,
+      "label_recovery_holdout": 0.13333333333333333,
+      "seconds": 824.3308129310608,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 13,
+      "steps": 177,
+      "train_loss": 1.540346779392264,
+      "holdout_loss": 1.7553284565607707,
+      "label_recovery_train": 0.13333333333333333,
+      "label_recovery_holdout": 0.26666666666666666,
+      "seconds": 805.745945930481,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 14,
+      "steps": 179,
+      "train_loss": 1.4897844445106037,
+      "holdout_loss": 1.7850690136353176,
+      "label_recovery_train": 0.13333333333333333,
+      "label_recovery_holdout": 0.13333333333333333,
+      "seconds": 812.97514295578,
+      "nan_steps": 0
+     },
+     {
+      "epoch": 15,
+      "steps": 177,
+      "train_loss": 1.4565954814522952,
+      "holdout_loss": 1.789783204595248,
+      "label_recovery_train": 0.13333333333333333,
+      "label_recovery_holdout": 0.13333333333333333,
+      "seconds": 797.9559969902039,
+      "nan_steps": 0
+     }
+    ]
+   },
+   "summary": {
+    "closed_book": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 18.0,
+     "answer_recall": 0.16216216216216217,
+     "answer_recall_min": 0.16216216216216217,
+     "answer_recall_max": 0.16216216216216217,
+     "complete_answers": 4.0,
+     "complete_answers_min": 4.0,
+     "complete_answers_max": 4.0,
+     "declined": 0.0
+    },
+    "constellation": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 42.0,
+     "answer_recall": 0.3783783783783784,
+     "answer_recall_min": 0.3783783783783784,
+     "answer_recall_max": 0.3783783783783784,
+     "complete_answers": 8.0,
+     "complete_answers_min": 8.0,
+     "complete_answers_max": 8.0,
+     "declined": 0.0
+    },
+    "soft": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 31.0,
+     "answer_recall": 0.27927927927927926,
+     "answer_recall_min": 0.27927927927927926,
+     "answer_recall_max": 0.27927927927927926,
+     "complete_answers": 11.0,
+     "complete_answers_min": 11.0,
+     "complete_answers_max": 11.0,
+     "declined": 0.0
+    },
+    "soft_untrained": {
+     "questions": 47.0,
+     "runs": 1.0,
+     "entities_expected": 111.0,
+     "entities_named": 12.0,
+     "answer_recall": 0.10810810810810811,
+     "answer_recall_min": 0.10810810810810811,
+     "answer_recall_max": 0.10810810810810811,
+     "complete_answers": 2.0,
+     "complete_answers_min": 2.0,
+     "complete_answers_max": 2.0,
+     "declined": 0.0
+    }
+   },
+   "summary_strict": {
+    "closed_book": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 11.0,
+     "answer_recall": 0.13580246913580246,
+     "answer_recall_min": 0.13580246913580246,
+     "answer_recall_max": 0.13580246913580246,
+     "complete_answers": 3.0,
+     "complete_answers_min": 3.0,
+     "complete_answers_max": 3.0,
+     "declined": 0.0
+    },
+    "constellation": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 40.0,
+     "answer_recall": 0.49382716049382713,
+     "answer_recall_min": 0.49382716049382713,
+     "answer_recall_max": 0.49382716049382713,
+     "complete_answers": 13.0,
+     "complete_answers_min": 13.0,
+     "complete_answers_max": 13.0,
+     "declined": 0.0
+    },
+    "soft": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 9.0,
+     "answer_recall": 0.1111111111111111,
+     "answer_recall_min": 0.1111111111111111,
+     "answer_recall_max": 0.1111111111111111,
+     "complete_answers": 4.0,
+     "complete_answers_min": 4.0,
+     "complete_answers_max": 4.0,
+     "declined": 0.0
+    },
+    "soft_untrained": {
+     "questions": 39.0,
+     "runs": 1.0,
+     "entities_expected": 81.0,
+     "entities_named": 0.0,
+     "answer_recall": 0.0,
+     "answer_recall_min": 0.0,
+     "answer_recall_max": 0.0,
+     "complete_answers": 0.0,
+     "complete_answers_min": 0.0,
+     "complete_answers_max": 0.0,
+     "declined": 0.0
+    }
+   },
+   "paired": {
+    "soft_vs_constellation": {
+     "questions": 47.0,
+     "better": 13.0,
+     "worse": 17.0,
+     "equal": 17.0,
+     "delta": -0.024113475177304965
+    },
+    "soft_vs_soft_untrained": {
+     "questions": 47.0,
+     "better": 16.0,
+     "worse": 2.0,
+     "equal": 29.0,
+     "delta": 0.22783687943262412
+    },
+    "soft_vs_closed_book": {
+     "questions": 47.0,
+     "better": 18.0,
+     "worse": 5.0,
+     "equal": 24.0,
+     "delta": 0.21365248226950354
+    },
+    "constellation_vs_closed_book": {
+     "questions": 47.0,
+     "better": 23.0,
+     "worse": 4.0,
+     "equal": 20.0,
+     "delta": 0.23776595744680853
+    }
+   },
+   "paired_strict": {
+    "soft_vs_constellation": {
+     "questions": 39.0,
+     "better": 0.0,
+     "worse": 20.0,
+     "equal": 19.0,
+     "delta": -0.3837606837606838
+    },
+    "soft_vs_soft_untrained": {
+     "questions": 39.0,
+     "better": 7.0,
+     "worse": 0.0,
+     "equal": 32.0,
+     "delta": 0.125
+    },
+    "soft_vs_closed_book": {
+     "questions": 39.0,
+     "better": 6.0,
+     "worse": 4.0,
+     "equal": 29.0,
+     "delta": 0.030982905982905987
+    },
+    "constellation_vs_closed_book": {
+     "questions": 39.0,
+     "better": 23.0,
+     "worse": 1.0,
+     "equal": 15.0,
+     "delta": 0.41474358974358977
+    }
+   },
+   "words_per_answer": {
+    "closed_book": 3.4468085106382977,
+    "constellation": 2.872340425531915,
+    "soft": 11.553191489361701,
+    "soft_untrained": 2.234042553191489
+   }
+  }
+ }
+}

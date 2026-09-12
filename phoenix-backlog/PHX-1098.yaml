@@ -36,6 +36,17 @@ description: >
   affects (PHX-1087, PHX-1096, PHX-1097). Note that this changes historical
   numbers, so the re-run has to be reported as a re-measurement rather than
   quietly replacing them.
+  Nachtrag 2026-09-12 (PHX-1109): a second defect of the same file, the
+  mirror image of the first. 30 of the 111 gold names stand in their own
+  question — "How were Chrysaor and Pegasus born?" expects Chrysaor and
+  Pegasus, "What measures the depth of Tartarus?" expects Tartarus — and the
+  substring scorer pays for them whenever an answer repeats the question.
+  That inflates every arm equally only as long as every arm answers in names;
+  an arm that answers in sentences (the soft arm of PHX-1109, trained by
+  paraphrase) repeats the question far more often and scored 28% where a
+  strict count gave 11%. `latent_mile.strict_rows` drops those names and the
+  8 questions that have nothing left; the fix in the gold file is to expect
+  what the question asks for, not what it mentions.
 relates_to:
   - PHX-1097   # where it was found
   - PHX-1089   # where answer_aliases already exist, for the HippoRAG sets

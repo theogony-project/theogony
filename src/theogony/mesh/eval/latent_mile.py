@@ -668,6 +668,49 @@ def load_projector(path: Path, device: str) -> LoadedProjector:
     return LoadedProjector(projector, str(blob.get("mode", "semantic")), blob.get("report"))
 
 
+def restated(expected: Sequence[str], question: str) -> list[str]:
+    """The gold names that already stand in the question itself."""
+    haystack = f" {_normalise(question)} "
+    return [name for name in expected if f" {_normalise(name)} " in haystack]
+
+
+def strict_rows(
+    results: Sequence[AnswerResult], questions: Sequence[GoldQuestion]
+) -> list[AnswerResult]:
+    """The same results, scored without the gold names the question hands out.
+
+    Thirty of the 111 gold names stand in their own question (*Who did Cycnus
+    slay?* expects `Cycnus`), and the substring scorer counts them whenever an
+    answer repeats the question. An arm that answers in sentences repeats the
+    question far more often than an arm that answers in names — which is
+    exactly the difference between a soft arm trained by paraphrase and a text
+    arm that obeys "names only". After twenty epochs the soft arm's 28% was
+    half this effect. Questions with no gold name left are dropped.
+    """
+    by_id = {g.id: g for g in questions}
+    out: list[AnswerResult] = []
+    for r in results:
+        given = set(restated(r.expected, by_id[r.id].question))
+        expected = [e for e in r.expected if e not in given]
+        if not expected:
+            continue
+        out.append(
+            AnswerResult(
+                id=r.id,
+                arm=r.arm,
+                kind=r.kind,
+                question=r.question,
+                expected=expected,
+                answer=r.answer,
+                found=[e for e in r.found if e in expected],
+                missed=[e for e in r.missed if e in expected],
+                said_unknown=r.said_unknown,
+                run=r.run,
+            )
+        )
+    return out
+
+
 def paired_arms(results: Sequence[AnswerResult], *, arm: str, against: str) -> dict[str, float]:
     """Question by question: where does `arm` beat `against`, lose, or tie?
 

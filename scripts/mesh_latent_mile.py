@@ -44,6 +44,7 @@ from theogony.mesh.eval.latent_mile import (
     report_dict,
     save_projector,
     split_holdout,
+    strict_rows,
     token_loss_split,
     train_projector,
     training_nodes,
@@ -152,15 +153,29 @@ def cmd_answer(args: argparse.Namespace) -> None:
             f"Label wiedererkannt {last['label_recovery_train']:.0%} (Training) / "
             f"{last['label_recovery_holdout']:.0%} (zurückgehalten)"
         )
+    strict = strict_rows(results, gold)
+    summary_strict = summarise_answers(strict)
     _say("")
-    _say(f"{'Arm':16s} {'Antwort-Recall':>15s} {'vollständig':>12s} {'verweigert':>11s}")
+    _say(
+        f"{'Arm':16s} {'Antwort-Recall':>15s} {'vollständig':>12s} "
+        f"{'streng':>8s} {'vollständig':>12s} {'Wörter':>7s}"
+    )
     for arm in arms:
-        s = summary.get(arm)
-        if s:
+        s, t = summary.get(arm), summary_strict.get(arm)
+        if s and t:
+            words = sum(len(r.answer.split()) for r in results if r.arm == arm) / max(
+                1, sum(1 for r in results if r.arm == arm)
+            )
             _say(
                 f"{arm:16s} {s['answer_recall']:14.0%} "
-                f"{s['complete_answers']:7.0f}/{s['questions']:.0f} {s['declined']:10.0f}"
+                f"{s['complete_answers']:7.0f}/{s['questions']:.0f} "
+                f"{t['answer_recall']:8.0%} {t['complete_answers']:7.0f}/{t['questions']:.0f} "
+                f"{words:7.0f}"
             )
+    _say(
+        "  streng = ohne die Gold-Namen, die in der Frage selbst stehen; ein Arm, der in "
+        "Sätzen antwortet, spricht die Frage nach und wird sonst dafür bezahlt"
+    )
 
     comparisons = [
         ("soft", "constellation", "Vektoren gegen Text, dieselbe Constellation"),
@@ -171,9 +186,13 @@ def cmd_answer(args: argparse.Namespace) -> None:
     for arm, against, label in comparisons:
         if arm in summary and against in summary:
             pair = paired_arms(results, arm=arm, against=against)
+            tight = paired_arms(strict, arm=arm, against=against)
             _say(
                 f"\n{label}: {pair['delta']:+.0%} Recall; Frage für Frage "
-                f"{pair['better']} besser / {pair['worse']} schlechter / {pair['equal']} gleich"
+                f"{pair['better']:.0f} besser / {pair['worse']:.0f} schlechter / "
+                f"{pair['equal']:.0f} gleich"
+                f"   | streng {tight['delta']:+.0%}, {tight['better']:.0f} / "
+                f"{tight['worse']:.0f} / {tight['equal']:.0f}"
             )
 
     if args.out:
@@ -189,6 +208,7 @@ def cmd_answer(args: argparse.Namespace) -> None:
                     "top_k": args.top_k,
                     "k_seeds": args.seeds if args.seeds is not None else DEFAULT_K_SEEDS,
                     "summary": summary,
+                    "summary_strict": summary_strict,
                     "answers": [
                         {
                             "id": r.id,

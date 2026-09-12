@@ -270,3 +270,16 @@ abgelehnt; das Brief hat beim Horizont recht und bei der Reihenfolge nicht.
 Gold-Set gemessen ist, mit Streuung. Ein Nullergebnis ist ein Ergebnis. An der
 Reihenfolge A → B ändert sich nichts: beide sind Voraussetzungen für jeden
 Leser, ob Text oder latent.
+
+**Ergebnis (2026-09-12, [`latent_mile.md`](latent_mile.md)):** der Vektor
+kommt an, die Antwort nicht. Ein eingefrorener 3B-Leser liest aus dem
+projizierten Knotenvektor die Identität des Knotens (2,4 gegen 6,8 nats je
+Namens-Token mit dem richtigen gegen einen fremden Vektor, auf ungesehenen
+Knoten), bildet aber aus fünfzig solchen Tokens keine Antwort: streng bewertet
+Text 49 %, Vorwissen 14 %, Vektoren 9–11 %, gegen den Text auf keiner Frage
+besser. Gebaut ist xRAG Stufe 1; der Hebel ist Stufe 2, Instruktionstuning
+mit Selbst-Destillation, und die braucht Frage-Antwort-Daten jenseits des
+Gold-Sets. VISION:44 zerfällt in „receives structure" (ja) und „no text
+translation required" (auf dieser Skala nein). Spur E bleibt nach B; die
+Reihenfolge ändert sich nicht. Nebenbefund fürs Instrument: 30 der 111
+Gold-Namen stehen in der eigenen Frage (PHX-1098).
