@@ -104,6 +104,17 @@ hält. Repariert nebenbei die verkehrte Tier-Leiter.
 und dasselbe auf HotpotQA und mit einem zweiten Seed, damit zwei Fragen Effekt
 nicht die ganze Last tragen. Eine bis zwei Sitzungen.
 
+**Ergebnis (2026-09-12, [`renormalisation.md`](renormalisation.md)):** gebaut
+und gemessen, die Bedingung so nicht erfüllt — und zwar von der Baseline
+nicht: der Gewinn +1,3 aus PHX-1104 war ein Seed (+0,3 auf HotpotQA, −0,7 mit
+Seed 1). Was über beide Datensätze und beide Seeds hält, ist die Verdrängung
+(−1,5 / −2,3 / −2,3), und die globale Renormalisierung *mit Kappe* hebt sie
+jedes Mal auf (+1,5 / −0,7 / +0,7) für einen halben Punkt auf dem Benutzten.
+Ohne Kappe ist §6 unsichtbar und dann ein Verstärker (−3,8). `mesh tick` läuft
+jetzt standardmäßig damit, Sollwert 0,9 der Eintrittsmasse. Das Verb *lernt*
+bleibt bei *hält, ohne zu verdrängen*; ob es je *gewinnt*, entscheidet nicht
+die Dynamik, sondern der Erzeugungszweig (PHX-1100), der unerreichbar ist.
+
 ### B. Das Gedächtnis des Widerspruchs (PHX-1107)
 
 Der Befund oben, als Bauplan. Nicht das ganze Immunsystem — die Voraussetzung

@@ -109,8 +109,11 @@ def main() -> None:
         )
 
     for policy in args.policies.split(","):
-        gate = policy in ("gate", "grow")
-        grow = policy == "grow"
+        # `renorm` is `grow` plus the tick's global homeostatic renormalisation
+        # at the shipped set point (PHX-1106) — the composition `mesh tick` runs.
+        gate = policy in ("gate", "grow", "renorm")
+        grow = policy in ("grow", "renorm")
+        renorm = "global" if policy == "renorm" else None
         root = args.work / policy
         if root.exists():
             shutil.rmtree(root)
@@ -122,7 +125,7 @@ def main() -> None:
         r0u, r0h = gold_rank(rt, used), gold_rank(rt, held)
         m0, x0 = weights(rt)
         extra = f", alpha={args.alpha}, normalize={not args.no_normalize}" if grow else ""
-        print(f"\n== {policy}  (decay_gate={gate}, hebbian={grow}{extra}) ==")
+        print(f"\n== {policy}  (decay_gate={gate}, hebbian={grow}{extra}, renorm={renorm}) ==")
         head = ("round", "used", "full", "rank", "held", "full", "rank", "w med", "w max", "spared")
         print(" ".join(f"{h:>7s}" for h in head))
         print(line(0, u0, uf0, r0u, h0, hf0, r0h, m0, x0, "-"))
@@ -137,7 +140,7 @@ def main() -> None:
                     hebbian_learning_rate=args.alpha,
                     hebbian_normalize=not args.no_normalize,
                 )
-            res = rt.run_minimal_tick(decay_gate=gate)
+            res = rt.run_minimal_tick(decay_gate=gate, renormalise=renorm)
             if r in (1, 2, 3, 5, args.rounds):
                 u, uf = recall(rt, used)
                 h, hf = recall(rt, held)

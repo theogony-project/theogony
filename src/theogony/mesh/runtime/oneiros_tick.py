@@ -20,6 +20,7 @@ from theogony.mesh.schemas import Edge, PIDTag
 from theogony.mesh.storage.audit import MeshAuditLog
 from theogony.mesh.storage.edges import (
     DEFAULT_MAX_OUT_DEGREE,
+    RENORM_MODES,
     EdgeCSR,
     EdgeStore,
     decay_edges_inplace,
@@ -27,6 +28,8 @@ from theogony.mesh.storage.edges import (
     fired_pairs,
     in_strength,
     merge_edge_deltas,
+    node_weight_sums,
+    renormalise_edges_inplace,
 )
 from theogony.mesh.storage.nodes import (
     _DEFAULT_VERSION_RETENTION,
@@ -138,6 +141,7 @@ class MinimalTickResult:
     firing_passes: int = 0
     nodes_fired: int = 0
     edges_spared_from_decay: int = 0
+    renormalisation: dict[str, Any] | None = None
 
 
 # ---- Runtime --------------------------------------------------------
@@ -157,6 +161,16 @@ class MinimalTickResult:
 # interval means "check on every operation": measured at 0.10 ms against 0.08 ms
 # for `count_rows`, which is not a trade worth thinking about.
 _READ_CONSISTENCY = timedelta(0)
+
+
+# The homeostatic set point as a fraction of the weight the mesh carries when
+# renormalisation is first switched on. Swept on the 2Wiki heartbeat (PHX-1106):
+# at 1.0 the lifted edges pile up at the cap and the ingested weight
+# distinctions flatten (median 0.28 -> 0.95 after 50 ticks); at 0.9 the
+# counterforce is the same (+1.2 used / +1.2 held-out, against +1.3 / -1.5
+# without it) with the median at 0.85 and 12% at the cap; at 0.7 the held-out
+# gain is gone. On HotpotQA 0.9 costs 0.3 on the used half where 1.0 cost 0.7.
+DEFAULT_RENORM_SCALE = 0.9
 
 
 class MeshRuntime:
@@ -441,8 +455,24 @@ class MeshRuntime:
         version_retention: timedelta = _DEFAULT_VERSION_RETENTION,
         fired_recent_decay: float = DEFAULT_FIRED_RECENT_DECAY,
         decay_gate: bool = True,
+        renormalise: str | None = None,
+        homeostatic_ratio: float | None = None,
+        renorm_scale: float = DEFAULT_RENORM_SCALE,
+        renorm_epsilon: float = 0.01,
+        renorm_tier_softening: float = 0.0,
     ) -> MinimalTickResult:
-        """Drain both buffers -> merge -> gated decay -> saturation -> rewrite -> audit."""
+        """Drain -> merge -> gated decay -> renormalise -> saturation -> rewrite -> audit.
+
+        `renormalise` is `None` (off), `"global"`, `"out"` or `"in"` — see
+        `renormalise_edges_inplace`. The global set point is `homeostatic_ratio`
+        (total edge weight per consolidated node, `R_ideal` in §6); when neither
+        the argument nor `mesh_state.json` carries one, `renorm_scale` times the
+        ratio the mesh has *entering* this tick becomes the set point and is
+        written to the state, so a substrate's homeostasis is anchored where it
+        was first switched on. The per-node modes hold each node's total from
+        before this tick's merge, so credit redistributes within a node and
+        decay does not drain it.
+        """
         before = self.edges.count_rows()
         drained = self.edges.delta.drain()
         # Drained here rather than after the edge write, because decay needs to
@@ -451,6 +481,23 @@ class MeshRuntime:
         firing_rows = self.firings.drain()
         base = self.edges.load_all_edges()
         pids_backfilled = _backfill_relation_pids(base)
+        renorm_targets: dict[str, float] | None = None
+        target_mass: float | None = None
+        if renormalise in ("out", "in"):
+            renorm_targets = node_weight_sums(base, side=renormalise)
+        elif renormalise == "global":
+            node_count = max(1, self.nodes.consolidated_count())
+            state = self._read_state()
+            ratio = homeostatic_ratio
+            if ratio is None:
+                ratio = state.get("homeostatic_ratio")
+            if ratio is None:
+                ratio = renorm_scale * sum(float(e.weight) for e in base) / node_count
+                state["homeostatic_ratio"] = ratio
+                self._write_state(state)
+            target_mass = float(ratio) * node_count
+        elif renormalise is not None:
+            raise ValueError(f"renormalise must be None or one of {RENORM_MODES}")
         merged = merge_edge_deltas(base, drained, w_max=w_max)
         # "Edges that are not fired weaken" — the doctrine's rule, honoured for
         # the first time now that there is a firing record to honour it with.
@@ -458,6 +505,28 @@ class MeshRuntime:
         # `decay_edges_inplace`. With nothing recorded it spares nothing.
         fired = fired_pairs(firing_rows, drained) if decay_gate else None
         edges_spared = decay_edges_inplace(merged, lam=lam, dt=dt, fired=fired)
+        # §6, in the doctrine's own tick order: after decay, before saturation —
+        # the cap that follows is what makes a scale visible to an operator
+        # that reads shares (PHX-1106).
+        renorm_detail: dict[str, Any] | None = None
+        if renormalise is not None:
+            report = renormalise_edges_inplace(
+                merged,
+                mode=renormalise,
+                target_mass=target_mass,
+                targets=renorm_targets,
+                epsilon=renorm_epsilon,
+                tier_softening=renorm_tier_softening,
+            )
+            renorm_detail = {
+                "mode": report.mode,
+                "mass_before": report.mass_before,
+                "mass_after": report.mass_after,
+                "factor": report.factor,
+                "nodes_scaled": report.nodes_scaled,
+                "edges_scaled": report.edges_scaled,
+                "set_point": target_mass,
+            }
         merged = enforce_saturation(merged, max_out_degree=max_out_degree, w_max=w_max)
         try:
             self.edges.replace_all_edges(merged)
@@ -546,6 +615,7 @@ class MeshRuntime:
                 "nodes_fired": nodes_fired,
                 "decay_gate": decay_gate,
                 "edges_spared_from_decay": edges_spared,
+                "renormalisation": renorm_detail,
             },
         )
 
@@ -567,4 +637,5 @@ class MeshRuntime:
             firing_passes=len(firing_rows),
             nodes_fired=nodes_fired,
             edges_spared_from_decay=edges_spared,
+            renormalisation=renorm_detail,
         )
