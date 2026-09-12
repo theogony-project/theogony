@@ -57,6 +57,17 @@ description: >
   - DEEP_TECH:45, "ein Verbatim-Layer bewahrt Quelltext": von TARGET
     verboten; es gibt nur den Zeiger raw_text_ref.
 
+  - MESH_SUBSTRATE §6, "the correction is multiplicative across all edges ...
+    so relative ordering is preserved": gemessen (PHX-1106) erhaelt sie jeden
+    Anteil, und ein Operator, der zeilennormalisierte Adjazenz liest, sieht
+    sie nicht; mit unbegrenzten Gewichten ist sie ein Verstaerker der
+    Verdraengung (-3,8 gegen -2,0 auf Zurueckgehaltenem). Die Gegenkraft, die
+    §6 verspricht, entsteht erst mit der Kappe (w_max, in der Doktrin §3 als
+    Saettigung je Knoten). Der Paragraph muss sagen, dass die Renormalisierung
+    ohne Saettigung nichts haelt, und dass der Sollwert unter der
+    Eintrittsmasse liegen sollte (0,9 gemessen), damit die Kappe die
+    Gewichtsunterschiede nicht frisst.
+
   Fertig, wenn: jede Zeile oben entweder korrigiert ist oder mit Datum und
   Grund als bewusst stehen gelassen markiert; `tests/test_docs_links.py`
   gruen; die Ledger-Eintraege mit `status: corrected` nachgezogen.

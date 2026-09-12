@@ -1,6 +1,6 @@
 # Renormalisierung — die Gegenkraft, die das Gate braucht (PHX-1106)
 
-**Stand:** 2026-09-12, Messung läuft. Branch `feat/phx-1106-renormalisation`.
+**Stand:** 2026-09-12, gemessen. Branch `feat/phx-1106-renormalisation`.
 **Anlass:** [`heartbeat_2wiki.md`](heartbeat_2wiki.md) — unter dem Gate lernt das Substrat aus Benutzung (+1,3 auf benutzten Fragen) und verdrängt dabei (−1,5 auf zurückgehaltenen, monoton über 50 Runden). MESH_SUBSTRATE §6 sieht die globale homöostatische Renormalisierung als Gegenkraft vor; die Inventur fand sie nicht gebaut.
 **Werkzeug:** `renormalise_edges_inplace` in `storage/edges.py`, der Tick-Schritt in `run_minimal_tick(renormalise=…)`, `mesh tick --renormalise`, die Politiken `renorm_*` in `scripts/mesh_heartbeat_qa.py`.
 
@@ -208,10 +208,97 @@ Die Gegenkraft, die in den Läufen oben wirkt, ist also nicht §6. Es ist §6
 das Benutzte am Davonlaufen. Ohne die Kappe wäre die Renormalisierung ein
 Verstärker.
 
-**Der Preis, benannt:** unter `global` sitzen nach 50 Runden alle Gewichte
-bei 0,95 ± wenig (Median 0,950, Mittel 0,950). Die Warnung der Inventur trifft
-zu — die Gewichtsunterschiede des eingelesenen Graphen sind nach 50 Ticks
-weitgehend eingeebnet. Dass das Retrieval darunter nicht leidet, sondern über
-Runde 0 liegt, sagt etwas über diesen Graphen: seine Anteile tragen mehr als
-seine Stärken. Ob das auf dem Founding-Mesh so ist, wo die Gewichte breiter
-streuen (Median 0,31), ist nicht gemessen.
+**Der Preis, benannt:** unter `global` mit Sollwert 1,0 sitzen nach 50
+Runden alle Gewichte bei 0,95 ± wenig (Median 0,950, Mittel 0,950). Die
+Warnung der Inventur trifft zu — die Gewichtsunterschiede des eingelesenen
+Graphen sind nach 50 Ticks weitgehend eingeebnet. Dass das Retrieval auf 2Wiki
+darunter nicht leidet, sagt etwas über diesen Graphen: seine Anteile tragen
+mehr als seine Stärken. Auf HotpotQA kostet es 0,7 auf dem Benutzten.
+
+### Der Sollwert: `R_ideal` ist ein Stellparameter
+
+§6 nennt `R_ideal` einen Stellparameter. Der Tick verankert ihn beim ersten
+Einschalten an der Masse, die das Mesh dann trägt; die Frage ist, ob er
+*darunter* liegen sollte, damit die gehobenen Kanten nicht an der Kappe
+landen. Reports `heartbeat_2wikimultihopqa_01M2AN1Q0G15B0VFEZHNKRTDCP.json`
+und `heartbeat_hotpotqa_01M2AQXJMQNEHDSFDC1TJSKGK4.json`, Seed 0, Sollwert als
+Anteil der Eintrittsmasse:
+
+| Sollwert | 2Wiki Δ50 benutzt / zurückgehalten | 2Wiki w Median, Runde 50 | HotpotQA Δ50 benutzt / zurückgehalten | HotpotQA w Median |
+|---|---|---|---|---|
+| 1,0 | +1,2 / +1,5 | 0,950 | −0,7 / −0,7 | 0,972 |
+| **0,9** | **+1,2 / +1,2** | **0,851** | **−0,3 / −0,7** | **0,873** |
+| 0,8 | +1,2 / +1,2 | 0,745 | −0,3 / −1,0 | 0,769 |
+| 0,7 | +1,5 / −0,2 | 0,640 | −0,3 / −1,0 | 0,665 |
+
+Bei 0,9 tut die Gegenkraft dasselbe wie bei 1,0, der Median bleibt bei 0,85
+statt 0,95, und auf HotpotQA halbiert sich der Preis auf dem Benutzten. Bei
+0,7 ist der Gewinn auf dem Zurückgehaltenen weg: die gehobenen Kanten bleiben
+so weit unter der Kappe, dass die gefeuerten ihnen wieder davonlaufen.
+**0,9 ist der Betriebspunkt**, und `DEFAULT_RENORM_SCALE` trägt ihn.
+
+## Was ausgeliefert wird, und warum
+
+`mesh tick` läuft ab jetzt mit `--renormalise global --renorm-scale 0.9`; der
+Sollwert wird beim ersten Tick in `mesh_state.json` verankert
+(`homeostatic_ratio`) und danach gehalten, `--renormalise off` schaltet ab.
+`run_minimal_tick` selbst bleibt bei `renormalise=None`: die Funktion ist die
+Primitive, aus der Harnesse und Tests ihre Kompositionen bauen; der Befehl
+ist die gemessene Komposition.
+
+Die Begründung in drei Zahlen: über zwei Datensätze und zwei Seeds verdrängt
+das Gate das Unbenutzte um −1,5, −2,3, −2,3; die globale Renormalisierung mit
+Kappe hebt das auf (+1,5, −0,7, +0,7) und kostet dafür im Mittel einen halben
+Punkt auf dem Benutzten, dessen Gewinn ohnehin nur in einem der drei Läufe da
+war. Ein Substrat, das ein Jahr lang eine Handvoll Fragen beantwortet, wird
+damit auf alles andere nicht mehr schlechter. Das war der Satz, mit dem
+PHX-1104 endete, und er ist jetzt eine Einstellung.
+
+Was die Doktrin davon lernen muss, steht in PHX-1108: §6, wie geschrieben —
+uniform, ohne Kappe, „relative ordering is preserved" —, ist für einen
+Operator, der Anteile liest, unsichtbar und mit wachsenden Gewichten ein
+Verstärker der Verdrängung (−3,8). Die Gegenkraft ist die Kappe, die die
+Doktrin an anderer Stelle (§3, als Sättigung je Knoten) vorsieht und die hier
+als `w_max` je Kante gebaut ist. Die Tier-Leiter (PHX-1100, Muster 3) bleibt
+unangetastet: die Gewichte leben weiter unter 1, und `decay_tier` ist auf
+jeder Kante 0.
+
+## Grenzen
+
+- Effektgrößen von einem bis zwei Punkten auf 150 Fragen; deterministisch,
+  aber ein bis drei Fragen. Drei Läufe, zwei Datensätze, zwei Seeds — der
+  Vorzeichenwechsel auf dem Zurückgehaltenen hält in allen drei, die
+  Größe schwankt.
+- Der Herzschlag-Kern ist die gedämpfte Diffusion des Benchmarks, nicht der
+  PPR des Substrats; beide lesen Anteile, die Aussage gilt für beide, die
+  Zahlen sind nicht mit `mesh ask` vergleichbar.
+- Nur Gutschrift auf bestehende Kanten; der Erzeugungszweig bleibt
+  unerreichbar (PHX-1100).
+- Das Founding-Mesh (Median 0,31, breite Streuung, Retrieval an Namensankern
+  festgenagelt) ist ein anderes Gewichtsregime als die Benchmark-Graphen mit
+  57 % der Kanten am Anschlag; die Messung dort steht unten.
+
+## Auf dem Founding-Mesh, mit dem echten Tick
+
+`scripts/mesh_heartbeat.py --policies grow,renorm --rounds 10` auf Kopien von
+`data/mesh-founding`, 24 benutzte / 23 zurückgehaltene Gold-Fragen,
+`k_seeds = 1`, Gutschrift α = 0,1 normalisiert, der Tick des Substrats
+(`run_minimal_tick`, Sollwert 0,9 beim ersten Tick verankert):
+
+| Runde | Baseline benutzt / zurückgehalten | w Median | Renorm benutzt / zurückgehalten | w Median | w max |
+|---|---|---|---|---|---|
+| 0 | 87,9 % / 86,7 % | 0,311 | 87,9 % / 86,7 % | 0,311 | 1,000 |
+| 1 | 86,4 % / 84,4 % | 0,306 | 86,4 % / 84,4 % | 0,281 | 0,917 |
+| 5 | 87,9 % / 84,4 % | 0,293 | 87,9 % / 84,4 % | 0,286 | 1,000 |
+| 10 | 87,9 % / 84,4 % | 0,276 | 87,9 % / 84,4 % | 0,293 | 1,000 |
+
+An jedem Messpunkt dieselben Zahlen: auf einem Mesh, dessen Gewichte unter
+der Kappe leben, ist die Renormalisierung für das Retrieval das, was die
+Theorie sagt — unsichtbar. Was sie tut, ist die Masse halten: der Median
+fällt unter der Baseline in zehn Ticks von 0,311 auf 0,276 (das „Substrat,
+das nur vergessen kann" aus PHX-1100) und steht unter der Renormalisierung
+bei 0,293. Der Preis auf dem Benutzten, den die Benchmark-Graphen zeigen,
+tritt hier nicht auf, weil die Kappe nichts abschneidet; der Gewinn auf dem
+Zurückgehaltenen auch nicht, aus demselben Grund. Als Standard für `mesh
+tick` ist sie auf dem Mesh, das die Demo zeigt, damit gemessen harmlos, und
+auf einem Mesh, das an der Kappe lebt, gemessen nötig.
