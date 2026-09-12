@@ -1,6 +1,6 @@
 # Das Gedächtnis des Widerspruchs (PHX-1107)
 
-**Stand:** 2026-09-12, im Bau. Branch `feat/phx-1107-contradiction`.
+**Stand:** 2026-09-12, gemessen. Branch `feat/phx-1107-contradiction`.
 **Anlass:** [`plan_from_the_vision_2026-09.md`](plan_from_the_vision_2026-09.md) §B — der eine Befund der Vision-Ledger, der die Reihenfolge festlegt.
 **Werkzeug:** `src/theogony/mesh/frames.py`, `src/theogony/mesh/runtime/contradiction.py`, `scripts/mesh_contradictions.py`, `scripts/mesh_contradiction_eval.py`, Gold-Set `eval/gold/founding_contradictions.json`.
 
@@ -154,20 +154,121 @@ jeder Seite eine Entität trägt. Vier Entitäten einer Seite und keine der
 anderen zählen null — das ist genau das Enzyklopädie-Verhalten, das die
 Chronik verweigern soll.
 
-## Messung
+## Der neu gelesene Korpus
 
-*(Der Korpus wird mit Frames neu gelesen; die Ergebnisse folgen.)*
+1.206 Absätze, 2 h 27 min, € 0,39 (`deepseek-chat`). Das Substrat trägt zum
+ersten Mal epistemische Haltungen:
 
-Zwischenstand nach 144 von 1.206 Absätzen: die Haltungen streuen
-(`current_claim` 63, `historical_claim` 49, `observation` 27, `definition` 3,
-`disputed` 2), eine `contradicts`-Relation hat das Modell selbst geschrieben,
-und `frame_consistency` trägt zum ersten Mal einen anderen Wert als 1,0 — 0,65
-auf den Kanten zwischen einem historischen und einem aktuellen Absatz, was
-exakt der Cosinus der beiden Haltungen ist.
+| Haltung | Absätze |
+|---|---|
+| `current_claim` | 380 |
+| `direct_quote` | 298 |
+| `historical_claim` | 290 |
+| `observation` | 111 |
+| `definition` | 66 |
+| `disputed` | **39** |
+| `hypothesis` | 20 |
+| `refuted_claim` | 2 |
 
-Fünf Absätze wurden vor dem Volllauf einzeln geprüft, um zu sehen, ob das
+Dazu **30 `contradicts`-Relationen, die das Modell beim Lesen selbst schrieb** —
+Stellen, an denen der Text den Streit benennt. Und `frame_consistency` trägt
+zum ersten Mal etwas: von 127.402 Kanten liegen 5.590 unter 1,0, davon **185
+bei exakt 0** — Kanten zwischen Absätzen in gegensätzlichen Haltungen. PHX-1095
+hatte das Feld auf allen 94.490 Kanten des alten Mesh bei exakt 1,0 gemessen.
+
+Vor dem Volllauf wurden fünf Absätze einzeln geprüft, um zu sehen, ob das
 Modell das Vokabular überhaupt benutzt: fünf von fünf richtig, und beim
 Helena-Fragment schrieb es von sich aus `relation_kind: contradicts`. Der
-erste Versuch hatte zwölf von zwölf Absätzen auf `current_claim` gesetzt — der
-Prompt nannte die Haltung, zeigte aber nicht, dass sie ein Feld auf oberster
-Ebene ist. Das Modell hatte sie stattdessen auf die Relationen geschrieben.
+*erste* Versuch hatte zwölf von zwölf Absätzen auf `current_claim` gesetzt —
+der Prompt nannte die Haltung, zeigte aber nicht, dass sie ein Feld auf
+oberster Ebene ist, und das Modell schrieb sie stattdessen auf die Relationen.
+
+## Der Widerspruchs-Pass
+
+690 Kandidaten, 74 bestätigt (11 %), 334 `contradicts`-Kanten, 141 Absätze auf
+`disputed` gesetzt. 11 Minuten, Bruchteile eines Cent.
+
+Darunter echte mythologische Widersprüche: Laomedon gegen Tros als Vater des
+Ganymedes, Theia gegen Euryphaessa als Mutter von Eos und Selene, Klymene gegen
+Alkmene als Mutter des Iphiklos, Tyro gegen Althaia als Mutter des Pheres. Und
+Rauschen aus der Extraktion: Fragmentnummern, die an zwei Orten „liegen", und
+ein Paar „February part_of 1321 / 1325".
+
+**Zwei Dinge waren nötig, damit der Pass überhaupt etwas findet.**
+
+*Deskriptor-Normalisierung.* Der strukturelle Filter vergleicht (Endpunkt,
+Deskriptor), sieht eine Uneinigkeit also nur, wenn beide Seiten die Relation
+gleich buchstabieren. Kadmos tut das nicht: Elternschaft kommt unter mehr als
+dreißig Schreibungen an — `bore` 145, `son_of` 120, `fathered` 80,
+`daughter_of` 79, `father_of` 45, `mother_of` 45, `parent_of` 43, `child_of`
+26 — und die Hälfte zeigt in die andere Richtung. Mit einer kuratierten Klasse
+für Verwandtschaft und kanonischer Richtung: **202 Elternschafts-Kandidaten
+statt null.** Die Richtung ist dabei nicht Kosmetik, sondern macht die
+Gruppierung funktional: ein Kind hat einen Vater und eine Mutter, eine Mutter
+hat viele Kinder, also ist die Frage, die sich lohnt, immer „wie viele Eltern
+hat dieses Kind".
+
+*Ein zweistufiger Adjudikator.* Der erste Prompt bestätigte 36 von 100
+Kandidaten — „Apollo ging nach A / ging nach B" als Widerspruch. Der zweite
+fragt zuerst, ob die Relation überhaupt nur einen Wert zulässt, und erst dann,
+ob die Werte verschieden sind: 3 von 60. Er erkennt auch Aliase („Earth
+parent_of Cyclopes / Gaia bore Cyclopes" → vereinbar).
+
+## Die Messung: gibt eine strittige Frage beide Seiten zurück?
+
+Sieben Fragen, `k_seeds=1`, `top_k=50`. Eine Frage zählt nur, wenn die
+Constellation aus *jeder* Seite eine Entität trägt.
+
+| Mesh | Profil | beide Seiten | Seiten Ø |
+|---|---|---|---|
+| alt (Hash-Frames, konsolidiert) | `any` | 71 % (5/7) | 1,71 |
+| alt (Hash-Frames) | `contradiction` | **29 % (2/7)** | 1,00 |
+| neu, geframt | `any` | **86 % (6/7)** | 1,86 |
+| neu, geframt | `contradiction` | 86 % (6/7) | 1,86 |
+
+**Der stärkste Befund steht in der zweiten Zeile.** Auf dem alten Mesh kostet
+dasselbe Frame-Routing 42 Punkte — es maskiert nach einem gesalzenen Hash und
+zerstört die Constellation. Auf dem neuen kostet es nichts. PHX-1095 hatte
+vermutet, dass „routing on them today would mask edges by a hash"; das ist die
+Zahl dazu.
+
+Der Vergleich 86 % gegen 71 % vermischt zwei Änderungen — das neue Mesh wurde
+auch neu gelesen und ist unkonsolidiert (5.688 Knoten gegen 4.934) — und trägt
+deshalb weniger weit als die Zeile darüber.
+
+### Das Routing wirkt erst, wenn Entitäten eine Haltung tragen
+
+Die erste Messung nach dem Neulesen gab für `any`, `contradiction` und
+`what_is` **identische** Zahlen, Frage für Frage. Der Grund: eine Constellation
+besteht aus Entitäten, und 82 % der Entitäten hielten keine Haltung — die
+Haltung lag auf den Chunks. `frame_consistency` ist für einen neutralen Knoten
+konstruktionsgemäß 1,0, also skalierte jedes Profil jede Kante mit 1,0. Dieselbe
+Gestalt wie PHX-1104: das Substrat hielt etwas, das der Operator nicht lesen
+konnte.
+
+MESH_RETRIEVAL nennt den fehlenden Schritt in einem Nebensatz — der Frame sei
+„mutable by Oneiros during consolidation (when many chunks with consistent
+frames consolidate, the consolidated node inherits the dominant frame)". Gebaut
+als `run_frame_promotion`: jeder Knoten nimmt den Schwerpunkt der Frames der
+Absätze, die ihn erwähnen. Schwerpunkt statt Modus, weil die Mischung das
+Signal ist — eine Figur, die in vierzig ruhigen und zwei strittigen Absätzen
+vorkommt, soll überwiegend ruhig und ein wenig strittig lesen. 3.590 von 5.688
+Knoten geerbt, 1.207 Quellanker blieben neutral.
+
+Danach, Frage für Frage:
+
+| Frage | `any` vorher | `contradiction` vorher | `any` nachher | `contradiction` nachher |
+|---|---|---|---|---|
+| fates-parentage | beide | beide | beide | **eine** |
+| helen-parentage | eine | eine | eine | **beide** |
+| die übrigen fünf | beide | beide | beide | beide |
+
+**Das Routing tut jetzt etwas, und zwar das Erwartbare.** Es holt die
+Helena-Frage, die kein anderes Profil holt — die eine, bei der der Korpus den
+Streit selbst benennt („Hesiod, however, makes Helen the child neither of Leda
+nor Nemesis"), deren Absätze also als `disputed` gelesen wurden. Und es
+verliert die Moiren, zwei schlichte Genealogie-Absätze ohne Streitmarkierung,
+die nur strukturell uneins sind.
+
+Im Gesamtwert ist das ein Tausch, kein Gewinn. Als Mechanismus ist es der
+Unterschied zwischen beweisbar wirkungslos und nachweisbar wirksam.

@@ -361,28 +361,32 @@ class LLMContradictionAdjudicator:
         prompt = (
             f"Claim A: {candidate.claim('left')}\n"
             f"Claim B: {candidate.claim('right')}\n\n"
-            "These come from different passages of one body of text. Can both be "
-            "true at the same time?\n"
-            "Answer CONTRADICTION if they cannot both hold: the slot admits one "
-            "filler and they give two (two different mothers, two different "
-            "birthplaces, two incompatible origins).\n"
-            "Answer COMPATIBLE if both can hold. In particular: a father and a "
-            "mother are both parents and do NOT conflict; one figure can have "
-            "many children, many deeds and many epithets; and two names for the "
-            "same figure (Helios / Helius, Apollo / Phoebus) do not conflict.\n"
-            "Answer UNCERTAIN if you cannot tell, or if the two names might be "
-            "different figures who happen to share a name.\n"
-            "Reply with the single word, then a short reason."
+            "Both come from one body of Greek myth. Decide in two steps.\n\n"
+            "Step 1 — is this kind of relation SINGLE-VALUED? That is, can one "
+            "figure have only ONE of these at a time? A child has one mother and "
+            "one father; a person has one birthplace. But a figure can go to many "
+            "places, make many things, kill many enemies, have many children, "
+            "many epithets, many deeds. If the relation admits many, answer "
+            "COMPATIBLE and stop.\n\n"
+            "Step 2 — only if it is single-valued: do A and B fill that one slot "
+            "differently? Two spellings of one name (Helios / Helius, Apollo / "
+            "Phoebus) are the same filler, so COMPATIBLE. A father in one and a "
+            "mother in the other are different slots, so COMPATIBLE. Two "
+            "different mothers, or two different birthplaces, are "
+            "CONTRADICTION.\n\n"
+            "If the same name might belong to two different figures, answer "
+            "UNCERTAIN.\n\n"
+            "Reply with one word — CONTRADICTION, COMPATIBLE or UNCERTAIN — then "
+            "a short reason."
         )
         try:
             result = await self._llm.complete(
                 prompt,
                 system=(
-                    "You judge whether two claims about Greek myth conflict. Be "
-                    "strict about what a conflict is: one figure having several "
-                    "children is COMPATIBLE, a father plus a mother is "
-                    "COMPATIBLE, two spellings of one name are COMPATIBLE. Two "
-                    "different mothers for one child is a CONTRADICTION."
+                    "You judge whether two claims about Greek myth conflict. Most "
+                    "pairs do NOT: the default answer is COMPATIBLE, and you "
+                    "reserve CONTRADICTION for a slot that admits one filler and "
+                    "has been given two."
                 ),
                 max_output_tokens=self._max_output_tokens,
                 temperature=0.0,
