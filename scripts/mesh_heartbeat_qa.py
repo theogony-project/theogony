@@ -241,18 +241,25 @@ def main() -> None:
     # the gate with credit at doctrine scale: `global` is the doctrine as
     # written with the cap applied after it, `out` / `in` hold each node's
     # outgoing / incoming total from before the round, and `free` is the
-    # doctrine as written with the cap applied *before* it — a pure scale,
-    # which an operator that reads shares cannot see. It is the control that
-    # says whether anything the others do is more than the cap.
+    # doctrine as written with the cap applied *before* it. `free` turned out
+    # not to be the clean control it was meant as: the cap still clamps every
+    # lifted edge back to 1.0 at the start of the next round, which is the
+    # same interaction by another route. `cap=False` removes `w_max` from the
+    # round entirely — no clamp at entry, at merge, or at saturation — so
+    # `uncapped` is the doctrine's own regime (weights live above 1, one
+    # global scale), and `grow01_uncapped` its paired baseline. Under an
+    # operator that reads shares the two must coincide; that is the control.
     policies: dict[str, dict[str, Any]] = {
-        "shipped": dict(gate=False, alpha=0.0, renorm=None),
-        "gate": dict(gate=True, alpha=0.0, renorm=None),
-        "grow01": dict(gate=True, alpha=0.01, renorm=None),
-        "grow10": dict(gate=True, alpha=0.1, renorm=None),
-        "renorm_global": dict(gate=True, alpha=0.01, renorm="global"),
-        "renorm_out": dict(gate=True, alpha=0.01, renorm="out"),
-        "renorm_in": dict(gate=True, alpha=0.01, renorm="in"),
-        "renorm_free": dict(gate=True, alpha=0.01, renorm="free"),
+        "shipped": dict(gate=False, alpha=0.0, renorm=None, cap=True),
+        "gate": dict(gate=True, alpha=0.0, renorm=None, cap=True),
+        "grow01": dict(gate=True, alpha=0.01, renorm=None, cap=True),
+        "grow10": dict(gate=True, alpha=0.1, renorm=None, cap=True),
+        "renorm_global": dict(gate=True, alpha=0.01, renorm="global", cap=True),
+        "renorm_out": dict(gate=True, alpha=0.01, renorm="out", cap=True),
+        "renorm_in": dict(gate=True, alpha=0.01, renorm="in", cap=True),
+        "renorm_free": dict(gate=True, alpha=0.01, renorm="free", cap=True),
+        "grow01_uncapped": dict(gate=True, alpha=0.01, renorm=None, cap=False),
+        "renorm_uncapped": dict(gate=True, alpha=0.01, renorm="global", cap=False),
     }
     report: dict[str, Any] = {
         "run_id": str(ULID()),
@@ -278,8 +285,9 @@ def main() -> None:
     for name in [p.strip() for p in args.policies.split(",") if p.strip()]:
         pol = policies[name]
         edges = _edges(rows0)
+        w_cap = W_MAX if pol.get("cap", True) else float("inf")
         # Enter the substrate's regime: the tick's cap, before any decay.
-        edges = enforce_saturation(edges, max_out_degree=10_000, w_max=W_MAX)
+        edges = enforce_saturation(edges, max_out_degree=10_000, w_max=w_cap)
         history.clear()
 
         def snapshot(r: int, edges_: list[Edge], spared: int, deltas: int) -> None:
@@ -370,7 +378,7 @@ def main() -> None:
             renorm = pol["renorm"]
             targets = node_weight_sums(edges, side=renorm) if renorm in ("out", "in") else None
             if deltas:
-                edges = merge_edge_deltas(edges, deltas, w_max=W_MAX)
+                edges = merge_edge_deltas(edges, deltas, w_max=w_cap)
             fired = fired_pairs(passes, deltas) if pol["gate"] else None
             spared = decay_edges_inplace(edges, lam=LAMBDA, dt=1.0, fired=fired)
             # The tick's order: decay, renormalise, then the cap (MESH_IMPLEMENTATION
@@ -383,7 +391,7 @@ def main() -> None:
                     target_mass=set_point_mass if renorm == "global" else None,
                     targets=targets,
                 )
-            edges = enforce_saturation(edges, max_out_degree=10_000, w_max=W_MAX)
+            edges = enforce_saturation(edges, max_out_degree=10_000, w_max=w_cap)
             if renorm == "free":
                 renormalise_edges_inplace(edges, mode="global", target_mass=set_point_mass)
             if r in checkpoints:
@@ -393,6 +401,7 @@ def main() -> None:
             "gate": pol["gate"],
             "alpha": pol["alpha"],
             "renorm": pol["renorm"],
+            "cap": pol.get("cap", True),
             "history": list(history),
         }
 
