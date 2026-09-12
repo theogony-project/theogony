@@ -20,11 +20,13 @@ from ulid import ULID
 from theogony.mesh import frames
 from theogony.mesh.runtime.contradiction import (
     CONTRADICTION_ACTION,
+    PARENTHOOD,
     ContradictionCandidate,
     ContradictionVerdict,
     LLMContradictionAdjudicator,
     ReplayAdjudicator,
     contradiction_edges,
+    normalise_descriptor,
     propose_contradictions,
     run_contradiction_pass,
     witnesses,
@@ -122,8 +124,7 @@ def test_an_enumeration_in_one_paragraph_is_not_a_candidate() -> None:
 
 
 def test_the_mirror_grouping_finds_one_subject_with_two_origins() -> None:
-    """Aphrodite born from the foam in the Theogony, daughter of Zeus in Hymn V.
-    Grouped by (source, descriptor) rather than (target, descriptor)."""
+    """Aphrodite born from the foam in the Theogony, daughter of Zeus in Hymn V."""
     aphrodite, foam, zeus = _entity("Aphrodite"), _entity("foam"), _entity("Zeus")
     p1, p2 = _chunk(), _chunk()
     edges = [
@@ -137,9 +138,50 @@ def test_the_mirror_grouping_finds_one_subject_with_two_origins() -> None:
     nodes = {str(n.id): n for n in (aphrodite, foam, zeus)}
     found = propose_contradictions(edges, nodes)
     assert len(found) == 1
-    assert found[0].axis == "source"
-    assert found[0].claim("left").startswith("Aphrodite born_from")
-    assert found[0].claim("right").startswith("Aphrodite born_from")
+    # `born_from` points child to parent, so normalisation flips it into the
+    # functional direction: the group is "who is Aphrodite's parent", not
+    # "what did Aphrodite come from". That is the direction worth grouping on,
+    # because a child has one parent and a parent has many children.
+    assert found[0].axis == "target"
+    assert found[0].shared_name == "Aphrodite"
+    assert {found[0].left_name, found[0].right_name} == {"foam", "Zeus"}
+    # the claim shown to the adjudicator keeps the words the text used
+    assert "born_from" in found[0].claim("left")
+
+
+def test_two_spellings_of_one_relation_meet_in_the_same_group() -> None:
+    """Measured on the framed re-read: parenthood arrives under thirty-odd
+    spellings, half of them pointing the other way. Without normalisation
+    'Night bore the Fates' and 'the Fates son_of Themis' never meet, and the
+    contradiction is invisible."""
+    fates, night, themis = _entity("Fates"), _entity("Night"), _entity("Themis")
+    p1, p2 = _chunk(), _chunk()
+    edges = [
+        _relation(night, fates, "bore"),
+        _relation(fates, themis, "child_of"),  # the other direction, other word
+        _mention(p1, night),
+        _mention(p1, fates),
+        _mention(p2, themis),
+        _mention(p2, fates),
+    ]
+    nodes = {str(n.id): n for n in (fates, night, themis)}
+    found = propose_contradictions(edges, nodes)
+    assert len(found) == 1
+    assert found[0].descriptor == PARENTHOOD
+    assert {found[0].left_name, found[0].right_name} == {"Night", "Themis"}
+    # each side is shown with the words its own passage used
+    spellings = {found[0].left_descriptor, found[0].right_descriptor}
+    assert spellings == {"bore", "child_of"}
+
+
+def test_normalise_descriptor_folds_spelling_and_direction() -> None:
+    assert normalise_descriptor("bore") == (PARENTHOOD, False)
+    assert normalise_descriptor("son_of") == (PARENTHOOD, True)
+    assert normalise_descriptor("mother of") == (PARENTHOOD, False)
+    assert normalise_descriptor("Daughter-Of") == (PARENTHOOD, True)
+    # anything uncurated keeps its own spelling, folded
+    assert normalise_descriptor("located in") == ("located_in", False)
+    assert normalise_descriptor(None) == ("", False)
 
 
 def test_a_hub_is_not_a_disagreement() -> None:

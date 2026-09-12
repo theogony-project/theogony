@@ -86,6 +86,89 @@ MENTION_CONTEXTS = ("kadmos_mentions", "kadmos_paragraph_concept")
 # narrow groups, where two accounts compete rather than accumulate.
 DEFAULT_MAX_GROUP = 4
 
+# Descriptor classes, and why they are needed.
+#
+# The structural filter compares (endpoint, descriptor) pairs, so it only sees a
+# disagreement when both sides spell the relation the same way. Kadmos does not:
+# measured on the framed re-read, parenthood arrives under more than thirty
+# spellings — `bore` 145, `son_of` 120, `fathered` 80, `daughter_of` 79,
+# `father_of` 45, `mother_of` 45, `parent_of` 43, `child_of` 26, plus
+# `bare_to`, `gave birth to`, `is_son_of` and the rest. "Night bore the Fates"
+# and "Themis is_mother_of the Fates" are the same claim about the same slot and
+# would never have met.
+#
+# Worse, half of those spellings run the other way: `son_of` points child to
+# parent, `bore` points parent to child. Canonicalising the direction is what
+# lets the two meet at all, and it is also what makes the grouping *functional*
+# — a child has one mother, while a mother has many children, so the question
+# worth asking is always "how many parents does this child have".
+#
+# This table is curated and covers kinship, because the founding corpus is a
+# genealogy. A corpus about something else would need its own classes; nothing
+# here derives them. `MESH_SUBSTRATE` calls the descriptor "a short string label
+# intended for human and agent comprehension" whose truth lives in the topology,
+# so normalising it for comparison changes no substrate state — the edges keep
+# the words Kadmos wrote.
+_PARENT_TO_CHILD = (
+    "bore",
+    "bare",
+    "bare_to",
+    "bare_children_to",
+    "bore_to",
+    "conceived_and_bore",
+    "gave_birth_to",
+    "gave_birth",
+    "father_of",
+    "fathered",
+    "mother_of",
+    "parent_of",
+    "is_father_of",
+    "is_mother_of",
+    "begot",
+    "begat",
+    "sired",
+    "children_of_",
+)
+_CHILD_TO_PARENT = (
+    "son_of",
+    "sons_of",
+    "daughter_of",
+    "daughters_of",
+    "child_of",
+    "children_of",
+    "is_son_of",
+    "is_daughter_of",
+    "born_of",
+    "born_from",
+    "born_to",
+    "descended_from",
+    "offspring_of",
+    "regarded_as_son_of",
+    "makes_son_of",
+    "names_as_son",
+    "says_has_son",
+)
+PARENTHOOD = "parenthood"
+
+
+def normalise_descriptor(descriptor: str | None) -> tuple[str, bool]:
+    """A descriptor's comparison class and whether the edge must be flipped.
+
+    Returns `(class, flipped)`. `flipped` means the edge points child-to-parent
+    and should be read parent-to-child, so that both spellings land in one
+    group. Anything outside the curated classes keeps its own spelling, folded
+    to lower case with separators unified — which alone merges `mother of` with
+    `mother_of`.
+    """
+    raw = (descriptor or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if not raw:
+        return "", False
+    if raw in _PARENT_TO_CHILD:
+        return PARENTHOOD, False
+    if raw in _CHILD_TO_PARENT:
+        return PARENTHOOD, True
+    return raw, False
+
 
 @dataclass(frozen=True)
 class ContradictionCandidate:
@@ -104,6 +187,12 @@ class ContradictionCandidate:
     axis: str
     left_chunks: tuple[str, ...]
     right_chunks: tuple[str, ...]
+    # The words Kadmos actually wrote on each side. `descriptor` is the class
+    # the two were grouped under, which may be a normalised name no reader
+    # would recognise ("parenthood"); the adjudicator must see the claim as the
+    # text made it, or it is judging a paraphrase.
+    left_descriptor: str = ""
+    right_descriptor: str = ""
 
     @property
     def key(self) -> tuple[str, str, str, str]:
@@ -112,9 +201,12 @@ class ContradictionCandidate:
 
     def claim(self, side: str) -> str:
         other = self.left_name if side == "left" else self.right_name
+        spelling = (self.left_descriptor if side == "left" else self.right_descriptor) or (
+            self.descriptor
+        )
         if self.axis == "source":
-            return f"{self.shared_name} {self.descriptor} {other}"
-        return f"{other} {self.descriptor} {self.shared_name}"
+            return f"{self.shared_name} {spelling} {other}"
+        return f"{other} {spelling} {self.shared_name}"
 
 
 @dataclass(frozen=True)
@@ -141,6 +233,14 @@ class ContradictionResult:
     adjudicator_model: str | None = None
     elapsed_s: float = 0.0
     findings: list[dict[str, Any]] = field(default_factory=list)
+
+
+def _spelling(edges: Sequence[Edge]) -> str:
+    """The descriptor as the text wrote it, for the claim shown to a judge."""
+    for edge in edges:
+        if edge.relation_descriptor:
+            return str(edge.relation_descriptor)
+    return ""
 
 
 def _name(node: ConsolidatedNode | None, node_id: str) -> str:
@@ -192,7 +292,11 @@ def propose_contradictions(
     by_target: dict[tuple[str, str], dict[str, list[Edge]]] = {}
     for edge in relations:
         src, tgt = str(edge.source_id), str(edge.target_id)
-        desc = str(edge.relation_descriptor)
+        desc, flipped = normalise_descriptor(edge.relation_descriptor)
+        if not desc:
+            continue
+        if flipped:
+            src, tgt = tgt, src
         by_source.setdefault((src, desc), {}).setdefault(tgt, []).append(edge)
         by_target.setdefault((tgt, desc), {}).setdefault(src, []).append(edge)
 
@@ -223,6 +327,8 @@ def propose_contradictions(
                         axis=axis,
                         left_chunks=tuple(sorted(left_w)),
                         right_chunks=tuple(sorted(right_w)),
+                        left_descriptor=_spelling(partners[left]),
+                        right_descriptor=_spelling(partners[right]),
                     )
                     if candidate.key in seen:
                         continue
@@ -257,20 +363,26 @@ class LLMContradictionAdjudicator:
             f"Claim B: {candidate.claim('right')}\n\n"
             "These come from different passages of one body of text. Can both be "
             "true at the same time?\n"
-            "Answer CONTRADICTION if they cannot both hold (the relation admits "
-            "only one answer, and they give two).\n"
-            "Answer COMPATIBLE if both can hold (the relation admits many, or "
-            "the two named things are the same thing under different names).\n"
-            "Answer UNCERTAIN if you cannot tell.\n"
+            "Answer CONTRADICTION if they cannot both hold: the slot admits one "
+            "filler and they give two (two different mothers, two different "
+            "birthplaces, two incompatible origins).\n"
+            "Answer COMPATIBLE if both can hold. In particular: a father and a "
+            "mother are both parents and do NOT conflict; one figure can have "
+            "many children, many deeds and many epithets; and two names for the "
+            "same figure (Helios / Helius, Apollo / Phoebus) do not conflict.\n"
+            "Answer UNCERTAIN if you cannot tell, or if the two names might be "
+            "different figures who happen to share a name.\n"
             "Reply with the single word, then a short reason."
         )
         try:
             result = await self._llm.complete(
                 prompt,
                 system=(
-                    "You judge whether two claims conflict. Be strict: a person "
-                    "having several children is COMPATIBLE; a person having two "
-                    "different mothers is a CONTRADICTION."
+                    "You judge whether two claims about Greek myth conflict. Be "
+                    "strict about what a conflict is: one figure having several "
+                    "children is COMPATIBLE, a father plus a mother is "
+                    "COMPATIBLE, two spellings of one name are COMPATIBLE. Two "
+                    "different mothers for one child is a CONTRADICTION."
                 ),
                 max_output_tokens=self._max_output_tokens,
                 temperature=0.0,
@@ -399,6 +511,8 @@ async def run_contradiction_pass(
                 "right_id": candidate.right_id,
                 "right_name": candidate.right_name,
                 "axis": candidate.axis,
+                "left_descriptor": candidate.left_descriptor,
+                "right_descriptor": candidate.right_descriptor,
                 "verdict": verdict.verdict,
                 "reason": verdict.reason,
                 "left_chunks": list(candidate.left_chunks),
