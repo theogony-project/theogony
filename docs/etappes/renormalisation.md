@@ -63,4 +63,51 @@ die vier Lesarten darauf. Dann dasselbe auf HotpotQA, dann 2Wiki mit einem
 zweiten Seed — die Bedingung aus dem Plan, bevor ein bis zwei Fragen Effekt
 als Effekt gelten.
 
-*(Ergebnisse folgen.)*
+### 2Wiki, Seed 0
+
+Report `data/run_reports/mesh_eval/heartbeat_2wikimultihopqa_01M2A4JCFDXAR60DFJ97E7Q5Q8.json`,
+62 Minuten. kNN-Kontrolle 0,650 / 0,717, roher Graph 0,777 / 0,818, nach der
+Kappe 0,777 / 0,813 — die Baseline `grow01` reproduziert PHX-1104 auf die
+dritte Stelle. Recall@5 an den Messpunkten 0 / 1 / 2 / 3 / 5 / 10 / 20 / 30 / 50:
+
+| Politik | benutzt | zurückgehalten | Δ50 benutzt | Δ50 zurückgehalten | w Mittel / Median, Runde 50 | am Anschlag |
+|---|---|---|---|---|---|---|
+| `grow01` (Baseline) | ,777 ,787 ,787 ,787 ,787 ,787 ,787 ,790 ,790 | ,813 ,828 ,828 ,828 ,827 ,827 ,807 ,805 ,798 | **+1,3** | **−1,5** | 0,336 / 0,281 | 6,0 % |
+| `renorm_global` | ,777 ,787 ,790 ,787 ,787 ,788 ,788 ,788 ,788 | ,813 ,833 ,833 ,833 ,828 ,823 ,825 ,827 ,828 | **+1,2** | **+1,5** | 0,950 / 0,950 | 12,1 % |
+| `renorm_out` | ,777 ,790 ,790 ,790 ,790 ,790 ,790 ,790 ,783 | ,813 ,828 ,828 ,828 ,827 ,823 ,818 ,813 ,813 | +0,7 | ±0,0 | 0,868 / 0,995 | 49,7 % |
+| `renorm_in` | ,777 ,783 ,783 ,783 ,783 ,783 ,788 ,788 ,788 | ,813 ,828 ,828 ,828 ,827 ,825 ,823 ,815 ,802 | +1,2 | −1,2 | 0,867 / 0,995 | 49,7 % |
+| `renorm_free` | ,777 ,787 ,787 ,790 ,787 ,788 ,788 ,788 ,788 | ,813 ,828 ,828 ,830 ,827 ,828 ,825 ,823 ,825 | +1,2 | +1,2 | 0,956 / 0,955 | 12,1 % |
+
+**Die Hypothese des Tickets hält, mit der globalen Lesart.** Unter
+`renorm_global` bleibt der Gewinn auf den benutzten Fragen (+1,2 gegen +1,3),
+und die zurückgehaltenen fallen nicht mehr — sie liegen nach 50 Runden 1,5
+Punkte *über* Runde 0. Der Rang der zurückgehaltenen Gold-Passagen geht von
+6,5 auf 6,7 statt auf 7,1.
+
+**Was dabei sichtbar wird, ist der Mechanismus der Verdrängung, rückwärts.**
+Die Gutschrift hebt in Runde 1 beide Hälften — benutzt +1,0, zurückgehalten
++1,5, in allen fünf Politiken gleich, weil 2Wiki-Fragen Entitäten teilen und
+gestärkte Brücken zunächst allen helfen (die Beobachtung aus PHX-1104, die
+dort unerklärt blieb). In der Baseline frisst die Drift des Gates diesen
+Gewinn ab Runde 20 wieder auf: die ungefeuerten Kanten fallen auf 0,28, die
+verschonten bleiben bei 1,0, und die zurückgehaltenen Fragen verlieren drei
+Punkte gegenüber Runde 1. Unter der globalen Renormalisierung werden die
+ungefeuerten Kanten jeden Tick zurückgehoben und die gefeuerten an der Kappe
+abgeschnitten: das Mittel bleibt bei 0,95 statt auf 0,34 zu fallen, die Drift
+findet nicht statt, und der Gewinn aus Runde 1 bleibt stehen.
+
+**Die drei anderen Lesarten, in einem Satz je:** `out` hält jede Zeile so
+streng, dass auch der Gewinn halbiert wird (+0,7 / ±0) — die Gutschrift wird
+innerhalb der Zeile sofort wieder herausskaliert. `in` (synaptische
+Skalierung) hält den Gewinn und bremst die Drift nur (−1,2 statt −1,5; der
+Einbruch beginnt bei Runde 30 statt 20). `free` ist keine saubere Kontrolle:
+die Kappe greift am Anfang der nächsten Runde wieder, und die Zahlen sind die
+der globalen Lesart — die echte Kontrolle, ganz ohne Kappe, steht unten.
+
+**Der Preis, benannt:** unter `global` sitzen nach 50 Runden alle Gewichte
+bei 0,95 ± wenig (Median 0,950, Mittel 0,950). Die Warnung der Inventur trifft
+zu — die Gewichtsunterschiede des eingelesenen Graphen sind nach 50 Ticks
+weitgehend eingeebnet. Dass das Retrieval darunter nicht leidet, sondern über
+Runde 0 liegt, sagt etwas über diesen Graphen: seine Anteile tragen mehr als
+seine Stärken. Ob das auf dem Founding-Mesh so ist, wo die Gewichte breiter
+streuen (Median 0,31), ist nicht gemessen.

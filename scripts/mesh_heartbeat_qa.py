@@ -260,6 +260,14 @@ def main() -> None:
         "renorm_free": dict(gate=True, alpha=0.01, renorm="free", cap=True),
         "grow01_uncapped": dict(gate=True, alpha=0.01, renorm=None, cap=False),
         "renorm_uncapped": dict(gate=True, alpha=0.01, renorm="global", cap=False),
+        # `R_ideal` is a tuning parameter in §6. A set point below the entering
+        # mass keeps the lifted edges away from the cap, so the weight
+        # distinctions of the ingested graph survive; the price is that the
+        # counterforce is weaker. `scale` is the set point as a fraction of the
+        # mass the substrate entered with.
+        "renorm_global_s90": dict(gate=True, alpha=0.01, renorm="global", cap=True, scale=0.9),
+        "renorm_global_s80": dict(gate=True, alpha=0.01, renorm="global", cap=True, scale=0.8),
+        "renorm_global_s70": dict(gate=True, alpha=0.01, renorm="global", cap=True, scale=0.7),
     }
     report: dict[str, Any] = {
         "run_id": str(ULID()),
@@ -328,8 +336,8 @@ def main() -> None:
         )
         snapshot(0, edges, 0, 0)
         # The homeostatic set point: the mass the substrate has when the
-        # dynamics are switched on, as the tick anchors it.
-        set_point_mass = sum(e.weight for e in edges)
+        # dynamics are switched on, as the tick anchors it — or a fraction of it.
+        set_point_mass = sum(e.weight for e in edges) * float(pol.get("scale", 1.0))
 
         for r in range(1, args.rounds + 1):
             rows = [(str(e.source_id), str(e.target_id), float(e.weight)) for e in edges]
@@ -402,6 +410,7 @@ def main() -> None:
             "alpha": pol["alpha"],
             "renorm": pol["renorm"],
             "cap": pol.get("cap", True),
+            "scale": pol.get("scale", 1.0),
             "history": list(history),
         }
 
