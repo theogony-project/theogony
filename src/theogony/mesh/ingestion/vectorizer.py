@@ -77,6 +77,12 @@ class MeshTextVectorizer:
     async def description(self, text: str) -> list[float]:
         return await self.semantic(text)
 
+    # The frame is an *epistemic stance*, not a function of the text, so these
+    # two produce a hash that means nothing and Kadmos no longer calls them:
+    # since PHX-1107 it builds frames from `mesh/frames.py`, where a stance the
+    # reading declared is projected onto a fixed axis basis. They remain for
+    # callers outside the ingestion path that still expect a frame-shaped
+    # vector, and for the record of what the field used to hold (PHX-1095).
     async def frame_many(self, texts: Iterable[str]) -> list[list[float]]:
         return [_hash_projection(text, self.frame_dim, salt="frame") for text in texts]
 
