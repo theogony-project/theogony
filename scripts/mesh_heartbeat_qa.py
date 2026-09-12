@@ -42,6 +42,7 @@ import statistics
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import torch
 from ulid import ULID
@@ -63,6 +64,8 @@ from theogony.mesh.storage.edges import (
     enforce_saturation,
     fired_pairs,
     merge_edge_deltas,
+    node_weight_sums,
+    renormalise_edges_inplace,
 )
 
 W_MAX = 1.0
@@ -234,13 +237,24 @@ def main() -> None:
         f"SA@5 on the raw graph ({args.mode} S={args.top_s}): used {u_raw:.3f} held {h_raw:.3f}"
     )
 
-    policies = {
-        "shipped": dict(gate=False, alpha=0.0),
-        "gate": dict(gate=True, alpha=0.0),
-        "grow01": dict(gate=True, alpha=0.01),
-        "grow10": dict(gate=True, alpha=0.1),
+    # `renorm` is MESH_SUBSTRATE §6 in its readings (PHX-1106), each on top of
+    # the gate with credit at doctrine scale: `global` is the doctrine as
+    # written with the cap applied after it, `out` / `in` hold each node's
+    # outgoing / incoming total from before the round, and `free` is the
+    # doctrine as written with the cap applied *before* it — a pure scale,
+    # which an operator that reads shares cannot see. It is the control that
+    # says whether anything the others do is more than the cap.
+    policies: dict[str, dict[str, Any]] = {
+        "shipped": dict(gate=False, alpha=0.0, renorm=None),
+        "gate": dict(gate=True, alpha=0.0, renorm=None),
+        "grow01": dict(gate=True, alpha=0.01, renorm=None),
+        "grow10": dict(gate=True, alpha=0.1, renorm=None),
+        "renorm_global": dict(gate=True, alpha=0.01, renorm="global"),
+        "renorm_out": dict(gate=True, alpha=0.01, renorm="out"),
+        "renorm_in": dict(gate=True, alpha=0.01, renorm="in"),
+        "renorm_free": dict(gate=True, alpha=0.01, renorm="free"),
     }
-    report: dict[str, object] = {
+    report: dict[str, Any] = {
         "run_id": str(ULID()),
         "dataset": args.dataset,
         "passages": len(data.passages),
@@ -281,7 +295,9 @@ def main() -> None:
                 "held": h,
                 "held_rank": rh,
                 "w_median": statistics.median(ws),
+                "w_mean": statistics.fmean(ws),
                 "w_max": max(ws),
+                "mass": sum(ws),
                 "at_cap": sum(1 for w in ws if w >= 0.999) / len(ws),
                 "spared": spared,
                 "deltas": deltas,
@@ -289,18 +305,23 @@ def main() -> None:
             history.append(row)
             print(
                 f"{r:5d} {u:7.3f} {ru:7.1f} {h:7.3f} {rh:7.1f} "
-                f"{row['w_median']:7.4f} {row['w_max']:7.4f} {row['at_cap']:6.1%} "
-                f"{spared:8d} {deltas:7d}"
+                f"{row['w_median']:7.4f} {row['w_mean']:7.4f} {row['w_max']:7.4f} "
+                f"{row['at_cap']:6.1%} {spared:8d} {deltas:7d}"
             )
 
         print(
-            f"\n== {name}  (decay_gate={pol['gate']}, hebbian alpha={pol['alpha']}, normalised) =="
+            f"\n== {name}  (decay_gate={pol['gate']}, hebbian alpha={pol['alpha']}, "
+            f"normalised, renorm={pol['renorm']}) =="
         )
         print(
             f"{'round':>5s} {'used@5':>7s} {'rank':>7s} {'held@5':>7s} {'rank':>7s} "
-            f"{'w med':>7s} {'w max':>7s} {'cap':>6s} {'spared':>8s} {'deltas':>7s}"
+            f"{'w med':>7s} {'w mean':>7s} {'w max':>7s} {'cap':>6s} {'spared':>8s} "
+            f"{'deltas':>7s}"
         )
         snapshot(0, edges, 0, 0)
+        # The homeostatic set point: the mass the substrate has when the
+        # dynamics are switched on, as the tick anchors it.
+        set_point_mass = sum(e.weight for e in edges)
 
         for r in range(1, args.rounds + 1):
             rows = [(str(e.source_id), str(e.target_id), float(e.weight)) for e in edges]
@@ -346,17 +367,32 @@ def main() -> None:
                         deltas.append(
                             {"source_id": s, "target_id": t, "weight_delta": pol["alpha"] * prod}
                         )
+            renorm = pol["renorm"]
+            targets = node_weight_sums(edges, side=renorm) if renorm in ("out", "in") else None
             if deltas:
                 edges = merge_edge_deltas(edges, deltas, w_max=W_MAX)
             fired = fired_pairs(passes, deltas) if pol["gate"] else None
             spared = decay_edges_inplace(edges, lam=LAMBDA, dt=1.0, fired=fired)
+            # The tick's order: decay, renormalise, then the cap (MESH_IMPLEMENTATION
+            # §"Oneiros — implementation order", steps 3, 4, 8–9). `free` swaps
+            # the last two so the scale is never clipped.
+            if renorm in ("global", "out", "in"):
+                renormalise_edges_inplace(
+                    edges,
+                    mode=renorm,
+                    target_mass=set_point_mass if renorm == "global" else None,
+                    targets=targets,
+                )
             edges = enforce_saturation(edges, max_out_degree=10_000, w_max=W_MAX)
+            if renorm == "free":
+                renormalise_edges_inplace(edges, mode="global", target_mass=set_point_mass)
             if r in checkpoints:
                 snapshot(r, edges, spared, len(deltas))
 
         report["policies"][name] = {
             "gate": pol["gate"],
             "alpha": pol["alpha"],
+            "renorm": pol["renorm"],
             "history": list(history),
         }
 

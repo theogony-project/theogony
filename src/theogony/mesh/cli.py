@@ -197,6 +197,15 @@ def mesh_tick(
             "used edge holds (PHX-1102)."
         ),
     ),
+    renormalise: str = typer.Option(
+        "off",
+        "--renormalise",
+        help=(
+            "Homeostatic renormalisation after decay (MESH_SUBSTRATE §6): off | global "
+            "(one factor over all edges, set point = weight per node at first use) | "
+            "out | in (each node's outgoing / incoming total held). PHX-1106."
+        ),
+    ),
     dt: float = typer.Option(
         1.0,
         "--dt",
@@ -248,6 +257,7 @@ def mesh_tick(
             w_max=w_max,
             version_retention=timedelta(hours=keep_versions_hours),
             decay_gate=decay_gate,
+            renormalise=None if renormalise == "off" else renormalise,
         )
     except Exception as exc:
         # `verdict="good"` used to be written unconditionally, below, after a call

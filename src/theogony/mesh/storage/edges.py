@@ -422,6 +422,111 @@ def decay_edges_inplace(
     return spared
 
 
+def node_weight_sums(edges: Iterable[Edge], *, side: str = "out") -> dict[str, float]:
+    """Total edge weight per node, on its outgoing (`out`) or incoming (`in`) side."""
+    if side not in ("out", "in"):
+        raise ValueError(f"side must be 'out' or 'in', not {side!r}")
+    sums: dict[str, float] = {}
+    for e in edges:
+        key = str(e.source_id) if side == "out" else str(e.target_id)
+        sums[key] = sums.get(key, 0.0) + float(e.weight)
+    return sums
+
+
+RENORM_MODES = ("global", "out", "in")
+
+
+@dataclass(frozen=True)
+class RenormReport:
+    """What one renormalisation pass did, for the audit and the harness."""
+
+    mode: str
+    mass_before: float
+    mass_after: float
+    factor: float  # the global factor, or the mean per-node factor applied
+    nodes_scaled: int  # per-node modes: how many nodes moved; global: 1 if it moved
+    edges_scaled: int
+
+
+def renormalise_edges_inplace(
+    edges: list[Edge],
+    *,
+    mode: str = "global",
+    target_mass: float | None = None,
+    targets: dict[str, float] | None = None,
+    epsilon: float = 0.01,
+    tier_softening: float = 0.0,
+) -> RenormReport:
+    """Homeostatic renormalisation, `MESH_SUBSTRATE.md` §6, in three readings.
+
+    `global` is the doctrine as written: one multiplicative factor over every
+    edge that brings the total weight back to `target_mass`, skipped while the
+    drift is inside `epsilon`. Relative ordering is preserved, and — said
+    plainly — so is every *share*: an operator that reads row-normalised
+    adjacency (PPR, the benchmark kernel) sees no difference at all after a
+    global scale. What makes it bite is the cap that follows it in the tick:
+    edges lifted above `w_max` are clipped, edges below are not, so a fired
+    edge held at the cap loses the share it gained while the unfired ones
+    around it are lifted back. That interaction, not the scale, is the
+    counterforce (PHX-1106).
+
+    `out` and `in` are the per-node readings the doctrine's own justification
+    describes — "keeps the total post-synaptic input in a stable range"
+    (Turrigiano & Nelson) is an *incoming* sum: each node's outgoing (`out`) or
+    incoming (`in`) weight is scaled back to `targets[node]`. `in` is synaptic
+    scaling proper: a target that only receives fired edges is scaled down and
+    loses share in every row that points at it; a target whose inputs decayed
+    is scaled up and regains it. Nodes absent from `targets` are left alone.
+
+    `tier_softening` is the doctrine's optional refinement: an edge of decay
+    tier *t* receives `1 + (f - 1) · (1 - tier_softening)^t` instead of *f*, so
+    consolidated structure is corrected more gently. 0 is uniform.
+    """
+    if mode not in RENORM_MODES:
+        raise ValueError(f"mode must be one of {RENORM_MODES}, not {mode!r}")
+    if not (0.0 <= tier_softening < 1.0):
+        raise ValueError("tier_softening must lie in [0, 1)")
+
+    def soften(factor: float, tier: int) -> float:
+        if tier_softening == 0.0 or tier <= 0:
+            return factor
+        return 1.0 + (factor - 1.0) * (1.0 - tier_softening) ** tier
+
+    mass_before = sum(float(e.weight) for e in edges)
+    if mode == "global":
+        if target_mass is None:
+            raise ValueError("global renormalisation needs target_mass")
+        if mass_before <= 0.0 or abs(mass_before / target_mass - 1.0) <= epsilon:
+            return RenormReport(mode, mass_before, mass_before, 1.0, 0, 0)
+        factor = target_mass / mass_before
+        for e in edges:
+            e.weight = float(e.weight) * soften(factor, e.decay_tier)
+        mass_after = sum(float(e.weight) for e in edges)
+        return RenormReport(mode, mass_before, mass_after, factor, 1, len(edges))
+
+    if targets is None:
+        raise ValueError(f"{mode} renormalisation needs per-node targets")
+    current = node_weight_sums(edges, side=mode)
+    factors: dict[str, float] = {}
+    for node, target in targets.items():
+        have = current.get(node, 0.0)
+        if have <= 0.0 or target <= 0.0 or abs(have / target - 1.0) <= epsilon:
+            continue
+        factors[node] = target / have
+    if not factors:
+        return RenormReport(mode, mass_before, mass_before, 1.0, 0, 0)
+    scaled = 0
+    for e in edges:
+        key = str(e.source_id) if mode == "out" else str(e.target_id)
+        f = factors.get(key)
+        if f is not None:
+            e.weight = float(e.weight) * soften(f, e.decay_tier)
+            scaled += 1
+    mass_after = sum(float(e.weight) for e in edges)
+    mean_factor = sum(factors.values()) / len(factors)
+    return RenormReport(mode, mass_before, mass_after, mean_factor, len(factors), scaled)
+
+
 # MESH_SUBSTRATE.md §3 specifies count caps indexed by node tier: 10K for a Tier-0
 # chunk, rising to 1M for a Tier-3 hub. The cap here is flat and applies to every
 # node, so it is set to the doctrine's *lowest* tier — the only value that cannot
