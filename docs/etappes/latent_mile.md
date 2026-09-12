@@ -156,6 +156,33 @@ nennt einen Namen („Titans", „Hera", „Pallas") oder einen Satz („Night b
 Day"). Bei erzählenden Fragen mit einer Antwort liegen die Vektoren 10 Punkte
 hinter dem Text, bei genealogischen 20.
 
+### Die doktrintreue Variante: nur der semantische Vektor
+
+Derselbe Aufbau mit `--vectors semantic` (384-d, der Vektor, über den
+Spreading Activation läuft), Seed 0, fünf Epochen (Verlust 2,13 / 1,98, kaum
+anders als `both`):
+
+| Arm | Antwort-Recall | vollständig |
+|---|---|---|
+| `closed_book` | 16 % | 4/47 |
+| `constellation` (Text) | 38 % | 8/47 |
+| `soft` (semantic) | **8 %** | 4/47 |
+| `soft_untrained` | 9 % | 1/47 |
+
+Trainiert gegen untrainiert: +3, 6 / 6 / 35 — kein Unterschied. Gegen
+Vorwissen: 0, 9 / 9 / 29. Und das, obwohl die Diagnose für diesen Projektor
+dieselbe Identität misst wie für `both`: Name-Tokens 2,48 mit dem richtigen
+Vektor gegen 4,82 mit einem fremden (zurückgehalten 2,85 gegen 4,80).
+
+Der Einbruch liegt nicht im Token, sondern im Prompt. Nach Fragenart:
+genealogisch Vektoren **7 %** (gegen 19 % mit `both`), erzählend **21 %**
+(gegen 27 %, und über dem Vorwissen von 15 %). Auf den Genealogie-Fragen
+plappert der Leser die Relationsbezeichner nach — „co_mentions_in_paragraph —
+Co-mentions: …", „gave_birth_to 1. — Zeus, 2. — Hera" —, die Tripel aus
+weichen Tokens werden ihm zum Muster statt zur Aussage. Ob der Abstand
+zwischen den Vektorvarianten mehr als Seed-Rauschen ist, sagt der zweite Seed
+(unten).
+
 **Das Ergebnis, in einem Satz:** auf dieser Skala — ein 3B-Leser, 3.529
 Trainingsvektoren, fünf Epochen auf einem Laptop — ist die latente letzte Meile
 ein Kanal, der die Hälfte dessen trägt, was der Text trägt, und dabei etwas
