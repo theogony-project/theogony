@@ -16,6 +16,7 @@ from rich.table import Table
 
 from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
+from theogony.mesh import frames
 from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
 from theogony.mesh.retrieval import RetrievalResult, retrieve
 from theogony.mesh.retrieval.defaults import DEFAULT_K_SEEDS, DEFAULT_TOP_K
@@ -547,6 +548,22 @@ def mesh_ask(
         "--vector-column",
         help="ANN column: semantic_vector | description_vector.",
     ),
+    frame_profile: str = typer.Option(
+        "any",
+        "--frame-profile",
+        help=(
+            "Epistemic frame to route on (MESH_RETRIEVAL §'Frame-sensitive resonance'): "
+            "any (no routing) | what_is | what_was_believed | evidence | contradiction. "
+            "`contradiction` attenuates every settled claim and admits the disputed, "
+            "superseded and refuted — the query Argus needs (PHX-1107). Routing was "
+            "unreachable outside tests until this flag existed (PHX-1095)."
+        ),
+    ),
+    frame_threshold: float = typer.Option(
+        0.0,
+        "--frame-threshold",
+        help="Zero edges whose endpoint frame consistency falls below this (0 = soft scaling).",
+    ),
     json_out: bool = typer.Option(
         False, "--json", help="Emit the Constellation as JSON instead of tables."
     ),
@@ -578,6 +595,11 @@ def mesh_ask(
 
     model_id, query_vector, embed_ms = asyncio.run(_embed())
 
+    # `any` is the neutral (zero) frame, which `retrieve` treats as no routing
+    # at all, so the default path is byte-for-byte what it was before the flag.
+    requested_frame = frames.query_frame(frame_profile, dim=rt.frame_dim)
+    active_frame = requested_frame if any(abs(v) > 0.0 for v in requested_frame) else None
+
     result = retrieve(
         rt,
         query_vector,
@@ -590,6 +612,8 @@ def mesh_ask(
         hub_mask_top_n=hub_mask_top_n,
         vector_column=vector_column,
         query=query,
+        query_frame=active_frame,
+        frame_threshold=frame_threshold,
         hebbian=hebbian,
         hebbian_learning_rate=hebbian_learning_rate,
     )

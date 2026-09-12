@@ -15,6 +15,7 @@ from ulid import ULID
 from theogony.agents.llm import LLMProvider
 from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
+from theogony.mesh import frames
 from theogony.mesh.ingestion.concept_resolver import ConceptResolver
 from theogony.mesh.ingestion.linker import EagerLinker
 from theogony.mesh.ingestion.reading_schemas import (
@@ -84,12 +85,36 @@ Read the paragraph below and output valid JSON for this schema:
    - directed edges between concepts from this paragraph
    - use short relation_descriptor values like crossed, mapped, discovered, located_in
    - use relation_kind values like semantic, hierarchy, causal, temporal, attribute
+   - use relation_kind "contradicts" when the paragraph itself sets one account
+     against another ("some say X, but others say Y"), and "supersedes" when it
+     says one account replaced an earlier one
+   - each relation carries a stance (see 4); default "current_claim"
 
 3. paragraph_concept:
    - optional single paragraph-level concept when the paragraph has a coherent unifying idea
    - the paragraph_concept never replaces the concepts it is about — its
      protagonists must still be listed in concepts
    - if absent, set paragraph_concept to null
+
+4. stance:
+   - a REQUIRED top-level string field, a sibling of "concepts" and
+     "relations", not nested inside them
+   - how the paragraph as a whole makes its claim; exactly one of:
+     "definition"        timeless, what something IS
+     "current_claim"     plainly asserted (use when unsure)
+     "historical_claim"  what was held or done at some past time
+     "refuted_claim"     the text denies something, or says it is wrong
+     "hypothesis"        supposed, conditional, "if", "it may be"
+     "observation"       a particular witnessed or reported event
+     "direct_quote"      the paragraph is mainly someone speaking
+     "disputed"          the text reports competing accounts of the same thing
+     "superseded"        an account the text marks as replaced by a later one
+   - judge the paragraph's own framing, not whether you believe it
+   - each relation carries its own "stance" from the same list
+
+The top level therefore has exactly four keys:
+
+   {"concepts": [...], "relations": [...], "paragraph_concept": ..., "stance": "..."}
 
 Output only valid JSON. Do not add commentary."""
 
@@ -148,6 +173,14 @@ class MeshParagraphReader:
         )
         self.report_writer = RunReportWriter(self.settings.run_reports_dir)
         self._pending_edges: list[Edge] = []
+        # Frames of the nodes this run has written, so `_append_edge` can fill
+        # `frame_consistency` from the endpoints it just created. The doctrine
+        # defines the field as 'how well the edge's endpoints share a frame'
+        # and PHX-1095 measured it at exactly 1.0 on all 94,490 edges of the
+        # founding mesh — 'a missing pass, not missing data'. This is the pass.
+        # Bounded by one read: entity frames are neutral and chunk frames are
+        # one per paragraph, so the map is at most nodes-written large.
+        self._frames: dict[str, list[float]] = {}
 
     async def read_book(self, book_id: str) -> dict[str, Any]:
         import httpx
@@ -231,10 +264,18 @@ class MeshParagraphReader:
         embed_stage_duration_s = 0.0
         store_stage_duration_s = 0.0
         cross_pass_link_count = 0
+        # What stances the read actually produced — the histogram is the
+        # only way to see whether the model used the vocabulary or defaulted
+        # everything to one value (PHX-1107).
+        stance_counts: dict[str, int] = {}
+        contradiction_edge_count = 0
 
         text_anchor_description = f"{source_type}: {title} ({source_anchor})"
         text_anchor_semantic = await self.vectorizer.semantic(text_anchor_description)
-        text_anchor_frame = await self.vectorizer.frame(text_anchor_description)
+        # A source anchor asserts nothing; it is where claims came from. The
+        # zero frame is neutral by construction and is never attenuated by
+        # routing, which is what a container should be (PHX-1107).
+        text_anchor_frame = frames.neutral_frame(self.frame_dim)
         text_anchor_description_vector = await self.vectorizer.description(text_anchor_description)
         nodes_embedded += 1
         text_anchor_node = build_source_anchor_node(
@@ -271,6 +312,12 @@ class MeshParagraphReader:
             )
 
             paragraph_result, llm_meta = await self._read_paragraph(paragraph_text)
+            # The stance this paragraph makes its claim in. A failed reading
+            # leaves the paragraph without one, and the default claims least.
+            paragraph_stance = frames.normalise_stance(
+                paragraph_result.stance if paragraph_result is not None else None
+            )
+            stance_counts[paragraph_stance] = stance_counts.get(paragraph_stance, 0) + 1
             total_llm_calls += 1
             total_llm_cost_eur += llm_meta["cost_eur"]
             llm_duration_s += llm_meta["duration_s"]
@@ -284,12 +331,17 @@ class MeshParagraphReader:
             )
             paragraph_anchor_identifier = f"{source_identifier}#p{paragraph_index}"
             paragraph_anchor_semantic = await self.vectorizer.semantic(paragraph_anchor_title)
-            paragraph_anchor_frame = await self.vectorizer.frame(paragraph_anchor_title)
+            paragraph_anchor_frame = frames.neutral_frame(self.frame_dim)
             paragraph_anchor_description_vector = await self.vectorizer.description(
                 f"{source_type} paragraph: {paragraph_anchor_title} ({paragraph_anchor_identifier})"
             )
             chunk_semantic = await self.vectorizer.semantic(paragraph_text)
-            chunk_frame = await self.vectorizer.frame(paragraph_text)
+            # The chunk is the observation, so the chunk is where the stance
+            # lives. Until PHX-1107 this was a salted hash of the paragraph
+            # text: 4,977 distinct vectors carrying no epistemic content, which
+            # frame routing could only mask by (PHX-1095). The reading's own
+            # stance is the reading's own, which has already arrived above.
+            chunk_frame = frames.frame_vector(paragraph_stance, dim=self.frame_dim)
             nodes_embedded += 2
             embed_stage_duration_s += time.monotonic() - embed_started
 
@@ -323,6 +375,7 @@ class MeshParagraphReader:
                 raw_text_ref=paragraph_anchor_identifier,
             )
             self.mesh.nodes.append_chunk(chunk)
+            self._remember_frame(str(chunk.id), chunk_frame)
             nodes_upserted += 1
             self._append_edge(
                 Edge(
@@ -494,6 +547,8 @@ class MeshParagraphReader:
                     )
                     edges_upserted += 1
                     total_relations_written += 1
+                    if frames.is_contradiction_kind(relation.relation_kind):
+                        contradiction_edge_count += 1
                     local_edge_count += 1
 
                 for left_id, right_id in combinations(sorted(resolved_entity_ids), 2):
@@ -526,7 +581,9 @@ class MeshParagraphReader:
                     paragraph_concept = paragraph_result.paragraph_concept
                     concept_description = paragraph_concept.description or paragraph_concept.label
                     semantic_vector = await self.vectorizer.semantic(concept_description)
-                    frame_vector = await self.vectorizer.frame(paragraph_concept.label)
+                    # The paragraph concept is the paragraph's claim in one node,
+                    # so it carries the paragraph's stance.
+                    frame_vector = frames.frame_vector(paragraph_stance, dim=self.frame_dim)
                     description_vector = await self.vectorizer.description(concept_description)
                     nodes_embedded += 1
                     decision = self.linker.link_reference(
@@ -540,6 +597,12 @@ class MeshParagraphReader:
                         context_node_ids=resolved_entity_ids,
                     )
                     paragraph_concept_id = str(decision.node.id)
+                    if decision.is_new:
+                        # Only when this run created it: a concept the linker
+                        # resolved onto an existing node keeps that node's frame,
+                        # and claiming otherwise would score consistency against a
+                        # vector the substrate does not hold.
+                        self._remember_frame(paragraph_concept_id, frame_vector)
                     local_node_ids.add(paragraph_concept_id)
                     paragraph_concept_node_ids.add(paragraph_concept_id)
                     if decision.is_new:
@@ -824,6 +887,12 @@ class MeshParagraphReader:
             # would mean every reference minted a fresh node — the fragmentation
             # PHX-1097 had to clean up after the fact (PHX-1101).
             "firing_passes": firing_passes,
+            # What stances the read produced, and how many relations the text
+            # itself framed as a disagreement. A histogram with one key would
+            # mean the vocabulary reached the model and the model ignored it
+            # (PHX-1107).
+            "stances": dict(sorted(stance_counts.items(), key=lambda kv: (-kv[1], kv[0]))),
+            "contradiction_edges": contradiction_edge_count,
             "llm_calls": total_llm_calls,
             "llm_cost_eur": round(total_llm_cost_eur, 6),
             "elapsed_s": round(elapsed, 1),
@@ -845,7 +914,12 @@ class MeshParagraphReader:
         descriptions = [_entity_description(c.label, c.description) for c in concepts]
         labels = [concept.label for concept in concepts]
         semantic_vectors = await self.vectorizer.semantic_many(descriptions)
-        frame_vectors = await self.vectorizer.frame_many(labels)
+        # An entity holds no stance — 'Zeus' is neither asserted nor denied.
+        # The claims about it live on the chunks that reference it, and those
+        # carry the frames. `MESH_RETRIEVAL` has consolidated nodes inherit the
+        # dominant frame of their chunks; that is a consolidation pass and is
+        # not built, so entities stay neutral rather than carrying a guess.
+        frame_vectors = [frames.neutral_frame(self.frame_dim) for _ in labels]
         description_vectors = await self.vectorizer.description_many(descriptions)
         return list(zip(semantic_vectors, frame_vectors, description_vectors, strict=False))
 
@@ -888,6 +962,10 @@ class MeshParagraphReader:
                 "schema_failed": True,
             }
 
+    def _remember_frame(self, node_id: str, frame: list[float]) -> None:
+        """Record a node's frame so edges touching it can score consistency."""
+        self._frames[str(node_id)] = frame
+
     def _append_edge(self, edge: Edge) -> None:
         """Buffer an edge; the batch is flushed by :meth:`_flush_edges`.
 
@@ -902,7 +980,23 @@ class MeshParagraphReader:
         The linker is told about each edge immediately: its adjacency is in-memory
         and feeds context scoring during this same run, so it must not wait for
         the flush.
+
+        `frame_consistency` is filled here rather than at each of the dozen
+        construction sites, from the frames this run recorded. Where an endpoint
+        is an entity or a source anchor the frame is neutral and the cosine is
+        1.0 by definition, so the field only carries information on edges
+        between two claim-bearing nodes — structural edges between paragraphs,
+        which is exactly where an inconsistency is worth knowing about.
         """
+        if edge.frame_consistency == 1.0:
+            left = self._frames.get(str(edge.source_id))
+            right = self._frames.get(str(edge.target_id))
+            if left is not None and right is not None:
+                edge.frame_consistency = max(0.0, frames.frame_cosine(left, right))
+        if edge.valid_from is None:
+            # When the substrate came to hold this. `valid_to` stays None until
+            # something supersedes it (PANTHEON_VISION Non-Negotiable 3).
+            edge.valid_from = edge.born_at
         self._pending_edges.append(edge)
         self.linker.remember_edge(edge)
         # Bounded so a book-length read neither holds every edge in memory nor

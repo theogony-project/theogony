@@ -10,28 +10,20 @@ frame, before Spreading Activation runs.
 This module produces a frame-routed :class:`EdgeCSR` (same structure, reweighted values)
 that any :class:`~theogony.mesh.retrieval.propagation.Propagator` can consume unchanged.
 
-**Honest limitation (current substrate state).** The Wikidata5m bulk seed writes
-all-zero frame vectors (real frames are produced by Kadmos v2 during text ingestion, not
-by the structural seed). When the query frame or a node frame is the zero vector, its
-consistency is defined as ``1.0`` (neutral), so frame routing is a faithful **no-op** on
-the seeded subnets. The mechanism is exercised by unit tests on synthetic frames; it
-becomes load-bearing once frame-carrying content is ingested. This is a deliberate
-"mechanism now, signal later" split, not a stub.
+**The signal arrived with PHX-1107.** For most of this project the frames were a
+salted SHA-256 projection of the node label — 5,002 nodes, 4,977 distinct
+vectors, no epistemic content — so routing on them would have masked edges by a
+hash, and this module said so. `mesh/frames.py` now supplies real stances:
+Kadmos declares one per paragraph and per relation, chunks carry it, entities
+and source anchors are neutral (they assert nothing). A neutral frame still
+scores ``1.0`` — an absent stance never suppresses propagation — so the
+structural seed, which writes zero frames, is unaffected.
 
-**Unreachable outside tests.** `retrieve()` gates this on ``query_frame`` and no
-caller in `src/` or `scripts/` passes one — not the CLI, the Cockpit, the
-benchmark, or the demo GIF script — and there is no flag to set it.
-
-The justification this module used to give for that was measured and found
-false: it said frames were all zero on the structural seed and this becomes
-load-bearing "once frame-carrying content is ingested". On the founding mesh the
-frames are **not** zero — 5,002 nodes, 4,977 distinct vectors — because the
-vectorizer produces a salted SHA-256 projection of the label
-(`vectorizer.py`), which is neither of the two options `MESH_RETRIEVAL` §383 or
-`MESH_IMPLEMENTATION` §306 describe. So the frames carry a hash, not an epistemic
-stance, and ingesting more content removes the zero-vector safety net without
-supplying the signal. Routing on them today would mask edges by a hash
-(PHX-1095).
+**Reachable from outside since PHX-1107** via ``theogony mesh ask
+--frame-profile``; before that no caller in `src/` or `scripts/` passed a
+``query_frame`` and there was no flag to set one. The profiles live in
+`frames.QUERY_PROFILES`; `contradiction` is the one that could not be written
+before, because it needs stances the substrate had no way to record.
 """
 
 from __future__ import annotations

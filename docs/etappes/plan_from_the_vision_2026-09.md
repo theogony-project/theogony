@@ -141,6 +141,15 @@ messbare Wirkung hat (Recall auf dem Widerspruchs-Set mit gegen ohne), und das
 Verb *heilt* zum ersten Mal einen Eingang hat, auf dem Athene etwas finden
 könnte. Drei bis fünf Sitzungen.
 
+**Ergebnis (2026-09-12, [`contradiction.md`](contradiction.md)):** gebaut und
+gemessen. Der Korpus ist mit Frames neu gelesen (Haltungen über acht Werte,
+39 Absätze `disputed`), der Widerspruchs-Pass hat 74 Widersprüche bestätigt und
+334 Kanten geschrieben, und eine strittige Frage gibt in 6 von 7 Fällen beide
+Seiten zurück. Frame-Routing hat eine Wirkung — aber erst, nachdem Entitäten
+die Haltung ihrer Absätze erben, und als Tausch statt als Gewinn. Der stärkste
+Befund ist die Kontrolle: auf dem alten Mesh mit Hash-Frames kostet dasselbe
+Routing 42 Punkte. Das Verb *heilt* hat damit zum ersten Mal einen Eingang.
+
 ### C. Das Instrument — fortlaufend, klein
 
 Alles oben wird nur sichtbar, wenn das Instrument es sehen kann. Drei Dinge,
