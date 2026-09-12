@@ -119,15 +119,22 @@ STANCE_PROFILES: Mapping[str, Mapping[str, float]] = {
     "refuted_claim": {"veridicality": -1.0, "modality": 1.0, "force": -1.0},
     # "It is hypothesised that X."
     "hypothesis": {"modality": -1.0, "time": 1.0},
-    # "The patient reported X." A particular, witnessed thing.
-    "observation": {"veridicality": 1.0, "register": -1.0, "attribution": -1.0},
+    # "The patient reported X." A particular, witnessed thing: strongly
+    # particular, mildly second-hand.
+    "observation": {"veridicality": 1.0, "register": -1.0, "attribution": -0.5},
     # "X said: 'Y'." The substrate vouches for the saying, not the said — so
     # veridicality is positive (the saying is asserted) and attribution carries
     # the distance to the content. Without the positive veridicality a quote is
     # exactly orthogonal to every plain claim and a what-is query attenuates it
     # to zero, which on a corpus that is half direct speech would delete half
     # the substrate from retrieval (measured while building this basis).
-    "direct_quote": {"veridicality": 1.0, "attribution": -1.0, "register": -1.0},
+    #
+    # The two are told apart by which axis dominates: a quote is wholly
+    # somebody else's words (attribution -1), an observation is wholly a
+    # particular event (register -1). Written with both at -1 they came out
+    # *identical*, and two of the doctrine's seven frames collapsed into one —
+    # found by the round-trip test, not by reading the table.
+    "direct_quote": {"veridicality": 1.0, "attribution": -1.0, "register": -0.5},
     # Two accounts stand, the substrate holds both (Non-Negotiable 2).
     "disputed": {"veridicality": 1.0, "standing": -1.0},
     # Once held, since overtaken (Non-Negotiable 3).

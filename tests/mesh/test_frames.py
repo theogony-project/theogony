@@ -181,6 +181,18 @@ def test_stances_in_counts_what_a_read_produced() -> None:
     }
 
 
+def test_no_two_stances_collapse_onto_the_same_point() -> None:
+    """The doctrine names seven distinct frames; a basis that maps two of them
+    to the same vector has silently lost one. `observation` and `direct_quote`
+    did exactly that until the ingestion round-trip test caught it — both were
+    written with attribution and register at -1, which made them identical."""
+    import itertools
+
+    for a, b in itertools.combinations([s for s in STANCES if s != "neutral"], 2):
+        cos = frame_cosine(frame_vector(a), frame_vector(b))
+        assert cos < 0.999, f"{a} and {b} are the same point"
+
+
 def test_every_stance_profile_names_a_real_axis() -> None:
     known = set(AXIS_INDEX)
     for stance, profile in STANCE_PROFILES.items():
