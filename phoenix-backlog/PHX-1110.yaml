@@ -61,6 +61,11 @@ resolution: >
   Datumsfragen fast nichts (9 % gegen 33 %: Beschreibungen tragen die Daten
   nicht). Die Decke des Mesh ist höher (Antwort im Material 61 % gegen 55 %),
   die Ausbeute etwas niedriger, und das Vorwissen wird stärker unterdrückt.
+  Wiederholt: +4,0 EM / +4,9 F1 (p = 0,015), Streuung je Arm unter einem
+  halben Punkt. Mit halbem Budget (top_k 25) schrumpft der Abstand auf
+  +1,2 EM (n.s.) / +2,7 F1 (p = 0,03), die Decke fällt von 61 auf 53 %: der
+  Gewinn braucht genug Entitäten, damit Relationen zwischen ihnen sichtbar
+  werden.
 
   Entscheidung: render_constellation lässt die Strukturkanten standardmäßig
   weg (typed_only=True); jede Founding-Zahl vor PHX-1110 wurde mit ihnen

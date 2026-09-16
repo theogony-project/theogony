@@ -169,6 +169,21 @@ nicht da, hilft das Vorwissen bei den Passagen noch zu 19 %, bei der
 Constellation nur zu 12 %: das größere Material bindet das Modell stärker
 an sich.
 
+**Kontrollläufe.** Dieselben zwei Arme noch einmal gefragt
+(`2wiki_1000_repeat.json`): `vector_only` 40,6 %, `constellation_typed`
+44,6 %, **+4,0 EM / +4,9 F1, p = 0,015** (148 besser / 108 schlechter). Die
+Streuung zwischen zwei Läufen liegt unter einem halben Punkt je Arm; der
+Abstand hält.
+
+Mit halbem Budget (`top_k = 25`, `2wiki_1000_topk25.json`) schrumpft der
+Abstand: `vector_only` 41,1 %, `constellation` 40,9 %, `constellation_typed`
+42,3 % — **+1,2 EM (p = 0,49) / +2,7 F1 (p = 0,03)**, und die Decke fällt von
+61 auf 53 %. Der Gewinn des Graphen hängt am Budget: er braucht genug
+Entitäten im Arbeitsvorrat, damit Relationen zwischen ihnen überhaupt
+gerendert werden, während die reine Entitätsliste mit weniger Material
+eher besser wird (41,1 gegen 40,5). Auf F1 bleibt der Vorteil bei beiden
+Budgets signifikant, auf EM nur bei fünfzig.
+
 **Vorbehalt zur Kontrollgruppe.** PHX-1089 hatte das Vorwissen am
 26. August bei 24,8 % EM gemessen, derselbe Modellname, dieselben Prompts,
 dieselben 1.000 Fragen; heute stehen 33,8 %. Was hinter `deepseek-chat`
