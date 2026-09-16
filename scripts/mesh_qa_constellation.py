@@ -6,10 +6,11 @@
 
 Four arms, one model, one scorer (SQuAD EM / F1, PHX-1089's):
 
-    closed_book    no material — the prior; 24.8% EM on 2Wiki
-    passages       top-k passages by cosine — plain RAG, the published bridge
-    vector_only    top-k mesh entities by cosine, as their descriptions
-    constellation  the same kind of entities plus the relations among them
+    closed_book          no material — the prior; 24.8% EM on 2Wiki
+    passages             top-k passages by cosine — plain RAG, the published bridge
+    vector_only          top-k mesh entities by cosine, as their descriptions
+    constellation        the same kind of entities plus the relations among them
+    constellation_typed  the same, without the structural descriptors (60% of the list)
 
 `constellation` against `vector_only` is the graph's own contribution; against
 `passages` it is whether the substrate's rendering competes with plain RAG at
@@ -140,6 +141,9 @@ def main() -> None:
         ("constellation", "vector_only"),
         ("constellation", "passages"),
         ("constellation", "closed_book"),
+        ("constellation_typed", "constellation"),
+        ("constellation_typed", "vector_only"),
+        ("constellation_typed", "passages"),
         ("vector_only", "closed_book"),
         ("passages", "closed_book"),
     ):

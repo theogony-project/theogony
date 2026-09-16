@@ -196,6 +196,9 @@ def test_the_four_arms_are_built_on_one_question_and_scored_alike(tmp_path) -> N
     assert any("Entities:" in p and "Relations between them:" in p for p in prompts), (
         "constellation shows edges"
     )
+    typed = [p for p in prompts if "Relations between them:" in p and "co_mentions" not in p]
+    assert typed, "constellation_typed drops the structural descriptors"
+    assert any("daughter of" in p for p in typed), "and keeps the read relations"
     assert any("Entities:" in p and "Relations" not in p for p in prompts), "vector arm shows none"
     assert any(p.startswith("Material:\n[1] ") for p in prompts), "passages arm shows passages"
     assert by[("q1", "closed_book")].gold_in_context is False

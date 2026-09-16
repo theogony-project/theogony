@@ -20,10 +20,12 @@ Two pieces:
   mesh from 6,119 passages without a single LLM call — the same linker, the
   same identity resolution, the same edges a user's corpus would get.
 
-- **Four arms, one scorer.** `closed_book` (the prior), `passages` (top-k
+- **Five arms, one scorer.** `closed_book` (the prior), `passages` (top-k
   passages by cosine — PHX-1089's kNN arm, the bridge to published numbers),
-  `vector_only` (top-k mesh entities by cosine, as descriptions) and
-  `constellation` (the same kind of entities plus the relations among them).
+  `vector_only` (top-k mesh entities by cosine, as descriptions),
+  `constellation` (the same kind of entities plus the relations among them, the
+  shipped rendering) and `constellation_typed` (the same, without the
+  structural descriptors that make up 60% of the shipped relation list).
   Scored with SQuAD EM/F1 against the answer key, because the founding scorer
   strips digits and half of 2Wiki's answers are dates.
 
@@ -59,7 +61,7 @@ from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
 from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 
-QA_ARMS = ("closed_book", "passages", "vector_only", "constellation")
+QA_ARMS = ("closed_book", "passages", "vector_only", "constellation", "constellation_typed")
 DEFAULT_PASSAGE_K = 5
 
 # ---------------------------------------------------------------------------
@@ -294,9 +296,18 @@ def build_qa_jobs(
                     context = build_context(list(passages), hits, top_k=passage_k)
                 elif arm == "vector_only":
                     context = _vector_context(runtime, vector, top_k)
-                elif arm == "constellation":
+                elif arm in ("constellation", "constellation_typed"):
+                    # `constellation_typed` is the same retrieval rendered without
+                    # the structural descriptors — the shipped list is 60% of
+                    # those, and whether they cost the reader anything is a
+                    # question this run can answer for free.
                     context = _constellation_context(
-                        runtime, q.question, vector, top_k, **retrieve_kwargs
+                        runtime,
+                        q.question,
+                        vector,
+                        top_k,
+                        typed_only=arm == "constellation_typed",
+                        **retrieve_kwargs,
                     )
                 else:
                     raise ValueError(f"unknown arm {arm!r}")
