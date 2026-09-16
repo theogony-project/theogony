@@ -63,6 +63,16 @@ class GoldQuestion:
     # `_kinds` in the gold file; see `summarise_by_kind` for why this is a field
     # rather than a regex at the point of measurement.
     kind: str = "narrative"
+    # Other spellings an expected name answers to — the translation's own
+    # variants (Helius / Helios, Heaven / Uranus) and the ones the models use.
+    # The scorer accepts any of them and counts the canonical name once, so a
+    # correct answer in other words no longer scores zero and an answer that
+    # names one god twice no longer scores double (PHX-1098).
+    aliases: dict[str, list[str]] = field(default_factory=dict)
+
+    def names_for(self, name: str) -> list[str]:
+        """The canonical name and every alias it may be written as."""
+        return [name, *self.aliases.get(name, [])]
 
 
 @dataclass
@@ -94,6 +104,7 @@ def load_gold(path: Path | None = None) -> list[GoldQuestion]:
             expect=list(q["expect"]),
             evidence=q["evidence"],
             kind=q.get("kind", "narrative"),
+            aliases={str(k): [str(v) for v in vs] for k, vs in q.get("aliases", {}).items()},
         )
         for q in raw["questions"]
     ]
@@ -141,7 +152,9 @@ def evaluate(
         )
         wanted: dict[str, set[str]] = {}
         for name in gq.expect:
-            ids = names.get(_normalise(name), set())
+            ids: set[str] = set()
+            for spelling in gq.names_for(name):
+                ids |= names.get(_normalise(spelling), set())
             if ids:
                 result.present.append(name)
                 wanted[name] = ids

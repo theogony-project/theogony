@@ -16,7 +16,25 @@
         "Zeus"
       ],
       "evidence": "But Rhea was subject in love to Cronos and bare splendid children, Hestia, Demeter, and gold-shod Hera and strong Hades ... and wise Zeus",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Hades": [
+          "Aidoneus",
+          "Pluto"
+        ],
+        "Zeus": [
+          "Jove"
+        ],
+        "Hera": [
+          "Juno"
+        ],
+        "Demeter": [
+          "Ceres"
+        ],
+        "Hestia": [
+          "Vesta"
+        ]
+      }
     },
     {
       "id": "heaven-titans",
@@ -32,7 +50,28 @@
         "Mnemosyne"
       ],
       "evidence": "with Heaven and bare deep-swirling Oceanus, Coeus and Crius and Hyperion and Iapetus, Theia and Rhea, Themis and Mnemosyne",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Oceanus": [
+          "Ocean",
+          "Okeanos"
+        ],
+        "Coeus": [
+          "Koios"
+        ],
+        "Crius": [
+          "Kreios"
+        ],
+        "Iapetus": [
+          "Iapetos"
+        ],
+        "Rhea": [
+          "Rheia"
+        ],
+        "Mnemosyne": [
+          "Memory"
+        ]
+      }
     },
     {
       "id": "night-children",
@@ -45,7 +84,26 @@
         "Dreams"
       ],
       "evidence": "Night bare hateful Doom and black Fate and Death, and she bare Sleep and the tribe of Dreams",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Doom": [
+          "Moros"
+        ],
+        "Fate": [
+          "Ker",
+          "Keres"
+        ],
+        "Death": [
+          "Thanatos"
+        ],
+        "Sleep": [
+          "Hypnos"
+        ],
+        "Dreams": [
+          "Oneiroi",
+          "Dream"
+        ]
+      }
     },
     {
       "id": "fates-names",
@@ -56,7 +114,12 @@
         "Atropos"
       ],
       "evidence": "Also she bare the Destinies and ruthless avenging Fates, Clotho and Lachesis and Atropos",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "Clotho": [
+          "Klotho"
+        ]
+      }
     },
     {
       "id": "strife-children",
@@ -68,7 +131,22 @@
         "Sorrows"
       ],
       "evidence": "abhorred Strife bare painful Toil and Forgetfulness and Famine and tearful Sorrows, Fightings also, Battles, Murders",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Toil": [
+          "Ponos"
+        ],
+        "Forgetfulness": [
+          "Lethe"
+        ],
+        "Famine": [
+          "Limos"
+        ],
+        "Sorrows": [
+          "Algea",
+          "Sorrow"
+        ]
+      }
     },
     {
       "id": "hyperion-children",
@@ -79,7 +157,19 @@
         "Eos"
       ],
       "evidence": "love to Hyperion and bare great Helius (Sun) and clear Selene (Moon) and Eos (Dawn)",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Helius": [
+          "Helios",
+          "the Sun"
+        ],
+        "Selene": [
+          "the Moon"
+        ],
+        "Eos": [
+          "Dawn"
+        ]
+      }
     },
     {
       "id": "styx-children",
@@ -89,18 +179,34 @@
         "Nike"
       ],
       "evidence": "joined to Pallas and bare Zelus (Emulation) and trim-ankled Nike (Victory)",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Zelus": [
+          "Zelos",
+          "Zeal",
+          "Emulation"
+        ],
+        "Nike": [
+          "Victory"
+        ]
+      }
     },
     {
       "id": "iapetus-sons",
       "question": "Who are the sons of Iapetus?",
       "expect": [
+        "Atlas",
         "Menoetius",
         "Prometheus",
         "Epimetheus"
       ],
-      "evidence": "also she bare very glorious Menoetius and clever Prometheus, full of various wiles, and scatter-brained Epimetheus",
-      "kind": "genealogical"
+      "evidence": "she bare him a stout-hearted son, Atlas: also she bare very glorious Menoetius and clever Prometheus ... and scatter-brained Epimetheus",
+      "kind": "genealogical",
+      "aliases": {
+        "Menoetius": [
+          "Menoitios"
+        ]
+      }
     },
     {
       "id": "themis-children",
@@ -112,7 +218,24 @@
         "Eirene"
       ],
       "evidence": "married bright Themis who bare the Horae (Hours), and Eunomia (Order), Dike (Justice), and blooming Eirene (Peace)",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Horae": [
+          "Hours",
+          "Seasons"
+        ],
+        "Eunomia": [
+          "Order",
+          "Good Order"
+        ],
+        "Dike": [
+          "Justice"
+        ],
+        "Eirene": [
+          "Peace",
+          "Irene"
+        ]
+      }
     },
     {
       "id": "tethys-rivers",
@@ -124,59 +247,99 @@
         "Strymon"
       ],
       "evidence": "Tethys bare to Ocean eddying rivers, Nilus, and Alpheus, and deep-swirling Eridanus, Strymon, and Meander",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Nilus": [
+          "Nile"
+        ],
+        "Alpheus": [
+          "Alpheios"
+        ],
+        "Eridanus": [
+          "Eridanos"
+        ]
+      }
     },
     {
       "id": "hephaestus-birth",
       "question": "Which son did Hera bear without union with Zeus?",
       "expect": [
-        "Hephaestus",
-        "Hera"
+        "Hephaestus"
       ],
       "evidence": "this strife she bare without union with Zeus who holds the aegis a glorious son, Hephaestus",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Hephaestus": [
+          "Hephaistos",
+          "Vulcan"
+        ]
+      }
     },
     {
       "id": "echidna-offspring",
       "question": "What offspring did Echidna bear to Orthus?",
       "expect": [
-        "Echidna",
-        "Orthus"
+        "Sphinx",
+        "Nemean lion"
       ],
-      "evidence": "Echidna was subject in love to Orthus",
-      "kind": "genealogical"
+      "evidence": "Echidna was subject in love to Orthus and brought forth the deadly Sphinx which destroyed the Cadmeans, and the Nemean lion",
+      "kind": "genealogical",
+      "aliases": {
+        "Sphinx": [
+          "Phix"
+        ],
+        "Nemean lion": [
+          "Nemean Lion",
+          "lion of Nemea",
+          "the lion"
+        ]
+      }
     },
     {
       "id": "geryones-killer",
       "question": "Who killed Geryones?",
       "expect": [
-        "Heracles",
-        "Geryones"
+        "Heracles"
       ],
       "evidence": "Geryones, whom mighty Heracles killed in sea-girt Erythea",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "Heracles": [
+          "Hercules",
+          "Herakles"
+        ]
+      }
     },
     {
       "id": "pegasus-birth",
       "question": "How were Chrysaor and Pegasus born?",
       "expect": [
-        "Chrysaor",
-        "Pegasus",
-        "Perseus"
+        "Perseus",
+        "Medusa"
       ],
       "evidence": "when Perseus cut off her head, there sprang forth great Chrysaor and the horse Pegasus",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Medusa": [
+          "Medousa",
+          "the Gorgon",
+          "Gorgon"
+        ]
+      }
     },
     {
       "id": "bellerophon-mother",
       "question": "Who bore Bellerophon?",
       "expect": [
-        "Bellerophon",
-        "Glaucus",
-        "Poseidon"
+        "Eurynome"
       ],
-      "evidence": "arms of Poseidon and bare in the house of Glaucus blameless Bellerophon",
-      "kind": "genealogical"
+      "evidence": "Eurynome the daughter of Nisus ... So she lay in the arms of Poseidon and bare in the house of Glaucus blameless Bellerophon",
+      "kind": "genealogical",
+      "aliases": {
+        "Eurynome": [
+          "daughter of Nisus"
+        ]
+      }
     },
     {
       "id": "odysseus-sons",
@@ -187,18 +350,35 @@
         "Telegonus"
       ],
       "evidence": "loved steadfast Odysseus and bare Agrius and Latinus who was faultless and strong: also she brought forth Telegonus",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Agrius": [
+          "Agrios"
+        ],
+        "Latinus": [
+          "Latinos"
+        ],
+        "Telegonus": [
+          "Telegonos"
+        ]
+      }
     },
     {
       "id": "ceto-graiae",
       "question": "What did Ceto bear to Phorcys?",
       "expect": [
-        "Graiae",
-        "Ceto",
-        "Phorcys"
+        "Graiae"
       ],
       "evidence": "Ceto bare to Phorcys the fair-cheeked Graiae, sisters grey from their birth",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Graiae": [
+          "Graeae",
+          "Grey Sisters",
+          "Pemphredo",
+          "Enyo"
+        ]
+      }
     },
     {
       "id": "typhoeus-parents",
@@ -208,7 +388,16 @@
         "Tartarus"
       ],
       "evidence": "huge Earth bare her youngest child Typhoeus of the love of Tartarus",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Typhoeus": [
+          "Typhon",
+          "Typhaon"
+        ],
+        "Tartarus": [
+          "Tartaros"
+        ]
+      }
     },
     {
       "id": "erinyes-birth",
@@ -218,13 +407,22 @@
         "Giants"
       ],
       "evidence": "seasons moved round she bare the strong Erinyes and the great Giants with gleaming armour",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Erinyes": [
+          "Furies",
+          "Erinys"
+        ],
+        "Giants": [
+          "Gigantes"
+        ]
+      }
     },
     {
       "id": "nereus-daughters",
       "question": "How many daughters sprang from Nereus?",
       "expect": [
-        "Nereus"
+        "fifty"
       ],
       "evidence": "These fifty daughters sprang from blameless Nereus, skilled in excellent crafts",
       "kind": "genealogical"
@@ -233,40 +431,67 @@
       "id": "nereus-father",
       "question": "Who begat Nereus?",
       "expect": [
-        "Nereus",
         "Sea"
       ],
       "evidence": "And Sea begat Nereus, the eldest of his children, who is true and lies not",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Sea": [
+          "Pontus",
+          "Pontos"
+        ]
+      }
     },
     {
       "id": "muses-mother",
       "question": "Who is the mother of the Muses?",
       "expect": [
-        "Mnemosyne",
-        "Muses"
+        "Mnemosyne"
       ],
       "evidence": "Mnemosyne with the beautiful hair: and of her the nine gold-crowned Muses were born",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Mnemosyne": [
+          "Memory"
+        ]
+      }
     },
     {
       "id": "earth-first-bore",
       "question": "What did Earth bear first?",
       "expect": [
-        "Heaven",
-        "Earth"
+        "Heaven"
       ],
       "evidence": "Earth first bare starry Heaven, equal to herself, to cover her on every side",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Heaven": [
+          "Uranus",
+          "Ouranos",
+          "Sky"
+        ]
+      }
     },
     {
       "id": "cronus-swallowed",
       "question": "Why did Cronos swallow his children?",
       "expect": [
-        "Cronos"
+        "Earth",
+        "Heaven"
       ],
-      "evidence": "These great Cronos swallowed as each came forth from the womb to his mother's knees",
-      "kind": "narrative"
+      "evidence": "For he learned from Earth and starry Heaven that he was destined to be overcome by his own son",
+      "kind": "narrative",
+      "aliases": {
+        "Earth": [
+          "Gaia",
+          "Gaea",
+          "Ge"
+        ],
+        "Heaven": [
+          "Uranus",
+          "Ouranos"
+        ]
+      }
     },
     {
       "id": "stone-substitute",
@@ -275,7 +500,12 @@
         "stone"
       ],
       "evidence": "stone wrapped in swaddling clothes",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "stone": [
+          "rock"
+        ]
+      }
     },
     {
       "id": "hecate-honour",
@@ -284,27 +514,43 @@
         "Hecate"
       ],
       "evidence": "conceived and bare Hecate whom Zeus the son of Cronos honoured above all",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "Hecate": [
+          "Hekate"
+        ]
+      }
     },
     {
       "id": "aphrodite-birth",
       "question": "From what did Aphrodite grow?",
       "expect": [
-        "Aphrodite"
+        "foam"
       ],
       "evidence": "the foam-born goddess and rich-crowned Cytherea, because she grew amid the foam",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "foam": [
+          "aphros",
+          "sea-foam",
+          "white foam"
+        ]
+      }
     },
     {
       "id": "cycnus-slain",
       "question": "Who slew Cycnus?",
       "expect": [
-        "Cycnus",
-        "Heracles",
-        "Ares"
+        "Heracles"
       ],
       "evidence": "And he slew Cycnus, the gallant son of Ares",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "Heracles": [
+          "Hercules",
+          "Herakles"
+        ]
+      }
     },
     {
       "id": "eosphorus",
@@ -313,36 +559,60 @@
         "Eosphorus"
       ],
       "evidence": "after these Erigenia bare the star Eosphorus (Dawn-bringer)",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Eosphorus": [
+          "Dawn-bringer",
+          "Morning Star",
+          "Lucifer",
+          "Phosphorus"
+        ]
+      }
     },
     {
       "id": "frogs-mice",
       "question": "Who sent a herald with threats of war to the Frogs?",
       "expect": [
-        "Mice",
-        "Frogs"
+        "Mice"
       ],
       "evidence": "Frogs, the Mice have sent me with their threats against you, and bid you arm yourselves for war",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "Mice": [
+          "mouse",
+          "the mice"
+        ]
+      }
     },
     {
       "id": "melian-fire",
       "question": "From whom did Zeus withhold fire?",
       "expect": [
-        "Zeus"
+        "Melian"
       ],
       "evidence": "would not give the power of unwearying fire to the Melian race of mortal men who live on the earth",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "Melian": [
+          "mortal men",
+          "race of mortal men",
+          "mankind"
+        ]
+      }
     },
     {
       "id": "hermaon-thronia",
       "question": "Whom did Hermaon beget with Thronia?",
       "expect": [
-        "Thronia",
-        "Belus"
+        "Arabus"
       ],
-      "evidence": "whom worthy Hermaon begat with Thronia, daughter of the lord Belus",
-      "kind": "genealogical"
+      "evidence": "the daughter of Arabus, whom worthy Hermaon begat with Thronia, daughter of the lord Belus",
+      "kind": "genealogical",
+      "aliases": {
+        "Arabus": [
+          "Arabos"
+        ]
+      }
     },
     {
       "id": "persephone-pomegranate",
@@ -351,24 +621,33 @@
         "pomegranate seed"
       ],
       "evidence": "secretly gave her sweet pomegranate seed to eat",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "pomegranate seed": [
+          "pomegranate"
+        ]
+      }
     },
     {
       "id": "hermes-cattle",
       "question": "Whose cattle did Hermes steal?",
       "expect": [
-        "Hermes",
         "Apollo"
       ],
       "evidence": "he stole the cattle of far-shooting Apollo",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "Apollo": [
+          "Phoebus",
+          "Phoebus Apollo"
+        ]
+      }
     },
     {
       "id": "hermes-tortoise",
       "question": "What creature did Hermes find in the cave?",
       "expect": [
-        "tortoise",
-        "Hermes"
+        "tortoise"
       ],
       "evidence": "he found a tortoise there and gained endless delight",
       "kind": "narrative"
@@ -378,8 +657,7 @@
       "question": "Which mortal did Aphrodite love, and whom did she bear him?",
       "expect": [
         "Anchises",
-        "Aeneas",
-        "Aphrodite"
+        "Aeneas"
       ],
       "evidence": "joined in sweet love with the hero Anchises and bare Aeneas",
       "kind": "genealogical"
@@ -391,7 +669,12 @@
         "Metaneira"
       ],
       "evidence": "tell Metaneira, our deep-bosomed mother",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Metaneira": [
+          "Metanira"
+        ]
+      }
     },
     {
       "id": "shield-figures",
@@ -402,24 +685,48 @@
         "Slaughter"
       ],
       "evidence": "Upon the shield Pursuit and Flight were wrought, and Tumult, and Panic, and Slaughter",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "Pursuit": [
+          "Proioxis"
+        ],
+        "Panic": [
+          "Phobos",
+          "Palioxis",
+          "Fear"
+        ],
+        "Slaughter": [
+          "Androktasia",
+          "Androctasia"
+        ]
+      }
     },
     {
       "id": "prometheus-portions",
       "question": "What did Prometheus offer Zeus to choose between?",
       "expect": [
-        "Prometheus",
-        "Zeus"
+        "flesh",
+        "bones"
       ],
-      "evidence": "take which ever of these portions",
-      "kind": "narrative"
+      "evidence": "flesh and inner parts thick with fat upon the hide, covering them with an ox paunch; but for Zeus he put the white bones dressed up with cunning art and covered with shining fat",
+      "kind": "narrative",
+      "aliases": {
+        "flesh": [
+          "meat",
+          "inner parts",
+          "entrails"
+        ],
+        "bones": [
+          "white bones",
+          "bones dressed"
+        ]
+      }
     },
     {
       "id": "delos-apollo",
       "question": "Where did the singers first raise their strain to Apollo?",
       "expect": [
-        "Delos",
-        "Apollo"
+        "Delos"
       ],
       "evidence": "Then first in Delos did I and Homer, singers both, raise our strain",
       "kind": "narrative"
@@ -433,26 +740,51 @@
         "Gyes"
       ],
       "evidence": "Cottus and Briareos and Gyes, presumptuous children",
-      "kind": "genealogical"
+      "kind": "genealogical",
+      "aliases": {
+        "Cottus": [
+          "Kottos"
+        ],
+        "Briareos": [
+          "Briareus",
+          "Obriareus",
+          "Aegaeon"
+        ],
+        "Gyes": [
+          "Gyges"
+        ]
+      }
     },
     {
       "id": "muses-dwelling",
       "question": "On which mountain do the Muses dance?",
       "expect": [
-        "Muses",
         "Helicon"
       ],
       "evidence": "let us begin to sing, who hold the great and holy mount of Helicon, and dance on soft feet about the deep-blue spring",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "Helicon": [
+          "Mount Helicon",
+          "Helikon"
+        ]
+      }
     },
     {
       "id": "tartarus-depth",
       "question": "What measures the depth of Tartarus?",
       "expect": [
-        "Tartarus"
+        "anvil"
       ],
       "evidence": "brazen anvil falling down from heaven",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "anvil": [
+          "brazen anvil",
+          "nine nights and days",
+          "nine days"
+        ]
+      }
     },
     {
       "id": "styx-oath",
@@ -461,7 +793,12 @@
         "Styx"
       ],
       "evidence": "Styx (this is the strongest and most awful oath",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "Styx": [
+          "water of Styx"
+        ]
+      }
     },
     {
       "id": "cerberus-desc",
@@ -470,30 +807,46 @@
         "Cerberus"
       ],
       "evidence": "brazen-voiced hound of Hades",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "Cerberus": [
+          "Kerberos",
+          "hound of Hades"
+        ]
+      }
     },
     {
       "id": "chimaera-parts",
       "question": "What did the Chimaera breathe?",
       "expect": [
-        "Chimaera"
+        "fire"
       ],
       "evidence": "Chimaera who breathed raging fire",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "fire": [
+          "raging fire",
+          "blazing fire",
+          "flame"
+        ]
+      }
     },
     {
       "id": "geryones-oxen",
-      "question": "For whose oxen did Heracles kill Geryones?",
+      "question": "Where did Heracles kill Geryones for the sake of his oxen?",
       "expect": [
-        "Heracles",
-        "Geryones",
         "Erythea"
       ],
       "evidence": "Geryones, whom mighty Heracles killed in sea-girt Erythea for the sake of his shambling oxen",
-      "kind": "narrative"
+      "kind": "narrative",
+      "aliases": {
+        "Erythea": [
+          "Erytheia"
+        ]
+      }
     }
   ],
-  "_note": "Gold set for the founding corpus (Evelyn-White, Gutenberg 348). Every question carries the passage that answers it. Answers are entity NAMES resolved against the mesh at evaluation time, never node ids — a gold set pinned to ids would need rebuilding after every read and would encode whatever the retriever returned. Authored from the text, not from memory: the volume has no 'Works and Days', so no Pandora's jar and no golden race; its Pandora is Deucalion's daughter; and the succession passage reads 'Hestia 1618' because footnote markers sit inline. One expected answer was corrected after the fact: 'pomegranate' became 'pomegranate seed', because the corpus reads 'secretly gave her sweet pomegranate seed to eat'. The correction follows the source, not the mesh — adjusting a gold set to match whatever the system happens to hold would make the measurement circular, and the text is what settles it.",
+  "_note": "Gold set for the founding corpus (Evelyn-White, Gutenberg 348). Every question carries the passage that answers it. Answers are entity NAMES resolved against the mesh at evaluation time, never node ids — a gold set pinned to ids would need rebuilding after every read and would encode whatever the retriever returned. Authored from the text, not from memory: the volume has no 'Works and Days', so no Pandora's jar and no golden race; its Pandora is Deucalion's daughter; and the succession passage reads 'Hestia 1618' because footnote markers sit inline. One expected answer was corrected after the fact: 'pomegranate' became 'pomegranate seed', because the corpus reads 'secretly gave her sweet pomegranate seed to eat'. The correction follows the source, not the mesh — adjusting a gold set to match whatever the system happens to hold would make the measurement circular, and the text is what settles it. PHX-1098 (2026-09-16): every expected name may carry `aliases` — the spellings this translation and the models actually use (Helius/Helios, Heaven/Uranus, Sea/Pontus, Eunomia/Order) — and the scorer accepts any of them while counting the canonical name once. The same change removed the 30 gold names that stood in their own question (a scorer pays for those whenever an answer repeats the question, and pays an arm that answers in sentences most), and corrected three expectations that were simply wrong: the child of Hermaon and Thronia is Arabus, not Belus; Echidna bore Orthus the Sphinx and the Nemean lion; Atlas is a son of Iapetus. A test now holds that no expected name or alias appears in its own question.",
   "_kinds": {
     "_why": "PHX-1066 found that removing co-occurrence edges reads as +2 on the aggregate and is +4 genealogical against -10 narrative. Every claim about this substrate since has been split by question kind for that reason. The split itself was never checked in: it lived as a regex in whatever script measured it that day, and three separate hand-labellings of this set produced 51%, 55% and 57%. A number that cannot be reproduced is not a measurement (PHX-1080).",
     "_rule": "genealogical = at least one expected answer stands in a KINSHIP relation (parent, child, sibling, spouse) to an entity the question names. Everything else is narrative: events, actions, attributes, locations, group membership.",

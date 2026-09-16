@@ -668,10 +668,17 @@ def load_projector(path: Path, device: str) -> LoadedProjector:
     return LoadedProjector(projector, str(blob.get("mode", "semantic")), blob.get("report"))
 
 
-def restated(expected: Sequence[str], question: str) -> list[str]:
-    """The gold names that already stand in the question itself."""
+def restated(
+    expected: Sequence[str], question: str, aliases: Mapping[str, Sequence[str]] | None = None
+) -> list[str]:
+    """The gold names that already stand in the question itself, under any spelling."""
     haystack = f" {_normalise(question)} "
-    return [name for name in expected if f" {_normalise(name)} " in haystack]
+    table = aliases or {}
+    return [
+        name
+        for name in expected
+        if any(f" {_normalise(s)} " in haystack for s in (name, *table.get(name, ())))
+    ]
 
 
 def strict_rows(
@@ -690,7 +697,7 @@ def strict_rows(
     by_id = {g.id: g for g in questions}
     out: list[AnswerResult] = []
     for r in results:
-        given = set(restated(r.expected, by_id[r.id].question))
+        given = set(restated(r.expected, by_id[r.id].question, by_id[r.id].aliases))
         expected = [e for e in r.expected if e not in given]
         if not expected:
             continue
@@ -868,7 +875,7 @@ def answer_gold_set_local(
                     )
                     embeds = reader.inputs_for(_SYSTEM, soft_prompt, proj(vec))
             answer = reader.greedy(embeds, max_new_tokens)
-            found, missed = _score(answer, gq.expect)
+            found, missed = _score(answer, gq.expect, gq.aliases)
             results.append(
                 AnswerResult(
                     id=gq.id,
