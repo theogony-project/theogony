@@ -268,6 +268,23 @@ class MeshRuntime:
     def _write_state(self, data: dict[str, Any]) -> None:
         self._state_path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
 
+    def compact(self, *, retention: timedelta = _DEFAULT_VERSION_RETENTION) -> dict[str, int]:
+        """Compact every table's fragments and prune its version history.
+
+        What the tick does as upkeep, callable outside a tick, because a read
+        needs it *while* it writes: the node stores append one row per node,
+        each append is a fragment, and a vector search scans every fragment.
+        Measured on a 2WikiMultihopQA read (PHX-1110): 2,617 nodes in 2,617
+        fragments, 98 ms per search against 10 ms on the same rows compacted,
+        and the paragraph rate fell from 0.55 s to over 6 s within 400
+        paragraphs — quadratic in the corpus. Returns versions removed per table.
+        """
+        pruned = self.nodes.prune_history(retention=retention)
+        pruned.update(self.edges.prune_history(retention=retention))
+        pruned["mesh_audit"] = self.audit.prune_history(retention=retention)
+        self._csr_cache = None
+        return pruned
+
     def tick_count(self) -> int:
         """How many Oneiros ticks this mesh has seen.
 

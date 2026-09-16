@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import hashlib
 import json
 import time
 from pathlib import Path
@@ -50,6 +49,7 @@ from theogony.mesh.eval.qa_features import (
     embed_texts,
     extract_spacy_entities,
 )
+from theogony.mesh.eval.qa_mesh import reading_key
 from theogony.mesh.eval.qa_retrieval import (
     BM25,
     QAGraph,
@@ -129,7 +129,9 @@ class KadmosComparisonReport(BaseModel):
 
 
 def _cache_key(text: str) -> str:
-    return hashlib.blake2b(text.encode("utf-8"), digest_size=16).hexdigest()
+    # One definition, shared with the replay that rebuilds a mesh from this
+    # cache (PHX-1110); a drift between the two would silently miss every row.
+    return reading_key(text)
 
 
 def _load_cache(path: Path) -> dict[str, dict[str, Any]]:

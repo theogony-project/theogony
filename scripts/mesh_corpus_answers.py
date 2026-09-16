@@ -13,8 +13,10 @@ The closed-book arm is the one that makes the others readable. The corpus is
 Hesiod and the model has read Hesiod, so a constellation arm scoring well proves
 nothing on its own. Every claim here is about the difference between arms.
 
-Costs real money. Prints the model and the tick count with the results, because
-neither is reproducible without them.
+Costs real money. Prints the model, the tick count and the rendering with the
+results, because none of them is reproducible without them. Since PHX-1110
+the constellation arm renders without the structural descriptors; every
+figure before that (PHX-1087/1096/1097/1098) had them in.
 """
 
 from __future__ import annotations
@@ -95,7 +97,7 @@ def main() -> None:
         f"Modell {settings.llm.provider}/{settings.llm.model_id or '<default>'}   "
         f"Ticks {runtime.tick_count()}   top_k {args.top_k}   "
         f"k_seeds {args.seeds if args.seeds is not None else DEFAULT_K_SEEDS}   "
-        f"Fragen {len(gold)}   Laeufe {args.repeat}"
+        f"Fragen {len(gold)}   Laeufe {args.repeat}   Rendering typed_only"
     )
     print()
     print(f"{'Arm':16s} {'Antwort-Recall':>15s} {'vollstaendig':>13s} {'verweigert':>11s}")

@@ -126,6 +126,7 @@ def _constellation_context(
     question: str,
     vector: Any,
     top_k: int,
+    typed_only: bool = True,
     **retrieve_kwargs: Any,
 ) -> str:
     # `record_firing=False`: a benchmark must not change the substrate it
@@ -136,16 +137,47 @@ def _constellation_context(
     result = retrieve(
         runtime, vector, query=question, top_k=top_k, record_firing=False, **retrieve_kwargs
     )
-    return render_constellation(result.constellation)
+    return render_constellation(result.constellation, typed_only=typed_only)
 
 
-def render_constellation(constellation: Constellation) -> str:
-    """The shipped text rendering of a Constellation, the one a user's model reads.
+# The descriptors the reader writes on its structural passes — density,
+# cross-paragraph, mentions, source attribution, paragraph concepts, extraction
+# and section edges (`creation_context` kadmos_*). They carry topology, not a
+# claim, and the shipped rendering shows them anyway: 60% of the relation lines
+# a founding-corpus question gets are these (PHX-1110). Kept as a set here so a
+# consumer can leave them out without knowing how the reader names its passes.
+STRUCTURAL_DESCRIPTORS = frozenset(
+    {
+        "co_mentions_in_paragraph",
+        "shares_entities_with",
+        "develops_across_paragraphs",
+        "mentions",
+        "appears_in_source",
+        "summarised_as",
+        "has_paragraph_concept",
+        "extracted_from",
+        "is_section_of",
+    }
+)
+
+
+def render_constellation(constellation: Constellation, *, typed_only: bool = True) -> str:
+    """The text rendering of a Constellation that the answer harnesses hand a model.
 
     Split out of `_constellation_context` so that the latent-mile harness
     (PHX-1109) can hand the *same* Constellation to the same reader twice, once
     as this text and once as vectors, and attribute any difference to the
     medium rather than to the retrieval.
+
+    `typed_only` drops the structural descriptors (`STRUCTURAL_DESCRIPTORS`)
+    from the relation list. It is the default since PHX-1110 measured what they
+    cost on a corpus the model does not know (2WikiMultihopQA, 1,000 questions,
+    deepseek-chat): with the structural lines the Constellation scored 41.2% EM
+    against 40.5% for the same entities without any relations (+0.7, p=0.72);
+    without them 44.1% (+3.6 over no relations, p=0.03; +2.9 over the shipped
+    list, p=0.004, 63 questions better and 34 worse). Every founding-corpus
+    figure before PHX-1110 (PHX-1087/1096/1097/1098) was measured with the
+    structural lines in — `typed_only=False` reproduces that rendering.
     """
     lines = ["Entities:"]
     lines += [f"- {n.name}" for n in constellation.nodes if not n.is_source_anchor]
@@ -178,7 +210,9 @@ def render_constellation(constellation: Constellation) -> str:
     described = [
         e
         for e in constellation.edges
-        if e.relation_descriptor and (e.source_id in seeds or e.target_id in seeds)
+        if e.relation_descriptor
+        and (e.source_id in seeds or e.target_id in seeds)
+        and not (typed_only and e.relation_descriptor in STRUCTURAL_DESCRIPTORS)
     ]
     if described:
         lines.append("")

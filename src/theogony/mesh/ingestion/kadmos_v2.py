@@ -63,6 +63,7 @@ _EDGE_FLUSH_BATCH = 512
 # The doctrine wants connectivity carried by shared *concepts*, not by a chunk
 # quasi-clique, so each paragraph keeps only its strongest partners.
 _MAX_STRUCTURAL_NEIGHBOURS = 12
+_COMPACT_EVERY = 200  # paragraphs between workspace compactions during a read (PHX-1110)
 
 SYSTEM_PROMPT = """You are Kadmos, the cognitive reader for a MESH substrate.
 
@@ -150,11 +151,20 @@ class MeshParagraphReader:
         max_paragraphs: int = 0,
         settings: Settings | None = None,
         max_structural_neighbours: int = _MAX_STRUCTURAL_NEIGHBOURS,
+        compact_every: int = _COMPACT_EVERY,
     ) -> None:
         self.mesh = mesh
         self.llm = llm
         self.settings = settings or Settings()
         self.max_paragraphs = max_paragraphs
+        # Compact the workspace every N paragraphs (0 = never). Every node is
+        # its own Lance fragment until something compacts, and every vector
+        # search — two per concept, for identity — scans all of them, so a
+        # long read slows down as it goes: 0.55 s per paragraph at the start of
+        # a 6,119-paragraph corpus, over 6 s by paragraph 400 (PHX-1110). The
+        # tick compacts, but a read does not tick. Same cost the version pile-up
+        # had on appends (PHX-1060), on the read side.
+        self.compact_every = compact_every
         self.max_structural_neighbours = max_structural_neighbours
         self.semantic_dim = mesh.semantic_dim if semantic_dim is None else semantic_dim
         self.frame_dim = mesh.frame_dim if frame_dim is None else frame_dim
@@ -303,6 +313,16 @@ class MeshParagraphReader:
             paragraph_text = paragraph_text.strip()
             if len(paragraph_text) < 10:
                 continue
+            if (
+                self.compact_every > 0
+                and paragraph_index > 1
+                and (paragraph_index - 1) % self.compact_every == 0
+            ):
+                self._flush_edges()
+                pruned = self.mesh.compact()
+                log.info(
+                    "compacted the workspace after %d paragraphs: %s", paragraph_index - 1, pruned
+                )
 
             log.info(
                 "reading paragraph %d/%d (%d chars)",
