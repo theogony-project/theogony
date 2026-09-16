@@ -156,6 +156,22 @@ def test_the_replay_writes_a_mesh_through_the_shipped_reader(tmp_path) -> None:
     assert any(e.relation_descriptor == "daughter of" for e in edges)
 
 
+def test_a_read_compacts_its_own_workspace_as_it_goes(tmp_path) -> None:
+    """One fragment per node until something compacts, and a read of six
+    thousand paragraphs never ticks: the rate fell from 0.55 s to over 6 s per
+    paragraph before this existed (PHX-1110)."""
+
+    def fragments(root) -> int:
+        return len(list((root / "lance" / "consolidated_nodes.lance" / "data").glob("*")))
+
+    loose = MeshRuntime(tmp_path / "loose", semantic_dim=8, frame_dim=8)
+    asyncio.run(ingest_cached_readings(loose, PASSAGES, READINGS, compact_every=0))
+    tight = MeshRuntime(tmp_path / "tight", semantic_dim=8, frame_dim=8)
+    asyncio.run(ingest_cached_readings(tight, PASSAGES, READINGS, compact_every=1))
+    assert fragments(tmp_path / "tight") < fragments(tmp_path / "loose")
+    assert tight.nodes.consolidated_count() == loose.nodes.consolidated_count()
+
+
 def _embed(text: str) -> list[float]:
     """Deterministic, and keeps an entity's name close to a question that says it."""
     rng = np.random.default_rng(abs(hash(text.lower().split()[0])) % 2**32)

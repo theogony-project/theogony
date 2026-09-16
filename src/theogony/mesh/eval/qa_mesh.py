@@ -185,6 +185,7 @@ async def ingest_cached_readings(
     source_identifier: str = "qa_bench",
     title: str = "QA benchmark corpus",
     max_paragraphs: int = 0,
+    compact_every: int = 200,
     on_call: Callable[[int], None] | None = None,
 ) -> ReplayIngestReport:
     """Write a corpus into a mesh through the shipped reader, readings replayed.
@@ -197,7 +198,9 @@ async def ingest_cached_readings(
     """
     by_paragraph = readings_by_paragraph(passages, readings)
     provider = ReplayReadingProvider(by_paragraph, on_call=on_call)
-    reader = MeshParagraphReader(runtime, llm=provider, max_paragraphs=max_paragraphs)
+    reader = MeshParagraphReader(
+        runtime, llm=provider, max_paragraphs=max_paragraphs, compact_every=compact_every
+    )
     text = "\n\n".join(paragraph_of(p) for p in passages)
     report = await reader.read_text(
         text=text,

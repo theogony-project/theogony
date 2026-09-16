@@ -36,6 +36,9 @@ def main() -> None:
     ap.add_argument("--max-paragraphs", type=int, default=0, help="0 = the whole corpus")
     ap.add_argument("--fresh", action="store_true", help="delete an existing workspace first")
     ap.add_argument("--every", type=int, default=200, help="progress line every N paragraphs")
+    ap.add_argument(
+        "--compact-every", type=int, default=200, help="compact the workspace every N paragraphs"
+    )
     args = ap.parse_args()
 
     readings_path = args.readings or (args.cache_dir / f"kadmos_readings_{args.dataset}.jsonl")
@@ -72,11 +75,14 @@ def main() -> None:
             source_identifier=args.dataset,
             title=f"HippoRAG {args.dataset}",
             max_paragraphs=args.max_paragraphs,
+            compact_every=args.compact_every,
             on_call=progress,
         )
     )
+    pruned = runtime.compact()
     elapsed = time.perf_counter() - started
     rep = result.report
+    print(f"final compaction: versions pruned {sum(pruned.values())}")
     print(
         f"\nparagraphs {result.paragraphs}  replayed {result.hits}  missing {result.misses}  "
         f"{elapsed / 60:.1f} min ({elapsed / max(1, result.paragraphs):.3f} s/paragraph)"
