@@ -171,6 +171,20 @@ zweite Stück — der Antwort-Arm auf einem Korpus, den das Modell nicht kennt �
 nicht mehr Ergänzung, sondern die einzige Art, die Frage „hilft der Graph beim
 Antworten" zu stellen.**
 
+**Ergebnis, zweites Stück (2026-09-16,
+[`qa_constellation.md`](qa_constellation.md), PHX-1110):** die Frage ist
+gestellt und beantwortet. Auf 2WikiMultihopQA, 1.000 Fragen, Vorwissen
+33,8 % EM, ein Mesh aus allen 6.119 Passagen: die Constellation antwortet
+**+3,6 EM über dieselben fünfzig Entitäten ohne Kanten** (p = 0,03) und
+liegt gleichauf mit fünf Passagen — aber nur ohne die Strukturkanten, die
+60 % des ausgelieferten Renderings ausmachten; mit ihnen bleibt +0,7. Die
+Rendering-Form der Harnesses lässt sie seit dieser Messung weg. Wo der Graph
+gewinnt, sind die Vergleichsfragen (+5,6 über Passagen auf 836 Fragen); wo
+er verliert, Ja/Nein und Daten, die eine Entitätsbeschreibung nicht trägt.
+Nebenbei fiel ein zweiter quadratischer Term im Lesen (ein Lance-Fragment je
+Knoten), behoben durch Kompaktierung alle 200 Absätze. Spur C ist damit
+vollständig; nächste Spur D.
+
 ### D. Nous — das Lesen mit Arbeitsgedächtnis (Monkey 1)
 
 Das erste Verb der Vision und ihre Phase 1. Es steht hier hinten, nicht weil es

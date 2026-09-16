@@ -126,7 +126,7 @@ def _constellation_context(
     question: str,
     vector: Any,
     top_k: int,
-    typed_only: bool = False,
+    typed_only: bool = True,
     **retrieve_kwargs: Any,
 ) -> str:
     # `record_firing=False`: a benchmark must not change the substrate it
@@ -161,8 +161,8 @@ STRUCTURAL_DESCRIPTORS = frozenset(
 )
 
 
-def render_constellation(constellation: Constellation, *, typed_only: bool = False) -> str:
-    """The shipped text rendering of a Constellation, the one a user's model reads.
+def render_constellation(constellation: Constellation, *, typed_only: bool = True) -> str:
+    """The text rendering of a Constellation that the answer harnesses hand a model.
 
     Split out of `_constellation_context` so that the latent-mile harness
     (PHX-1109) can hand the *same* Constellation to the same reader twice, once
@@ -170,8 +170,14 @@ def render_constellation(constellation: Constellation, *, typed_only: bool = Fal
     medium rather than to the retrieval.
 
     `typed_only` drops the structural descriptors (`STRUCTURAL_DESCRIPTORS`)
-    from the relation list — a measurement variant (PHX-1110), not the default,
-    until a measurement says the default should change.
+    from the relation list. It is the default since PHX-1110 measured what they
+    cost on a corpus the model does not know (2WikiMultihopQA, 1,000 questions,
+    deepseek-chat): with the structural lines the Constellation scored 41.2% EM
+    against 40.5% for the same entities without any relations (+0.7, p=0.72);
+    without them 44.1% (+3.6 over no relations, p=0.03; +2.9 over the shipped
+    list, p=0.004, 63 questions better and 34 worse). Every founding-corpus
+    figure before PHX-1110 (PHX-1087/1096/1097/1098) was measured with the
+    structural lines in — `typed_only=False` reproduces that rendering.
     """
     lines = ["Entities:"]
     lines += [f"- {n.name}" for n in constellation.nodes if not n.is_source_anchor]
