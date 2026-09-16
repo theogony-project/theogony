@@ -83,7 +83,9 @@ def main() -> None:
             ).constellation
             order = {n.node_id: i + 1 for i, n in enumerate(c.nodes)}
             for name in gq.expect:
-                ids = names.get(_normalise(name), set())
+                ids: set[str] = set()
+                for spelling in gq.names_for(name):
+                    ids |= names.get(_normalise(spelling), set())
                 ranks.append(min((order.get(i, 201) for i in ids), default=201))
         return statistics.mean(ranks)
 

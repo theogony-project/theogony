@@ -158,6 +158,19 @@ jedes eine halbe Sitzung: die Gold-Aliase (PHX-1098, damit „Helios" nicht
 auswendig kann (HippoRAG, wo die Kontrollgruppe nicht bei 50 % steht); und das
 Widerspruchs-Gold-Set aus B als drittes Instrument neben Retrieval und Antwort.
 
+**Ergebnis, erstes und drittes Stück (2026-09-16,
+[`gold_aliases.md`](gold_aliases.md), [`contradiction.md`](contradiction.md)):**
+das Widerspruchs-Gold-Set ist mit B entstanden (sieben Fälle, beide-Seiten-
+Recall). Die Aliase sind gebaut, und beim Bauen fiel der zweite Fehler der
+Datei: 30 Namen standen in ihrer eigenen Frage, drei Erwartungen waren falsch.
+Die Neubewertung derselben Antworten kippt eine Aussage: das Vorwissen von
+deepseek steht unter dem korrigierten Gold bei **86 %**, nicht 50, und der
+Graph liegt mit 75 % darunter — der alte Bewerter hatte die Kontrollgruppe
+systematisch unterbewertet. Graph gegen Vektorsuche +11 hält. **Damit ist das
+zweite Stück — der Antwort-Arm auf einem Korpus, den das Modell nicht kennt —
+nicht mehr Ergänzung, sondern die einzige Art, die Frage „hilft der Graph beim
+Antworten" zu stellen.**
+
 ### D. Nous — das Lesen mit Arbeitsgedächtnis (Monkey 1)
 
 Das erste Verb der Vision und ihre Phase 1. Es steht hier hinten, nicht weil es

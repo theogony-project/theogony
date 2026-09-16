@@ -1,7 +1,7 @@
 id: PHX-1098
 category: evaluation
 priority: high
-status: open
+status: done
 generation_target: MESH migration — instrument quality
 title: "The founding gold set has no answer aliases, so a correct answer in other words scores zero"
 filed_by: Claude Code (2026-08-31, from the PHX-1097 measurement)
@@ -47,7 +47,45 @@ description: >
   strict count gave 11%. `latent_mile.strict_rows` drops those names and the
   8 questions that have nothing left; the fix in the gold file is to expect
   what the question asks for, not what it mentions.
+resolution: >
+  Repariert und neu gemessen, 2026-09-16. Volltext docs/etappes/gold_aliases.md.
+
+  Die Datei: 92 Gold-Namen statt 111, mit 130 Aliasen je erwartetem Namen
+  (die Schreibungen der Uebersetzung und der Modelle); die 30 Namen, die in
+  ihrer eigenen Frage standen, erwarten jetzt, was die Frage fragt; drei
+  Erwartungen waren gegen den Korpus falsch und sind korrigiert (Arabus statt
+  Belus; Sphinx und Nemeischer Loewe statt Echidna/Orthus; Atlas fehlte).
+  Der Code: `_score(..., aliases)` zaehlt den kanonischen Namen einmal, der
+  Retrieval-Abgleich, die latente Meile und der Herzschlag lesen die Aliase.
+  Zwei Tests halten es fest (kein Name oder Alias in der eigenen Frage; jeder
+  Alias gehoert zu einem erwarteten Namen); die Zaehlungen sind exakt gepinnt.
+
+  Neu gemessen -- dieselben Antworten, drei Bewerter, statt die alten Zahlen
+  stillschweigend zu ersetzen:
+
+      deepseek-chat, 3 Laeufe     altes Gold   ohne nachgesprochene   neues Gold
+      closed_book (Vorwissen)        47 %             65 %              86 %
+      vector_only                    47 %             57 %              63 %
+      constellation (Graph)          61 %             72 %              75 %
+
+  Was haelt: Graph gegen Vektorsuche +11, unter jedem Bewerter. Was kippt:
+  Graph gegen Vorwissen aus +11 wird -11, weil das alte Gold das Vorwissen
+  systematisch unterbewertet hatte ("Cerberus" auf die Echidna-Frage war
+  richtig und bekam null). Die Streuung der Kontrollgruppe fiel von neun
+  Punkten (PHX-1087) auf zwei -- ein Teil des "Modellrauschens" war der
+  Bewerter. Retrieval auf dem Founding-Mesh 80 statt 87 Prozent, weil
+  nachgesprochene Namen gratis abrufbar waren; erzaehlend 65 statt 86.
+
+  Folge: auf einem Korpus, den das Modell zu 86 Prozent auswendig kann, misst
+  der Antwort-Arm den Preis der Bindung an das Material, nicht den Mehrwert
+  des Graphen. Der Antwort-Arm auf einem unbekannten Korpus (Spur C, zweites
+  Stueck) ist damit die einzige Art, diese Frage zu stellen. Die Zahlen aus
+  PHX-1087/1096/1097/1099 bleiben in ihren Tickets, wie gemessen; k_seeds = 1
+  ruht auf dem Retrieval-Tune/Test und bleibt.
 relates_to:
   - PHX-1097   # where it was found
   - PHX-1089   # where answer_aliases already exist, for the HippoRAG sets
   - PHX-1087   # the first answer measurement, taken on this scorer
+  - PHX-1109   # found the second defect, and the strict count this repair reproduces
+linked_docs:
+  - docs/etappes/gold_aliases.md

@@ -88,6 +88,60 @@ Substrat hält, aber nicht aktiviert (`foam`, `fire`, `stone`, `Sea`, `Hecate`,
 die drei Schildfiguren, `flesh`/`bones`). Das ist eine ehrlichere Zahl für den
 erzählenden Teil: 65 % statt der 86 %, die PHX-1080 für ihn berichtete.
 
-### Der Antwort-Arm (deepseek-chat, drei Wiederholungen, `data/mesh-founding`)
+### Der Antwort-Arm (deepseek-chat, drei Wiederholungen, `data/mesh-founding`, 14 Ticks)
 
-*(folgt, sobald der Lauf durch ist)*
+423 Antworten, einmal erzeugt, dreimal bewertet:
+
+| Arm | altes Gold, 111 Namen | altes Gold ohne die nachgesprochenen | neues Gold, 92 Namen mit Aliasen |
+|---|---|---|---|
+| `closed_book` (Vorwissen) | 47 % (13/47) | 65 % (21/39) | **86 % (39/47)** |
+| `vector_only` | 47 % (13/47) | 57 % (20/39) | 63 % (29/47) |
+| `constellation` (Graph) | 61 % (18/47) | 72 % (24/39) | **75 % (31/47)** |
+
+Streuung über die drei Wiederholungen unter dem neuen Gold: Vorwissen
+85–87 %, Vektorsuche 63–64 %, Graph 73–76 %. **Der alte Bewerter hatte auf der
+Kontrollgruppe neun Punkte gestreut** (43–51 %, PHX-1087); mit Aliasen sind es
+zwei. Ein Teil dessen, was als Modellrauschen galt, war der Bewerter, der je
+nach Schreibung zählte oder nicht.
+
+**Zwei Aussagen, eine hält und eine kippt.**
+
+*Graph gegen reine Vektorsuche: +11, und das hält.* 63 % gegen 75 %, unter
+jedem der drei Bewerter, mit derselben Zahl wie in PHX-1097. Die Kanten unter
+denselben Knoten tragen etwas, das Kosinus-Nachbarschaft nicht trägt.
+
+*Graph gegen Vorwissen: aus +11 wird −11.* Unter dem alten Gold lag das
+Vorwissen bei 47 %, unter dem neuen bei 86 %, und die Constellation liegt
+darunter. Der Grund ist der Bewerter, nicht das Modell: das alte Gold erwartete
+bei 30 Namen das Subjekt der Frage — „Cerberus" auf *what offspring did
+Echidna bear to Orthus* war eine richtige Antwort und bekam null, weil das
+Gold Echidna und Orthus wollte. Das Vorwissen antwortet richtig und wurde
+dafür systematisch unterbewertet. Und das neue Gold verlangt, was die Frage
+fragt: `foam`, `fire`, `anvil`, `fifty`, `flesh`/`bones` — Dinge, die ein
+Modell über Hesiod weiß, die aber im Substrat keine Entitäten sind oder nicht
+aktiviert werden.
+
+Frage für Frage: der Graph gewinnt 5, verliert 11, 31 gleich. Die elf
+Verluste sind zweierlei. **Instruktionell:** der Graph-Arm darf nur das
+Material benutzen und sagt „I don't know" zum Stein, den Kronos verschluckte,
+und „no entity or relation that measures" zur Tiefe des Tartaros — das
+Vorwissen antwortet „a stone" und „anvil". **Retrieval:** die Constellation
+trägt Coeus, Crius und Mnemosyne nicht, nicht Eunomia, Dike und Eirene, nicht
+Briareos, und ein Modell, das an das Material gebunden ist, kann sie nicht
+nennen. Die fünf Gewinne sind, was der Korpus eigenwillig sagt und ein Modell
+nicht auswendig kann: Eosphorus, die Schildkröte, die Kinder des Streits, die
+Eltern des Typhoeus.
+
+**Die Folge für das Instrument.** Auf einem Korpus, den das Modell zu 86 %
+auswendig kann, misst der Antwort-Arm nicht den Mehrwert des Graphen, sondern
+den Preis der Bindung an ihn. PHX-1087 hatte das Vorwissen bei 50 % gesehen
+und daraus gefolgert, der Korpus tauge als Kontrollgruppe; die 50 % waren der
+Bewerter. Was bleibt, ist der Vergleich gegen die Vektorsuche — und das zweite
+Stück von Spur C, der Antwort-Arm auf einem Korpus, den das Modell nicht
+kennt, ist damit nicht mehr eine Ergänzung, sondern die einzige Art, die
+Frage „hilft der Graph beim Antworten" überhaupt zu stellen.
+
+Die Zahlen aus PHX-1087, 1096, 1097 und 1099 stehen in ihren Tickets, wie sie
+gemessen wurden; diese Tabelle ist die Neubewertung, nicht ihr Ersatz. Die
+Entscheidung `k_seeds = 1` (PHX-1099) ruht auf dem Retrieval-Tune/Test, nicht
+auf dem Antwort-Arm, und bleibt.

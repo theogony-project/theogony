@@ -46,6 +46,12 @@ DEFAULT_TOP_K = 50
 # narrative 0.861 → 0.861. Answer arm (deepseek-chat, three runs): 53% → 59%,
 # graph over prior knowledge +2 → +11 (PHX-1099).
 #
+# Re-measured under the corrected gold set (PHX-1098): the closed-book arm
+# stands at 86%, the constellation at 75%, so the margin over prior knowledge
+# is −11 on this corpus — the model knows Hesiod by heart and the old gold had
+# under-scored it. The decision above rests on the retrieval tune/test split,
+# which the correction does not touch; the answer-arm line is kept as measured.
+#
 # What this gives up, said plainly: at k=1 weight-class stratification has no
 # seats to allocate and is inert — the doctrine's multi-scale guarantee does not
 # earn its keep on this corpus. The mechanism stays built for meshes and callers
