@@ -37,7 +37,11 @@ def test_the_gold_set_loads_and_is_not_trivial() -> None:
     # for six days after PHX-1073 widened the set to 47 — a floor cannot notice
     # that a published number stopped matching the file (PHX-1080).
     assert len(gold) == 47, "gold set size changed: update README.md and the PHX entry too"
-    assert sum(len(q.expect) for q in gold) == 111
+    # 111 until PHX-1098 removed the 30 names that stood in their own question
+    # and replaced three wrong expectations (Belus -> Arabus; Echidna/Orthus ->
+    # Sphinx/Nemean lion; Atlas added). The count is pinned so that the README
+    # cannot drift from the file again.
+    assert sum(len(q.expect) for q in gold) == 92
     assert all(q.expect for q in gold), "a question with no expected entity scores nothing"
     assert len({q.id for q in gold}) == len(gold), "ids must be unique"
 
@@ -152,7 +156,7 @@ def test_every_question_declares_its_kind() -> None:
     assert {q.kind for q in gold} == {"genealogical", "narrative"}
     genealogical = [q for q in gold if q.kind == "genealogical"]
     assert len(genealogical) == 26, "the published share is 55% by question — 26 of 47"
-    assert sum(len(q.expect) for q in genealogical) == 75, "and 68% by entity — 75 of 111"
+    assert sum(len(q.expect) for q in genealogical) == 65, "and 71% by entity — 65 of 92"
 
 
 def test_the_labelling_rule_travels_with_the_labels() -> None:
@@ -211,3 +215,73 @@ def test_the_tick_count_survives_maintenance(mesh_runtime: MeshRuntime) -> None:
     mesh_runtime.run_minimal_tick()
     mesh_runtime.audit.prune_history(retention=timedelta(0))
     assert mesh_runtime.tick_count() == 2
+
+
+def test_no_gold_name_stands_in_its_own_question() -> None:
+    """Thirty of the old 111 names did — "What measures the depth of Tartarus?"
+    expected `Tartarus` — and a substring scorer pays for them whenever an
+    answer repeats the question, most of all an arm that answers in sentences.
+    The soft arm of PHX-1109 scored 28% where a strict count gave 11%. The gold
+    set must expect what the question asks for, not what it mentions
+    (PHX-1098). Aliases are held to the same rule."""
+    from theogony.mesh.eval.corpus_qa import _normalise
+
+    offenders = []
+    for q in load_gold():
+        haystack = f" {_normalise(q.question)} "
+        for name in q.expect:
+            for spelling in q.names_for(name):
+                if f" {_normalise(spelling)} " in haystack:
+                    offenders.append(f"{q.id}: {spelling!r}")
+    assert not offenders, "gold names handed out by their own question:\n  " + "\n  ".join(
+        offenders
+    )
+
+
+def test_aliases_belong_to_names_the_question_expects() -> None:
+    """An alias for a name that is not expected is dead data, and a typo in the
+    key would silently disable the alias it was meant to attach to."""
+    for q in load_gold():
+        stray = set(q.aliases) - set(q.expect)
+        assert not stray, f"{q.id}: aliases for names not in expect: {sorted(stray)}"
+        for name, spellings in q.aliases.items():
+            assert spellings and all(s.strip() for s in spellings), (
+                f"{q.id}: empty alias for {name}"
+            )
+            assert name not in spellings, f"{q.id}: {name} listed as its own alias"
+
+
+def test_retrieval_recall_accepts_an_alias_spelling(mesh_runtime: MeshRuntime) -> None:
+    """A node the substrate calls `Helios` answers a gold entry for `Helius`."""
+    from datetime import UTC, datetime
+
+    from ulid import ULID
+
+    from theogony.mesh.eval.corpus_qa import GoldQuestion
+    from theogony.mesh.schemas import ConsolidatedNode
+
+    now = datetime.now(UTC)
+    mesh_runtime.nodes.append_consolidated(
+        ConsolidatedNode(
+            id=ULID(),
+            born_at=now,
+            last_fired_at=now,
+            semantic_vector=[0.1] * 8,
+            frame_vector=[0.0] * 4,
+            description="Helios — the sun",
+            tags=["Helios"],
+        )
+    )
+    gold = [
+        GoldQuestion(
+            id="sun",
+            question="Who drives the sun?",
+            expect=["Helius"],
+            evidence="",
+            aliases={"Helius": ["Helios"]},
+        )
+    ]
+    from theogony.mesh.eval.corpus_qa import evaluate
+
+    results = evaluate(mesh_runtime, lambda _q: [0.1] * 8, gold=gold, top_k=5)
+    assert results[0].present == ["Helius"]

@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -94,16 +95,29 @@ class AnswerResult:
         return bool(self.expected) and len(self.found) == len(self.expected)
 
 
-def _score(answer: str, expected: list[str]) -> tuple[list[str], list[str]]:
+def _score(
+    answer: str, expected: list[str], aliases: Mapping[str, Sequence[str]] | None = None
+) -> tuple[list[str], list[str]]:
     """Which expected names the answer actually names.
 
     Substring match on the normalised text, which is generous — a verbose answer
     can name an entity in passing. That generosity is identical across arms, so
     it cannot manufacture a difference between them, which is the only thing this
     module claims.
+
+    `aliases` maps an expected name to the other spellings it answers to. A hit
+    on any of them counts the canonical name, once: "Eos, Selene, Helios,
+    Helius" used to score 3/3 for naming one god twice while the correct
+    "Helios, Eos, Selene" scored 2/3, because the gold said `Helius` and nothing
+    else (PHX-1098).
     """
     haystack = f" {_normalise(answer)} "
-    found = [name for name in expected if f" {_normalise(name)} " in haystack]
+    table = aliases or {}
+    found = [
+        name
+        for name in expected
+        if any(f" {_normalise(spelling)} " in haystack for spelling in (name, *table.get(name, ())))
+    ]
     return found, [name for name in expected if name not in found]
 
 
@@ -254,7 +268,7 @@ def answer_gold_set(
                 )
             )
             answer = (getattr(raw, "text", None) or str(raw)).strip()
-            found, missed = _score(answer, gq.expect)
+            found, missed = _score(answer, gq.expect, gq.aliases)
             results.append(
                 AnswerResult(
                     id=gq.id,

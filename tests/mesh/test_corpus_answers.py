@@ -93,3 +93,28 @@ def test_the_closed_book_arm_exists_and_is_first() -> None:
     """
     assert ARMS[0] == "closed_book"
     assert set(ARMS) == {"closed_book", "vector_only", "constellation"}
+
+
+def test_an_alias_counts_the_canonical_name_once() -> None:
+    """The gold said `Helius` and nothing else, so "Eos, Selene, Helios, Helius"
+    scored 3/3 for naming one god twice while the correct "Helios, Eos, Selene"
+    scored 2/3 — a gold set satisfiable by a duplication the substrate is
+    supposed to remove (PHX-1098)."""
+    aliases = {"Helius": ["Helios", "the Sun"]}
+    found, missed = _score("Helios, Eos, Selene", ["Helius", "Selene", "Eos"], aliases)
+    assert found == ["Helius", "Selene", "Eos"] and missed == []
+    # naming the god twice is still one hit
+    found, _ = _score("Eos, Selene, Helios, Helius", ["Helius", "Selene", "Eos"], aliases)
+    assert found == ["Helius", "Selene", "Eos"]
+
+
+def test_without_aliases_the_scorer_is_what_it_was() -> None:
+    assert _score("Helios, Eos", ["Helius", "Eos"]) == (["Eos"], ["Helius"])
+    assert _score("Helios, Eos", ["Helius", "Eos"], {}) == (["Eos"], ["Helius"])
+
+
+def test_an_alias_respects_word_boundaries_like_a_name() -> None:
+    found, _ = _score("Eosphorus", ["Eos"], {"Eos": ["Dawn"]})
+    assert found == []
+    found, _ = _score("the Dawn-bringer", ["Eosphorus"], {"Eosphorus": ["Dawn-bringer"]})
+    assert found == ["Eosphorus"]
