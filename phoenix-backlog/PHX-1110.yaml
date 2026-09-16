@@ -1,0 +1,54 @@
+id: PHX-1110
+category: substrate-retrieval
+priority: high
+status: in_progress
+generation_target: MESH — Konsumtion (MESH_RETRIEVAL Schritt 5), das Antwort-Instrument
+title: "Der Antwort-Arm auf einem Korpus, den das Modell nicht kennt: die Constellation auf 2WikiMultihopQA"
+filed_by: Claude Code (2026-09-16, Plan aus der Vision, Spur C zweites Stück)
+created_at: 2026-09-16
+description: >
+  PHX-1098 hat den Founding-Korpus als Kontrollgruppe geschlossen: deepseek
+  beantwortet Hesiod zu 86 % ohne jedes Material, und die Constellation liegt
+  mit 75 % darunter. Auf diesem Korpus misst der Antwort-Arm den Preis der
+  Bindung an das Material, nicht den Mehrwert des Graphen. Die Frage "hilft
+  der Graph beim Antworten" lässt sich nur stellen, wo das Vorwissen niedrig
+  ist. 2WikiMultihopQA ist so ein Korpus: Vorwissen 24,8 % EM (PHX-1089).
+
+  Was PHX-1089 dort gemessen hat, waren Passagen: das Retrieval reicht dem
+  Modell ganze Absätze, und Spreading Activation über einen billigen
+  spaCy-Graphen wählte sie aus (+5,0 EM gegen kNN bei hybrid/S=2). Was es
+  nicht gemessen hat, ist das Konsumformat des Substrats selbst, die
+  Constellation aus Entitäten und typisierten Relationen, die `mesh ask`
+  rendert, auf einem Korpus, den das Modell nicht auswendig kann.
+
+  Umfang, als Messung: (1) ein Mesh aus den 6.119 Passagen von 2Wiki durch
+  den ausgelieferten Schreibpfad (MeshParagraphReader), die Kadmos-Lesungen
+  aus dem Cache von PHX-1089 abgespielt statt neu bezahlt, damit das Mesh
+  denselben Linker, dieselbe Identitätsauflösung und dieselben Kanten hat
+  wie ein Nutzerkorpus. (2) Vier Arme, ein Modell, ein Bewerter (SQuAD
+  EM/F1, weil der Founding-Bewerter Ziffern streicht und die Hälfte der
+  2Wiki-Antworten Daten sind): closed_book (Vorwissen), passages (Top-k
+  Passagen nach Kosinus, die Brücke zu den veröffentlichten Zahlen),
+  vector_only (Top-k Mesh-Entitäten nach Kosinus, als Beschreibungen),
+  constellation (dieselbe Art Entitäten plus die Relationen zwischen ihnen).
+  Gepaart, Frage für Frage, mit Vorzeichentest auf den diskordanten Paaren.
+
+  Die Aussage, die zählt, ist constellation gegen vector_only: derselbe
+  Knotenspeicher, dieselbe Einbettung, der einzige Unterschied ist, ob die
+  Kanten gezeigt werden. Gegen passages ist die härtere Frage, ob die
+  Rendering-Form des Substrats mit schlichtem RAG überhaupt mithält.
+remaining: >
+  Das Mesh wird gebaut (Replay läuft), die Arme sind geschrieben und getestet;
+  die Messung über die 1.000 Fragen mit deepseek-chat steht aus, ebenso die
+  Etappe (docs/etappes/qa_constellation.md) und der Nachtrag im Plan.
+relates_to:
+  - PHX-1098   # closed the founding corpus as a control group; this is the piece it demanded
+  - PHX-1089   # the HippoRAG answer benchmark on passages, whose cache and scorer this reuses
+  - PHX-1087   # the first answer measurement, on the founding corpus
+  - PHX-1099   # k_seeds = 1, the retrieval setting the constellation arm runs at
+  - PHX-1050   # the write path this replays, and the per-paragraph cost it watches
+linked_scripts:
+  - src/theogony/mesh/eval/qa_mesh.py
+  - scripts/mesh_qa_mesh_ingest.py
+  - scripts/mesh_qa_constellation.py
+  - tests/mesh/eval/test_qa_mesh.py
