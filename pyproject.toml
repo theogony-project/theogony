@@ -1,5 +1,6 @@
 [build-system]
-requires = ["hatchling"]
+# >= 1.27 for PEP 639: the SPDX licence expression and `license-files` below.
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -7,7 +8,8 @@ name = "theogony"
 dynamic = ["version"]
 description = "A living vector-graph knowledge network — separating knowledge from reasoning so that AI may serve humanity."
 readme = {file = "README.md", content-type = "text/markdown"}
-license = {file = "LICENSE"}
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.12"
 keywords = [
     "knowledge-graph",
@@ -37,7 +39,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
