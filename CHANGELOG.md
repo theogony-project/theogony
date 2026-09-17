@@ -14,6 +14,11 @@ While the version is `0.x.y`, the API is considered unstable and may change betw
 ## [Unreleased]
 
 ### Fixed
+- **The documented entrance needed an OpenAI account** (PHX-1111). From a fresh clone with no keys,
+  `theogony ask` exited before retrieval ran, `theogony mcp` died before its handshake, `pantheon_ask`
+  apologised inside a successful result, and the server logged onto the stdio transport's protocol
+  channel. All read-side entry points now run keyless: the constellation is always returned, and
+  `answer_mode` says what `answer` is. `theogony ask` and `theogony mcp` load the bundled dump by default.
 - **The `LICENSE` file was not the Apache License.** Since the first commit it held an abridged
   paraphrase of Apache 2.0 (6,123 bytes against the canonical 11,358, no "END OF TERMS AND
   CONDITIONS", no appendix). GitHub reported the repository's licence as "Other", and any corpus or

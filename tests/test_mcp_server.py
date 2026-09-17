@@ -106,7 +106,6 @@ def _make_resources(tmp_path: Path) -> Any:
         llm=None,  # type: ignore[arg-type]
         store=_FakeStore(),  # type: ignore[arg-type]
         report_writer=None,  # type: ignore[arg-type]
-        mcp_ask_blocked_message=None,
     )
 
 
@@ -229,6 +228,13 @@ async def test_server_answers_a_real_protocol_round_trip(tmp_path: Path) -> None
 
                 unknown = await session.call_tool("pantheon_nope", {})
                 assert unknown.is_error is True
+
+                # A payload that carries `error` is a failed call. Until PHX-1111
+                # it came back as a success whose body contained an apology, and
+                # a host cannot act on an apology.
+                missing = await session.call_tool("pantheon_node", {"node_id": "AKA-NOPE"})
+                assert missing.is_error is True
+                assert "error" in json.loads(missing.content[0].text)  # type: ignore[union-attr]
 
             tg.cancel_scope.cancel()
 

@@ -45,7 +45,6 @@ def _resources(tmp_path: Path, **settings_kw: object) -> McpResources:
         llm=None,  # type: ignore[arg-type]
         store=InMemoryKnowledgeStore(),
         report_writer=None,  # type: ignore[arg-type]
-        mcp_ask_blocked_message=None,
     )
 
 
@@ -133,7 +132,6 @@ async def test_chronicle_append_no_embedder(tmp_path: Path) -> None:
         llm=None,  # type: ignore[arg-type]
         store=InMemoryKnowledgeStore(),
         report_writer=None,  # type: ignore[arg-type]
-        mcp_ask_blocked_message=None,
     )
     payload = await tool_chronicle_append(
         res,

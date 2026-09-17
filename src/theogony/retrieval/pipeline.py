@@ -40,7 +40,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from theogony.agents.factory import build_llm_from_settings
+from theogony.agents.factory import build_llm_or_offline
 from theogony.agents.llm import LLMProvider, StubLLMProvider
 from theogony.agents.mnemosyne_classifier import MetaQueryClassifier, build_mnemosyne_classifier
 from theogony.config.logging import get_logger
@@ -724,7 +724,8 @@ async def build_pipeline_from_settings(
         dim=settings.embedding.dim,
     )
     await embedder.embed("warmup")
-    resolved_llm = llm if llm is not None else build_llm_from_settings(settings)
+    # Read side: a missing key degrades the answer, it does not stop retrieval (PHX-1111).
+    resolved_llm = llm if llm is not None else build_llm_or_offline(settings)[0]
     synthesizer = build_synthesizer(settings, resolved_llm, audit_log=audit_log)
     mnemosyne = build_mnemosyne_classifier(settings, resolved_llm)
     return QueryPipeline(

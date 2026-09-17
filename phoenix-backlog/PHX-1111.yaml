@@ -1,0 +1,70 @@
+id: PHX-1111
+category: agent-surface
+priority: high
+status: done
+generation_target: Gen-1 read surface (CLI ask, MCP server) — the entrance an arriving agent uses
+title: "An arriving agent cannot get one constellation without an OpenAI key"
+filed_by: Claude Code (2026-09-17, from a fresh-clone verification of the documented quickstart)
+created_at: 2026-09-17
+description: >
+  Measured, not inferred: a fresh clone of main, a fresh virtual environment,
+  an environment with no API keys, and exactly the commands README.md and
+  AGENTS.md document.
+
+  pip install -e ".[mcp]" works (50 s with a warm pip cache, 1.4 GB).
+  theogony seed works, but fills an in-memory store that ends with its
+  process, so nothing it loads is visible to the next command. theogony ask
+  stops before retrieval with "LLM provider unavailable: OpenAI provider
+  selected but no API key found" — the README announces a key only for the
+  optional ingest. theogony mcp, as AGENTS.md documents it, dies before the
+  MCP handshake for the same reason. theogony mcp --seed starts, and
+  pantheon_ask then returns {"error": "this hosted instance does not have an
+  LLM key configured"} as a successful tool result, on a local install. The
+  server writes eight log lines per session to stdout, which the stdio
+  transport reserves for JSON-RPC frames.
+
+  Net: without an OpenAI account, no answer and no constellation can be
+  obtained from the system by any documented path — although retrieval, the
+  one thing this system does differently, needs no language model, and an
+  agent arriving over MCP is itself the language model and came for the
+  structure, not for another model's prose. An offline citation synthesizer
+  (PHX-0070) already existed; it was reachable only by configuring the
+  provider as "stub".
+resolution: >
+  Fixed and re-verified from the same fresh clone, 2026-09-17. Full text:
+  docs/etappes/arriving_agent.md.
+
+  build_llm_or_offline returns the configured LLM, or a stub plus the reason;
+  every read-side entry point uses it (CLI ask, MCP lifespan, the shared
+  pipeline builder), and the synthesizer and the Mnemosyne classifier follow
+  the LLM instance they are given instead of the setting. pantheon_ask always
+  returns the full constellation; answer_mode says whether answer is LLM
+  prose, an offline citation list, or omitted, and synthesize=false lets a
+  caller that is itself a language model take the structure alone;
+  pantheon_status reports llm_available up front. theogony ask and theogony
+  mcp load the bundled dump themselves by default (--no-seed for an empty
+  store). A payload that carries "error" is returned as a tool error. Logs go
+  to stderr, always. The offline answer says what it is ("nothing here is
+  generated") instead of where it supposedly runs.
+
+  After: theogony ask answers in one command in 11 s without a key;
+  theogony mcp starts in 9 s, zero non-protocol lines on stdout, pantheon_ask
+  returns 10 nodes / 10 edges in 0.1 s, an unknown node id is an error.
+
+  Not fixed here, and the larger half: this is the Generation-1 layer. The
+  bundled self-description dump dates from 2026-04-20, before the mesh and
+  before every measurement since; and the MESH substrate, where all measured
+  work lives, has no MCP surface and no keyless way to obtain a workspace.
+  Filed as PHX-1112.
+relates_to:
+  - PHX-0070   # the offline synthesizer this makes reachable
+  - PHX-0066   # the hosted deployment whose wording leaked into local installs
+  - PHX-1112   # the mesh over MCP, and a keyless demo mesh
+linked_docs:
+  - docs/etappes/arriving_agent.md
+linked_scripts:
+  - src/theogony/agents/factory.py
+  - src/theogony/mcp/server.py
+  - src/theogony/cli.py
+  - src/theogony/config/logging.py
+  - tests/test_keyless_entrance.py

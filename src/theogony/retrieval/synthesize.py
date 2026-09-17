@@ -375,8 +375,8 @@ class OfflineAnswerSynthesizer:
         if not nodes:
             return Answer(
                 text=(
-                    "No language model is available on this hosted instance "
-                    "and the Chronik returned no nodes for this query. "
+                    "No language model is configured and the Chronik returned no "
+                    "nodes for this query. "
                     "Try a more specific question or consult `pantheon_status`."
                 ),
                 cited_node_ids=[],
@@ -388,8 +388,8 @@ class OfflineAnswerSynthesizer:
         cited_ids = [n.id for n in top]
 
         lines = [
-            "No language model is available on this hosted instance, so the "
-            "Chronik cannot synthesise a natural-language answer. Below are "
+            "No language model is configured, so this answer is assembled from the "
+            "constellation without synthesis — nothing here is generated. Below are "
             f"the top {len(top)} cited sources retrieved for "
             f"`{constellation.query}`. Pass any cited id to `pantheon_node` "
             "to drill deeper.",

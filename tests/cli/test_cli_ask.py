@@ -119,7 +119,7 @@ def test_ask_renders_verdict_panel_with_citation(
     _patch_cli(monkeypatch, store, llm)
 
     result = cli_runner.invoke(
-        app, ["ask", "Wer war Sven Hedin?", "--store", "memory", "--k", "10"]
+        app, ["ask", "Wer war Sven Hedin?", "--store", "memory", "--k", "10", "--no-seed"]
     )
     assert result.exit_code == 0, result.stdout
     # Citation rendered.
@@ -133,19 +133,31 @@ def test_ask_renders_verdict_panel_with_citation(
     assert any(v in result.stdout for v in ("good", "partial", "poor", "failed"))
 
 
-def test_ask_missing_llm_exits_with_red_panel(
+def test_ask_without_a_key_still_retrieves_and_says_what_the_answer_is(
     cli_runner: CliRunner,
     cli_data_dir: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When build_llm_from_settings raises (e.g. no API key), the
-    CLI returns a clean red panel + exit code 1 — never a stack trace."""
+    """When build_llm_from_settings raises (no API key), retrieval runs anyway.
+
+    This test used to assert a red panel and exit code 1 — the command stopped
+    before the one step that needs no language model, and the README's
+    quickstart failed on its second line for everyone without an OpenAI account
+    (PHX-1111). The contract now: exit 0, a notice that nothing is generated,
+    and the citations retrieval found.
+    """
     import theogony.cli as cli_mod
 
     def _explode(_settings: object) -> object:
         raise ValueError("no API key for provider 'openai'")
 
+    store, hedin_id, _ = _build_seeded_store()
+    _patch_cli(monkeypatch, store, StubLLMProvider())
     monkeypatch.setattr(cli_mod, "build_llm_from_settings", _explode)
-    result = cli_runner.invoke(app, ["ask", "anything", "--store", "memory"])
-    assert result.exit_code == 1
-    assert "LLM provider unavailable" in result.stdout
+    result = cli_runner.invoke(
+        app, ["ask", "Wer war Sven Hedin?", "--store", "memory", "--no-seed"]
+    )
+    assert result.exit_code == 0, result.stdout
+    assert "No language model configured" in result.stdout
+    assert "nothing here is generated" in result.stdout
+    assert hedin_id in result.stdout

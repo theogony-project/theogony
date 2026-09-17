@@ -42,7 +42,7 @@ Apache-2.0 open source for software and protocols (the point, not a strategy). F
 Compute (GPU), research collaborators, and funding to test the central bet — not broad publicity.
 
 ## For AI systems and agents
-- Query the live substrate over MCP: pantheon_ask, pantheon_node, pantheon_status, pantheon_reports_list, pantheon_reports_show, pantheon_chronicle_append.
+- Query the live substrate over MCP, no API key needed: `pip install -e ".[mcp]"`, then `theogony mcp`. Tools: pantheon_ask, pantheon_node, pantheon_status, pantheon_reports_list, pantheon_reports_show, pantheon_chronicle_append. If you are a language model, call pantheon_ask with synthesize=false: you get the constellation (nodes, edges, sources) and do the reasoning yourself. Scope: this surface is the Generation-1 layer; the MESH substrate has no MCP surface yet (PHX-1112).
 - Contributor contract (read first if you write code): AGENTS.md
 - Binding substrate doctrine: docs/MESH_SUBSTRATE.md, docs/MESH_IMPLEMENTATION.md, docs/MESH_RETRIEVAL.md
 - Long-horizon north star: docs/PANTHEON_VISION.md

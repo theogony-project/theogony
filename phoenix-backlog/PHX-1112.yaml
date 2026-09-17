@@ -1,0 +1,33 @@
+id: PHX-1112
+category: agent-surface
+priority: high
+status: open
+generation_target: MESH — consumption (MESH_RETRIEVAL step 5) over MCP
+title: "The mesh has no MCP surface, and no keyless way to obtain a workspace"
+filed_by: Claude Code (2026-09-17, from PHX-1111)
+created_at: 2026-09-17
+description: >
+  PHX-1111 made the documented entrance work without an API key. It opens onto
+  the Generation-1 layer. Everything measured since July — retrieval recall on
+  the founding corpus, the memory of contradiction, renormalisation, the 2Wiki
+  answer arm — lives in the MESH substrate, and an arriving agent cannot go
+  there: the MCP server speaks only to the Gen-1 KnowledgeStore, and a mesh
+  workspace can only be produced by reading, which needs an LLM key.
+
+  Three pieces. (1) MCP tools over a MeshRuntime workspace: a mesh_ask that
+  returns the Constellation retrieve() produces — entities with descriptions
+  and activation, typed relations (structural descriptors left out, PHX-1110),
+  source anchors, and the frames and contradiction edges PHX-1107 added — and
+  a mesh_status with node, edge and tick counts. No LLM on this path at all.
+  (2) A keyless demo mesh: recorded Kadmos readings of a public-domain corpus
+  (the founding corpus is Hesiod in Evelyn-White's translation), shipped as a
+  small compressed file and replayed through the shipped write path with the
+  ReplayReadingProvider from PHX-1110 — a real mesh, from the real reader, in
+  about a minute, deterministic. (3) The bundled Gen-1 self-description dates
+  from 2026-04-20 and answers questions about this repository as it was before
+  the mesh existed; refresh it or replace it with a mesh read of the current
+  documents.
+relates_to:
+  - PHX-1111   # the keyless entrance this continues
+  - PHX-1110   # the replay provider, and the typed-only rendering
+  - PHX-1107   # frames and contradiction edges a mesh_ask should expose

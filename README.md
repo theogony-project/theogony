@@ -146,8 +146,8 @@ These experiments are the next milestones. See [ROADMAP.md](ROADMAP.md) for the 
 git clone https://github.com/theogony-project/theogony && cd theogony
 pip install -c constraints.txt -e ".[dev]"   # constraints pin the packages CI has been broken by
 
-theogony seed                                          # ingest this repo's own docs
-theogony ask "What is the Chronik?"                    # Spreading Activation over the seeded mesh
+theogony ask "What is the Chronik?"                    # Spreading Activation over this repo's own docs — no API key needed
+theogony seed                                          # optional: check that the bundled dump loads
 
 # Optional: ingest a real text (Project Gutenberg #43497 = Sven Hedin, Trans-Himalaya).
 # Requires an LLM API key — ANTHROPIC_API_KEY or OPENAI_API_KEY.
@@ -160,13 +160,15 @@ pytest -q                                              # tests; no external serv
 
 Answers cite every claim with a Gen-1 node ID (`AKA-…`) that links back to the source passage. Retrieval runs as Spreading Activation over an in-memory CSR tensor — no Cypher, no SQL, no graph database.
 
-**MCP surface** (Claude Desktop / Cursor / any MCP host): `pip install -e ".[mcp]"`, then add to your host config:
+Without an LLM key, `theogony ask` still retrieves: it prints the constellation with a citation list in place of prose (verified from a fresh clone, [`docs/etappes/arriving_agent.md`](docs/etappes/arriving_agent.md)). With `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` or a DeepSeek key, the answer is synthesised.
+
+**MCP surface** (Claude Desktop / Cursor / any MCP host), also keyless: `pip install -e ".[mcp]"`, then add to your host config:
 
 ```json
 { "mcpServers": { "theogony": { "command": "theogony", "args": ["mcp"] } } }
 ```
 
-Tools: `pantheon_ask`, `pantheon_node`, `pantheon_status`, `pantheon_reports_list`, `pantheon_reports_show`, `pantheon_chronicle_append`. The MCP surface is the one Gen-1 piece designed to survive the migration largely unchanged — migration step S4 introduces a backend abstraction so the same tools route through either substrate.
+Tools: `pantheon_ask`, `pantheon_node`, `pantheon_status`, `pantheon_reports_list`, `pantheon_reports_show`, `pantheon_chronicle_append`. `pantheon_ask` always returns the constellation; `answer_mode` says whether `answer` is LLM prose, an offline citation list, or omitted (`synthesize: false` — for a caller that is itself a language model). The MCP surface is the one Gen-1 piece designed to survive the migration largely unchanged — migration step S4 introduces a backend abstraction so the same tools route through either substrate.
 
 ---
 
