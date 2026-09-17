@@ -13,6 +13,15 @@ While the version is `0.x.y`, the API is considered unstable and may change betw
 
 ## [Unreleased]
 
+### Fixed
+- **The `LICENSE` file was not the Apache License.** Since the first commit it held an abridged
+  paraphrase of Apache 2.0 (6,123 bytes against the canonical 11,358, no "END OF TERMS AND
+  CONDITIONS", no appendix). GitHub reported the repository's licence as "Other", and any corpus or
+  tool that filters by detected licence could not see that this project is permissively licensed.
+  Replaced with the unmodified canonical text (SHA-256 `cfc7749b…3d30`); the project's copyright
+  line moved to a new `NOTICE` file; package metadata now carries the SPDX expression
+  (`License-Expression: Apache-2.0`, PEP 639) and ships both files.
+
 ### Planned for 0.2.0
 - Neo4j KnowledgeStore implementation
 - GutenbergAdapter (acquisition from Project Gutenberg)
