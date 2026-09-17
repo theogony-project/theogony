@@ -1,5 +1,30 @@
 # Was vom lebenden Substrat tatsächlich läuft — eine Inventur
 
+> **English abstract.** *Question.* Five times in a few weeks a doctrine
+> mechanism turned up whose input nobody writes. A pattern, or five accidents?
+> *Method.* For every mechanism the MESH doctrine prescribes, three separate
+> questions: is it implemented, is it reached from a real path, are its inputs
+> actually produced? Five readers took one doctrine area each; a second pass
+> then tried to *refute* every "does not run" — of 110 attempts 105 confirmed,
+> four corrected upward, one downward. *Result.* Of 119 mechanisms 9 run, 24
+> partly, 34 are inert, 10 blocked, 42 absent; retrieval stands best, the
+> dynamics that should make the substrate a living thing worst. Five patterns:
+> (1) the substrate can only forget — fourteen ticks of decay, zero
+> reinforcement ever drained, and the strongest credit a single query can write
+> is 17 times smaller than one tick of decay, 254 times at the median; (2)
+> seventeen fields hold exactly one value across all 5,002 nodes and 94,490
+> edges — the substrate keeps no memory of its own activity, and everything that
+> reads from that history reads nothing; (3) the tier ladder is inverted in the
+> weight range the substrate inhabits; (4) five mechanisms are wired without
+> discriminating power (frame routing on hashed frames with no caller, damping
+> and hop limits the shipped operator never reads, a saturation cap of 10,000
+> against a maximum out-degree of 1,093, no activation threshold); (5) two
+> unguarded read-modify-write cycles, no lock, no snapshot. Side finding: all
+> 1,206 `raw_text_ref` pointers led into a deleted scratch directory.
+> *Consequence.* What is missing is sensors, not insight: activation memory
+> first (built the same day, PHX-1101), then α against λ, then renormalisation
+> before tier modulation. The full table of 119 is the appendix.
+
 *2026-08-31. Gegen `data/mesh-founding` (5.002 konsolidierte Knoten, 94.490
 Kanten, 1.206 Chunks, 14 Ticks) und den Stand von `main` nach PHX-1097.*
 

@@ -1,5 +1,26 @@
 # Was Gen 1 verspricht — die Vision gegen die Inventur gehalten
 
+> **English abstract.** The doctrine inventory (PHX-1100) says which mechanisms
+> run; this page says what that means for the vision. *"The mesh is alive: it
+> grows, it links, it forgets, it consolidates, and it heals"* — verb by verb,
+> as of 2026-08-31: it grows; it links, though 93% of edges are proximity rather
+> than judgement and Q-IDs no longer exist (127 of 130 were confabulated); it
+> forgets — *and only that*; it consolidates on request since PHX-1097; it does
+> not heal; it does not learn from use. Of the README's five lifelike dynamics
+> one runs, and it is the one that takes away. The "permanent dream" drives the
+> Generation-1 store; the mesh tick has one caller outside the tests, the CLI,
+> and the README's +34.8% MRR comes from an in-memory simulation that never
+> writes. Of the three empirical questions one is answered, for retrieval:
+> Spreading Activation beats kNN by +0.102 recall@5 on held-out 2WikiMultihopQA.
+> Four doctrine sentences are contradicted by measurement — most sharply the
+> tier ladder, inverted where weights live (for w < 1 a gentler exponent removes
+> *more*: 2.5× at the median weight 0.3112). Five README sentences are listed
+> with their evidence. The page closes by restating what Generation 1 honestly
+> promises — a substrate that is read into and activated, that forgets,
+> consolidates on request, remembers what it used, and says all of this itself.
+> Two addenda from the following day move the verb "learns": to *holds what it
+> uses* (PHX-1102), then, on 2Wiki, to *learns, and displaces* (PHX-1104).
+
 *2026-08-31, nach PHX-1097 (Konsolidierung), PHX-1100 (Inventur) und PHX-1101
 (Aktivierungsgedächtnis). Gegen `README.md`, `docs/VISION.md`, das MESH-Triplett
 und `ROADMAP.md`, mit den Messungen dieser Sitzung.*

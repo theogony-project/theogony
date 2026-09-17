@@ -1,5 +1,27 @@
 # Der erste Herzschlag — α gegen λ, und was das Retrieval davon sieht
 
+> **English abstract.** *Question.* The substrate could only forget (PHX-1100).
+> Three knobs were on the table — raise α, lower λ, or restrict decay to edges
+> that did not fire, which is what the doctrine literally says — and the ticket
+> asked for the choice to be measured. *Simulation* over the real weights of the
+> founding mesh (94,490 edges, 24 of the 47 gold questions, 20 ticks, five
+> policies): even normalised, the median Hebbian credit is eight times smaller
+> than one tick of decay. The gate is the only policy under which used edges
+> hold (0.594 against 0.359 for the ten most-fired) while the unused fade
+> exactly as before; scaling α is worth +0.004; λ/10 slows everything and
+> separates nothing. *Shipped.* `decay_edges_inplace(fired=…)`, on by default,
+> byte-identical to the old tick when no firing was recorded. *Live heartbeat*
+> (24 used / 23 held-out questions, ten rounds, on copies): recall does not move
+> under any policy, and growth at α = 0.1 makes the held-out questions worse
+> while pinning the top weight at the cap — the side effect without the
+> improvement. *Why retrieval is blind.* The shipped operator is PageRank over a
+> row-normalised adjacency: it reads each edge's share of its node's out-weight,
+> and near-uniform decay preserves shares (working-set Jaccard 0.963 after ten
+> ticks). The verb "learns" moved from *no* to *holds*, not to *yes*.
+> Adversarial review before merge found a double-sparing bug after a failed node
+> fold, an O(k²) firing index and lost timestamps — all fixed. Continued on a
+> corpus with headroom: `heartbeat_2wiki.md` (PHX-1104).
+
 *2026-09-01. `data/mesh-founding` (94.490 Kanten, 6.208 Knoten), die 47
 Gold-Fragen, `k_seeds=1`. Simulation und Live-Läufe auf Kopien; kein LLM, kein
 Geld. PHX-1102.*

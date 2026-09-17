@@ -1,5 +1,25 @@
 # Der Herzschlag auf 2Wiki — das Substrat lernt aus Benutzung, und verdrängt dabei
 
+> **English abstract.** *Setup.* The Kadmos graph of 2WikiMultihopQA from cache
+> (6,119 passages, 32,499 entities, 283,144 edges); 300 questions split 150 used
+> / 150 held out; hybrid seeding S = 2, the operating point of the project's one
+> demonstrated result; 50 rounds, four policies, in memory on the substrate's
+> real tick functions; no LLM, 61 minutes. *Result.* Uniform decay removes 72%
+> of the weight and costs retrieval 0.4 points — the operator reads shares, not
+> strengths. With the decay gate plus Hebbian credit, recall@5 on the used
+> questions rises 0.777 → 0.790 (+1.3) in round one and holds for fifty rounds:
+> the first time the verb *learns* moved on any measurement. And the held-out
+> questions fall 0.813 → 0.798 (−1.5), monotonically, with or without credit:
+> 5.4% of the edges stay at the cap while the rest decay to 0.28, so their share
+> at every node they touch grows 3.5-fold and the random walk tilts towards what
+> was used. **What is not used is not only forgotten, it is displaced.** That is
+> the measured reason the doctrine provides for homeostatic renormalisation
+> (PHX-1106). *Limits.* One to 1.5 points on 150 questions is one or two
+> questions; `torch.topk` broke ties differently between policies in this run
+> (stable sorting since); the propagation kernel is the benchmark's, not the
+> substrate's PPR; credit only reaches existing edges. *Later.* PHX-1106 found
+> the +1.3 to be one seed; the displacement held across datasets and seeds.
+
 *2026-09-02. 2WikiMultihopQA, Kadmos-Graph aus dem Cache: 6.119 Passagen, 32.499
 Entitäten, 283.144 Kanten. 300 Fragen, 150 benutzt / 150 zurückgehalten,
 hybrides Seeding S=2 — der Punkt, an dem das Projekt sein einziges demonstriertes
