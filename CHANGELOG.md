@@ -17,6 +17,7 @@ While the version is `0.x.y`, the API is considered unstable and may change betw
 - `docs/TAKE_THIS.md`: the pieces that stand on their own, with their evidence and their limits.
 - `scripts/fresh_clone_probe.sh`, `scripts/mcp_probe.py`: the documented quickstart, run as a stranger would.
 - The answer benchmark reports exact match by answer kind (entity / yes-no / date).
+- `docs/etappes/README.md`: the measurement record indexed in one table; the ten German etappes of September 2026 each open with an English abstract.
 
 ### Changed
 - `AGENTS.md` opens with what an arriving agent can do in five minutes — use it, take a piece, pick up a ticket with a finish line — before the contributor contract.

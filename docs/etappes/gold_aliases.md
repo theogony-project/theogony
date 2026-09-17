@@ -1,5 +1,24 @@
 # Das Gold-Set repariert: Aliase, und nichts mehr, was die Frage verrät (PHX-1098)
 
+> **English abstract.** *Question.* Can the founding gold set be trusted as an
+> instrument? *Found.* Two defects in one file: no answer aliases ("Eos, Selene,
+> Helios, Helius" scored 3/3 for naming one god twice, the correct "Helios, Eos,
+> Selene" 2/3), and 30 of 111 gold names standing in their own question, which
+> pays any arm that restates the question. Cleaning up exposed three
+> expectations that were simply wrong against the corpus. *Repair.* 92 names
+> with 130 aliases, the canonical name counted once, the retrieval matcher reads
+> aliases too, and two tests hold the rule. *Re-measured on the same stored
+> answers* (423 answers, deepseek-chat, three repeats), old gold against new:
+> closed-book 47% → 86%, vector-only 47% → 63%, Constellation 61% → 75%. Graph
+> over vector search, +11, holds under every scorer. Graph over prior flips from
+> +11 to −11: the old gold had systematically under-scored the control, and its
+> nine-point spread across repeats shrinks to two — part of the "model noise"
+> was the scorer. Retrieval recall falls from 87% to 80%, because restated names
+> were free hits. *Consequence.* A corpus the model knows by heart at 86% cannot
+> measure the graph's value for answering; that question moved to a corpus it
+> does not know (PHX-1110). Historical figures stay in their tickets as
+> measured.
+
 **Stand:** 2026-09-16, gemessen. Spur C des Plans, erstes Stück.
 **Werkzeug:** `eval/gold/founding_corpus.json` (`aliases` je Frage), `corpus_answers._score(…, aliases)`, `corpus_qa.GoldQuestion.names_for`, zwei neue Hygiene-Tests.
 

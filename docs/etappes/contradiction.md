@@ -1,5 +1,29 @@
 # Das Gedächtnis des Widerspruchs (PHX-1107)
 
+> **English abstract.** *Finding.* The mesh could not represent a contradiction:
+> ten relation kinds, none of them a disagreement, and frame vectors that were a
+> salted hash of the label. Everything that heals would have to read from that.
+> *Built.* Epistemic frames as seven weighted axes instead of seven labels (nine
+> stances as points: refuted against current cosine −0.50, definition against
+> current +0.98); `contradicts` and `supersedes` as relation kinds with
+> `valid_from` / `valid_to` on the edge; the founding corpus read again with
+> stances (eight stance values in use, 39 paragraphs `disputed`, 30
+> `contradicts` relations written by the reader itself); and a contradiction
+> pass — 690 structural candidates, 74 confirmed (11%), 334 edges, 141
+> paragraphs marked disputed, eleven minutes. Two things made the pass find
+> anything: descriptor normalisation (parenthood arrives under more than thirty
+> spellings, half of them reversed: 0 → 202 candidates) and a two-step
+> adjudicator that first asks whether the relation is single-valued (36 of 100
+> confirmed → 3 of 60). *Measured* on seven verified contradictions of the
+> corpus: both sides in the Constellation for 6 of 7 on the re-read mesh, 5 of 7
+> on the old one. The strongest finding is the control: frame routing on the old
+> hashed frames costs 42 points (5/7 → 2/7); on real frames it costs nothing.
+> Routing did nothing at all until entities inherited the centroid of their
+> paragraphs' frames — 82% of them held no stance — and after that it trades one
+> question for another rather than gaining. *Limits.* 86% against 71% confounds
+> re-reading with framing; extraction noise sits among the confirmed
+> contradictions; frame promotion is not part of the tick.
+
 **Stand:** 2026-09-12, gemessen. Branch `feat/phx-1107-contradiction`.
 **Anlass:** [`plan_from_the_vision_2026-09.md`](plan_from_the_vision_2026-09.md) §B — der eine Befund der Vision-Ledger, der die Reihenfolge festlegt.
 **Werkzeug:** `src/theogony/mesh/frames.py`, `src/theogony/mesh/runtime/contradiction.py`, `scripts/mesh_contradictions.py`, `scripts/mesh_contradiction_eval.py`, Gold-Set `eval/gold/founding_contradictions.json`.

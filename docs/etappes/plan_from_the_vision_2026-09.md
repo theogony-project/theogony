@@ -1,5 +1,28 @@
 # Der Plan aus der Vision — September 2026
 
+> **English abstract.** The original vision, sentence by sentence, held against
+> what this repository has measured: a ledger of 620 claims
+> (`vision_claims_ledger.json`), 258 of them load-bearing — 171 confirmed, 170
+> partly, 61 refuted. *Seven verbs.* The substrate reads (statelessly, per
+> paragraph — not yet "like a mind"), activates (confirmed: +0.102 recall@5 over
+> kNN on held-out 2WikiMultihopQA), learns from use (holds what it uses; on
+> 2Wiki +1.3 on used and −1.5 on held-out questions), dreams (refuted as a
+> process: no scheduler, and the +34.8% figure is an in-memory simulation),
+> heals (no), grows where it is looked at (Gen-1 skeleton only), thinks inside
+> (blocked on GPU, not one measurement). *The finding that sets the order.* Five
+> of the vision's non-negotiables fail at the data model, not for lack of code:
+> nowhere in the mesh can a contradiction be represented, and the frame vector
+> that was meant to carry epistemic stance is a salted hash of the label. *Four
+> tracks, with results.* A, renormalisation (PHX-1106): displacement removed, a
+> robust gain from use not shown. B, the memory of contradiction (PHX-1107):
+> both sides of a known contradiction retrieved in 6 of 7 cases. C, the
+> instrument: gold set repaired (PHX-1098), contradiction gold set, the answer
+> arm on an unknown corpus (PHX-1110: +3.6 EM from the edges). D, Nous — reading
+> with working memory — is next. *Deliberately not next:* the MNLM (H100-class
+> compute), the curiosity loop, federation, porting the agent roster, S4/S6,
+> scale. An appendix lists the load-bearing claims that can no longer stand as
+> written, each with its source line and its evidence.
+
 *2026-09-03. Grundlage: die ursprüngliche, umfassende Vision — `PHILOSOPHY.md`,
 `docs/VISION.md`, `PANTHEON_VISION.md`, `DEEP_TECH_VISION.md`,
 `TARGET_ARCHITECTURE.md`, `CHRONICLE_PRINCIPLES.md`, `CURIOSITY.md`, `HIVE.md`,

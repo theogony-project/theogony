@@ -1,5 +1,25 @@
 # Renormalisierung — die Gegenkraft, die das Gate braucht (PHX-1106)
 
+> **English abstract.** *Question.* Use makes the substrate displace what it
+> does not use (PHX-1104). Does the doctrine's global homeostatic
+> renormalisation (MESH_SUBSTRATE §6) stop that? *Method.* The heartbeat
+> protocol in memory on the substrate's real tick functions: Kadmos graphs of
+> 2WikiMultihopQA and HotpotQA, 300 questions split 150 used / 150 held out, 50
+> rounds, recall@5, two datasets and two seeds, no LLM. *Result.* The decay gate
+> displaces in every run (held-out −1.5 / −2.3 / −2.3). Global renormalisation
+> *with the weight cap* removes it every time (+1.5 / −0.7 / +0.7; mean +0.5
+> against −2.0) for about half a point on the used questions. What does not hold
+> is the gain: the +1.3 of PHX-1104 was one seed (+0.3 on HotpotQA, −0.7 on seed
+> 1), so the plan's condition is met by no policy, the baseline included. *§6 as
+> written, without a cap,* is invisible for ten rounds — a row-normalised
+> operator is scale-invariant, measured to the third decimal — and then an
+> amplifier: credited edges grow without bound (strongest weight 41.9), scaling
+> shrinks everything else, held-out falls −3.8 against −2.0. The counterforce is
+> scaling *and* cap, not scaling. *Decision.* `mesh tick` renormalises globally
+> by default at a set point of 0.9 of entry mass. The verb "learns" stays at
+> "holds without displacing"; whether it ever gains depends on the edge-creating
+> branch, which is unreachable (PHX-1100).
+
 **Stand:** 2026-09-12, gemessen. Branch `feat/phx-1106-renormalisation`.
 **Anlass:** [`heartbeat_2wiki.md`](heartbeat_2wiki.md) — unter dem Gate lernt das Substrat aus Benutzung (+1,3 auf benutzten Fragen) und verdrängt dabei (−1,5 auf zurückgehaltenen, monoton über 50 Runden). MESH_SUBSTRATE §6 sieht die globale homöostatische Renormalisierung als Gegenkraft vor; die Inventur fand sie nicht gebaut.
 **Werkzeug:** `renormalise_edges_inplace` in `storage/edges.py`, der Tick-Schritt in `run_minimal_tick(renormalise=…)`, `mesh tick --renormalise`, die Politiken `renorm_*` in `scripts/mesh_heartbeat_qa.py`.

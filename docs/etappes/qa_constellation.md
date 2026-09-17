@@ -1,5 +1,27 @@
 # Der Antwort-Arm auf einem Korpus, den das Modell nicht kennt (PHX-1110)
 
+> **English abstract.** *Question.* Does the graph help a model answer on a
+> corpus it does not know? The founding corpus could not say: the model's
+> unaided prior there is 86% (PHX-1098). *Method.* All 6,119 passages of
+> 2WikiMultihopQA read into a mesh by replaying cached Kadmos readings through
+> the shipped write path (35,906 nodes, 38,746 read relations, no LLM call);
+> five arms over 1,000 questions, deepseek-chat, SQuAD exact match and F1,
+> paired exact sign test. *Result (exact match).* Prior 33.8%, five passages
+> 42.7%, fifty entities without edges 40.5%, the Constellation as shipped 41.2%,
+> the Constellation without structural edges 44.1%. The edges are worth +3.6 EM
+> / +4.3 F1 over the same entities (p = 0.03; repeated: +4.0 / +4.9, p = 0.015)
+> — but only once co-occurrence and provenance lines, 60% of the rendered
+> relations, are left out; with them +0.7, and they cost 2.9 points (p = 0.004).
+> Against plain passages it is a tie made of opposite parts: +5.6 on the 836
+> entity answers, a collapse on yes/no questions (37% against a 57% prior) and
+> on dates (9% against 33%). At half the budget (top_k 25) the gain shrinks to
+> +1.2 EM. *Side finding, fixed.* Ingestion was quadratic — one Lance fragment
+> per node, 98 ms against 10 ms per vector search — so a read now compacts its
+> workspace every 200 paragraphs. *Limit.* The same model alias scored 24.8%
+> closed-book three weeks earlier; compare within a run only. *Decision.* The
+> harness rendering drops structural edges by default. Follow-ups: PHX-1113
+> (yes/no), PHX-1114 (dates).
+
 **Stand:** 2026-09-16, gemessen. Spur C des Plans, zweites und letztes Stück.
 **Werkzeug:** `eval/qa_mesh.py` (Replay-Ingestion, fünf Arme, gepaarter
 Vorzeichentest), `scripts/mesh_qa_mesh_ingest.py`, `scripts/mesh_qa_constellation.py`.

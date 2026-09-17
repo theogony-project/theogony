@@ -1,5 +1,29 @@
 # Die latente letzte Meile — die Constellation als Vektoren statt als Text (PHX-1109)
 
+> **English abstract.** *Question.* The vision says the Constellation is handed
+> to the agent as vectors, injectable into its latent space, with no translation
+> into text. Can that be tested cheaply? *Method.* xRAG stage 1:
+> Qwen2.5-3B-Instruct, frozen; a projector (768 → 2048 → 2048) maps each node's
+> vectors to one soft token and is trained by paraphrase on 3,529 consolidated
+> nodes with 186 held out; four arms over the 47 founding questions with the
+> same reader; three projectors, one continued to 20 epochs; strict scoring that
+> excludes gold names the question itself restates (39 questions). *Result: the
+> vector arrives, the answer does not.* On held-out nodes the right vector
+> prices the node's name at 2.4 nats per token against 6.8 for another node's
+> vector (2.9 against 4.9 after five epochs) — identity flows, and generalises.
+> The reader cannot answer from it: text 49%, prior 14%, soft tokens 9–11%,
+> untrained projector 0%; better than text on 0 of 39 questions in every run,
+> never worse than the untrained control. *The shipped scorer would have
+> reported a tie* — after 20 epochs −2 points against text, 13 questions better
+> and 17 worse, eleven complete answers against eight — because a
+> paraphrase-trained arm answers in sentences that repeat the question, and 30
+> of 111 gold names stood in their own question (repaired in PHX-1098).
+> *Reading.* Stage 1 teaches decoding a token; using it under an instruction is
+> stage 2 and needs question–answer data that is not the gold set. More epochs
+> are not the lever: from epoch 15 the projector memorises. A null result, kept.
+> Practical note: `generate(inputs_embeds=…)` returns garbage on Apple MPS with
+> transformers 5.5, hence a hand-rolled greedy decode.
+
 **Stand:** 2026-09-12, gemessen. Branch `feat/phx-1109-latent-mile`.
 **Anlass:** [`plan_from_the_vision_2026-09.md`](plan_from_the_vision_2026-09.md) §Nachtrag 2026-09-11 — die Berichte über latentes Reasoning, und die Feststellung, dass bei uns alles durch Text läuft.
 **Werkzeug:** `scripts/mesh_latent_mile.py train | answer | diagnose`, `src/theogony/mesh/eval/latent_mile.py`. Kurven und Zusammenfassungen aller Läufe: [`latent_mile_runs.json`](latent_mile_runs.json).
