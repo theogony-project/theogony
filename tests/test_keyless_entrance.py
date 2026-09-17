@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 
 from theogony.agents.factory import build_llm_or_offline
-from theogony.agents.llm import StubLLMProvider
+from theogony.agents.llm import OfflineLLMProvider, StubLLMProvider
 from theogony.agents.llm_openai import OpenAILLMProvider
 from theogony.config.settings import LLMSettings, Settings
 from theogony.core.model import KnowledgeEdge, KnowledgeNode
@@ -43,7 +43,7 @@ def _settings(*, openai_key: str | None = None, **overrides: Any) -> Settings:
 
 def test_without_a_key_the_caller_gets_a_stub_and_the_reason() -> None:
     llm, reason = build_llm_or_offline(_settings())
-    assert isinstance(llm, StubLLMProvider)
+    assert isinstance(llm, OfflineLLMProvider)
     assert reason is not None and "OPENAI_API_KEY" in reason
 
 
@@ -54,10 +54,13 @@ def test_with_a_key_nothing_changes() -> None:
 
 
 def test_the_synthesizer_follows_the_llm_it_was_given_not_the_setting() -> None:
-    """The setting still says `openai`; what arrived is a stub. Deciding from
-    the setting built an LLM synthesizer around a provider that returns ""."""
+    """The setting still says `openai`; what arrived has no model behind it.
+    Deciding from the setting built an LLM synthesizer around a provider that
+    returns "". And not *any* stub means offline: a scripted StubLLMProvider is
+    how tests drive the real synthesizer, and must keep reaching it."""
     settings = _settings()
-    assert isinstance(build_synthesizer(settings, StubLLMProvider()), OfflineAnswerSynthesizer)
+    assert isinstance(build_synthesizer(settings, OfflineLLMProvider()), OfflineAnswerSynthesizer)
+    assert isinstance(build_synthesizer(settings, StubLLMProvider()), AnswerSynthesizer)
     real, _ = build_llm_or_offline(_settings(openai_key="sk-test"))
     assert isinstance(build_synthesizer(settings, real), AnswerSynthesizer)
 

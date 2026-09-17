@@ -62,7 +62,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from theogony import __version__
 from theogony.agents.factory import build_llm_or_offline
-from theogony.agents.llm import LLMProvider, StubLLMProvider
+from theogony.agents.llm import LLMProvider, OfflineLLMProvider
 from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
 from theogony.chronicle.append_fragments import append_text_fragments
 from theogony.config.logging import get_logger, setup_logging
@@ -233,6 +233,11 @@ async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpR
 # --------------------------------------------------------------------------
 
 
+def _answers_offline(res: McpResources) -> bool:
+    """No language model behind this session: provider `stub`, or no usable key."""
+    return res.settings.llm.provider == "stub" or isinstance(res.llm, OfflineLLMProvider)
+
+
 def _build_query_pipeline(res: McpResources, *, offline: bool = False) -> QueryPipeline:
     settings = res.settings
     mnemosyne = build_mnemosyne_classifier(settings, res.llm)
@@ -300,7 +305,7 @@ async def tool_ask(
         mode = _parse_pheromone_mode(pheromone_mode)
     except ValueError as exc:
         return {"error": str(exc)}
-    llm_is_offline = isinstance(res.llm, StubLLMProvider)
+    llm_is_offline = _answers_offline(res)
     offline = llm_is_offline or not synthesize
     pipeline = _build_query_pipeline(res, offline=offline)
     result = await pipeline.ask(
@@ -406,8 +411,8 @@ async def tool_status(res: McpResources) -> dict[str, Any]:
         "store": str(health.get("backend", "unknown")),
         "llm_provider": res.settings.llm.provider,
         "llm_model": res.settings.llm.model_id,
-        "llm_available": not isinstance(res.llm, StubLLMProvider),
-        "answer_mode": "offline" if isinstance(res.llm, StubLLMProvider) else "llm",
+        "llm_available": not _answers_offline(res),
+        "answer_mode": "offline" if _answers_offline(res) else "llm",
         "embedding_model": res.settings.embedding.model_id,
         "embedding_dim": res.settings.embedding.dim,
         "morpheus_proposals_recent": _morpheus_proposals_recent(res.settings),

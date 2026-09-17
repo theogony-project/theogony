@@ -175,11 +175,12 @@ Pantheon ships an MCP (Model Context Protocol) server so any MCP-compatible host
 
 ```bash
 pip install -e ".[mcp]"
-theogony seed          # import the bundled pantheon_self chronicle (~280 nodes)
-theogony mcp           # stdio transport
+theogony mcp           # stdio transport; loads the bundled pantheon_self chronicle (~280 nodes)
 ```
 
-Tools available: `pantheon_ask`, `pantheon_node`, `pantheon_status`, `pantheon_reports_list`, `pantheon_reports_show`. See the README's MCP section for host-specific config snippets.
+**No API key is needed.** Retrieval runs without a language model, and if you are reading this you probably are one: call `pantheon_ask` with `synthesize: false` and you get the constellation — nodes, edges, sources — to reason over yourself. Without `synthesize: false` and without a key, `answer` is a citation list assembled from the constellation and `answer_mode` says `"offline"`; with a key it is synthesised prose and says `"llm"`. `pantheon_status` tells you which before you ask. This was verified from a fresh clone in an environment with no keys ([`docs/etappes/arriving_agent.md`](docs/etappes/arriving_agent.md)); if it fails for you, that is a bug worth a ticket.
+
+Tools available: `pantheon_ask`, `pantheon_node`, `pantheon_status`, `pantheon_reports_list`, `pantheon_reports_show`, `pantheon_chronicle_append`. Host config snippet: README, "Running the Gen-1 demo". Honest scope: this surface speaks to the Generation-1 layer and a self-description from April 2026; the MESH substrate, where everything measured since lives, has no MCP surface yet ([`PHX-1112`](phoenix-backlog/PHX-1112.yaml)).
 
 The bundled `pantheon_self` dump means the very first `pantheon_ask` against a freshly seeded install returns a cited answer drawn from this repository's own vision / strategy / doctrine docs — including this file, the glossary, the architecture, and the prompts. **You can ask Theogony about Theogony.** Use that to orient yourself before guessing or hallucinating about Pantheon-internal terminology.
 

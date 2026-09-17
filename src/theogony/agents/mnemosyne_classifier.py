@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from theogony.agents.llm import LLMProvider, StubLLMProvider
+from theogony.agents.llm import LLMProvider, OfflineLLMProvider
 from theogony.agents.mnemosyne_llm_fallback import MnemosyneLLMFallback
 from theogony.config.settings import MnemosyneSettings, Settings
 from theogony.core.model import Constellation
@@ -222,7 +222,7 @@ def build_mnemosyne_classifier(
         and cfg.classifier_mode == "heuristic_with_llm_fallback"
         and settings.llm.provider != "stub"
         and llm is not None
-        and not isinstance(llm, StubLLMProvider)
+        and not isinstance(llm, OfflineLLMProvider)
     ):
         fallback = MnemosyneLLMFallback(
             llm,

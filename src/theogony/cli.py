@@ -1310,7 +1310,7 @@ async def _run_ask(
     # A missing key used to end the command here, before retrieval ran — so the
     # quickstart's second line failed for everyone without an OpenAI account,
     # and showed nothing of the one thing that needs no LLM (PHX-1111).
-    llm, llm_unavailable = build_llm_or_offline(settings)
+    llm, llm_unavailable = build_llm_or_offline(settings, build=build_llm_from_settings)
     if llm_unavailable is not None:
         _console.print(
             Panel.fit(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from theogony.agents.llm import StubLLMProvider
+from theogony.agents.llm import OfflineLLMProvider
 from theogony.config.settings import Settings
 from theogony.retrieval.synthesize import (
     AnswerSynthesizer,
@@ -30,7 +30,9 @@ def build_synthesizer(
     :class:`~theogony.retrieval.synthesize.AnswerSynthesizer` (LLM prose + citations).
     """
     # The instance decides, not the setting: a provider that is configured but
-    # has no key arrives here as a stub (`build_llm_or_offline`, PHX-1111).
-    if settings.llm.provider == "stub" or isinstance(llm, StubLLMProvider):
+    # has no key arrives here as an OfflineLLMProvider (`build_llm_or_offline`,
+    # PHX-1111). Not any stub — a scripted StubLLMProvider is how tests drive the
+    # real synthesizer.
+    if settings.llm.provider == "stub" or isinstance(llm, OfflineLLMProvider):
         return OfflineAnswerSynthesizer(top_n=settings.llm.offline_top_n_citations)
     return AnswerSynthesizer(llm, audit_log=audit_log)

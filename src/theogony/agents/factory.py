@@ -21,11 +21,18 @@ naming the expected env var.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from pydantic import BaseModel
 
-from theogony.agents.llm import LLMProvider, LLMResult, ResearchPlannerCost, StubLLMProvider
+from theogony.agents.llm import (
+    LLMProvider,
+    LLMResult,
+    OfflineLLMProvider,
+    ResearchPlannerCost,
+    StubLLMProvider,
+)
 from theogony.agents.llm_anthropic import AnthropicLLMProvider
 from theogony.agents.llm_deepseek import DeepSeekLLMProvider
 from theogony.agents.llm_gemini import GeminiLLMProvider
@@ -187,7 +194,11 @@ def _build_single_provider(settings: Settings, provider_name: str, model_id: str
     )
 
 
-def build_llm_or_offline(settings: Settings) -> tuple[LLMProvider, str | None]:
+def build_llm_or_offline(
+    settings: Settings,
+    *,
+    build: Callable[[Settings], LLMProvider] | None = None,
+) -> tuple[LLMProvider, str | None]:
     """The configured LLM — or a stub and the reason it could not be built.
 
     A newcomer has no API key, and an agent that arrives over MCP is itself the
@@ -198,12 +209,16 @@ def build_llm_or_offline(settings: Settings) -> tuple[LLMProvider, str | None]:
     OpenAI account. Every read-side entry point calls this instead of
     :func:`build_llm_from_settings`: retrieval always runs, synthesis falls
     back to the offline citation answer, and the caller is told which it got.
+
+    ``build`` is the factory to try, :func:`build_llm_from_settings` by default;
+    callers pass their own module-level name so that a test which replaces the
+    factory there still reaches this path.
     """
     try:
-        return build_llm_from_settings(settings), None
+        return (build or build_llm_from_settings)(settings), None
     except (ValueError, NotImplementedError) as exc:
         log.warning("no usable LLM (%s); answering offline from the constellation", exc)
-        return StubLLMProvider(model_id="offline"), str(exc)
+        return OfflineLLMProvider(), str(exc)
 
 
 def build_llm_from_settings(settings: Settings) -> LLMProvider:

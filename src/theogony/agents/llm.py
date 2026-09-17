@@ -232,3 +232,17 @@ class StubLLMProvider:
             model_id=self._model_id,
         )
         return validated, cost
+
+
+class OfflineLLMProvider(StubLLMProvider):
+    """What a read-side entry point holds when the configured provider has no key.
+
+    A type of its own, because "is a stub" cannot mean "answer offline": a plain
+    :class:`StubLLMProvider` is also what tests and demos inject to script an
+    LLM's replies through the *real* synthesizer. Deciding on the base class
+    sent those through the citation-only path and silently changed what they
+    measured — the growth-stream tests caught it (PHX-1111).
+    """
+
+    def __init__(self) -> None:
+        super().__init__(model_id="offline")
