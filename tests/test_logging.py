@@ -34,6 +34,14 @@ class TestSetupLogging:
         logger = setup_logging()
         assert any(isinstance(h, RichHandler) for h in logger.handlers)
 
+    def test_the_handler_writes_to_stderr_never_stdout(self) -> None:
+        """stdout belongs to results. Over the MCP stdio transport it is the
+        protocol channel, and every log line written there reached the host as
+        a JSON-RPC frame it could not parse (PHX-1111: eight per session)."""
+        logger = setup_logging(force=True)
+        handlers = [h for h in logger.handlers if isinstance(h, RichHandler)]
+        assert handlers and all(h.console.stderr for h in handlers)
+
     def test_returns_theogony_logger(self) -> None:
         logger = setup_logging()
         assert logger.name == THEOGONY_LOGGER_NAME

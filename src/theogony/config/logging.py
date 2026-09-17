@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from rich.console import Console
 from rich.logging import RichHandler
 
 if TYPE_CHECKING:
@@ -74,7 +75,11 @@ def setup_logging(settings: Settings | None = None, *, force: bool = False) -> l
         for handler in existing_rich:
             logger.removeHandler(handler)
 
+    # stderr, always. stdout belongs to results: over the MCP stdio transport it
+    # *is* the protocol channel, and every log line written there reached the
+    # host as a JSON-RPC frame it could not parse (PHX-1111: eight per session).
     handler = RichHandler(
+        console=Console(stderr=True),
         level=level,
         rich_tracebacks=True,
         show_time=True,

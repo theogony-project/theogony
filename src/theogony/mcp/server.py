@@ -61,7 +61,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from theogony import __version__
-from theogony.agents.factory import build_llm_from_settings
+from theogony.agents.factory import build_llm_or_offline
 from theogony.agents.llm import LLMProvider, StubLLMProvider
 from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
 from theogony.chronicle.append_fragments import append_text_fragments
@@ -79,6 +79,7 @@ from theogony.reporting.writer import RUN_REPORT_TYPE_SUBDIRS, RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.pipeline import QueryPipeline
 from theogony.retrieval.spreading_activation_retrieval import SpreadingActivationRetriever
+from theogony.retrieval.synthesize import OfflineAnswerSynthesizer
 from theogony.retrieval.synthesizer_factory import build_synthesizer
 from theogony.stores.memory import InMemoryKnowledgeStore
 
@@ -95,10 +96,11 @@ _INSTALL_HINT = (
     'Theogony MCP server requires the `mcp` extra. Install with: pip install -e ".[mcp]"'
 )
 
-_MCP_ASK_NO_LLM_KEY = (
-    "this hosted instance does not have an LLM key configured; you can run a "
-    "local install with your own key, or wait for PHX-0066 Phase 2 which will "
-    "support per-call key pass-through"
+_OFFLINE_NOTE = (
+    "No language model is configured, so `answer` is a citation list assembled "
+    "from the constellation — nothing in it is generated. The constellation is "
+    "complete either way: retrieval needs no LLM. If you are a language model, "
+    "it is what you came for; pass synthesize=false to skip the answer entirely."
 )
 
 
@@ -111,10 +113,13 @@ class McpResources:
     store / report writer. Held for the duration of one transport
     session; cleanly torn down on disconnect or SIGTERM.
 
-    When ``mcp_ask_blocked_message`` is set (seeded in-memory mode without a
-    usable API key for the configured non-stub LLM provider),
-    :func:`tool_ask` returns that message instead of calling the query
-    pipeline.
+    ``llm_unavailable_reason`` is set when the configured provider could not be
+    built (no API key). The server still starts and :func:`tool_ask` still
+    answers: retrieval runs, the constellation is returned in full, and the
+    answer is the offline citation list, labelled as such. Until PHX-1111 this
+    case blocked the tool — and, without ``--seed``, crashed the server before
+    its handshake — so an agent without an OpenAI account could not get a single
+    constellation out of the system.
     """
 
     settings: Settings
@@ -124,7 +129,7 @@ class McpResources:
     llm: LLMProvider
     store: KnowledgeStore
     report_writer: RunReportWriter
-    mcp_ask_blocked_message: str | None = None
+    llm_unavailable_reason: str | None = None
 
 
 @contextlib.asynccontextmanager
@@ -161,9 +166,7 @@ async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpR
     )
     await embedder.embed("warmup")
 
-    mcp_ask_blocked_message: str | None = None
     store: KnowledgeStore
-    llm: LLMProvider
 
     if seed_path is not None:
         from theogony.core.model import KnowledgeEdge, KnowledgeNode
@@ -184,15 +187,12 @@ async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpR
             len(node_objs),
             len(edge_objs),
         )
-        try:
-            llm = build_llm_from_settings(settings)
-        except (ValueError, NotImplementedError):
-            llm = StubLLMProvider(model_id=settings.llm.model_id or "stub-llm")
-            if settings.llm.provider != "stub":
-                mcp_ask_blocked_message = _MCP_ASK_NO_LLM_KEY
     else:
-        llm = build_llm_from_settings(settings)
         store = InMemoryKnowledgeStore()
+
+    # Never a reason not to start: an MCP host that gets no handshake learns
+    # nothing, and the constellation needs no language model (PHX-1111).
+    llm, llm_unavailable_reason = build_llm_or_offline(settings)
 
     report_writer = RunReportWriter(settings.run_reports_dir)
 
@@ -211,7 +211,7 @@ async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpR
             llm=llm,
             store=store,
             report_writer=report_writer,
-            mcp_ask_blocked_message=mcp_ask_blocked_message,
+            llm_unavailable_reason=llm_unavailable_reason,
         )
     finally:
         with contextlib.suppress(Exception):
@@ -233,14 +233,18 @@ async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpR
 # --------------------------------------------------------------------------
 
 
-def _build_query_pipeline(res: McpResources) -> QueryPipeline:
+def _build_query_pipeline(res: McpResources, *, offline: bool = False) -> QueryPipeline:
     settings = res.settings
     mnemosyne = build_mnemosyne_classifier(settings, res.llm)
     return QueryPipeline(
         embedder=res.embedder,
         retriever=SpreadingActivationRetriever(res.store, res.embedder),
         assembler=ConstellationAssembler(res.store),
-        synthesizer=build_synthesizer(settings, res.llm, audit_log=res.audit),
+        synthesizer=(
+            OfflineAnswerSynthesizer(top_n=settings.llm.offline_top_n_citations)
+            if offline
+            else build_synthesizer(settings, res.llm, audit_log=res.audit)
+        ),
         relevance=RelevanceTracker(
             res.store,
             relevance_delta=settings.relevance.relevance_delta,
@@ -282,15 +286,23 @@ async def tool_ask(
     hops: int = 2,
     pheromone_mode: str | None = None,
     thinking_max: int | None = None,
+    synthesize: bool = True,
 ) -> dict[str, Any]:
-    """Run :func:`pantheon_ask` and return the JSON-serialisable payload."""
-    if res.mcp_ask_blocked_message is not None:
-        return {"error": res.mcp_ask_blocked_message}
+    """Run :func:`pantheon_ask` and return the JSON-serialisable payload.
+
+    ``answer_mode`` says what ``answer`` is: ``"llm"`` (synthesised prose),
+    ``"offline"`` (a citation list assembled from the constellation, because no
+    LLM is configured) or ``"none"`` (the caller passed ``synthesize=false``).
+    The constellation is identical in all three — it is the retrieval result,
+    and retrieval never needed a language model.
+    """
     try:
         mode = _parse_pheromone_mode(pheromone_mode)
     except ValueError as exc:
         return {"error": str(exc)}
-    pipeline = _build_query_pipeline(res)
+    llm_is_offline = isinstance(res.llm, StubLLMProvider)
+    offline = llm_is_offline or not synthesize
+    pipeline = _build_query_pipeline(res, offline=offline)
     result = await pipeline.ask(
         q,
         layer=None,
@@ -299,8 +311,10 @@ async def tool_ask(
         pheromone_mode=mode,
         thinking_max=thinking_max,
     )
-    return {
-        "answer": result.answer.text,
+    answer_mode = "none" if not synthesize else ("offline" if llm_is_offline else "llm")
+    payload: dict[str, Any] = {
+        "answer": result.answer.text if synthesize else None,
+        "answer_mode": answer_mode,
         "cited_node_ids": list(result.answer.cited_node_ids),
         "verdict": result.report.verdict,
         "verdict_reasoning": result.report.verdict_reasoning,
@@ -319,6 +333,9 @@ async def tool_ask(
             "latency_ms": result.report.synthesis.latency_ms,
         },
     }
+    if answer_mode == "offline":
+        payload["note"] = _OFFLINE_NOTE
+    return payload
 
 
 async def tool_node(res: McpResources, *, node_id: str) -> dict[str, Any]:
@@ -389,6 +406,8 @@ async def tool_status(res: McpResources) -> dict[str, Any]:
         "store": str(health.get("backend", "unknown")),
         "llm_provider": res.settings.llm.provider,
         "llm_model": res.settings.llm.model_id,
+        "llm_available": not isinstance(res.llm, StubLLMProvider),
+        "answer_mode": "offline" if isinstance(res.llm, StubLLMProvider) else "llm",
         "embedding_model": res.settings.embedding.model_id,
         "embedding_dim": res.settings.embedding.dim,
         "morpheus_proposals_recent": _morpheus_proposals_recent(res.settings),
@@ -466,7 +485,10 @@ def _tool_descriptors() -> list[dict[str, Any]]:
                 "answer with the slim Constellation that produced it. Every "
                 "cited node id can be passed to `pantheon_node` for a Hover-Lupe "
                 "expansion. Use this whenever you want grounded, inspectable "
-                "knowledge instead of unverified model recall."
+                "knowledge instead of unverified model recall. Works without any "
+                "API key: the constellation is always returned in full, and "
+                "`answer_mode` says whether `answer` is LLM prose, an offline "
+                "citation list, or omitted."
             ),
             "inputSchema": {
                 "type": "object",
@@ -509,6 +531,15 @@ def _tool_descriptors() -> list[dict[str, Any]]:
                         ),
                         "minimum": 0,
                         "maximum": 8,
+                    },
+                    "synthesize": {
+                        "type": "boolean",
+                        "description": (
+                            "Set false to get the constellation only. If you are a "
+                            "language model, this is usually what you want: you do the "
+                            "reasoning, the Chronik supplies the structure and its sources."
+                        ),
+                        "default": True,
                     },
                 },
                 "required": ["q"],
@@ -704,6 +735,7 @@ def build_server(res: McpResources) -> Any:
                 hops=int(arguments.get("hops", 2)),
                 pheromone_mode=mode_arg,
                 thinking_max=tm_arg,
+                synthesize=bool(arguments.get("synthesize", True)),
             )
         elif name == "pantheon_node":
             payload = await tool_node(res, node_id=arguments["node_id"])
@@ -740,8 +772,13 @@ def build_server(res: McpResources) -> Any:
                 content=[types.TextContent(type="text", text=str(exc))],
                 is_error=True,
             )
+        # A payload that carries `error` is a failed call, and a host can only
+        # act on that if the result says so. Before PHX-1111 "no LLM key" came
+        # back as a successful call whose body happened to contain an apology.
+        failed = isinstance(payload, dict) and "error" in payload
         return types.CallToolResult(
-            content=[types.TextContent(type="text", text=json.dumps(payload, indent=2))]
+            content=[types.TextContent(type="text", text=json.dumps(payload, indent=2))],
+            is_error=failed,
         )
 
     return Server(

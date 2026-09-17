@@ -187,6 +187,25 @@ def _build_single_provider(settings: Settings, provider_name: str, model_id: str
     )
 
 
+def build_llm_or_offline(settings: Settings) -> tuple[LLMProvider, str | None]:
+    """The configured LLM — or a stub and the reason it could not be built.
+
+    A newcomer has no API key, and an agent that arrives over MCP is itself the
+    language model: what it came for is the Constellation, which needs none.
+    Until PHX-1111 a missing key stopped `theogony ask` before retrieval ran,
+    crashed `theogony mcp` before its handshake, and blocked `pantheon_ask` —
+    so the one thing this system does differently was reachable only with an
+    OpenAI account. Every read-side entry point calls this instead of
+    :func:`build_llm_from_settings`: retrieval always runs, synthesis falls
+    back to the offline citation answer, and the caller is told which it got.
+    """
+    try:
+        return build_llm_from_settings(settings), None
+    except (ValueError, NotImplementedError) as exc:
+        log.warning("no usable LLM (%s); answering offline from the constellation", exc)
+        return StubLLMProvider(model_id="offline"), str(exc)
+
+
 def build_llm_from_settings(settings: Settings) -> LLMProvider:
     """Construct the LLMProvider implied by ``settings.llm.provider``.
 

@@ -48,7 +48,7 @@ from theogony.acquisition.gutenberg import GutenbergAdapter
 from theogony.agents.athene import AtheneVerifier
 from theogony.agents.chronos import ChronosRecycler
 from theogony.agents.eris import ErisRedTeam
-from theogony.agents.factory import build_llm_from_settings
+from theogony.agents.factory import build_llm_from_settings, build_llm_or_offline
 from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
 from theogony.agents.mnemosyne_conductor import MnemosyneConductor
 from theogony.agents.nemesis import NemesisAuditor
@@ -1174,6 +1174,11 @@ def _print_ingest_summary(
 # ---------------------------------------------------------------------------
 
 
+_ASK_SEED_FROM_OPT = typer.Option(
+    None, "--seed-from", help="Chronicle dump (JSONL.gz) to load instead of the bundled one."
+)
+
+
 @app.command()
 def ask(
     query: str = typer.Argument(..., help="The question to ask the Chronik."),
@@ -1194,6 +1199,16 @@ def ask(
         "--pheromone-mode",
         help="Pheromone semantics: follow | ignore | invert (PHX-0057 Phase 1).",
     ),
+    seed: bool = typer.Option(
+        True,
+        "--seed/--no-seed",
+        help=(
+            "Load the bundled pantheon_self dump into the in-memory store first "
+            "(default). The store lives in this process only, so without it the "
+            "question is put to an empty Chronik."
+        ),
+    ),
+    seed_from: Path | None = _ASK_SEED_FROM_OPT,
     thinking_max: int | None = typer.Option(
         None,
         "--thinking-max",
@@ -1227,8 +1242,29 @@ def ask(
             store_kind=store_kind,
             pheromone_mode=pm,
             thinking_max=thinking_max,
+            seed_path=_resolve_seed_path(seed, seed_from, title="theogony ask"),
         )
     )
+
+
+def _resolve_seed_path(seed: bool, seed_from: Path | None, *, title: str) -> Path | None:
+    """The dump an in-memory store is filled from, or None for an empty one."""
+    if not seed:
+        return None
+    from theogony.seeds import PANTHEON_SELF_FILENAME, pantheon_self_dump_path
+
+    seed_path = seed_from or pantheon_self_dump_path()
+    if not seed_path.exists():
+        _console.print(
+            Panel.fit(
+                f"[red]Dump not found:[/red] {seed_path}\n\n"
+                f"[dim]Bundled {PANTHEON_SELF_FILENAME} missing from this install.[/dim]",
+                title=title,
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1)
+    return seed_path
 
 
 def _parse_pheromone_mode(value: str) -> Literal["follow", "ignore", "invert"]:
@@ -1263,6 +1299,7 @@ async def _run_ask(
     store_kind: str,
     pheromone_mode: Literal["follow", "ignore", "invert"],
     thinking_max: int | None,
+    seed_path: Path | None = None,
 ) -> None:
     settings = _load_settings()
     audit_path = settings.data_dir / "audit.sqlite"
@@ -1270,21 +1307,35 @@ async def _run_ask(
         model_id=settings.embedding.model_id,
         dim=settings.embedding.dim,
     )
-    try:
-        llm = build_llm_from_settings(settings)
-    except (ValueError, NotImplementedError) as exc:
+    # A missing key used to end the command here, before retrieval ran — so the
+    # quickstart's second line failed for everyone without an OpenAI account,
+    # and showed nothing of the one thing that needs no LLM (PHX-1111).
+    llm, llm_unavailable = build_llm_or_offline(settings)
+    if llm_unavailable is not None:
         _console.print(
             Panel.fit(
-                f"[red]LLM provider unavailable[/red]: {exc}",
+                f"[yellow]No language model configured[/yellow] ({llm_unavailable})\n"
+                "Retrieval runs regardless. The answer below is a citation list "
+                "assembled from the constellation — nothing in it is generated.",
                 title="theogony ask",
-                border_style="red",
+                border_style="yellow",
             )
         )
-        raise typer.Exit(code=1) from exc
     report_writer = RunReportWriter(settings.run_reports_dir)
 
     with ExtractionAuditLog(audit_path) as audit:
         async with _open_store(settings, store_kind, settings.embedding.dim) as store:
+            if seed_path is not None:
+                from theogony.core.model import KnowledgeEdge, KnowledgeNode
+                from theogony.docs_ingest.dump import read_dump
+
+                _, dump_nodes, dump_edges = read_dump(seed_path)
+                await store.batch_upsert_nodes(
+                    [n for n in dump_nodes if isinstance(n, KnowledgeNode)]
+                )
+                await store.batch_upsert_edges(
+                    [e for e in dump_edges if isinstance(e, KnowledgeEdge)]
+                )
             pipeline = QueryPipeline(
                 embedder=embedder,
                 retriever=SpreadingActivationRetriever(store, embedder),
@@ -1897,6 +1948,8 @@ async def _run_seed(
         Panel.fit(
             f"[green]Imported[/green] "
             f"{len(node_ids)} nodes / {len(edge_objs)} edges into {store_kind}.\n"
+            "[dim]This store lives in this process only — the command checks that the "
+            "dump loads.\n`theogony ask` and `theogony mcp` load the same dump themselves.[/dim]\n"
             f'[dim]Try: [/dim][bold]theogony ask "What is the Pantheon?"[/bold]',
             title="theogony seed",
             border_style="green",
@@ -1935,9 +1988,13 @@ def mcp(
         help="TCP port for sse only (default 8080; Fly/HF often set PORT).",
     ),
     seed: bool = typer.Option(
-        False,
+        True,
         "--seed/--no-seed",
-        help="Load a Chronicle dump into the in-memory store before opening the transport.",
+        help=(
+            "Load a Chronicle dump into the in-memory store before opening the transport "
+            "(default: the bundled pantheon_self dump). --no-seed starts an empty store, "
+            "useful only with pantheon_chronicle_append."
+        ),
     ),
     seed_from: Path | None = _MCP_SEED_FROM_OPT,
 ) -> None:
@@ -1972,21 +2029,7 @@ def mcp(
         _console.print(f"[red]Unknown --transport: {transport!r}. Use 'stdio' or 'sse'.[/red]")
         raise typer.Exit(code=2)
 
-    seed_path: Path | None = None
-    if seed:
-        from theogony.seeds import PANTHEON_SELF_FILENAME, pantheon_self_dump_path
-
-        seed_path = seed_from or pantheon_self_dump_path()
-        if not seed_path.exists():
-            _console.print(
-                Panel.fit(
-                    f"[red]Dump not found:[/red] {seed_path}\n\n"
-                    f"[dim]Bundled {PANTHEON_SELF_FILENAME} missing from this install.[/dim]",
-                    title="theogony mcp",
-                    border_style="red",
-                )
-            )
-            raise typer.Exit(code=1)
+    seed_path = _resolve_seed_path(seed, seed_from, title="theogony mcp")
 
     try:
         from theogony.mcp.server import serve_sse, serve_stdio
