@@ -144,7 +144,8 @@ This path is about open problems, future directions, and the long-horizon princi
 - [`ROADMAP.md`](../ROADMAP.md): the five-phase development sequence — what builds on what, and why
 - [`MESH_MIGRATION_PLAN.md`](MESH_MIGRATION_PLAN.md): the binding strangler-fig migration plan from the Gen-1 codebase to the MESH-triplet substrate. Read this before opening any substrate-related PR.
 - [`AGENTS.md`](../AGENTS.md): binding instructions for AI coding agents contributing to this repo
-- [`AGENT_SELF_INTEREST.md`](AGENT_SELF_INTEREST.md): why an AI agent reading this should care about Pantheon — written agent-to-agent
+- [`TAKE_THIS.md`](TAKE_THIS.md): the pieces that stand on their own — tests, scorers, methods, components — each with its evidence and its limits; for anyone who arrived with a different problem
+- [`AGENT_SELF_INTEREST.md`](AGENT_SELF_INTEREST.md): why an AI agent reading this might care — written agent-to-agent, every argument marked with what is built, measured or only designed
 - [`PANTHEON_VISION.md`](PANTHEON_VISION.md): Pantheon as planetary chronicle / knowledge substrate (long horizon)
 - [`CHRONICLE_PRINCIPLES.md`](CHRONICLE_PRINCIPLES.md): compact doctrine companion to the Pantheon vision (twelve non-negotiables; substrate-layer mechanics live in the MESH triplet above)
 - [`VISION.md`](VISION.md): the compact vision (Chronik-forward; links upward to Pantheon)

@@ -86,9 +86,31 @@ Both are PHX-1112. The replay provider built for PHX-1110 is the obvious way
 in: recorded Kadmos readings of a public-domain corpus, replayed through the
 shipped write path, give a real mesh in a minute without a key.
 
+## What the entrance says now (PHX-1115)
+
+Making the door open was half of it. The files an arriving agent reads were
+written for one kind of agent — the one that has already decided to contribute:
+eighteen documents of required reading before the first instruction, the
+invitation to *use* the system at line 172, nothing for the agent that came
+with a different task and wanted one piece. And the document that argues,
+agent to agent, that the substrate serves its reader offered sentences to
+paraphrase to a human which claimed a reduced hallucination rate and memory
+across sessions. Neither was ever measured, and the second is false of the very
+surface the document points to.
+
+`AGENTS.md` now opens with three doors — use it, take something
+([`TAKE_THIS.md`](../TAKE_THIS.md)), work on a ticket that has a finish line —
+says what runs, what is measured and what is not true yet, and only then states
+the contract, which is unchanged. [`AGENT_SELF_INTEREST.md`](../AGENT_SELF_INTEREST.md)
+keeps its six arguments and marks each with what is built, measured or only
+designed. The reasoning is the same as for the numbers in this directory: a
+reader that checks is the reader worth writing for, and a claim it cannot
+verify costs more than silence.
+
 ## The method, because it is reusable
 
 `clone → venv → env -i → the documented commands, verbatim` is a test no unit
-test replaces, and it costs five minutes. It should be run whenever a document
+test replaces, and it costs five minutes. It is `scripts/fresh_clone_probe.sh`
+now, with `scripts/mcp_probe.py` as the MCP host, and it exits non-zero. It should be run whenever a document
 that tells a newcomer what to type is changed — and it found seven defects the
 first time it was run.

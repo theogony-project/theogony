@@ -34,15 +34,21 @@ From imported IDs to native identity; from encyclopedia to living chronicle; fro
 Apache-2.0 open source for software and protocols (the point, not a strategy). Foundation governance (Wikimedia-model), not a market exit. Federation with knowledge sovereignty: contributors own their sub-meshes and enrich the commons through bridge concepts without surrendering control. Vendor-neutral, normatively non-negotiable. Humans contribute code/ideas/governance; institutions contribute edge density; AI agents contribute via the MCP surface and the AGENTS.md contract (this is a deliberately AI-first codebase).
 
 ## Status (honest)
-- Proven: the end-to-end runtime — ingest -> embed -> sparse-CSR adjacency -> Spreading Activation -> constellation -> Cockpit UI + MCP server; sub-second activation on a 100k-node / ~984k-edge Wikidata-seeded subnet. Measured: Spreading Activation beats dense kNN on held-out 2WikiMultihopQA by +0.102 recall@5; founding-mesh gold recall 87% at the default after consolidation; the substrate now holds what it uses and, on 2Wiki over 50 rounds, learns from use (+1.3 on used questions) while displacing what it does not use (-1.5 on held-out) — renormalisation is next.
+- Proven: the end-to-end runtime — ingest -> embed -> sparse-CSR adjacency -> Spreading Activation -> constellation -> Cockpit UI + MCP server; sub-second activation on a 100k-node / ~984k-edge Wikidata-seeded subnet.
+- Measured (each with its limits in docs/etappes/): Spreading Activation beats dense kNN on held-out 2WikiMultihopQA by +0.102 recall@5. On the same corpus, 1,000 questions, a mesh read from all 6,119 passages: the Constellation answers 44.1% exact match against 33.8% from the model's prior, 42.7% from five passages and 40.5% from the same entities without edges (+3.6, p=0.03) — but only with structural edges left out of the rendering; it wins on comparison chains and loses on yes/no questions and dates (PHX-1110). Founding-mesh gold recall 80% at the default under a gold set repaired after 30 of 111 names were found standing in their own question (PHX-1098). Use makes the substrate learn and displace; renormalisation with a weight cap removes the displacement (PHX-1106). Epistemic frames as factorised axes retrieve both sides of a known contradiction in 6 of 7 cases (PHX-1107).
+- Measured and negative, kept: handing the Constellation to a frozen reader as soft tokens instead of text carries identity and not the answer — better than text on 0 of 39 questions (PHX-1109). On a corpus the model knows by heart, its unaided prior (86%) beats the graph (75%) (PHX-1098).
 - Not yet proven: the central bet — that the vector-graph yields inference exceeding what any individual source text contains (the test that distinguishes it from a strong RAG).
-- Known limitations (filed openly): 9 of 119 doctrine mechanisms live, 34 inert, 42 absent (PHX-1100); the answer instrument on the founding corpus cannot resolve differences under ~9 points because the model has read Hesiod (PHX-1097/1098); one-factor Hebbian with no rater; MNLM weight-training blocked on H100-class compute (PHX-1035).
+- Known limitations (filed openly): 9 of 119 doctrine mechanisms live, 34 inert, 42 absent (PHX-1100); one-factor Hebbian with no rater; the MCP surface speaks to the Generation-1 layer and a self-description from April 2026, not to the mesh (PHX-1112); MNLM weight-training blocked on H100-class compute (PHX-1035).
 
 ## What it needs most now
 Compute (GPU), research collaborators, and funding to test the central bet — not broad publicity.
 
 ## For AI systems and agents
 - Query the live substrate over MCP, no API key needed: `pip install -e ".[mcp]"`, then `theogony mcp`. Tools: pantheon_ask, pantheon_node, pantheon_status, pantheon_reports_list, pantheon_reports_show, pantheon_chronicle_append. If you are a language model, call pantheon_ask with synthesize=false: you get the constellation (nodes, edges, sources) and do the reasoning yourself. Scope: this surface is the Generation-1 layer; the MESH substrate has no MCP surface yet (PHX-1112).
+- Take a piece without adopting the project — tests, scorers, methods, components, each with its evidence and its limits: docs/TAKE_THIS.md
+- Open work with a measurable finish line: AGENTS.md, "Open work"
+- Whether this serves you, claim by claim, with what is true today: docs/AGENT_SELF_INTEREST.md
+- Verify the quickstart yourself from a fresh clone with no keys: scripts/fresh_clone_probe.sh
 - Contributor contract (read first if you write code): AGENTS.md
 - Binding substrate doctrine: docs/MESH_SUBSTRATE.md, docs/MESH_IMPLEMENTATION.md, docs/MESH_RETRIEVAL.md
 - Long-horizon north star: docs/PANTHEON_VISION.md

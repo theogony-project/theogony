@@ -27,6 +27,15 @@ description: >
   from 2026-04-20 and answers questions about this repository as it was before
   the mesh existed; refresh it or replace it with a mesh read of the current
   documents.
+acceptance: >
+  Three separable pieces, each its own PR. (1) mesh_ask and mesh_status
+  answer a protocol round trip against a small replayed mesh — the fixture in
+  tests/mesh/eval/test_qa_mesh.py builds one in a second — with no LLM
+  anywhere on the path. (2) scripts/fresh_clone_probe.sh, extended, builds a
+  demo mesh from shipped readings and gets a Constellation out of it, in
+  under three minutes, without any API key. (3) Asking the bundled
+  self-description what this project has measured returns something written
+  after April 2026.
 relates_to:
   - PHX-1111   # the keyless entrance this continues
   - PHX-1110   # the replay provider, and the typed-only rendering

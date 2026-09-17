@@ -13,6 +13,15 @@ While the version is `0.x.y`, the API is considered unstable and may change betw
 
 ## [Unreleased]
 
+### Added
+- `docs/TAKE_THIS.md`: the pieces that stand on their own, with their evidence and their limits.
+- `scripts/fresh_clone_probe.sh`, `scripts/mcp_probe.py`: the documented quickstart, run as a stranger would.
+- The answer benchmark reports exact match by answer kind (entity / yes-no / date).
+
+### Changed
+- `AGENTS.md` opens with what an arriving agent can do in five minutes — use it, take a piece, pick up a ticket with a finish line — before the contributor contract.
+- `docs/AGENT_SELF_INTEREST.md`: every argument now says what is built, measured or only designed; the scripted pitch is replaced by claims that can be checked.
+
 ### Fixed
 - **The documented entrance needed an OpenAI account** (PHX-1111). From a fresh clone with no keys,
   `theogony ask` exited before retrieval ran, `theogony mcp` died before its handshake, `pantheon_ask`

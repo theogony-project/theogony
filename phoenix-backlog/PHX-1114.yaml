@@ -1,0 +1,38 @@
+id: PHX-1114
+category: substrate-retrieval
+priority: medium
+status: open
+generation_target: MESH — consumption (MESH_RETRIEVAL step 5), what a Constellation carries
+title: "The Constellation does not carry the dates its sources contain"
+filed_by: Claude Code (2026-09-17, from the PHX-1110 measurement)
+created_at: 2026-09-17
+description: >
+  Measured in PHX-1110 on the 54 questions of the 2WikiMultihopQA sample
+  whose answer is a date: five retrieved passages 33.3 % exact match, every
+  mesh arm under 12 % (entities 3.7, Constellation 11.1, typed 9.3). An
+  entity's description holds what Kadmos wrote about the entity, not every
+  fact of the paragraph it was read from, and the mesh keeps a reference to
+  the paragraph (raw_text_ref), not its text. Meanwhile the graph finds the
+  relevant material more often than passage retrieval does: the answer stood
+  in the mesh arms' material for 61 % of all questions against 55 %.
+
+  So the two retrieval forms fail in different places — passages on chains,
+  the Constellation on literal detail — and nothing measured so far combines
+  them.
+acceptance: >
+  An arm that lays the source paragraphs of the Constellation's seed-touching
+  entities beside the typed Constellation, measured on the same 1,000
+  questions in one run with `passages` and `constellation_typed`, reporting
+  exact match, F1 and gold_in_context overall and by answer kind. The
+  benchmark holds the passage texts, so the arm needs only the mapping from a
+  chunk's paragraph anchor to its passage. Any outcome closes the ticket; the
+  hypothesis is that it takes the passages' result on dates and the graph's
+  on comparison chains.
+relates_to:
+  - PHX-1110   # where it was measured
+  - PHX-1113   # the other half of the tie with plain retrieval
+linked_docs:
+  - docs/etappes/qa_constellation.md
+linked_scripts:
+  - scripts/mesh_qa_constellation.py
+  - src/theogony/mesh/eval/qa_mesh.py
