@@ -40,6 +40,7 @@ from theogony.mesh.eval.qa_mesh import (
     answer_qa_set,
     paired_qa,
     paragraph_of,
+    summarise_by_kind,
     unit_rows,
 )
 from theogony.mesh.retrieval.defaults import DEFAULT_K_SEEDS, DEFAULT_TOP_K
@@ -136,6 +137,16 @@ def main() -> None:
             f"{s['gold_in_context']:12.1%} {s['empty_answers']:6.0f}"
         )
 
+    by_kind = summarise_by_kind(results)
+    print(f"\n{'exact match by answer kind':28s} " + " ".join(f"{a[:12]:>12s}" for a in arms))
+    for kind in ("entity", "yes_no", "date"):
+        if kind in by_kind:
+            n = int(next(iter(by_kind[kind].values()))["questions"])
+            cells = " ".join(
+                f"{by_kind[kind].get(a, {}).get('exact_match', float('nan')):12.1%}" for a in arms
+            )
+            print(f"{kind + f' (n={n})':28s} {cells}")
+
     paired: dict[str, dict[str, float]] = {}
     for arm, base in (
         ("constellation", "vector_only"),
@@ -175,6 +186,7 @@ def main() -> None:
                     "passage_k": args.passage_k,
                     "k_seeds": k_seeds,
                     "summary": summary,
+                    "by_kind": by_kind,
                     "paired": paired,
                     "answers": [
                         {

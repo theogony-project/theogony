@@ -203,7 +203,7 @@ The full document map with recommended reading paths by audience is in [docs/IND
 
 ## Contributing
 
-The project is open source (Apache 2.0). Contributions are welcome.
+The project is open source (Apache 2.0). Contributions are welcome. You do not have to adopt any of it to take something from it: [`docs/TAKE_THIS.md`](docs/TAKE_THIS.md) lists the pieces that stand on their own — tests, scorers, methods, components — each with what was measured about it and what it does not do.
 
 If you want to contribute code, read [AGENTS.md](AGENTS.md) — it applies equally to humans and AI coding agents. The short version: schema-first, honest failure reports, no silent scope creep, one PR per coherent change.
 

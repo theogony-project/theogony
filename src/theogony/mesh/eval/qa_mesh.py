@@ -41,6 +41,7 @@ import asyncio
 import hashlib
 import json
 import math
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -391,6 +392,38 @@ async def answer_qa_set(
         job.result.answer = answer
         job.result.em, job.result.f1 = best_over_golds(answer, job.golds)
     return [j.result for j in jobs]
+
+
+_YEAR = re.compile(r"\b\d{3,4}\b")
+
+
+def answer_kind(gold: str) -> str:
+    """`yes_no`, `date` or `entity` — by the shape of the gold answer.
+
+    The three behave differently enough under a graph context that one total
+    hides all of it (PHX-1110): on 2WikiMultihopQA the typed Constellation beat
+    five passages by 5.6 points on entity answers, fell 20 points *below the
+    model's unaided prior* on yes/no questions, and carried almost none of the
+    dates. A year anywhere in the gold string counts as a date.
+    """
+    text = gold.strip().lower()
+    if text in ("yes", "no"):
+        return "yes_no"
+    return "date" if _YEAR.search(text) else "entity"
+
+
+def summarise_by_kind(results: Sequence[QAAnswerResult]) -> dict[str, dict[str, dict[str, float]]]:
+    """Exact match per answer kind and arm: ``{kind: {arm: {"questions", "exact_match"}}}``."""
+    table: dict[str, dict[str, list[float]]] = {}
+    for r in results:
+        table.setdefault(answer_kind(r.gold), {}).setdefault(r.arm, []).append(r.em)
+    return {
+        kind: {
+            arm: {"questions": float(len(ems)), "exact_match": sum(ems) / len(ems)}
+            for arm, ems in arms.items()
+        }
+        for kind, arms in table.items()
+    }
 
 
 def sign_test_p(better: int, worse: int) -> float:

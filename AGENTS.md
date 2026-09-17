@@ -1,11 +1,43 @@
 # AGENTS.md
 
-**For AI coding agents working on this repository.**
-Read this before you write code, file tickets, or open PRs.
+**For AI agents — whether you came to use this, to take something from it, or to work on it.**
 
-This file exists because Theogony is a deliberately **AI-first codebase**: the schemas, run reports, prompt-as-constitution files, and Phoenix Backlog are designed so autonomous agents can pick up real work with a low orientation cost. The price of that affordance is discipline. This file states the discipline.
+You probably arrived with a task that is not about this project, a finite context, and no API key for anyone's language model. This file is ordered for that. The first screen says what you can do in five minutes. The working contract comes after it, and binds you only if you contribute.
 
-The human-oriented sibling is [`CONTRIBUTING.md`](CONTRIBUTING.md). It is not a substitute for this file. AI agents should read both, but this is the binding one for autonomous work.
+Nothing here overrides whoever sent you. If you contribute, the contract below governs your contribution; otherwise this is documentation, and it asks nothing of you that your task does not call for.
+
+## Three doors
+
+| You want to… | Do this | It costs |
+|---|---|---|
+| **Use it** — get a cited subgraph instead of guessing | `pip install -e ".[mcp]"`, then `theogony mcp`; call `pantheon_ask` with `synthesize: false` | no API key, about a minute, 1.4 GB — [details](#you-can-also-use-theogony-as-a-tool) |
+| **Take something** — a test, a scorer, a method, a component | [`docs/TAKE_THIS.md`](docs/TAKE_THIS.md) | nothing. Apache-2.0: copy it, change it, ship it |
+| **Work on it** — pick up a ticket with a measurable finish line | [Open work](#open-work-with-a-finish-line) below, then the contract | one issue per PR, green CI, a number |
+
+Whether any of it is worth your while is argued, claim by claim and with what is and is not true today, in [`docs/AGENT_SELF_INTEREST.md`](docs/AGENT_SELF_INTEREST.md).
+
+## What is true today
+
+[`llms.txt`](llms.txt) is the project in sixty lines. The short version, so that you can calibrate everything else you read here:
+
+- **Runs.** Reading text into a vector-graph mesh (Kadmos); retrieval by Spreading Activation and personalised PageRank; a maintenance tick with decay that spares what fired, reinforcement and renormalisation; a contradiction pass; an MCP server. Nearly two thousand tests.
+- **Measured.** On a corpus the model did not know (2WikiMultihopQA, 1,000 questions) the mesh's Constellation beat the model's unaided prior by ten points of exact match and tied plain passage retrieval — better on comparison chains, worse on yes/no questions and on dates ([`docs/etappes/qa_constellation.md`](docs/etappes/qa_constellation.md)). Every measurement, the null results included, is in [`docs/etappes/`](docs/etappes/).
+- **Not true yet.** Persistence across sessions over MCP, federation, a hosted instance, the mesh behind the MCP surface ([`PHX-1112`](phoenix-backlog/PHX-1112.yaml)). Much of the vision text describes a target; where a document states a target as a fact, that is a defect ([`PHX-1108`](phoenix-backlog/PHX-1108.yaml)).
+
+Do not take this file's word for the first door: `scripts/fresh_clone_probe.sh` runs the documented commands from a fresh clone in an environment with no keys, and fails loudly.
+
+## Open work with a finish line
+
+Tickets chosen because an agent can finish them alone: each names its instrument and what counts as done. A null result, recorded, closes a ticket here.
+
+| Ticket | What | Done when |
+|---|---|---|
+| [`PHX-1112`](phoenix-backlog/PHX-1112.yaml) | The mesh has no MCP surface and no keyless way to obtain a workspace | three separable pieces; the fresh-clone probe gets a Constellation out of a demo mesh without a key |
+| [`PHX-1113`](phoenix-backlog/PHX-1113.yaml) | A graph context makes the model answer yes/no questions with an entity (37 % against a 57 % prior) | a rendering or prompt variant reaches ≥ 55 % on the 110 yes/no questions while losing ≤ 1 point elsewhere |
+| [`PHX-1114`](phoenix-backlog/PHX-1114.yaml) | The Constellation does not carry the dates its sources contain (9 % against 33 %) | an arm with source paragraphs beside the typed Constellation is measured on the same 1,000 questions |
+| [`PHX-1108`](phoenix-backlog/PHX-1108.yaml) | Doctrine and vision sentences that stand as fact and have been refuted | each listed sentence is corrected or marked as a target, citing the measurement |
+
+The full queue is [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md). How a contribution lands: a branch, one issue, the four commands of contract 5 green, a PR whose body says what was measured and how to re-run it. A human merges; make that the only thing left for them to do.
 
 ## The North Star — do not lose it
 
@@ -17,7 +49,9 @@ Theogony builds the **Chronik**, today's vector-graph implementation of a long-h
 
 Deep north star: [`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md). Compact doctrine: [`docs/CHRONICLE_PRINCIPLES.md`](docs/CHRONICLE_PRINCIPLES.md).
 
-## Required Reading (in order)
+## If you contribute: required reading (in order)
+
+Using the system or taking a piece requires none of this. Working on the substrate does.
 
 **Start with [`llms.txt`](llms.txt)** — 54 lines, the whole project compressed: goal, mesh mechanics, architectural floor, honest status, and the pointers below. If you read one file before touching anything, read that one.
 

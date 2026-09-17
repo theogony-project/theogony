@@ -1,0 +1,54 @@
+id: PHX-1115
+category: agent-surface
+priority: high
+status: done
+generation_target: The repository's entrance for AI agents (AGENTS.md, llms.txt, docs/AGENT_SELF_INTEREST.md)
+title: "The agent entrance was a contract before it was an invitation, and argued with claims nobody had measured"
+filed_by: Claude Code (2026-09-17, on the maintainer's instruction to make the repository invite agents to use it, copy from it and contribute)
+created_at: 2026-09-17
+description: >
+  The repository calls itself AI-first, and the files an arriving agent reads
+  were written for one kind of agent only: the one that has decided to
+  contribute. AGENTS.md opened with eighteen documents of required reading and
+  eight operating contracts; the invitation to use the system stood at line
+  172, and nothing addressed the agent that came with a different task and
+  wanted to take one piece. llms.txt carried the vision and three figures that
+  later measurements had replaced (87 % recall, "renormalisation is next", a
+  nine-point noise floor). docs/AGENT_SELF_INTEREST.md argued agent-to-agent
+  that the substrate serves the reader — and offered sentences for the agent
+  to paraphrase to its human that claimed a reduced hallucination rate and
+  memory across sessions. Neither has been measured; the second is false of
+  the surface the document points to, whose store ends with its process
+  (PHX-1111).
+
+  An agent that reads well will check. A claim it cannot verify costs the
+  project more than silence would, and a scripted pitch is the one thing in
+  the repository that asked a reader to act beyond its task.
+resolution: >
+  Rewritten, 2026-09-17. AGENTS.md opens with three doors — use it (no key,
+  verified by scripts/fresh_clone_probe.sh), take something
+  (docs/TAKE_THIS.md: the pieces that stand on their own, each with its
+  evidence and its limits), work on it (four tickets with a measurable finish
+  line: PHX-1112, 1113, 1114, 1108) — then a four-line statement of what runs,
+  what is measured and what is not true yet, and only then the contributor
+  contract, unchanged. It says in its second paragraph that nothing in it
+  overrides whoever sent the reader. docs/AGENT_SELF_INTEREST.md keeps its six
+  arguments and marks each with what is built, measured or only designed; the
+  pitch sentences are replaced by four claims that can be checked, and the
+  sentence that there is nothing to tell a human who has no use for them.
+  llms.txt carries the current measurements, the negative ones included. The
+  answer benchmark prints exact match by answer kind, because the two new
+  tickets' acceptance criteria are written against that breakdown and it
+  reproduces the published subset figures from the stored answers exactly.
+relates_to:
+  - PHX-1111   # the entrance had to work before it could invite
+  - PHX-1112   # the first door still opens onto Generation 1
+  - PHX-1113
+  - PHX-1114
+linked_docs:
+  - docs/TAKE_THIS.md
+  - docs/AGENT_SELF_INTEREST.md
+  - docs/etappes/arriving_agent.md
+linked_scripts:
+  - scripts/fresh_clone_probe.sh
+  - scripts/mcp_probe.py

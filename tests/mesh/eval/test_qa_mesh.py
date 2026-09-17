@@ -239,6 +239,27 @@ def test_nearest_passages_ranks_by_cosine() -> None:
     assert nearest_passages(vectors, [1.0, 0.0], 10) == [0, 2, 1]
 
 
+def test_answers_are_broken_down_by_the_shape_of_the_gold() -> None:
+    """One total hid a 20-point collapse on yes/no questions (PHX-1110)."""
+    from theogony.mesh.eval.qa_answers import QAAnswerResult
+    from theogony.mesh.eval.qa_mesh import answer_kind, summarise_by_kind
+
+    assert answer_kind("No") == "yes_no"
+    assert answer_kind("20 March 851") == "date"
+    assert answer_kind("1961") == "date"
+    assert answer_kind("Port of Spain") == "entity"
+    assert answer_kind("Apollo 11") == "entity", "a number is not a year"
+
+    rows = [
+        QAAnswerResult(qid="a", arm="x", question="", gold="yes", answer="", em=1.0),
+        QAAnswerResult(qid="b", arm="x", question="", gold="no", answer="", em=0.0),
+        QAAnswerResult(qid="c", arm="x", question="", gold="Gmunden", answer="", em=1.0),
+    ]
+    table = summarise_by_kind(rows)
+    assert table["yes_no"]["x"] == {"questions": 2.0, "exact_match": 0.5}
+    assert table["entity"]["x"]["exact_match"] == 1.0
+
+
 def test_paired_comparison_and_sign_test() -> None:
     from theogony.mesh.eval.qa_answers import QAAnswerResult
 

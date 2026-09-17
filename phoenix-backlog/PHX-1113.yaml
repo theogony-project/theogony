@@ -1,0 +1,38 @@
+id: PHX-1113
+category: substrate-retrieval
+priority: medium
+status: open
+generation_target: MESH — consumption (MESH_RETRIEVAL step 5), the rendering a model reads
+title: "A graph context makes the model answer yes/no questions with an entity"
+filed_by: Claude Code (2026-09-17, from the PHX-1110 measurement)
+created_at: 2026-09-17
+description: >
+  Measured in PHX-1110 on the 110 yes/no questions of the 2WikiMultihopQA
+  sample (deepseek-chat, one run, exact match): the model's unaided prior
+  57.3 %, five passages 55.5 %, fifty entities without edges 50.0 %, the
+  Constellation with typed edges 37.3 %, the Constellation as it was shipped
+  28.2 %. Handing the model a list of entities makes it answer with an
+  entity — "Iran" where the question asked whether two villages are in the
+  same country. Passages do not have this effect, so it is a property of the
+  rendering and its prompt, not of retrieval: the answer stood in the
+  material as often as for any other arm.
+
+  This is the largest single loss in the 2Wiki result. On the 836
+  entity-answer questions the typed Constellation beats passages by 5.6
+  points; the yes/no collapse is most of why the overall comparison is a tie.
+acceptance: >
+  A rendering or prompt variant of the constellation arm that reaches at
+  least 55 % exact match on the yes/no questions while losing no more than
+  1.0 point on the other 890, both arms in the same run of
+  scripts/mesh_qa_constellation.py (it prints the breakdown by answer kind),
+  reported with the paired sign test. The 2Wiki mesh is rebuilt without any
+  API key by scripts/mesh_qa_mesh_ingest.py (about 80 minutes); the answer
+  run needs an LLM key and costs about one euro on deepseek-chat. A variant
+  that does not get there is also a result — record it and close.
+relates_to:
+  - PHX-1110   # where it was measured
+linked_docs:
+  - docs/etappes/qa_constellation.md
+linked_scripts:
+  - scripts/mesh_qa_constellation.py
+  - src/theogony/mesh/eval/qa_mesh.py
