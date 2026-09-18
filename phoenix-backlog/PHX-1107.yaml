@@ -2,138 +2,138 @@ id: PHX-1107
 category: substrate-integrity
 priority: critical
 status: done
-generation_target: MESH — Substrat-Schema und Kadmos v2
-title: "Das Substrat führt kein Gedächtnis des Widerspruchs"
-filed_by: Claude Code (2026-09-07, aus dem Plan aus der Vision)
+generation_target: MESH — substrate schema and Kadmos v2
+title: "The substrate carries no memory of contradiction"
+filed_by: Claude Code (2026-09-07, from the Plan from the Vision)
 created_at: 2026-09-07
 description: >
-  Der eine Befund der Vision-Ledger, der die Reihenfolge festlegt. Von 258
-  tragenden Aussagen der Visionsdokumente sind 61 widerlegt; fünf davon sind
-  Nicht-Verhandelbares aus PANTHEON_VISION §"Non-Negotiable Principles", und
-  sie scheitern nicht an fehlendem Code, sondern am Datenmodell:
+  The one finding from the vision ledger that determines the order. Of 258
+  load-bearing claims in the vision documents, 61 are refuted; five of them
+  are non-negotiables from PANTHEON_VISION §"Non-Negotiable Principles", and
+  they fail not for lack of code but for lack of a data model:
 
-      2  Widerspruch, Unsicherheit, konkurrierende Deutungen bleiben erhalten
-         -> keine Darstellung eines Widerspruchs, nirgends; `relation_kind` hat
-            zehn Werte, keiner ist `contradicts`
-      3  Zeit ist intrinsisch: Wandel, Abloesung, Erwartung, Zerfall
-         -> nur Zerfall; `temporal_vector` ist auf jedem Knoten None;
-            keine Gueltigkeit, keine Abloesung
-      1  jede Aussage traegt Ursprung, Basis, Revisionspfad
-         -> Provenienz ja (seit PHX-1103 wieder lebendig), Revision nein:
-            Kanten haben weder Vertrauen noch Autor noch Geschichte
-      5  Autoritaet, Zugriff, Verantwortung maschinenlesbar
-         -> kein Feld dafuer, in keinem Schema
-      "Chronik statt Enzyklopaedie" -- das Neue, Umstrittene, Abgeloeste
-         -> Gen 1 hatte DISPUTED als Status; das Mesh hat es nicht mehr
+      2  Contradiction, uncertainty, competing interpretations are preserved
+         -> no representation of a contradiction, anywhere; `relation_kind`
+            has ten values, none of them `contradicts`
+      3  Time is intrinsic: change, supersession, expectation, decay
+         -> only decay; `temporal_vector` is None on every node;
+            no validity, no supersession
+      1  every claim carries origin, basis, revision path
+         -> provenance yes (alive again since PHX-1103), revision no:
+            edges have neither trust nor author nor history
+      5  authority, access, responsibility machine-readable
+         -> no field for it, in no schema
+      "Chronik instead of encyclopedia" -- the new, the contested, the superseded
+         -> Gen 1 had DISPUTED as a status; the mesh no longer has it
 
-  Die MESH-Doktrin hat das alles in ein Feld verlegt: `frame_vector`, die
-  epistemische Haltung eines Knotens. Und `frame_vector` ist heute eine
-  gesalzene SHA-256-Projektion des Labels (PHX-1095). Der Frame traegt einen
-  Hash, keine Haltung.
+  The MESH doctrine moved all of this into a single field: `frame_vector`, a
+  node's epistemic stance. And `frame_vector` today is a salted SHA-256
+  projection of the label (PHX-1095). The frame carries a hash, not a stance.
 
-  Das ist derselbe Befund wie PHX-1101, eine Ebene hoeher. Dort fuehrte das
-  Substrat kein Gedaechtnis seiner eigenen Aktivitaet, und alles, was daraus
-  las, konnte nicht laufen. Hier fuehrt es kein Gedaechtnis des Widerspruchs,
-  und alles, was daraus lesen muesste -- Athene, Chronos, das Immunsystem, die
-  Chronik, Metis, die zweite Saeule "Wissenschaftlicher Arbeitstisch" -- kann
-  nicht laufen. Das Verb *heilt* ist nicht ungebaut. Es ist unbaubar, bis das
-  Substrat weiss, was ein Widerspruch ist.
+  This is the same finding as PHX-1101, one level up. There, the substrate
+  carried no memory of its own activity, and everything that read from it
+  could not run. Here it carries no memory of contradiction, and everything
+  that would need to read it -- Athene, Chronos, the immune system, the
+  Chronik, Metis, the second pillar "Scientific Workbench" -- cannot run. The
+  verb *heals* is not merely unbuilt. It is unbuildable until the substrate
+  knows what a contradiction is.
 
-  Umfang -- nicht das ganze Immunsystem, die Voraussetzung, die alle heilenden
-  Verben teilen:
+  Scope -- not the whole immune system, the precondition that every healing
+  verb shares:
 
-  1. Echte Frames. Kadmos gibt je Chunk und je Relation eine epistemische
-     Haltung aus (behauptet, verneint, hypothetisch, bestritten, abgeloest);
-     der Vectorizer projiziert sie ueber eine feste Basis in den 64-d
-     Frame-Raum statt ueber einen Hash. Frame-Routing wird damit von inert zu
-     wirksam, ohne eine Zeile im Retrieval zu aendern -- der Mechanismus
-     wartet seit S3 auf sein Signal.
-  2. `contradicts` und `supersedes` als `relation_kind`, mit `valid_from` /
-     `valid_to` auf der Kante -- die kleinste Darstellung von Zeit, die
-     Nicht-Verhandelbares 3 erfuellt. Kein neues Schema; die Felder sind frei.
-  3. Ein Widerspruchs-Gold-Set auf dem Founding-Korpus. Hesiod widerspricht
-     sich selbst (die Geburt der Aphrodite, die Eltern der Musen); Demo-Beat 2
-     hing seit PHX-1045 an genau so einer Frage.
-  4. Den Founding-Korpus neu lesen, mit Frames: 1 h 41 min, EUR 0,26 -- der
-     billigste Weg zu einem Substrat, das weiss, was es bezweifelt.
+  1. Real frames. Kadmos emits an epistemic stance per chunk and per relation
+     (asserted, negated, hypothetical, disputed, superseded); the vectorizer
+     projects them into the 64-d frame space over a fixed basis instead of a
+     hash. Frame routing thereby goes from inert to effective without
+     changing a line of retrieval -- the mechanism has been waiting for its
+     signal since S3.
+  2. `contradicts` and `supersedes` as `relation_kind`, with `valid_from` /
+     `valid_to` on the edge -- the smallest representation of time that
+     satisfies Non-Negotiable 3. No new schema; the fields are free.
+  3. A contradiction gold set on the founding corpus. Hesiod contradicts
+     himself (the birth of Aphrodite, the parents of the Muses); Demo Beat 2
+     has hinged on exactly such a question since PHX-1045.
+  4. Re-read the founding corpus, with frames: 1 h 41 min, EUR 0.26 -- the
+     cheapest path to a substrate that knows what it doubts.
 
-  Fertig, wenn: eine Widerspruchsfrage aus dem Gold-Set beide Seiten in der
-  Constellation zurueckgibt; Frame-Routing auf dem neu gelesenen Mesh eine
-  messbare Wirkung hat (Recall auf dem Widerspruchs-Set mit gegen ohne); und
-  das Verb *heilt* zum ersten Mal einen Eingang hat, auf dem Athene etwas
-  finden koennte. Drei bis fuenf Sitzungen. Kommt nach PHX-1106, weil ein
-  Substrat, das lernt und dabei verdraengt, zuerst sicher lernen muss.
+  Done when: a contradiction question from the gold set returns both sides in
+  the Constellation; frame routing on the newly-read mesh has a measurable
+  effect (recall on the contradiction set, with versus without); and the verb
+  *heals* has, for the first time, an input on which Athene could find
+  something. Three to five sessions. Comes after PHX-1106, because a
+  substrate that learns while displacing must first learn safely.
 resolution: >
-  Gebaut und gemessen, 2026-09-12. Volltext docs/etappes/contradiction.md.
+  Built and measured, 2026-09-12. Full text docs/etappes/contradiction.md.
 
-  GEBAUT. (1) mesh/frames.py: sieben epistemische Achsen, die neun Haltungen
-  der Doktrin als Punkte darin, Query-Profile. Faktorisiert statt aufgezaehlt,
-  weil eine historische Behauptung, die auch widerlegt wurde, beides ist und
-  keine Liste von sieben Etiketten das ausdruecken kann. Veridikalitaet wiegt
-  doppelt, weil die Verneinung der Grund fuer das Feld ist. Der Cosinus traegt
-  die Kendall-Rechnung der Doktrin: Definition/aktuell 0,98, historisch 0,65,
-  widerlegt -0,50 und damit vollstaendig gedaempft. (2) Kadmos erklaert je
-  Absatz und je Relation eine Haltung; Chunks tragen sie, Entitaeten und Anker
-  sind neutral. (3) contradicts/supersedes als relation_kind, valid_from und
-  valid_to auf der Kante, beide im payload_json und damit ohne Migration.
-  (4) frame_consistency wird bei der Ingestion aus den Endpunkten gefuellt.
-  (5) runtime/contradiction.py: Kandidaten strukturell, ueber Provenienz
-  gefiltert (dieselbe Textstelle ist eine Aufzaehlung), dann adjudiziert.
-  (6) runtime/frame_promotion.py: Entitaeten erben den Schwerpunkt der Frames
-  der Absaetze ueber sie. (7) Widerspruchs-Gold-Set mit sieben Faellen, jeder
-  mit beiden Belegstellen im Korpus verifiziert. (8) mesh ask --frame-profile:
-  Frame-Routing ist zum ersten Mal von aussen erreichbar (PHX-1095 nannte es
-  "unreachable outside tests").
+  BUILT. (1) mesh/frames.py: seven epistemic axes, the doctrine's nine
+  stances as points within them, query profiles. Factorised rather than
+  enumerated, because a historical claim that was also refuted is both at
+  once, and no list of seven labels can express that. Veridicality carries
+  double weight, because negation is the reason the field exists. The cosine
+  carries the doctrine's Kendall arithmetic: definition/current 0.98,
+  historical 0.65, refuted -0.50 and thereby fully dampened. (2) Kadmos
+  declares one stance per paragraph and per relation; chunks carry it,
+  entities and anchors are neutral. (3) contradicts/supersedes as
+  relation_kind, valid_from and valid_to on the edge, both in payload_json
+  and thus without a migration. (4) frame_consistency is filled from the
+  endpoints at ingestion. (5) runtime/contradiction.py: candidates found
+  structurally, filtered by provenance (the same passage is an enumeration),
+  then adjudicated. (6) runtime/frame_promotion.py: entities inherit the
+  centroid of the frames of the paragraphs about them. (7) contradiction gold
+  set with seven cases, each verified against both pieces of evidence in the
+  corpus. (8) mesh ask --frame-profile: frame routing is reachable from
+  outside for the first time (PHX-1095 called it "unreachable outside
+  tests").
 
-  NEU GELESEN. 1.206 Absaetze, 2 h 27, EUR 0,39. Die Haltungen streuen ueber
-  acht Werte: current_claim 380, direct_quote 298, historical_claim 290,
+  RE-READ. 1,206 paragraphs, 2 h 27, EUR 0.39. The stances spread across
+  eight values: current_claim 380, direct_quote 298, historical_claim 290,
   observation 111, definition 66, disputed 39, hypothesis 20, refuted_claim 2.
-  30 contradicts-Relationen schrieb das Modell beim Lesen selbst.
-  frame_consistency traegt zum ersten Mal etwas: 5.590 von 127.402 Kanten
-  unter 1,0, davon 185 bei exakt 0.
+  The model wrote 30 contradicts relations itself while reading.
+  frame_consistency carries something for the first time: 5,590 of 127,402
+  edges below 1.0, 185 of them at exactly 0.
 
-  DER PASS. 690 Kandidaten, 74 bestaetigt, 334 Kanten, 141 Absaetze auf
-  disputed. Echte Faelle darunter (Laomedon gegen Tros als Vater des
-  Ganymedes, Theia gegen Euryphaessa als Mutter von Eos und Selene), dazu
-  Extraktionsrauschen. Zwei Dinge waren noetig: Deskriptor-Normalisierung
-  (Elternschaft kommt in dreissig Schreibungen an, die Haelfte in der anderen
-  Richtung -> 202 Kandidaten statt null) und ein zweistufiger Adjudikator, der
-  zuerst fragt, ob die Relation ueberhaupt nur einen Wert zulaesst
-  (36 von 100 bestaetigt -> 3 von 60).
+  THE PASS. 690 candidates, 74 confirmed, 334 edges, 141 paragraphs set to
+  disputed. Real cases among them (Laomedon versus Tros as father of
+  Ganymede, Theia versus Euryphaessa as mother of Eos and Selene), plus
+  extraction noise. Two things were needed: descriptor normalisation
+  (parenthood arrives in thirty spellings, half of them in the other
+  direction -> 202 candidates instead of zero) and a two-stage adjudicator
+  that first asks whether the relation even permits only one value (36 of
+  100 confirmed -> 3 of 60).
 
-  GEMESSEN, beide-Seiten-Recall auf sieben strittigen Fragen:
+  MEASURED, both-sides recall on seven contested questions:
 
-      Mesh                         Profil          beide Seiten
-      alt (Hash-Frames)            any                71 % (5/7)
-      alt (Hash-Frames)            contradiction      29 % (2/7)
-      neu, geframt                 any                86 % (6/7)
-      neu, geframt                 contradiction      86 % (6/7)
+      Mesh                         Profile         both sides
+      old (hash frames)            any                71% (5/7)
+      old (hash frames)            contradiction      29% (2/7)
+      new, framed                  any                86% (6/7)
+      new, framed                  contradiction      86% (6/7)
 
-  Der staerkste Befund ist die zweite Zeile: auf dem alten Mesh kostet dasselbe
-  Routing 42 Punkte, weil es nach einem gesalzenen Hash maskiert. PHX-1095
-  hatte genau das vermutet; das ist die Zahl dazu.
+  The strongest finding is the second row: on the old mesh, the same routing
+  costs 42 points, because it masks against a salted hash. PHX-1095 had
+  suspected exactly that; this is the number for it.
 
-  Die Bedingung des Tickets, Teil 1 (eine Widerspruchsfrage gibt beide Seiten
-  zurueck): erfuellt, 6 von 7. Teil 3 (das Verb *heilt* hat einen Eingang):
-  erfuellt, 334 contradicts-Kanten und 141 markierte Absaetze, auf denen Athene
-  etwas finden koennte. Teil 2 (Frame-Routing hat eine messbare Wirkung):
-  erfuellt, aber erst nach der Vererbung und als Tausch, nicht als Gewinn — das
-  Widerspruchs-Profil holt die Helena-Frage, bei der der Korpus den Streit
-  selbst benennt, und verliert die Moiren-Frage, die nur strukturell uneins
-  ist. Vor der Vererbung waren alle Profile Frage fuer Frage identisch.
+  The ticket's condition, part 1 (a contradiction question returns both
+  sides): met, 6 of 7. Part 3 (the verb *heals* has an input): met, 334
+  contradicts edges and 141 flagged paragraphs on which Athene could find
+  something. Part 2 (frame routing has a measurable effect): met, but only
+  after inheritance and as a trade, not a gain — the contradiction profile
+  gains the Helen question, where the corpus names the dispute itself, and
+  loses the Moirai question, which is only structurally at odds. Before
+  inheritance, all profiles were identical question for question.
 
-  OFFEN, benannt statt versteckt: die Praezision des Passes (74 Bestaetigungen
-  enthalten Extraktionsrauschen wie Fragmentnummern); von den sieben
-  Gold-Faellen fand der Pass nur Aphrodite und Helena, und die mit anderen
-  Partnern als erwartet; Works and Days ist in dieser Ausgabe nicht enthalten,
-  also gibt es die Pandora- und Zeitalter-Gegensaetze nicht, die das Ticket
-  vermutet hatte; die Deskriptor-Klassen sind kuratiert und decken
-  Verwandtschaft ab, weil dieser Korpus eine Genealogie ist.
+  OPEN, named rather than hidden: the pass's precision (the 74 confirmations
+  contain extraction noise such as fragment numbers); of the seven gold
+  cases, the pass found only Aphrodite and Helen, and with different
+  partners than expected; Works and Days is not included in this edition, so
+  the Pandora and Ages-of-Man contrasts the ticket had assumed do not exist;
+  the descriptor classes are curated and cover kinship, because this corpus
+  is a genealogy.
 relates_to:
-  - PHX-1095   # der Frame ist ein Hash
-  - PHX-1101   # derselbe Befund, eine Ebene tiefer
-  - PHX-1106   # kommt davor
-  - PHX-1045   # Demo-Beat 2 haengt an einer Widerspruchsfrage
+  - PHX-1095   # the frame is a hash
+  - PHX-1101   # the same finding, one level down
+  - PHX-1106   # comes before
+  - PHX-1045   # Demo Beat 2 hinges on a contradiction question
 linked_docs:
   - docs/etappes/contradiction.md
   - docs/etappes/plan_from_the_vision_2026-09.md

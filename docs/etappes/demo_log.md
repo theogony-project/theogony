@@ -70,45 +70,45 @@ The corpus is Hedin's preface + dedication + early Chapter I — heavy on contem
 
 Honest-failure verdicts of `good` mean the synthesizer correctly said "the Chronik does not yet have enough on this topic" — refusing to invent — rather than fabricating an answer. Per Plan §1, that *is* the right-shaped output.
 
-### Q1 — fact: "Welche Rolle spielte König Oskar in der Expedition?"
+### Q1 — fact: "What role did King Oskar play in the expedition?"
 
 ```
 run_id   01KPM51A0KZKGAT71HE7861BVP
 verdict  poor — all 2 citations are AKA-only (no high-confidence source)
 nodes    Constellation: 10 nodes / 2 edges / 0 gaps
 synth    1915 ms · 3030 in / 38 out tokens · 0.000296 EUR
-answer   König Oskar war in Schweden ansässig [AKA-cca2d215e778] [AKA-3432a578cfb0].
+answer   King Oskar was resident in Sweden [AKA-cca2d215e778] [AKA-3432a578cfb0].
 ```
 
 Two correct citations (King Oskar + Sweden), but the corpus didn't carry the *funding* relation explicitly enough for the LLM to extract it. The verdict heuristic flags `poor` because both cited nodes lack a high-confidence source ref — the system is honest about its own confidence floor.
 
-### Q2 — fact: "Wer war Aurel Stein?"
+### Q2 — fact: "Who was Aurel Stein?"
 
 ```
 run_id   01KPM51Q28QQ8XHCJ17Q1THJQV
 verdict  poor — all 1 citations are AKA-only
 nodes    Constellation: 10 nodes / 1 edges / 0 gaps
 synth    1265 ms · 2944 in / 22 out tokens · 0.000282 EUR
-answer   Aurel Stein ist eine Person [AKA-722796c16f33].
+answer   Aurel Stein is a person [AKA-722796c16f33].
 ```
 
 The Aurel Stein node resolved to `wikidata=Q298530` at tier 4 in the ingest, but the Constellation slim DTO doesn't carry the Wikidata external_id forward into the synthesizer prompt; the verdict heuristic treats the citation as AKA-only. **Known Gen-1 limitation** — would be a future Reviewer-agent (PHX-0035) finding worth filing if it persists across runs.
 
-### Q3 — fact: "Was ist Trans-Himalaya?"
+### Q3 — fact: "What is Trans-Himalaya?"
 
 ```
 run_id   01KPM522E8SQ0Y18TR3BVMD2JQ
 verdict  partial — gaps_identified=0, but cited 5 nodes (2 high-conf, 3 AKA-only)
 nodes    Constellation: 10 nodes / 1 edges / 0 gaps
 synth    830 ms · 2933 in / 96 out tokens · 0.000308 EUR
-answer   Trans-Himalaya ist ein Werk [AKA-951767aca56d]. Es bezieht sich auf
-         Tibet [AKA-529bb2882bfe], die Nordwestgrenze [AKA-d8a7846c49ff],
-         Zentralasien [AKA-7b36746605e9] und Indien [AKA-1ed09ea46a64].
+answer   Trans-Himalaya is a work [AKA-951767aca56d]. It refers to
+         Tibet [AKA-529bb2882bfe], the North-West Frontier [AKA-d8a7846c49ff],
+         Central Asia [AKA-7b36746605e9] and India [AKA-1ed09ea46a64].
 ```
 
 Five cited nodes; two of them (Tibet, Central Asia) are tier-3+ with Wikidata anchors. The synthesizer did the right shape: name the work, list the geographic scope.
 
-### Q4 — fact (honest-failure-recognized): "Welche Beziehung hatte Hedin zur indischen Regierung?"
+### Q4 — fact (honest-failure-recognized): "What relationship did Hedin have with the Indian government?"
 
 ```
 run_id   01KPM52D1AP92T9Z8X1S7ZCQMS
@@ -120,7 +120,7 @@ answer   The Chronik does not yet have enough on this topic.
 
 The corpus didn't carry the Hedin↔Indian-Government relation in the first 50 sentences. The synthesizer refused to fabricate; the heuristic returned `good` because the answer is a clean honest-insufficiency statement and `gaps_identified=0` (no orphan-target endpoints).
 
-### Q5 — multi-hop: "Welche Personen unterstützten Hedins Expedition nach Tibet?"
+### Q5 — multi-hop: "Which people supported Hedin's expedition to Tibet?"
 
 ```
 run_id   01KPM535DP2XRTS29PHKMYE2X2
@@ -133,19 +133,19 @@ answer   The provided information does not specify which individuals
 
 Honest. The constellation found 10 nodes and 1 edge but the relation didn't connect a `person` to the Tibet `place`; the synthesizer correctly named the gap.
 
-### Q6 — multi-hop: "Welche Verbindung gibt es zwischen Schweden und Tibet im Buch?"
+### Q6 — multi-hop: "What connection is there between Sweden and Tibet in the book?"
 
 ```
 run_id   01KPM53FMM0PF7ZDGYMT3T2HHS
 verdict  good — all clear
 nodes    Constellation: 10 nodes / 0 edges / 0 gaps
 synth    1001 ms · 2896 in / 12 out tokens · 0.000274 EUR
-answer   Das Chronik hat noch nicht genug Informationen zu diesem Thema.
+answer   The Chronik does not yet have enough information on this topic.
 ```
 
 Same shape as Q5 — the Sweden ↔ Tibet bridge runs through Hedin himself, who is not extracted as a node (he speaks in first person in the dedication). Honest.
 
-### Q7 — multi-hop: "Welche Forscher und Geographen werden in Trans-Himalaya erwähnt?"
+### Q7 — multi-hop: "Which researchers and geographers are mentioned in Trans-Himalaya?"
 
 ```
 run_id   01KPM53SQ1TPXGCAMZ071YENHY
@@ -157,20 +157,20 @@ answer   The Chronik does not yet have enough on this topic.
 
 Surprising honest-failure: there ARE persons in the constellation (Aurel Stein, King Oskar, etc.), but the multi-hop retrieval at `k=10` for this query embedding didn't surface them prominently enough. The synthesizer chose to refuse rather than guess. **Honest behavior; the right Gen-1 shape**.
 
-### Q8 — honest-failure: "Welche musikalischen Vorlieben hatte Sven Hedin?"
+### Q8 — honest-failure: "What musical preferences did Sven Hedin have?"
 
 ```
 run_id   01KPM54QNPJJ5ESD4EGTHQ6QQK
 verdict  good — all clear
 nodes    Constellation: 10 nodes / 1 edges / 0 gaps
 synth    527 ms · 2938 in / 21 out tokens · 0.000281 EUR
-answer   Die Chronik hat noch nicht genügend Informationen über die
-         musikalischen Vorlieben von Sven Hedin.
+answer   The Chronik does not yet have sufficient information about
+         Sven Hedin's musical preferences.
 ```
 
 Designed to fail. It failed honestly. The win.
 
-### Q9 — honest-failure: "Was geschah mit Hedin nach 1909?"
+### Q9 — honest-failure: "What happened to Hedin after 1909?"
 
 ```
 run_id   01KPM551VTPC90MV6B56HVR7H6
@@ -390,65 +390,65 @@ Five queries via `theogony ask` against the running `theogony serve` (port 8765,
 
 **3 good · 1 partial · 1 (the Hover-Lupe; not a query report)** across the 4 `ask`-shaped queries.
 
-The `good` verdicts again include honest-failure-recognition: the synthesizer correctly said "die Chronik hat noch nicht genug Informationen" rather than fabricating. Plan §1's right-shaped output, again.
+The `good` verdicts again include honest-failure-recognition: the synthesizer correctly said "the Chronik does not yet have enough information" rather than fabricating. Plan §1's right-shaped output, again.
 
-### Q1 — substantive: "Wer war Sven Hedin?"
+### Q1 — substantive: "Who was Sven Hedin?"
 
 ```
 run_id   01KPMM2HNQRBYDADRVNNTFCMT8
 verdict  good — 1 cited, 1 high-conf
 nodes    Constellation: 10 nodes / 0 edges / 0 gaps
 synth    1941 ms · 2729 in / 83 out tokens · 0.002924 EUR
-answer   Die Chronik hat noch nicht genug Informationen zu dieser Frage. Es ist nur
-         bekannt, dass es eine Person namens Sven Hedin [AKA-64c45f68b1a0] gibt, aber
-         es fehlen Angaben zu seinen Aktivitäten, seiner Biographie und seiner
-         historischen Bedeutung.
+answer   The Chronik does not yet have enough information for this question. It is only
+         known that there is a person named Sven Hedin [AKA-64c45f68b1a0], but
+         details are missing about his activities, his biography and his
+         historical significance.
 ```
 
 The Sven Hedin node IS in the graph (tier-3, `wikidata=Q154759` — verified in Q5 below). The retrieval-side limitation is that the multi-hop seeds didn't surface Hedin's three connected `TRAVELED_TO` / `OPPOSED_TO` edges into the constellation; the synthesizer stayed honest about what was *in the prompt context*, not what was in the broader graph. PHX-territory: improve multi-hop seed selection on bare-id queries.
 
-### Q2 — substantive multi-hop: "Welche Beziehung hatte Sven Hedin zur britisch-indischen Regierung?"
+### Q2 — substantive multi-hop: "What relationship did Sven Hedin have with the British-Indian government?"
 
 ```
 run_id   01KPMM2XQNKY9EZVG47HRRADRM
 verdict  good — 2 cited, 1 high-conf
 nodes    Constellation: 10 nodes / 0 edges / 0 gaps
 synth    2457 ms · 2751 in / 139 out tokens · 0.003205 EUR
-answer   Die Theogony Chronik hat zu dieser Frage noch nicht genug Informationen. Die
-         vorliegende Konstellation enthält zwar einen Knoten zu Sven Hedin
-         [AKA-64c45f68b1a0] und einen zum Britischen Empire [AKA-05d113950f73], aber
-         es gibt keine dokumentierten Beziehungen zwischen ihnen…
+answer   The Theogony Chronik does not yet have enough information for this question. The
+         present Constellation does contain a node for Sven Hedin
+         [AKA-64c45f68b1a0] and one for the British Empire [AKA-05d113950f73], but
+         there are no documented relationships between them…
 ```
 
 Same retrieval-side limitation as Q1. The graph DOES contain `Sven Hedin → OPPOSED_TO → Tibet ← OPPOSED_TO → John Morley` (visible in the Hover-Lupe Q5 below), but the multi-hop didn't bridge from the query embedding "britisch-indische Regierung" to those edges. Honest "no" beats fabricated "yes".
 
-### Q3 — substantive: "Welche geografischen Regionen werden in Trans-Himalaya beschrieben?"
+### Q3 — substantive: "Which geographic regions are described in Trans-Himalaya?"
 
 ```
 run_id   01KPMM39850T5CK59NQN37R5W6
 verdict  partial — 4 cited, 1 high-conf
 nodes    Constellation: 10 nodes / 0 edges / 0 gaps
 synth    2422 ms · 2739 in / 176 out tokens · 0.003366 EUR
-answer   Die Chronik verfügt noch nicht über ausreichende Informationen zu dieser
-         Frage. Obwohl das Werk Trans-Himalaya [AKA-951767aca56d] bekannt ist und
-         einzelne Orte wie Tibet [AKA-529bb2882bfe], Zentraltibet [AKA-be82aed97a55]
-         und die Nordwestgrenze [AKA-d8a7846c49ff] erwähnt werden, fehlen die
-         konkreten Relationen zwischen dem Werk und den darin beschriebenen
-         geografischen Regionen…
+answer   The Chronik does not yet have sufficient information for this
+         question. Although the work Trans-Himalaya [AKA-951767aca56d] is known and
+         individual places such as Tibet [AKA-529bb2882bfe], Central Tibet [AKA-be82aed97a55]
+         and the North-West Frontier [AKA-d8a7846c49ff] are mentioned, the
+         concrete relations between the work and the geographic regions
+         it describes are missing…
 ```
 
 Four cited geographic nodes — the answer correctly names them but flags the missing "WORK → DESCRIBES → PLACE" edge type. That edge type isn't in the Gen-1 RelationExtractor's vocabulary (PHX-territory). `partial` verdict is the right shape.
 
-### Q4 — honest-failure: "Welche musikalischen Vorlieben hatte Sven Hedin?"
+### Q4 — honest-failure: "What musical preferences did Sven Hedin have?"
 
 ```
 run_id   01KPMM4262BYTF0F7CXA9Y11FZ
 verdict  good — 1 cited, 1 high-conf
 nodes    Constellation: 10 nodes / 0 edges / 0 gaps
 synth    2006 ms · 2736 in / 78 out tokens · 0.002907 EUR
-answer   Die Theogony Chronik hat zu diesem Thema noch nicht genug Informationen. Die
-         vorliegende Konstellation enthält zwar einen Knoten zu Sven Hedin
-         [AKA-64c45f68b1a0], aber keine Daten über seine musikalischen Vorlieben.
+answer   The Theogony Chronik does not yet have enough information on this topic. The
+         present Constellation does contain a node for Sven Hedin
+         [AKA-64c45f68b1a0], but no data about his musical preferences.
 ```
 
 Designed to fail. It failed honestly. The win.

@@ -2,72 +2,70 @@ id: PHX-1102
 category: substrate-runtime
 priority: critical
 status: done
-generation_target: MESH doctrine — die fünf Primitiven
-title: "Die Hebbsche Verstärkung ist 17- bis 254-fach zu klein gegen den Zerfall"
-filed_by: Claude Code (2026-08-31, aus der Doktrin-Inventur)
+generation_target: MESH doctrine — the five primitives
+title: "Hebbian reinforcement is 17- to 254-fold too small against decay"
+filed_by: Claude Code (2026-08-31, from the doctrine inventory)
 created_at: 2026-08-31
 description: >
-  Gemessen, nicht gerechnet. Acht echte Abfragen mit `hebbian=True` gegen
-  `data/mesh-founding` schrieben 512 Deltas:
+  Measured, not calculated. Eight real queries with `hebbian=True` against
+  `data/mesh-founding` wrote 512 deltas:
 
-      stärkstes Delta einer Abfrage      2,9e-4
-      Median-Delta                       1,9e-5
-      ein Tick Zerfall (Mediangewicht 0,3112, λ=0,05, k=2)   4,8e-3
+      strongest delta of one query       2.9e-4
+      median delta                       1.9e-5
+      one tick of decay (median weight 0.3112, λ=0.05, k=2)   4.8e-3
 
-  **Die stärkste Verstärkung, die eine einzelne Abfrage einer Kante geben kann,
-  ist 17-mal kleiner als ein Tick Vergessen. Im Median 254-mal.** Und der Tick
-  zerfällt jede Kante, während eine Abfrage nur die berührt, die sie aktiviert.
+  **The strongest reinforcement a single query can give an edge is 17 times
+  smaller than one tick of forgetting. 254 times in the median.** And the tick
+  decays every edge, while a query only touches the ones it activates.
 
-  Dazu kommt, dass es auf diesem Mesh nie gelaufen ist: alle 14 Tick-Records
-  tragen `delta_drained: 0`, kein Skript und kein Eval-Harness setzt `--hebbian`.
-  Jedes der 94.490 Gewichte ist reine Ingestion plus Zerfall.
+  On top of that, it has never run on this mesh: all 14 tick records carry
+  `delta_drained: 0`, no script and no eval harness sets `--hebbian`. Every one
+  of the 94,490 weights is pure ingestion plus decay.
 
-  Solange das so steht, ist "das Substrat lernt aus Benutzung" eine Behauptung,
-  die die eigenen Parameter widerlegen. Drei Stellschrauben, und keine davon darf
-  geraten werden:
+  As long as that stands, "the substrate learns from use" is a claim its own
+  parameters refute. Three knobs, and none of them may be guessed:
 
-    - α anheben (`hebbian_learning_rate`, aktuell 0,01)
-    - λ senken (aktuell 0,05 je Tick)
-    - den Zerfall auf **ungefeuerte** Kanten beschränken, wie die Doktrin es
-      eigentlich sagt — was PHX-1101 voraussetzt
+    - raise α (`hebbian_learning_rate`, currently 0.01)
+    - lower λ (currently 0.05 per tick)
+    - restrict decay to **unfired** edges, as doctrine actually says — which
+      PHX-1101 is a prerequisite for
 
-  Die dritte ist vermutlich die richtige, weil sie die Doktrin einhält statt eine
-  Zahl gegen eine andere zu tauschen. Aber sie ist auch die einzige, die eine neue
-  Abhängigkeit einführt.
+  The third is probably the right one, because it keeps to doctrine instead of
+  trading one number for another. But it is also the only one that introduces a
+  new dependency.
 
-  MESSPLAN: eine Simulation über N Ticks bei realistischem Abfragevolumen, gegen
-  die tatsächliche Gewichtsverteilung des Founding-Mesh — bei welcher Kombination
-  hält eine oft abgefragte Kante ihr Gewicht, ohne dass eine nie abgefragte
-  unsterblich wird? Das ist billig und beantwortet die Frage vor der ersten
-  Codeänderung.
+  MEASUREMENT PLAN: a simulation over N ticks at a realistic query volume,
+  against the actual weight distribution of the Founding mesh — at which
+  combination does a frequently queried edge hold its weight, without a never
+  queried one becoming immortal? This is cheap and answers the question before
+  the first code change.
 resolution: >
-  Gemessen, nicht argumentiert — Simulation über die echte Gewichtsverteilung
-  (scripts/mesh_hebbian_calibration.py), 20 Ticks, je eine Runde von 24
-  Gold-Fragen:
+  Measured, not argued — simulation over the real weight distribution
+  (scripts/mesh_hebbian_calibration.py), 20 ticks, one round of 24 gold
+  questions each:
 
-      Politik                          10 meistgefeuerte   nie gefeuert
-      Start                                 0,594             0,387
-      A ausgeliefert                        0,359             0,270
-      B α auf Doktrin-Skala                 0,363             0,270
-      C Gate: nur Ungefeuertes zerfällt     0,594             0,270   <- ausgeliefert
-      D B + C                               0,601             0,270
-      E λ/10                                0,558             0,370
+      Policy                           10 most-fired      never fired
+      Start                                 0.594             0.387
+      A shipped                             0.359             0.270
+      B α at doctrine scale                 0.363             0.270
+      C gate: only unfired decays           0.594             0.270   <- shipped
+      D B + C                               0.601             0.270
+      E λ/10                                0.558             0.370
 
-  DAS GATE IST DIE SCHRAUBE — die einzige Politik, bei der Benutztes hält, und
-  sie lässt Unbenutztes exakt so verblassen wie bisher. Es ist die Regel, die
-  MESH_SUBSTRATE §2 seit dem ersten Tag enthält; sie galt nie, weil niemand
-  aufschrieb, was gefeuert hat (PHX-1101).
+  THE GATE IS THE KNOB — the only policy where the used holds and the unused
+  fades exactly as before. It is the rule MESH_SUBSTRATE §2 has held since day
+  one; it never applied, because nobody wrote down what had fired (PHX-1101).
 
-  AUSGELIEFERT: `decay_edges_inplace(fired=…)` + `fired_pairs()`; der Tick zieht
-  beide Sidecars vor dem Zerfall ein und stellt beide bei Fehlschlag wieder her;
-  `decay_gate=True` Default, ohne Feuer-Record ein No-op (getestet).
-  `hebbian_normalize` als Hebel, Default aus: allein +0,004, mit Gate +0,007.
-  λ unverändert — λ/10 verlangsamt alles und trennt nichts.
+  SHIPPED: `decay_edges_inplace(fired=…)` + `fired_pairs()`; the tick pulls in
+  both sidecars before decay and restores both on failure; `decay_gate=True`
+  default, a no-op without a firing record (tested). `hebbian_normalize` as a
+  lever, default off: alone +0.004, with the gate +0.007. λ unchanged — λ/10
+  slows everything down and separates nothing.
 
-  LIVE (scripts/mesh_heartbeat.py, 10 Runden): das Gate tut auf dem Substrat,
-  was die Simulation sagt — 15.732 Kanten verschont, w_max hält 0,905 gegen
-  0,616. Der Recall bewegt sich in keiner Variante. Warum, und was das Verb
-  *lernt* jetzt heißt, steht in PHX-1104.
+  LIVE (scripts/mesh_heartbeat.py, 10 rounds): the gate does on the substrate
+  what the simulation says — 15,732 edges spared, w_max holds 0.905 against
+  0.616. Recall does not move in any variant. Why, and what the verb *learns*
+  now means, is in PHX-1104.
 relates_to:
-  - PHX-1100   # die Inventur
-  - PHX-1101   # das Feuersignal, das die dritte Option braucht
+  - PHX-1100   # the inventory
+  - PHX-1101   # the firing signal the third option needs

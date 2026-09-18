@@ -1,6 +1,6 @@
-# Der erste Herzschlag — α gegen λ, und was das Retrieval davon sieht
+# The first heartbeat — α against λ, and what retrieval sees of it
 
-> **English abstract.** *Question.* The substrate could only forget (PHX-1100).
+> **Abstract.** *Question.* The substrate could only forget (PHX-1100).
 > Three knobs were on the table — raise α, lower λ, or restrict decay to edges
 > that did not fire, which is what the doctrine literally says — and the ticket
 > asked for the choice to be measured. *Simulation* over the real weights of the
@@ -22,208 +22,212 @@
 > fold, an O(k²) firing index and lost timestamps — all fixed. Continued on a
 > corpus with headroom: `heartbeat_2wiki.md` (PHX-1104).
 
-*2026-09-01. `data/mesh-founding` (94.490 Kanten, 6.208 Knoten), die 47
-Gold-Fragen, `k_seeds=1`. Simulation und Live-Läufe auf Kopien; kein LLM, kein
-Geld. PHX-1102.*
+*2026-09-01. `data/mesh-founding` (94,490 edges, 6,208 nodes), the 47
+gold questions, `k_seeds=1`. Simulation and live runs on copies; no LLM, no
+money. PHX-1102.*
 
-## Ausgangslage
+## Starting point
 
-Die Inventur (PHX-1100) fand, dass das Substrat nur vergessen kann: 14 Ticks
-Zerfall, null gefeuerte Verstärkung, und die stärkste Hebbsche Rückschreibung
-einer Abfrage 17-mal kleiner als ein Tick Zerfall auf dem Mediangewicht. Drei
-Stellschrauben standen im Ticket — α anheben, λ senken, oder den Zerfall auf
-**ungefeuerte** Kanten beschränken, was MESH_SUBSTRATE §2 wörtlich sagt („edges
-that are *not* fired weaken") und was erst seit PHX-1101 möglich ist, weil es
-vorher kein Feuersignal gab.
+The inventory (PHX-1100) found that the substrate can only forget: 14 ticks
+of decay, zero fired reinforcement, and the strongest Hebbian write-back of
+a query 17 times smaller than one tick of decay at the median weight. Three
+knobs were on the table in the ticket — raise α, lower λ, or restrict decay
+to **unfired** edges, which is what MESH_SUBSTRATE §2 literally says ("edges
+that are *not* fired weaken") and which has only been possible since
+PHX-1101, because before that there was no firing signal.
 
-Das Ticket verlangte, die Wahl zu **messen** statt zu argumentieren. Hier ist die
-Messung, in zwei Stufen: eine Simulation über die echten Gewichte, dann der
-Live-Beweis auf dem Substrat.
+The ticket demanded that the choice be **measured** rather than argued.
+Here is the measurement, in two stages: a simulation over the real weights,
+then the live proof on the substrate.
 
-## Stufe 1 — Simulation über die echte Gewichtsverteilung
+## Stage 1 — simulation over the real weight distribution
 
-`scripts/mesh_hebbian_calibration.py`. Für 24 der 47 Gold-Fragen (jede zweite)
-wird einmal gegen das unveränderte Mesh abgefragt und festgehalten: welche Kanten
-gefeuert haben (beide Endpunkte im Arbeitsset) und welche Paare der Hebbsche Pfad
-mit welchem Produkt gutschreiben würde — roh und mit auf den Spitzenwert
-normalisierter Aktivierung. Dann 20 Ticks, je eine Runde aller 24 Fragen, unter
-fünf Politiken. Die Constellations sind eingefroren; das ist eine Näherung
-erster Ordnung, und Stufe 2 prüft sie live.
+`scripts/mesh_hebbian_calibration.py`. For 24 of the 47 gold questions
+(every second one), each is queried once against the unchanged mesh and it
+is recorded: which edges fired (both endpoints in the working set) and
+which pairs the Hebbian path would credit with which product — raw and
+with activation normalised to the peak value. Then 20 ticks, one round of
+all 24 questions each, under five policies. The constellations are frozen;
+that is a first-order approximation, and stage 2 checks it live.
 
-Vorab, was die Größenordnungen sind:
+Up front, what the orders of magnitude are:
 
-    Kanten, die mindestens eine Frage feuert     16.077 von 94.490 (17 %)
-    Kanten, die alle 24 Fragen feuern            0
-    ein Tick Zerfall am Mediangewicht 0,3112     4,84e-3
-    Hebb-Gutschrift je Kante, roh                max 5,26e-4   Median 1,82e-5
-    Hebb-Gutschrift je Kante, normalisiert       max 9,38e-3   Median 6,33e-4
+    Edges that at least one question fires         16,077 of 94,490 (17%)
+    Edges that all 24 questions fire                0
+    one tick of decay at the median weight 0.3112   4.84e-3
+    Hebbian credit per edge, raw                    max 5.26e-4   Median 1.82e-5
+    Hebbian credit per edge, normalised             max 9.38e-3   Median 6.33e-4
 
-Selbst *normalisiert* liegt die Median-Gutschrift achtfach unter einem Tick
-Zerfall. Die Größe der Gutschrift ist nicht das, was eine benutzte Kante hält.
+Even *normalised*, the median credit is eight times smaller than one tick
+of decay. The size of the credit is not what holds a used edge.
 
-| Politik | 10 meistgefeuerte | nie gefeuert | Median |
+| Policy | 10 most-fired | never fired | Median |
 |---|---|---|---|
-| Start | 0,594 | 0,387 | 0,311 |
-| **A** ausgeliefert — roh, alles zerfällt, λ=0,05 | 0,359 | 0,270 | 0,237 |
-| **B** α auf Doktrin-Skala — normalisiert, alles zerfällt | 0,363 | 0,270 | 0,237 |
-| **C** Gate — roh, nur Ungefeuertes zerfällt | **0,594** | 0,270 | 0,242 |
-| **D** B + C | 0,601 | 0,270 | 0,242 |
-| **E** λ/10 — roh, alles zerfällt, λ=0,005 | 0,558 | **0,370** | 0,302 |
+| Start | 0.594 | 0.387 | 0.311 |
+| **A** shipped — raw, everything decays, λ=0.05 | 0.359 | 0.270 | 0.237 |
+| **B** α at doctrine scale — normalised, everything decays | 0.363 | 0.270 | 0.237 |
+| **C** gate — raw, only unfired decays | **0.594** | 0.270 | 0.242 |
+| **D** B + C | 0.601 | 0.270 | 0.242 |
+| **E** λ/10 — raw, everything decays, λ=0.005 | 0.558 | **0.370** | 0.302 |
 
-Nichts erreicht die Kappe, nichts fällt unter 0,05 — in diesem Regime keine
-Pathologie.
+Nothing reaches the cap, nothing falls below 0.05 — no pathology in this
+regime.
 
-**Das Gate ist die Schraube.** Es ist die einzige Politik, bei der die benutzten
-Kanten halten, und es lässt die unbenutzten exakt so verblassen wie bisher.
-α-Skalierung allein ist +0,004 wert (B gegen A), obendrauf +0,007 (D gegen C).
-λ/10 verlangsamt alles und trennt nichts: die nie gefeuerten Kanten verlieren
-kaum noch, und die benutzten fallen trotzdem.
+**The gate is the knob.** It is the only policy under which the used edges
+hold, and it lets the unused ones fade exactly as before. α scaling alone
+is worth +0.004 (B against A), on top of that +0.007 (D against C). λ/10
+slows everything and separates nothing: the never-fired edges barely lose
+anymore, and the used ones fall anyway.
 
-Das ist auch die *doktrintreue* Antwort. Die anderen beiden tauschen eine Zahl
-gegen eine andere; das Gate setzt die Regel um, die das Dokument seit dem ersten
-Tag enthält und die nur deshalb nie galt, weil niemand aufschrieb, was gefeuert
-hat.
+That is also the *doctrine-faithful* answer. The other two trade one
+number for another; the gate implements the rule the document has
+contained since day one, and which never held only because no one recorded
+what had fired.
 
-## Was ausgeliefert ist
+## What shipped
 
-- **`decay_edges_inplace(…, fired=…)`** überspringt Kanten, die diesen Tick
-  gefeuert haben. `fired_pairs()` leitet sie aus den Knoten-Firings ab (beide
-  Endpunkte im selben Durchgang, beide Richtungen, weil Kanten gerichtet
-  gespeichert sind) und nimmt die Hebb-Deltas dazu. Der Tick zieht jetzt **beide**
-  Sidecars vor dem Zerfall ein und stellt beide wieder her, wenn der Schreibvorgang
-  scheitert. `decay_gate=True` ist Default; ohne Feuer-Record verschont es nichts,
-  und der Tick verhält sich exakt wie vorher — das ist getestet.
-- **`append_hebbian_deltas(…, normalize=)`** und `retrieve(hebbian_normalize=)`:
-  Aktivierungen vor dem Produkt auf den Spitzenwert normalisieren, also auf die
-  [0,1]-Skala, für die α≈1e-2 in der Doktrin geschrieben wurde. PPR ist
-  massenerhaltend über den ganzen Graphen, seine rohen Aktivierungen sind ~100×
-  kleiner — dieselbe Skalen-Verwechslung, die PHX-1095 für die Schwelle 0,05
-  fand. **Default aus**, gemessen marginal; Hebel mit Zahl, kein Default.
-- λ bleibt 0,05.
+- **`decay_edges_inplace(…, fired=…)`** skips edges that fired this tick.
+  `fired_pairs()` derives them from the node firings (both endpoints in the
+  same pass, both directions, because edges are stored directed) and pulls
+  in the Hebbian deltas alongside them. The tick now pulls in **both**
+  sidecars before decay and restores both if the write fails.
+  `decay_gate=True` is the default; without a firing record it spares
+  nothing, and the tick behaves exactly as before — this is tested.
+- **`append_hebbian_deltas(…, normalize=)`** and `retrieve(hebbian_normalize=)`:
+  normalise activations to the peak value before the product, i.e. to the
+  [0,1] scale for which α≈1e-2 was written in the doctrine. PPR is
+  mass-conserving over the whole graph, its raw activations are ~100×
+  smaller — the same scale confusion that PHX-1095 found for the threshold
+  0.05. **Default off**, measured marginal; a lever with a number, not a
+  default.
+- λ stays at 0.05.
 
-## Stufe 2 — der Herzschlag, live
+## Stage 2 — the heartbeat, live
 
-`scripts/mesh_heartbeat.py`. Die erste falsifizierbare Behauptung von *„the mesh
-is alive"* als Protokoll: 24 benutzte Fragen, 23 zurückgehaltene. Recall auf
-beiden messen; zehn Runden lang alle benutzten Fragen stellen (Firing wird
-aufgezeichnet) und ticken; beide wieder messen. Steigt das eine, ohne dass das
-andere fällt, schlägt das Herz.
+`scripts/mesh_heartbeat.py`. The first falsifiable claim of *"the mesh is
+alive"* as a protocol: 24 used questions, 23 held-out. Measure recall on
+both; for ten rounds ask all used questions (firing gets recorded) and
+tick; measure both again. If one rises without the other falling, the
+heart beats.
 
-**Es schlägt nicht.**
+**It does not beat.**
 
-| | benutzt | voll | zurückgeh. | voll | w Median | w max | verschont |
+| | used | full | held-out | full | w median | w max | spared |
 |---|---|---|---|---|---|---|---|
-| Runde 0 | 84,8 % | 18 | 82,2 % | 18 | 0,311 | 0,905 | — |
-| ausgeliefert, Runde 10 | 84,8 % | 18 | 82,2 % | 18 | 0,269 | 0,616 | 0 |
-| Gate, Runde 10 | 84,8 % | 18 | 82,2 % | 18 | 0,276 | **0,905** | 15.732 |
+| Round 0 | 84.8% | 18 | 82.2% | 18 | 0.311 | 0.905 | — |
+| shipped, round 10 | 84.8% | 18 | 82.2% | 18 | 0.269 | 0.616 | 0 |
+| gate, round 10 | 84.8% | 18 | 82.2% | 18 | 0.276 | **0.905** | 15,732 |
 
-Kein einziger Gold-Treffer hat sich in zehn Ticks bewegt, in keiner Variante —
-weder unter dem ausgelieferten Zerfall, der das stärkste Gewicht von 0,905 auf
-0,616 drückt, noch unter dem Gate, das es exakt hält. Das Gate tut auf dem
-Substrat genau, was die Simulation sagt: ~15.700 Kanten je Tick verschont, die
-Spitze unverändert, der Median höher als ohne. Und das Retrieval ist dafür blind.
+Not a single gold hit moved in ten ticks, under any variant — neither
+under the shipped decay, which pushes the strongest weight from 0.905 down
+to 0.616, nor under the gate, which holds it exactly. The gate does on the
+substrate exactly what the simulation says: ~15,700 edges spared per tick,
+the peak unchanged, the median higher than without it. And retrieval is
+blind to it.
 
-Dann die Wachstums-Variante — Gate *plus* Hebb auf Doktrin-Skala mit bewusst
-großem α=0,1, dazu ein rangsensitives Maß (mittlerer Rang der Gold-Entitäten in
-einem 200er-Arbeitsset, weil Recall@50 sich erst bewegt, wenn eine Entität die
-Budgetgrenze kreuzt):
+Then the growth variant — gate *plus* Hebbian at doctrine scale with a
+deliberately large α=0.1, plus a rank-sensitive measure (mean rank of the
+gold entities in a 200-entry working set, because Recall@50 only moves
+once an entity crosses the budget boundary):
 
-| Runde | benutzt | Rang | zurückgeh. | Rang | w Median | w max |
+| Round | used | rank | held-out | rank | w median | w max |
 |---|---|---|---|---|---|---|
-| 0 | 84,8 % | 27,4 | 82,2 % | 30,3 | 0,311 | 0,905 |
-| 2 | 84,8 % | 27,5 | 82,2 % | 30,5 | 0,302 | **1,000** |
-| 5 | 84,8 % | 26,8 | 82,2 % | 30,9 | 0,288 | 1,000 |
-| 10 | 84,8 % | 27,5 | **80,0 %** | 31,0 | 0,276 | 1,000 |
+| 0 | 84.8% | 27.4 | 82.2% | 30.3 | 0.311 | 0.905 |
+| 2 | 84.8% | 27.5 | 82.2% | 30.5 | 0.302 | **1.000** |
+| 5 | 84.8% | 26.8 | 82.2% | 30.9 | 0.288 | 1.000 |
+| 10 | 84.8% | 27.5 | **80.0%** | 31.0 | 0.276 | 1.000 |
 
-Die benutzten Fragen werden nicht besser (Rang 27,4 → 27,5). Die zurückgehaltenen
-werden **schlechter** — eine Frage weniger vollständig, Rang 30,3 → 31,0 — und
-das stärkste Gewicht sitzt ab Runde 2 an der Kappe. Das ist keine Verbesserung
-mit Nebenwirkung; das ist die Nebenwirkung ohne Verbesserung. Wachstum ohne die
-Gewichtssummen-Kappe und ohne Renormalisierung — beides nicht gebaut — ist die
-Hub-Pathologie, vor der die Doktrin in §3 und §6 warnt, nicht der Herzschlag.
+The used questions do not get better (rank 27.4 → 27.5). The held-out ones
+get **worse** — one question less complete, rank 30.3 → 31.0 — and the
+strongest weight sits at the cap from round 2 on. That is not an
+improvement with a side effect; it is the side effect without the
+improvement. Growth without the weight-sum cap and without renormalisation
+— neither built — is the hub pathology that the doctrine warns against in
+§3 and §6, not the heartbeat.
 
-## Warum das Retrieval blind ist
+## Why retrieval is blind
 
-Der ausgelieferte Operator ist PPR über die **zeilennormalisierte** Adjazenz
-(`propagation.py`, `build_row_normalized_adjacency`, im `ppr`-Zweig verwendet).
-Er liest nicht, wie stark eine Kante ist, sondern welchen **Anteil** sie an den
-Ausgangskanten ihres Knotens hat. Zerfall `w → w·(1 − λw)` ist über die Kanten
-eines Knotens fast gleichförmig — bei λw zwischen 0,015 und 0,045 — und deshalb
-für PPR nahezu unsichtbar. Zehn Ticks ausgelieferter Zerfall ändern die
-Mitgliedschaft der Arbeitssets im Median um 4 % (Jaccard 0,963), die Reihenfolge
-in 24 von 24, und die Gold-Treffer gar nicht.
+The shipped operator is PPR over the **row-normalised** adjacency
+(`propagation.py`, `build_row_normalized_adjacency`, used in the `ppr`
+branch). It does not read how strong an edge is, but what **share** it has
+of its node's outgoing edges. Decay `w → w·(1 − λw)` is nearly uniform
+across a node's edges — at λw between 0.015 and 0.045 — and therefore
+almost invisible to PPR. Ten ticks of shipped decay change working-set
+membership by 4% at the median (Jaccard 0.963), the ordering in 24 of 24,
+and the gold hits not at all.
 
-Das Gate erzeugt einen *Unterschied* innerhalb eines Knotens — verschonte gegen
-zerfallende Ausgangskanten — von etwa 15 % relativ nach zehn Ticks. Das
-verschiebt Ränge (24/24 Reihenfolgen verändert, Jaccard-Median 1,000) und keinen
-einzigen Gold-Treffer über die Budgetgrenze.
+The gate creates a *difference* within a node — spared versus decaying
+outgoing edges — of about 15% relative after ten ticks. That shifts ranks
+(24/24 orderings changed, Jaccard median 1.000) and not a single gold hit
+across the budget boundary.
 
-Das ist nicht das Scheitern des Gates. Es ist der Nachweis, dass die Frage
-„lernt das Substrat aus Benutzung" auf diesem Instrument, bei diesem Horizont,
-mit diesem Operator nicht beantwortbar ist — und dass die drei Bedingungen
-benennbar sind.
+This is not the gate's failure. It is proof that the question "does the
+substrate learn from use" cannot be answered on this instrument, at this
+horizon, with this operator — and that the three conditions are namable.
 
-## Was der Review vor dem Ausliefern fand
+## What the review found before shipping
 
-Zwei unabhängige Leser über den Diff, adversarial. Ein Bug, zwei Risiken, vier
-Doku-Fehler — alle vor dem Merge behoben:
+Two independent readers went over the diff, adversarially. One bug, two
+risks, four documentation errors — all fixed before the merge:
 
-- **Doppeltes Verschonen nach fehlgeschlagener Knoten-Faltung.** Der Tick zieht
-  die Firings jetzt *vor* dem Kanten-Schreiben ein. Scheitert danach die
-  Knoten-Faltung, gingen die Durchgänge unmarkiert zurück in den Puffer — und
-  verschonten beim nächsten Tick dieselben Kanten ein zweites Mal für eine
-  Benutzung. Ein Puffer speiste zwei Commits ohne Vermerk, welcher ihn verbraucht
-  hatte. Reproduziert, behoben (`edges_applied`-Marke, die `fired_pairs`
-  überspringt), mit Test.
-- **O(k²) im Feuer-Index.** Die Menge aller geordneten Paare je Durchgang kostet
-  2,45 Mio. Tupel und 204 MB für 1.000 Durchgänge à 50 Knoten, 5,5 GB für 5.000 à
-  100 — unabhängig von der Mesh-Größe. Jetzt ein Index Knoten → Durchgänge mit
-  Schnittmengen-Test, linear in der Durchgangsgröße.
-- **Wiederhergestellte Durchgänge verloren ihren Zeitstempel** und bekamen die
-  Wiederherstellungszeit — `last_fired_at` wäre nach jedem fehlgeschlagenen Tick
-  falsch nach vorn gewandert. Behoben, mit Test.
-- Kleineres: die Wiederherstellung schreibt die Firings *vor* den Deltas zurück
-  (ein Anhang statt einer Schleife, die bei voller Platte mittendrin sterben
-  kann); ein Delta mit Gewicht ≤ 0 zählt nicht mehr als Feuer; `mesh tick` hat
-  `--no-decay-gate` und sagt in `--decay-lambda` nicht mehr „every edge";
-  der Modul-Docstring von `retrieve` behauptet nicht mehr „read-only by default";
-  „~100× kleiner" war die Rang-50-Spitze, nicht der Peak (~0,2).
+- **Double sparing after a failed node fold.** The tick now pulls in the
+  firings *before* writing the edges. If the node fold then failed, the
+  passes went back into the buffer unmarked — and spared the same edges a
+  second time for the next tick, for one use. One buffer fed two commits
+  with no record of which one had consumed it. Reproduced, fixed (an
+  `edges_applied` marker that `fired_pairs` skips), with a test.
+- **O(k²) in the firing index.** The set of all ordered pairs per pass
+  costs 2.45 million tuples and 204 MB for 1,000 passes of 50 nodes each,
+  5.5 GB for 5,000 of 100 each — independent of mesh size. Now a node →
+  passes index with an intersection test, linear in pass size.
+- **Restored passes lost their timestamp** and got the restoration time
+  instead — `last_fired_at` would have drifted forward incorrectly after
+  every failed tick. Fixed, with a test.
+- Smaller things: the restore now writes the firings back *before* the
+  deltas (an append instead of a loop that can die partway through on a
+  full disk); a delta with weight ≤ 0 no longer counts as a fire;
+  `mesh tick` has `--no-decay-gate` and no longer says "every edge" in
+  `--decay-lambda`; the module docstring of `retrieve` no longer claims
+  "read-only by default"; "~100× smaller" was the rank-50 peak, not the
+  peak (~0.2).
 
-Und eines, das nichts mit dem Gate zu tun hatte und trotzdem den PR aufhielt:
-der erste CI-Lauf fiel mit 40 Tests durch, weil CI lancedb 0.38 auflöst, dessen
-SQL-Dialekt `id = "…"` als Bezeichner liest. Zehn Filter im Store waren so
-gebaut. Lokal reproduziert, mit einem dialekt-festen Helfer behoben, festgenagelt
-(PHX-1105).
+And one thing that had nothing to do with the gate and still held up the
+PR: the first CI run failed with 40 tests, because CI resolves lancedb
+0.38, whose SQL dialect reads `id = "…"` as an identifier. Ten filters in
+the store were built that way. Reproduced locally, fixed with a
+dialect-proof helper, pinned down (PHX-1105).
 
-Bestätigt: ohne Feuer-Record ist das Gate byte-genau der alte Tick; beide
-Orientierungen und alle parallelen typisierten Relationen eines Paars werden
-zusammen verschont; die Simulation spiegelt die Tick-Arithmetik; jede Flagge der
-beiden Skripte wird gelesen.
+Confirmed: without a firing record, the gate is byte-identical to the old
+tick; both orientations and all parallel typed relations of a pair are
+spared together; the simulation mirrors the tick arithmetic; every flag of
+both scripts is read.
 
-## Was jetzt stimmt, und was nicht
+## What now holds, and what does not
 
-**Vorher** konnte das Substrat nur vergessen. **Jetzt hält es, was es benutzt** —
-gemessen, doktrintreu, ohne Nebenwirkung auf das Ungenutzte. Das ist eine echte
-Änderung des Substrats, und sie ist ausgeliefert.
+**Before**, the substrate could only forget. **Now it holds what it uses**
+— measured, doctrine-faithful, with no side effect on the unused. This is
+a real change to the substrate, and it has shipped.
 
-**Was weiter nicht stimmt:** *„answers better on what it was used for."* Recall
-ist über zehn Ticks jeder Politik invariant. Das Verb *lernt* aus dem Satz
-„the mesh is alive" ist damit von *nein* zu *hält* gewandert, nicht zu *ja*.
+**What still does not hold:** *"answers better on what it was used for."*
+Recall is invariant over ten ticks under every policy. The verb *learns*
+from the sentence "the mesh is alive" has thus moved from *no* to *holds*,
+not to *yes*.
 
-Was den Herzschlag sichtbar machen würde, jeweils mit Grund:
+What would make the heartbeat visible, each with a reason:
 
-1. **Ein längerer Horizont.** 15 % relativer Unterschied nach 10 Ticks werden
-   etwa 60 % nach 50. Die Simulation kostet Sekunden; der Live-Lauf eine Minute
-   je Tick.
-2. **Die Gewichtssummen-Kappe und die Renormalisierung**, damit Wachstum nicht an
-   `w_max` sättigt, sondern die *Verteilung* verschiebt. Solange beides fehlt,
-   ist jedes α > 0 auf Doktrin-Skala ein Pathologie-Erzeuger (oben gemessen).
-3. **Ein Instrument, das Ränge misst** — steht jetzt im Heartbeat-Skript — und
-   ein Korpus, auf dem `k_seeds=1` mit Namensankern die Gold-Mitgliedschaft
-   nicht ohnehin schon festnagelt.
+1. **A longer horizon.** A 15% relative difference after 10 ticks becomes
+   about 60% after 50. The simulation costs seconds; the live run one
+   minute per tick.
+2. **The weight-sum cap and the renormalisation**, so that growth does not
+   saturate at `w_max` but shifts the *distribution* instead. As long as
+   both are absent, any α > 0 at doctrine scale is a pathology generator
+   (measured above).
+3. **An instrument that measures ranks** — now in the heartbeat script —
+   and a corpus on which `k_seeds=1` with name anchors does not already
+   pin down gold membership on its own.
 
-Der dritte Punkt ist unbequem: auf dem Founding-Mesh ist das Retrieval bei
-`k_seeds=1` so gut, dass es die Dynamik nicht braucht. Der Herzschlag muss dort
-gemessen werden, wo das Retrieval Spielraum hat.
+The third point is uncomfortable: on the founding mesh, retrieval at
+`k_seeds=1` is so good that it does not need the dynamics. The heartbeat
+has to be measured where retrieval has room to move.
 
-Abgelegt als PHX-1104 — und dort auf 2Wiki gemessen: [`heartbeat_2wiki.md`](heartbeat_2wiki.md).
+Filed as PHX-1104 — and measured there on 2Wiki: [`heartbeat_2wiki.md`](heartbeat_2wiki.md).

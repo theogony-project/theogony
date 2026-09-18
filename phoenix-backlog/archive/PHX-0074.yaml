@@ -209,6 +209,6 @@ related:
   - PHX-0073  # Asklepios — fix triage; Cockpit could surface Asklepios FixTickets in a future panel
 
 referenced_in:
-  - "Composer conversation 2026-04-22 — user requested a 'hübsches Cockpit' for status, history, and configuration; Hesiod proposed the full architecture and named the surface Iris"
+  - "Composer conversation 2026-04-22 — user requested a 'pretty cockpit' for status, history, and configuration; Hesiod proposed the full architecture and named the surface Iris"
   - "docs/PHILOSOPHY.md §'Transparency Is Architecture, Not Policy' — Iris is the architectural surface that makes transparency operationally visible"
   - "docs/PANTHEON_VISION.md — the cockpit makes the vision tangible to humans who will adopt or reject Pantheon"

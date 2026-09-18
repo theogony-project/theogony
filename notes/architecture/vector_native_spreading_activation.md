@@ -1,64 +1,64 @@
-# Konzept: Vector-Native Spreading Activation im Theogony Mesh
+# Concept: Vector-Native Spreading Activation in the Theogony Mesh
 
-> **Status: historischer Kontext (überholt).** Dieser frühe MVP-Entwurf hat den Geist der Substrate-Architektur richtig erfasst (LanceDB + PyTorch CSR, Spreading Activation als SpMV, Latent Space Injection statt Text-RAG), ist aber durch die MESH-Triplet — [`docs/MESH_SUBSTRATE.md`](../../docs/MESH_SUBSTRATE.md), [`docs/MESH_IMPLEMENTATION.md`](../../docs/MESH_IMPLEMENTATION.md), [`docs/MESH_RETRIEVAL.md`](../../docs/MESH_RETRIEVAL.md) — in jeder Hinsicht ersetzt. Die Triplet spezifiziert Knoten-Anatomie (zwei Tiers, mehrere Vektoren pro Knoten, eager identity), Kanten-Anatomie (quantitativer Kern + optionale semantische Deskriptoren), die vollständige Dynamik (super-linearer Decay, Sättigung, Atrophie, Renormalisierung, Splits), Pathologie und Therapie, und die Retrieval-Disziplin (Diversified Injection, Frame Routing, Three-Factor RL) — alles, was in dieser Notiz nur skizzenhaft angedeutet wird. Wo dieses Dokument und die MESH-Triplet differieren, ist die MESH-Triplet operativ. Diese Notiz bleibt erhalten als historischer Beleg für den frühen Entwurf, nicht als Implementierungs-Vorlage.
+> **Status: historical context (superseded).** This early MVP draft correctly captured the spirit of the substrate architecture (LanceDB + PyTorch CSR, spreading activation as SpMV, latent space injection instead of text-RAG), but has been replaced in every respect by the MESH triplet — [`docs/MESH_SUBSTRATE.md`](../../docs/MESH_SUBSTRATE.md), [`docs/MESH_IMPLEMENTATION.md`](../../docs/MESH_IMPLEMENTATION.md), [`docs/MESH_RETRIEVAL.md`](../../docs/MESH_RETRIEVAL.md). The triplet specifies node anatomy (two tiers, multiple vectors per node, eager identity), edge anatomy (a quantitative core plus optional semantic descriptors), the full dynamics (super-linear decay, saturation, atrophy, renormalisation, splits), pathology and therapy, and the retrieval discipline (diversified injection, frame routing, three-factor RL) — everything this note only sketches. Where this document and the MESH triplet differ, the MESH triplet is authoritative. This note is kept as historical evidence of the early design, not as an implementation template.
 
-**Dokument-Status:** MVP-Entwurf (Function-First Phase) — überholt durch die MESH-Triplet
-**Kontext:** Implementierung einer reinen Vektorsprache und kognitiven "Spreading Activation" für das Theogony-Wissenssubstrat. Gemäß `BUILD_DOCTRINE.md` liegt der Fokus auf Geschwindigkeit, Machbarkeit und autonomem Wachstum ohne menschliche Prä-Validierung.
+**Document status:** MVP draft (Function-First phase) — superseded by the MESH triplet
+**Context:** Implementation of a pure vector language and cognitive "spreading activation" for the Theogony knowledge substrate. Per `BUILD_DOCTRINE.md`, the focus is on speed, feasibility, and autonomous growth without human pre-validation.
 
-Das Theogony-Mesh verabschiedet sich von Text als primärem Kommunikationsmedium zwischen KI-Agenten. Stattdessen operiert das Substrat als **Tensor-Manifold**, in dem sowohl Knoten (Nodes) als auch Kanten (Synapsen) als hochdimensionale Vektoren existieren. Die Informationsabfrage erfolgt nicht über strukturierte Query-Sprachen (wie Cypher oder SQL), sondern über kognitive Aktivierungsausbreitung (Spreading Activation).
-
----
-
-## 1. Vektor-Injektion: Der Kommunikations-Einstieg
-
-Wie "injiziert" ein LLM einen Gedanken in das Mesh, ohne den Umweg über natürliche Sprache zu gehen?
-
-*   **Der Stimulus (Injection Vector):** Anstatt einen Text-Prompt (`"Wer war Einstein?"`) an eine Retrieval-Pipeline zu senden, übermittelt der Agenten-Prozess direkt seinen internen Zustand. Dies ist idealerweise die **temporär ausgerichtete Sequenz der Hidden States der letzten Schichten (Last-Layer Hidden States)** der Transformer-Architektur.
-*   **Fallback für das MVP:** Da kommerzielle APIs (wie OpenAI) den direkten Zugriff auf Hidden States oft blockieren, nutzt das MVP einen dedizierten, lokal laufenden Embedding-Proxy (z.B. ein schnelles `all-MiniLM-L6-v2` oder Nomic-Embed-Text Modell). Der Agent schickt seinen rohen "Gedanken-Kontext", welcher unmittelbar in einen dichten Vektor (den Stimulus-Vektor $S_0$) umgewandelt und in das Mesh injiziert wird. Langfristig (mit offenen Modellen wie Llama 3) wird der Token-Schritt komplett übersprungen ("Latent-Space Communication").
-*   **Format:** Ein hochdimensionaler Float32- oder Bfloat16-Tensor, der die aktuelle intentionale Ausrichtung des Agenten repräsentiert.
+The Theogony mesh does away with text as the primary communication medium between AI agents. Instead, the substrate operates as a **tensor manifold**, in which both nodes and edges (synapses) exist as high-dimensional vectors. Information retrieval does not proceed through structured query languages (such as Cypher or SQL), but through cognitive activation spreading (spreading activation).
 
 ---
 
-## 2. Der Spreading Activation Algorithmus
+## 1. Vector Injection: The Communication Entry Point
 
-Sobald der Stimulus-Vektor $S_0$ im System ankommt, beginnt die Energie-Ausbreitung (Spreading Activation) durch das Vektor-Geflecht, inspiriert von der ACT-R Kognitionsarchitektur.
+How does an LLM "inject" a thought into the mesh without taking the detour through natural language?
 
-### Der Ablauf (Schritt-für-Schritt):
-1.  **Initiale Zündung:** Der Stimulus-Vektor $S_0$ wird mit initialer Energie $E_{start}$ (z.B. $E=1.0$) versehen. Das System führt eine schnelle Approximate Nearest Neighbor (ANN) Suche im Vektorraum aus, um die $k$ semantisch ähnlichsten Einstiegsknoten zu finden. Diese Knoten erhalten die Startenergie.
-2.  **Kanten-Evaluierung (Tensor-Matrix-Multiplikation):** Von den aktivierten Knoten aus breitet sich die Energie über die Kanten (die selbst Vektoren sind!) aus. Das System berechnet das Kanten-Gewicht dynamisch. Das Gewicht $W$ einer Kante zu einem Nachbarknoten wird bestimmt durch:
-    *   **Semantische Relevanz:** Cosine Similarity zwischen dem Stimulus $S_0$ und dem Kanten-Vektor sowie dem Zielknoten-Vektor.
-    *   **Hebbiansches Lernen (Reactivation Frequency):** Häufig genutzte Kanten haben einen "gestärkten" Multiplikator.
-3.  **Energie-Weitergabe:** Die Energie des Zielknotens $E_{ziel}$ berechnet sich als:
-    $E_{ziel} = (E_{quelle} \times W) - D$
-    (Wobei $D$ ein konstanter Dämpfungsfaktor (Decay) pro Hop ist).
-4.  **Abbruchkriterium (Stop Condition):** Die Ausbreitung stoppt auf einem Pfad, wenn die Energie $E$ eines Knotens unter einen systemweiten Schwellenwert (Threshold $T_{min}$) fällt oder eine maximale Hop-Distanz (z.B. 3 Hops) erreicht ist, um Endlosschleifen (Context Exhaustion) zu verhindern.
-
-Durch die "Lateral Inhibition" (seitliche Hemmung) werden hochrelevante Pfade gestärkt, während irrelevante, rauschende Pfade durch den Decay $D$ schnell absterben.
+*   **The Stimulus (Injection Vector):** Instead of sending a text prompt (`"Wer war Einstein?"`) to a retrieval pipeline, the agent process transmits its internal state directly. Ideally, this is the **temporally aligned sequence of the hidden states of the last layers (Last-Layer Hidden States)** of the transformer architecture.
+*   **Fallback for the MVP:** Since commercial APIs (such as OpenAI) often block direct access to hidden states, the MVP uses a dedicated, locally running embedding proxy (e.g. a fast `all-MiniLM-L6-v2` or Nomic-Embed-Text model). The agent sends its raw "thought context", which is immediately converted into a dense vector (the stimulus vector $S_0$) and injected into the mesh. In the long term (with open models such as Llama 3), the token step is skipped entirely ("latent-space communication").
+*   **Format:** A high-dimensional Float32 or Bfloat16 tensor that represents the agent's current intentional orientation.
 
 ---
 
-## 3. Die "Constellation" (Das Ergebnis für das LLM)
+## 2. The Spreading Activation Algorithm
 
-Anstatt dem LLM eine flache Liste von Text-Chunks zurückzugeben, liefert das Mesh eine **"Constellation"**.
+As soon as the stimulus vector $S_0$ arrives in the system, the energy spread (spreading activation) through the vector mesh begins, inspired by the ACT-R cognitive architecture.
 
-*   **Das Format:** Eine Constellation ist ein stark verbundener, lokalisierter Subgraph von Vektoren (Knoten und Kanten), deren Aktivierungsenergie den Schwellenwert überschritten hat. Rein technisch ist dies eine aggregierte Tensor-Matrix.
-*   **Verarbeitung durch das LLM:** Die Constellation wird dem empfangenden LLM direkt in den Latent Space "injiziert" (Latent Space Injection). Bei quelloffenen Modellen wird diese Vektor-Matrix als **Soft Prompts** oder direkt in den KV-Cache (Key-Value Cache) geladen. Das LLM "weiß" dadurch plötzlich den Kontext, ohne ihn als Text lesen zu müssen.
-*   **Vorteil:** Das Problem der "Context Isolation" herkömmlicher RAG-Systeme wird gelöst. Das LLM erhält nicht nur isolierte Fakten, sondern die exakten mathematischen Beziehungsvektoren (Kausalität, Widersprüche) direkt in sein neuronales Netzwerk eingespeist.
+### The Process (Step by Step):
+1.  **Initial Firing:** The stimulus vector $S_0$ is given initial energy $E_{start}$ (e.g. $E=1.0$). The system performs a fast Approximate Nearest Neighbor (ANN) search in vector space to find the $k$ semantically most similar entry nodes. These nodes receive the starting energy.
+2.  **Edge Evaluation (Tensor Matrix Multiplication):** From the activated nodes, the energy spreads across the edges (which are themselves vectors!). The system computes the edge weight dynamically. The weight $W$ of an edge to a neighbouring node is determined by:
+    *   **Semantic Relevance:** Cosine similarity between the stimulus $S_0$ and the edge vector as well as the target-node vector.
+    *   **Hebbian Learning (Reactivation Frequency):** Frequently used edges have a "strengthened" multiplier.
+3.  **Energy Propagation:** The energy of the target node $E_{target}$ is calculated as:
+    $E_{target} = (E_{source} \times W) - D$
+    (Where $D$ is a constant damping factor (decay) per hop).
+4.  **Stop Condition:** The spread on a path stops when the energy $E$ of a node falls below a system-wide threshold ($T_{min}$) or a maximum hop distance (e.g. 3 hops) is reached, in order to prevent infinite loops (context exhaustion).
 
----
-
-## 4. Speichertechnologie für das MVP
-
-Herkömmliche Graphdatenbanken (GDBs) mit Pointer-Chasing brechen unter der Last von Millionen Vektor-Kanten zusammen. Das Mesh benötigt eine Technologie, die Graphen als **kontinuierliche Tensor-Arrays** behandelt.
-
-**Der MVP-Tech-Stack:**
-1.  **LanceDB (Columnar Vector Store):** Dient als persistente, Append-Only Speicherschicht. Es speichert Knoten und Kanten (Synapsen) als First-Class Citizens im Vektorraum. Es unterstützt von Haus aus Versionierung (Time Travel), was dem Theogony-Prinzip der immutablen Provenienz entspricht.
-2.  **PyTorch Tensor Computation Runtime (TCR):** Für die eigentliche Spreading Activation zur Laufzeit wird der Graph in den GPU-Speicher (VRAM) als **Compressed Unique Source (CUS)** oder **Compressed Sparse Row (CSR)** Tensor geladen.
-3.  **Ablauf:** Die Ausbreitung der Energie ist keine iterative "for-Schleife" über Knoten, sondern eine massiv parallelisierte Matrix-Multiplikation in PyTorch. Eine Energie-Ausbreitung über 100.000 Kanten geschieht so durch eine einzige GPU-Instruktion in Millisekunden.
-4.  **Keine ACID-Transaktionen:** Um die Ingest-Geschwindigkeit für Agenten zu maximieren, gibt es keine klassischen Updates oder Locks. Wird ein Fakt korrigiert, schreibt das System einen neuen Vektor und eine "Supersedes"-Kante (Append-Only Ledger).
+Through lateral inhibition, highly relevant paths are strengthened, while irrelevant, noisy paths die off quickly through the decay $D$.
 
 ---
 
-## Fazit für die Implementierung
+## 3. The "Constellation" (The Result for the LLM)
 
-Dieses Design trennt Text endgültig von der Maschinen-Kommunikation. Text existiert nur am Rand (beim initialen Ingest von Wikipedia oder bei der Ausgabe für einen menschlichen Operator). Im Zentrum kommunizieren Agenten durch Vektor-Matrizen und Spreading Activation über LanceDB/PyTorch – ein Design, das extreme Dichte (1000x Kanten vs. Knoten) und Millisekunden-Retrieval nativ vereint.
+Instead of returning a flat list of text chunks to the LLM, the mesh delivers a **"Constellation"**.
+
+*   **The Format:** A Constellation is a strongly connected, localised subgraph of vectors (nodes and edges) whose activation energy has exceeded the threshold. In purely technical terms, this is an aggregated tensor matrix.
+*   **Processing by the LLM:** The Constellation is "injected" directly into the receiving LLM's latent space (Latent Space Injection). For open-source models, this vector matrix is loaded as **Soft Prompts** or directly into the KV cache (Key-Value Cache). The LLM thereby suddenly "knows" the context without having to read it as text.
+*   **Advantage:** The problem of "Context Isolation" in conventional RAG systems is solved. The LLM does not just receive isolated facts, but has the exact mathematical relationship vectors (causality, contradictions) fed directly into its neural network.
+
+---
+
+## 4. Storage Technology for the MVP
+
+Conventional graph databases (GDBs) with pointer-chasing collapse under the load of millions of vector edges. The mesh needs a technology that treats graphs as **continuous tensor arrays**.
+
+**The MVP Tech Stack:**
+1.  **LanceDB (Columnar Vector Store):** Serves as the persistent, append-only storage layer. It stores nodes and edges (synapses) as first-class citizens in vector space. It supports versioning (time travel) out of the box, which corresponds to the Theogony principle of immutable provenance.
+2.  **PyTorch Tensor Computation Runtime (TCR):** For the actual spreading activation at runtime, the graph is loaded into GPU memory (VRAM) as a **Compressed Unique Source (CUS)** or **Compressed Sparse Row (CSR)** tensor.
+3.  **Process:** The propagation of energy is not an iterative "for loop" over nodes, but a massively parallelised matrix multiplication in PyTorch. An energy spread across 100,000 edges thus happens through a single GPU instruction in milliseconds.
+4.  **No ACID Transactions:** To maximise ingest speed for agents, there are no classical updates or locks. If a fact is corrected, the system writes a new vector and a "Supersedes" edge (append-only ledger).
+
+---
+
+## Conclusion for the Implementation
+
+This design definitively separates text from machine communication. Text exists only at the periphery (during the initial ingest of Wikipedia, or in the output for a human operator). At the centre, agents communicate through vector matrices and spreading activation via LanceDB/PyTorch — a design that natively unites extreme density (1000x edges vs. nodes) and millisecond retrieval.

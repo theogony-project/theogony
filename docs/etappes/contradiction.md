@@ -1,6 +1,6 @@
-# Das Gedächtnis des Widerspruchs (PHX-1107)
+# The Memory of Contradiction (PHX-1107)
 
-> **English abstract.** *Finding.* The mesh could not represent a contradiction:
+> **Abstract.** *Finding.* The mesh could not represent a contradiction:
 > ten relation kinds, none of them a disagreement, and frame vectors that were a
 > salted hash of the label. Everything that heals would have to read from that.
 > *Built.* Epistemic frames as seven weighted axes instead of seven labels (nine
@@ -24,166 +24,165 @@
 > re-reading with framing; extraction noise sits among the confirmed
 > contradictions; frame promotion is not part of the tick.
 
-**Stand:** 2026-09-12, gemessen. Branch `feat/phx-1107-contradiction`.
-**Anlass:** [`plan_from_the_vision_2026-09.md`](plan_from_the_vision_2026-09.md) §B — der eine Befund der Vision-Ledger, der die Reihenfolge festlegt.
-**Werkzeug:** `src/theogony/mesh/frames.py`, `src/theogony/mesh/runtime/contradiction.py`, `scripts/mesh_contradictions.py`, `scripts/mesh_contradiction_eval.py`, Gold-Set `eval/gold/founding_contradictions.json`.
+**Status:** 2026-09-12, measured. Branch `feat/phx-1107-contradiction`.
+**Prompted by:** [`plan_from_the_vision_2026-09.md`](plan_from_the_vision_2026-09.md) §B — the one finding of the vision ledger that fixes the order.
+**Tools:** `src/theogony/mesh/frames.py`, `src/theogony/mesh/runtime/contradiction.py`, `scripts/mesh_contradictions.py`, `scripts/mesh_contradiction_eval.py`, gold set `eval/gold/founding_contradictions.json`.
 
-## Der Befund
+## The Finding
 
-Fünf Nicht-Verhandelbare aus PANTHEON_VISION scheitern nicht an fehlendem
-Code, sondern am Datenmodell. Das Substrat konnte nicht sagen, dass es etwas
-bezweifelt: `relation_kind` hatte zehn Werte und keiner war eine Uneinigkeit,
-`temporal_vector` war auf jedem Knoten `None`, und `frame_vector` — das Feld,
-in das die Doktrin die epistemische Haltung verlegt hat — trug eine gesalzene
-SHA-256-Projektion des Labels (PHX-1095). 5.002 Knoten, 4.977 verschiedene
-Vektoren, keine Haltung darin.
+Five non-negotiables from PANTHEON_VISION fail not for lack of code but for
+lack of a data model. The substrate could not say that it doubted something:
+`relation_kind` had ten values and none of them was a disagreement,
+`temporal_vector` was `None` on every node, and `frame_vector` — the field
+into which the doctrine relocated epistemic stance — carried a salted
+SHA-256 projection of the label (PHX-1095). 5,002 nodes, 4,977 distinct
+vectors, no stance in them.
 
-Damit konnte Frame-Routing nur nach einem Hash maskieren, und alles, was aus
-dem Frame lesen müsste — Athene, Chronos, das Immunsystem, die Chronik, die
-zweite Säule „Wissenschaftlicher Arbeitstisch" — hatte nichts zu lesen. Das
-Verb *heilt* war nicht ungebaut. Es war unbaubar.
+That meant frame routing could only mask by a hash, and everything that
+would need to read from the frame — Athene, Chronos, the immune system, the
+Chronik, the second pillar, the "scientific workbench" — had nothing to
+read. The verb *heals* was not unbuilt. It was unbuildable.
 
-## Was gebaut wurde
+## What Was Built
 
-### 1. Der Frame als faktorisierte Basis, nicht als Etikett
+### 1. The Frame as a Factorised Basis, Not a Label
 
-Die Doktrin nennt sieben Frames (Definition, aktuelle Behauptung, historische
-Behauptung, widerlegte Behauptung, Hypothese, Beobachtung, direktes Zitat) und
-sagt, sie seien „gelernte Einbettungsregionen", mit einem regelbasierten
-Bootstrap als ausdrücklichem Zwischenschritt. Das ist dieser Bootstrap, und er
-ist **faktorisiert statt aufgezählt**: sieben Achsen spannen den Raum, die
-Frames sind Punkte darin.
+The doctrine names seven frames (definition, current claim, historical
+claim, refuted claim, hypothesis, observation, direct quote) and says they
+are "learned embedding regions", with a rule-based bootstrap as an explicit
+intermediate step. This is that bootstrap, and it is **factorised rather
+than enumerated**: seven axes span the space, and the frames are points
+within it.
 
-| Achse | Pole | Gewicht |
+| Axis | Poles | Weight |
 |---|---|---|
-| veridicality | behauptet ↔ verneint | 2,0 |
-| modality | faktisch ↔ hypothetisch | 1,0 |
-| time | aktuell ↔ historisch | 1,0 |
-| standing | unbestritten ↔ bestritten | 1,0 |
-| force | in Kraft ↔ abgelöst | 1,0 |
-| attribution | direkt ↔ zugeschrieben | 0,5 |
-| register | allgemein ↔ besonders | 0,5 |
+| veridicality | asserted ↔ denied | 2.0 |
+| modality | factual ↔ hypothetical | 1.0 |
+| time | current ↔ historical | 1.0 |
+| standing | uncontested ↔ contested | 1.0 |
+| force | in force ↔ superseded | 1.0 |
+| attribution | direct ↔ attributed | 0.5 |
+| register | general ↔ specific | 0.5 |
 
-Die Faktorisierung ist der Punkt: eine historische Behauptung, die *auch*
-widerlegt wurde, ist beides — `time = −1` und `veridicality = −1` — und keine
-Aufzählung von sieben Etiketten kann das ausdrücken. Kadmos gibt trotzdem ein
-Etikett aus, weil ein Etikett das ist, was ein Sprachmodell zuverlässig
-produziert; das Etikett benennt einen Punkt, und Punkte lassen sich mischen.
+The factorisation is the point: a historical claim that has *also* been
+refuted is both — `time = −1` and `veridicality = −1` — and no enumeration
+of seven labels can express that. Kadmos still outputs a label, because a
+label is what a language model reliably produces; the label names a point,
+and points can be mixed.
 
-Veridikalität wiegt doppelt, weil die Verneinung der Grund ist, aus dem die
-Doktrin das Feld überhaupt einführt: „Thyroxine is an oxindole derivative" und
-seine Verneinung landen semantisch am selben Punkt.
+Veridicality carries double weight, because denial is the very reason the
+doctrine introduces the field at all: "Thyroxine is an oxindole derivative"
+and its negation land at the same semantic point.
 
-**Was der Cosinus dann tut** — das ist die Doktrin-Rechnung, nicht eine
-Behauptung über sie:
+**What the cosine then does** — this is the doctrine's arithmetic, not a
+claim about it:
 
-| | gegen *aktuelle Behauptung* |
+| | against *current claim* |
 |---|---|
-| Definition | +0,98 |
-| Beobachtung | +0,77 |
-| direktes Zitat | +0,77 |
-| historische Behauptung | +0,65 |
-| abgelöst | +0,50 |
-| widerlegt | **−0,50 → 0,0** |
+| Definition | +0.98 |
+| Observation | +0.77 |
+| Direct quote | +0.77 |
+| Historical claim | +0.65 |
+| Superseded | +0.50 |
+| Refuted | **−0.50 → 0.0** |
 
-Genau das Kendall-Verhalten aus MESH_RETRIEVAL: „Was ist Thyroxin?" holt die
-widerlegte Struktur von 1915 nicht. Was sie holt, ist nicht die historische
-Haltung allein — die *bejaht*, was die Widerlegung verneint, also stehen die
-beiden einander entgegen — sondern das Profil, das beide mischt.
+Exactly the Kendall behaviour from MESH_RETRIEVAL: "What is thyroxine?" does
+not retrieve the refuted structure from 1915. What it retrieves is not the
+historical stance alone — which *affirms* what the refutation denies, so
+the two oppose each other — but the profile that mixes both.
 
-**Zwei Designfehler wurden beim Bauen gemessen und behoben.** Ein direktes
-Zitat war ohne positive Veridikalität exakt orthogonal zu jeder Behauptung und
-wurde von jeder Sachfrage auf null gedämpft — auf einem Korpus, der zur Hälfte
-direkte Rede ist, hätte das die Hälfte des Substrats aus dem Retrieval
-gelöscht. Und das Widerspruchs-Profil, aus Haltungen gebaut, erbte deren
-positive Veridikalität, die alles andere überstimmte: es ließ jede schlichte
-Behauptung durch und dämpfte die widerlegte auf null, also das Gegenteil
-dessen, wofür es da ist. Es ist jetzt in Achsen geschrieben — „bestritten oder
-abgelöst, und schweigt darüber, ob es wahr ist" — und dämpft jede unstrittige
-Behauptung auf exakt null.
+**Two design flaws were measured and fixed while building this.** A direct
+quote, without positive veridicality, was exactly orthogonal to every claim
+and got damped to zero by every factual question — on a corpus that is half
+direct speech, that would have erased half the substrate from retrieval.
+And the contradiction profile, built from stances, inherited their positive
+veridicality, which overrode everything else: it let every plain claim
+through and damped the refuted one to zero — the opposite of what it is
+there for. It is now written in axes — "contested or superseded, and silent
+on whether it is true" — and damps every uncontested claim to exactly zero.
 
-### 2. Wer trägt welche Haltung
+### 2. Who Carries Which Stance
 
-- **Chunks** (die Beobachtung) tragen die Haltung des Absatzes.
-- **Entitäten und Quellanker** sind neutral. „Zeus" ist weder behauptet noch
-  verneint; die Behauptungen über ihn liegen auf den Chunks. Der Nullvektor
-  ist konstruktionsgemäß neutral und wird nie gedämpft.
-- **Kanten** bekommen `frame_consistency` aus den Endpunkten — der fehlende
-  Pass, den PHX-1095 benannte („a missing pass, not missing data"). Wo ein
-  Endpunkt eine Entität ist, ist der Wert 1,0; wo beide Absätze sind, trägt er
-  Information.
-- **`valid_from` / `valid_to`** auf jeder Kante, die kleinste Darstellung von
-  Zeit, die Nicht-Verhandelbares 3 verlangt. Beide reiten im `payload_json`,
-  also braucht kein bestehendes Mesh eine Migration.
+- **Chunks** (the observation) carry the paragraph's stance.
+- **Entities and source anchors** are neutral. "Zeus" is neither asserted
+  nor denied; the claims about him sit on the chunks. The zero vector is
+  neutral by construction and is never damped.
+- **Edges** get `frame_consistency` from their endpoints — the missing pass
+  that PHX-1095 named ("a missing pass, not missing data"). Where one
+  endpoint is an entity, the value is 1.0; where both are paragraphs, it
+  carries information.
+- **`valid_from` / `valid_to`** on every edge, the smallest representation
+  of time that non-negotiable 3 requires. Both ride in `payload_json`, so no
+  existing mesh needs a migration.
 
-### 3. Der Pass, der Widersprüche findet
+### 3. The Pass That Finds Contradictions
 
-Eine Haltung sagt, wie *ein* Absatz spricht. Ein Widerspruch ist eine Relation
-*zwischen* zweien, und ein Leser, der Absatz für Absatz liest, sieht ihn nie —
-er sieht den anderen Absatz nicht. Also braucht es einen Pass über das fertige
-Mesh; die Doktrin beschreibt ihn in der Stimme eines Agenten, den es nicht
-gibt (Argus, MESH_SUBSTRATE §„Contradiction resolution").
+A stance says how *one* paragraph speaks. A contradiction is a relation
+*between* two, and a reader who reads paragraph by paragraph never sees it
+— it never sees the other paragraph. So it takes a pass over the finished
+mesh; the doctrine describes it in the voice of an agent that does not
+exist (Argus, MESH_SUBSTRATE §"Contradiction resolution").
 
-Kandidaten strukturell, dann adjudiziert — dieselbe Arbeitsteilung wie die
-Oneiros-Konsolidierung. Ein Kandidat sind zwei Relationen, die sich einen
-Endpunkt und einen Deskriptor teilen und über den anderen uneins sind:
+Candidates structurally, then adjudicated — the same division of labour as
+Oneiros consolidation. A candidate is two relations that share one endpoint
+and a descriptor and disagree about the other:
 
-    Nacht  --gebar-->  die Moiren        (Theogonie 211-225)
-    Themis --gebar-->  die Moiren        (Theogonie 901-906)
+    Night  --bore-->  the Fates        (Theogony 211-225)
+    Themis --bore-->  the Fates        (Theogony 901-906)
 
-**Der Filter, der das präzise macht, ist die Provenienz, nicht die Semantik.**
-Zwei Relationen aus demselben Absatz sind eine Aufzählung — „Rhea gebar
-Hestia, Demeter, Hera" sind drei Kanten und keine Uneinigkeit —, also verlangt
-ein Kandidat, dass die beiden Seiten von *verschiedenen* Absätzen bezeugt
-werden. Ohne diesen Filter ist jede Genealogie des Korpus ein Widerspruch.
+**The filter that makes this precise is provenance, not semantics.** Two
+relations from the same paragraph are an enumeration — "Rhea bore Hestia,
+Demeter, Hera" are three edges and not a disagreement — so a candidate
+requires that the two sides be attested by *different* paragraphs. Without
+this filter, every genealogy in the corpus is a contradiction.
 
-Was übrig bleibt, ist meist trotzdem vereinbar: Zeus zeugt viele Kinder, und
-`father_of` ist nicht funktional. Dafür ist der Adjudikator da — gefragt wird,
-ob beides zugleich wahr sein kann, nicht ob es ähnlich aussieht.
+What remains is usually still compatible: Zeus fathers many children, and
+`father_of` is not functional. That is what the adjudicator is for — the
+question is whether both can be true at once, not whether they look alike.
 
-Bestätigte Widersprüche bekommen `contradicts`-Kanten zwischen den
-bezeugenden Absätzen, und diese Absätze werden auf die Haltung `disputed`
-gesetzt. Der zweite Teil ist der, der den Befund ins Retrieval bringt.
-Gelöscht wird nichts und keine Seite wird für falsch erklärt.
+Confirmed contradictions get `contradicts` edges between the attesting
+paragraphs, and those paragraphs are set to the `disputed` stance. The
+second part is the one that carries the finding into retrieval. Nothing is
+deleted and no side is declared false.
 
-## Das Gold-Set
+## The Gold Set
 
-Sieben Widersprüche, jeder mit beiden Belegstellen im Korpus verifiziert
-(Zeilennummer und wörtliches Zitat):
+Seven contradictions, each with both attesting passages verified in the
+corpus (line number and verbatim quote):
 
-| Frage | Seite A | Seite B | Umfang |
+| Question | Side A | Side B | Scope |
 |---|---|---|---|
-| Wer gebar die Moiren? | Nacht, ohne Vater | Themis, dem Zeus | innerhalb der Theogonie |
-| Wer war Asklepios' Mutter? | Arsinoe | Koronis | über Werke |
-| Wer war Helenas Mutter? | eine Tochter des Okeanos | Nemesis | über Werke |
-| Wer gebar Typhoeus? | Erde, von Tartaros | Hera, allein und zornig | über Werke |
-| Wessen Tochter ist Nemesis? | der Nacht | des Zeus | über Werke |
-| Wie wurde Aphrodite geboren? | aus dem Schaum | Tochter des Zeus | über Werke |
-| Hatte Hephaistos einen Vater? | Hera allein | Zeus sein Vater | innerhalb der Theogonie |
+| Who bore the Fates? | Night, without a father | Themis, by Zeus | within the Theogony |
+| Who was Asklepios's mother? | Arsinoe | Koronis | across works |
+| Who was Helen's mother? | a daughter of Okeanos | Nemesis | across works |
+| Who bore Typhoeus? | Earth, by Tartaros | Hera, alone and in anger | across works |
+| Whose daughter is Nemesis? | Night's | Zeus's | across works |
+| How was Aphrodite born? | from the foam | daughter of Zeus | across works |
+| Did Hephaistos have a father? | Hera alone | Zeus his father | within the Theogony |
 
-Zwei davon markiert der Korpus selbst als strittig („Some say (Asclepius) was
-the son of Arsinoe, others of Coronis", Zeile 1433; „Hesiod, however, makes
-Helen the child neither of Leda nor Nemesis", Zeile 1455) — die kann Kadmos
-beim Lesen erkennen. Die anderen fünf sind nur durch den Vergleich über
-Absätze hinweg zu finden.
+Two of them the corpus itself flags as contested ("Some say (Asclepius) was
+the son of Arsinoe, others of Coronis", line 1433; "Hesiod, however, makes
+Helen the child neither of Leda nor Nemesis", line 1455) — those, Kadmos can
+recognise while reading. The other five can only be found by comparing
+across paragraphs.
 
-**Works and Days ist in dieser Ausgabe nicht enthalten.** Das Ticket hatte die
-Pandora-Erzählung und die Zeitalter der Menschen als Widersprüche vermutet;
-beide gibt es hier nicht. Die Musen, das andere Beispiel des Tickets, sind im
-ganzen Korpus einhellig Töchter des Zeus und der Mnemosyne.
+**Works and Days is not included in this edition.** The ticket had
+suspected the Pandora narrative and the ages of man as contradictions;
+neither exists here. The Muses, the ticket's other example, are unanimously
+daughters of Zeus and Mnemosyne throughout the corpus.
 
-Die Messung ist eine, die keine bestehende Harness ausdrücken kann:
-**beide-Seiten-Recall**. Eine Frage zählt nur, wenn die Constellation aus
-jeder Seite eine Entität trägt. Vier Entitäten einer Seite und keine der
-anderen zählen null — das ist genau das Enzyklopädie-Verhalten, das die
-Chronik verweigern soll.
+The measurement is one that no existing harness can express: **both-sides
+recall**. A question counts only if the Constellation carries an entity
+from each side. Four entities from one side and none from the other count
+zero — that is exactly the encyclopedia behaviour the Chronik is meant to
+refuse.
 
-## Der neu gelesene Korpus
+## The Re-read Corpus
 
-1.206 Absätze, 2 h 27 min, € 0,39 (`deepseek-chat`). Das Substrat trägt zum
-ersten Mal epistemische Haltungen:
+1,206 paragraphs, 2 h 27 min, €0.39 (`deepseek-chat`). For the first time,
+the substrate carries epistemic stances:
 
-| Haltung | Absätze |
+| Stance | Paragraphs |
 |---|---|
 | `current_claim` | 380 |
 | `direct_quote` | 298 |
@@ -194,105 +193,106 @@ ersten Mal epistemische Haltungen:
 | `hypothesis` | 20 |
 | `refuted_claim` | 2 |
 
-Dazu **30 `contradicts`-Relationen, die das Modell beim Lesen selbst schrieb** —
-Stellen, an denen der Text den Streit benennt. Und `frame_consistency` trägt
-zum ersten Mal etwas: von 127.402 Kanten liegen 5.590 unter 1,0, davon **185
-bei exakt 0** — Kanten zwischen Absätzen in gegensätzlichen Haltungen. PHX-1095
-hatte das Feld auf allen 94.490 Kanten des alten Mesh bei exakt 1,0 gemessen.
+On top of that, **30 `contradicts` relations that the model wrote by itself
+while reading** — places where the text names the dispute. And
+`frame_consistency` now carries something for the first time: of 127,402
+edges, 5,590 sit below 1.0, and of those **185 sit at exactly 0** — edges
+between paragraphs holding opposing stances. PHX-1095 had measured the
+field at exactly 1.0 on all 94,490 edges of the old mesh.
 
-Vor dem Volllauf wurden fünf Absätze einzeln geprüft, um zu sehen, ob das
-Modell das Vokabular überhaupt benutzt: fünf von fünf richtig, und beim
-Helena-Fragment schrieb es von sich aus `relation_kind: contradicts`. Der
-*erste* Versuch hatte zwölf von zwölf Absätzen auf `current_claim` gesetzt —
-der Prompt nannte die Haltung, zeigte aber nicht, dass sie ein Feld auf
-oberster Ebene ist, und das Modell schrieb sie stattdessen auf die Relationen.
+Before the full run, five paragraphs were checked individually to see
+whether the model uses the vocabulary at all: five of five correct, and on
+the Helen fragment it wrote `relation_kind: contradicts` on its own. The
+*first* attempt had set twelve of twelve paragraphs to `current_claim` —
+the prompt named the stance but did not show that it is a top-level field,
+and the model wrote it onto the relations instead.
 
-## Der Widerspruchs-Pass
+## The Contradiction Pass
 
-690 Kandidaten, 74 bestätigt (11 %), 334 `contradicts`-Kanten, 141 Absätze auf
-`disputed` gesetzt. 11 Minuten, Bruchteile eines Cent.
+690 candidates, 74 confirmed (11%), 334 `contradicts` edges, 141 paragraphs
+set to `disputed`. 11 minutes, fractions of a cent.
 
-Darunter echte mythologische Widersprüche: Laomedon gegen Tros als Vater des
-Ganymedes, Theia gegen Euryphaessa als Mutter von Eos und Selene, Klymene gegen
-Alkmene als Mutter des Iphiklos, Tyro gegen Althaia als Mutter des Pheres. Und
-Rauschen aus der Extraktion: Fragmentnummern, die an zwei Orten „liegen", und
-ein Paar „February part_of 1321 / 1325".
+Among them, genuine mythological contradictions: Laomedon versus Tros as
+the father of Ganymedes, Theia versus Euryphaessa as the mother of Eos and
+Selene, Klymene versus Alkmene as the mother of Iphiklos, Tyro versus
+Althaia as the mother of Pheres. And noise from extraction: fragment
+numbers that "sit" in two places, and a pair "February part_of 1321 /
+1325".
 
-**Zwei Dinge waren nötig, damit der Pass überhaupt etwas findet.**
+**Two things were needed for the pass to find anything at all.**
 
-*Deskriptor-Normalisierung.* Der strukturelle Filter vergleicht (Endpunkt,
-Deskriptor), sieht eine Uneinigkeit also nur, wenn beide Seiten die Relation
-gleich buchstabieren. Kadmos tut das nicht: Elternschaft kommt unter mehr als
-dreißig Schreibungen an — `bore` 145, `son_of` 120, `fathered` 80,
-`daughter_of` 79, `father_of` 45, `mother_of` 45, `parent_of` 43, `child_of`
-26 — und die Hälfte zeigt in die andere Richtung. Mit einer kuratierten Klasse
-für Verwandtschaft und kanonischer Richtung: **202 Elternschafts-Kandidaten
-statt null.** Die Richtung ist dabei nicht Kosmetik, sondern macht die
-Gruppierung funktional: ein Kind hat einen Vater und eine Mutter, eine Mutter
-hat viele Kinder, also ist die Frage, die sich lohnt, immer „wie viele Eltern
-hat dieses Kind".
+*Descriptor normalisation.* The structural filter compares (endpoint,
+descriptor), so it sees a disagreement only if both sides spell the
+relation the same way. Kadmos does not: parenthood arrives under more than
+thirty spellings — `bore` 145, `son_of` 120, `fathered` 80, `daughter_of`
+79, `father_of` 45, `mother_of` 45, `parent_of` 43, `child_of` 26 — and half
+of them point in the other direction. With a curated kinship class and
+canonical direction: **202 parenthood candidates instead of zero.** The
+direction is not cosmetic here; it is what makes the grouping functional: a
+child has one father and one mother, a mother has many children, so the
+question worth asking is always "how many parents does this child have".
 
-*Ein zweistufiger Adjudikator.* Der erste Prompt bestätigte 36 von 100
-Kandidaten — „Apollo ging nach A / ging nach B" als Widerspruch. Der zweite
-fragt zuerst, ob die Relation überhaupt nur einen Wert zulässt, und erst dann,
-ob die Werte verschieden sind: 3 von 60. Er erkennt auch Aliase („Earth
-parent_of Cyclopes / Gaia bore Cyclopes" → vereinbar).
+*A two-step adjudicator.* The first prompt confirmed 36 of 100 candidates —
+"Apollo went to A / went to B" as a contradiction. The second first asks
+whether the relation admits only one value at all, and only then whether
+the values differ: 3 of 60. It also recognises aliases ("Earth parent_of
+Cyclopes / Gaia bore Cyclopes" → compatible).
 
-## Die Messung: gibt eine strittige Frage beide Seiten zurück?
+## The Measurement: Does a Contested Question Return Both Sides?
 
-Sieben Fragen, `k_seeds=1`, `top_k=50`. Eine Frage zählt nur, wenn die
-Constellation aus *jeder* Seite eine Entität trägt.
+Seven questions, `k_seeds=1`, `top_k=50`. A question counts only if the
+Constellation carries an entity from *each* side.
 
-| Mesh | Profil | beide Seiten | Seiten Ø |
+| Mesh | Profile | both sides | sides avg |
 |---|---|---|---|
-| alt (Hash-Frames, konsolidiert) | `any` | 71 % (5/7) | 1,71 |
-| alt (Hash-Frames) | `contradiction` | **29 % (2/7)** | 1,00 |
-| neu, geframt | `any` | **86 % (6/7)** | 1,86 |
-| neu, geframt | `contradiction` | 86 % (6/7) | 1,86 |
+| old (hash frames, consolidated) | `any` | 71% (5/7) | 1.71 |
+| old (hash frames) | `contradiction` | **29% (2/7)** | 1.00 |
+| new, framed | `any` | **86% (6/7)** | 1.86 |
+| new, framed | `contradiction` | 86% (6/7) | 1.86 |
 
-**Der stärkste Befund steht in der zweiten Zeile.** Auf dem alten Mesh kostet
-dasselbe Frame-Routing 42 Punkte — es maskiert nach einem gesalzenen Hash und
-zerstört die Constellation. Auf dem neuen kostet es nichts. PHX-1095 hatte
-vermutet, dass „routing on them today would mask edges by a hash"; das ist die
-Zahl dazu.
+**The strongest finding sits in the second row.** On the old mesh, the same
+frame routing costs 42 points — it masks by a salted hash and destroys the
+Constellation. On the new one, it costs nothing. PHX-1095 had suspected
+that "routing on them today would mask edges by a hash"; this is the number
+for that.
 
-Der Vergleich 86 % gegen 71 % vermischt zwei Änderungen — das neue Mesh wurde
-auch neu gelesen und ist unkonsolidiert (5.688 Knoten gegen 4.934) — und trägt
-deshalb weniger weit als die Zeile darüber.
+The comparison of 86% against 71% conflates two changes — the new mesh was
+also re-read and is unconsolidated (5,688 nodes against 4,934) — and so it
+carries less far than the row above it.
 
-### Das Routing wirkt erst, wenn Entitäten eine Haltung tragen
+### The Routing Only Works Once Entities Carry a Stance
 
-Die erste Messung nach dem Neulesen gab für `any`, `contradiction` und
-`what_is` **identische** Zahlen, Frage für Frage. Der Grund: eine Constellation
-besteht aus Entitäten, und 82 % der Entitäten hielten keine Haltung — die
-Haltung lag auf den Chunks. `frame_consistency` ist für einen neutralen Knoten
-konstruktionsgemäß 1,0, also skalierte jedes Profil jede Kante mit 1,0. Dieselbe
-Gestalt wie PHX-1104: das Substrat hielt etwas, das der Operator nicht lesen
-konnte.
+The first measurement after the re-read gave **identical** numbers for
+`any`, `contradiction`, and `what_is`, question by question. The reason: a
+Constellation is made of entities, and 82% of entities held no stance — the
+stance sat on the chunks. `frame_consistency` is 1.0 by construction for a
+neutral node, so every profile scaled every edge by 1.0. The same shape as
+PHX-1104: the substrate held something the operator could not read.
 
-MESH_RETRIEVAL nennt den fehlenden Schritt in einem Nebensatz — der Frame sei
-„mutable by Oneiros during consolidation (when many chunks with consistent
-frames consolidate, the consolidated node inherits the dominant frame)". Gebaut
-als `run_frame_promotion`: jeder Knoten nimmt den Schwerpunkt der Frames der
-Absätze, die ihn erwähnen. Schwerpunkt statt Modus, weil die Mischung das
-Signal ist — eine Figur, die in vierzig ruhigen und zwei strittigen Absätzen
-vorkommt, soll überwiegend ruhig und ein wenig strittig lesen. 3.590 von 5.688
-Knoten geerbt, 1.207 Quellanker blieben neutral.
+MESH_RETRIEVAL names the missing step in a subordinate clause — the frame
+is said to be "mutable by Oneiros during consolidation (when many chunks
+with consistent frames consolidate, the consolidated node inherits the
+dominant frame)". Built as `run_frame_promotion`: every node takes the
+centroid of the frames of the paragraphs that mention it. Centroid rather
+than mode, because the mixture is the signal — a figure who appears in
+forty calm paragraphs and two contested ones should read as mostly calm and
+a little contested. 3,590 of 5,688 nodes inherited one, 1,207 source
+anchors remained neutral.
 
-Danach, Frage für Frage:
+After that, question by question:
 
-| Frage | `any` vorher | `contradiction` vorher | `any` nachher | `contradiction` nachher |
+| Question | `any` before | `contradiction` before | `any` after | `contradiction` after |
 |---|---|---|---|---|
-| fates-parentage | beide | beide | beide | **eine** |
-| helen-parentage | eine | eine | eine | **beide** |
-| die übrigen fünf | beide | beide | beide | beide |
+| fates-parentage | both | both | both | **one** |
+| helen-parentage | one | one | one | **both** |
+| the remaining five | both | both | both | both |
 
-**Das Routing tut jetzt etwas, und zwar das Erwartbare.** Es holt die
-Helena-Frage, die kein anderes Profil holt — die eine, bei der der Korpus den
-Streit selbst benennt („Hesiod, however, makes Helen the child neither of Leda
-nor Nemesis"), deren Absätze also als `disputed` gelesen wurden. Und es
-verliert die Moiren, zwei schlichte Genealogie-Absätze ohne Streitmarkierung,
-die nur strukturell uneins sind.
+**The routing now does something, and it is the expected thing.** It
+retrieves the Helen question, which no other profile retrieves — the one
+where the corpus names the dispute itself ("Hesiod, however, makes Helen
+the child neither of Leda nor Nemesis"), so its paragraphs were read as
+`disputed`. And it loses the Fates, two plain genealogy paragraphs with no
+dispute marker, which are only structurally at odds.
 
-Im Gesamtwert ist das ein Tausch, kein Gewinn. Als Mechanismus ist es der
-Unterschied zwischen beweisbar wirkungslos und nachweisbar wirksam.
+In the aggregate, that is a trade, not a gain. As a mechanism, it is the
+difference between provably ineffective and demonstrably effective.

@@ -11,10 +11,10 @@ first. And the older **sprint briefs** (`W10_…` to `W18_…`, the Nous, Kadmos
 MNLM briefs), which are design documents for work that was planned; they are
 indexed by intent in [`../INDEX.md`](../INDEX.md).
 
-**Language.** Ten etappes from September 2026 are written in German. Each opens
-with an English abstract — question, method, result with its figures, limits,
-decision — so that nothing measured here is reachable only through one
-language. Etappes written from 2026-09-17 on are in English.
+**Language.** Everything here is in English. Ten etappes from September 2026
+were first written in German and translated on 2026-09-18; each still opens
+with a short abstract — question, method, result with its figures, limits,
+decision — and the German originals remain in the git history.
 
 | Etappe | Ticket | What was measured, in one line |
 |---|---|---|

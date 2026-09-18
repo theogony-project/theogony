@@ -2,96 +2,99 @@ id: PHX-1109
 category: substrate-retrieval
 priority: high
 status: done
-generation_target: MESH — Konsumtion (MESH_RETRIEVAL Schritt 5), die letzte Meile
-title: "Die latente letzte Meile: die Constellation als Vektoren statt als Text übergeben"
-filed_by: Claude Code (2026-09-11, aus der Einschätzung zu latentem Reasoning)
+generation_target: MESH — consumption (MESH_RETRIEVAL step 5), the last mile
+title: "The latent last mile: handing over the Constellation as vectors instead of as text"
+filed_by: Claude Code (2026-09-11, from the assessment of latent reasoning)
 created_at: 2026-09-11
 description: >
-  Die Vision sagt (VISION:44): die Constellation wird dem Agenten in Vektorform
-  zurückgegeben, direkt in seinen latenten Raum injizierbar, ohne Übersetzung
-  in Text. Die Ledger führt den Satz als nicht prüfbar. Er ist es seit heute,
-  und zwar billig.
+  The Vision says (VISION:44): the Constellation is returned to the agent
+  in vector form, injectable directly into its latent space, without
+  translation into text. The ledger carries the sentence as unverifiable.
+  As of today it is verifiable, and cheaply so.
 
-  Anlass: die Berichte vom September 2026 über latentes Reasoning. Zwei
-  Befunde, getrennt. Erstens rechnen heutige Frontier-Modelle schon
-  Wesentliches, das in ihrer Gedankenkette nicht auftaucht (Baherwani,
-  Goldstein, Panda 2026: inhaltsleere Fülltokens heben die Genauigkeit um bis
-  zu 13 Punkte; Wang 2026: Reasoning ist eine latente Trajektorie, der Text
-  eine Projektion). Zweitens funktionieren Architekturen ohne Text-Zwischen-
-  schritte, aber klein: LOTUS (Fan, Svete, Lee, Juni 2026) schließt bei 3B
-  zum expliziten Chain-of-Thought auf; Kohli et al. (COLM 2026) zeigen
-  implizites Multi-Hop in einem Vorwärtsdurchlauf; kein Frontier-Lab hat
-  einen latenten Reasoner ausgeliefert. Die Richtung der Kernthese wird
-  damit respektabel. Bei uns ist sie trotzdem ungemessen, weil bei uns alles
-  durch Text läuft: Kadmos bekommt Text und gibt JSON, die Constellation wird
-  als Text gerendert und von deepseek-chat gelesen, die Antwort ist Text. Das
-  MNLM-Modul (2.400 Zeilen) ist ein Tensor-Gerüst, die KV-Injektion ein Stub,
-  PHX-1035 auf H100 blockiert. Die letzte Meile ist heute die einzige Meile.
+  Prompted by: the reports from September 2026 about latent reasoning.
+  Two findings, separately. First, today's frontier models already
+  compute essentials that do not surface in their chain of thought
+  (Baherwani, Goldstein, Panda 2026: content-free filler tokens raise
+  accuracy by up to 13 points; Wang 2026: reasoning is a latent
+  trajectory, the text a projection). Second, architectures without text
+  intermediate steps work, but small: LOTUS (Fan, Svete, Lee, June 2026)
+  closes the gap to explicit chain-of-thought at 3B; Kohli et al. (COLM
+  2026) show implicit multi-hop in a single forward pass; no frontier lab
+  has shipped a latent reasoner. The direction of the core thesis becomes
+  respectable with this. For us it is still unmeasured, because for us
+  everything runs through text: Kadmos receives text and returns JSON,
+  the Constellation is rendered as text and read by deepseek-chat, the
+  answer is text. The MNLM module (2,400 lines) is a tensor scaffold, the
+  KV injection a stub, PHX-1035 blocked on H100. The last mile is today
+  the only mile.
 
-  xRAG (Cheng et al. 2024) zeigt, dass ein eingefrorener Retriever, ein
-  eingefrorenes Modell und ein kleiner trainierter Projektor genügen, um ein
-  Dokument als ein einziges Token zu übergeben: im Schnitt +10 % auf sechs
-  Wissensaufgaben bei 3,5-fach weniger FLOPs. Das MNLM-Brief hat genau diesen
-  Weg (GNP-Soft-Prompts) als verwässert abgelehnt. Das Brief hat beim
-  Horizont recht und bei der Reihenfolge nicht: der Soft-Prompt-Pfad ist der
-  Falsifikator, den wir uns leisten können.
+  xRAG (Cheng et al. 2024) shows that a frozen retriever, a frozen model
+  and a small trained projector suffice to hand over a document as a
+  single token: on average +10% on six knowledge tasks at 3.5-fold fewer
+  FLOPs. The MNLM brief rejected exactly this path (GNP soft prompts) as
+  diluted. The brief is right about the horizon and wrong about the
+  order: the soft-prompt path is the falsifier we can afford.
 
-  Umfang, als Messung: ein offener Kleinleser mit Einbettungs-Eingang,
-  eingefroren; ein Projektor von den Knotenvektoren in seinen Einbettungsraum,
-  ein Knoten = ein weiches Token, trainiert wie xRAG Stufe 1 (Paraphrase) auf
-  den konsolidierten Knoten, das Gold-Set unberührt; drei Arme mit demselben
-  Leser und derselben Bewertung wie corpus_answers plus untrainierter
-  Projektor als Kontrolle. Ein Nullergebnis ist ein Ergebnis.
+  Scope, as a measurement: an open small reader with an embedding input,
+  frozen; a projector from the node vectors into its embedding space, one
+  node = one soft token, trained like xRAG stage 1 (paraphrase) on the
+  consolidated nodes, the gold set untouched; three arms with the same
+  reader and the same scoring as corpus_answers plus an untrained
+  projector as a control. A null result is a result.
 resolution: >
-  Gemessen, 2026-09-12. Der Vektor kommt an, die Antwort nicht. Volltext:
-  docs/etappes/latent_mile.md.
+  Measured, 2026-09-12. The vector arrives, the answer does not. Full
+  text: docs/etappes/latent_mile.md.
 
-  Aufbau: Qwen2.5-3B-Instruct eingefroren (der 1,5B aus dem Brief liest schon
-  das Text-Material kaum, 24 % gegen 33 % Vorwissen, und wurde verworfen),
-  Projektor 768 -> 2048 -> 2048 (semantic + description_vector; semantic
-  allein ebenfalls gemessen), Paraphrase-Training auf 3.529 Knoten mit 186
-  zurückgehalten, vier Arme über 47 Gold-Fragen, drei Projektoren (zwei
-  Seeds, eine Vektorvariante), einer auf 20 Epochen fortgesetzt.
+  Setup: Qwen2.5-3B-Instruct frozen (the 1.5B from the brief already
+  barely reads the text material, 24% against 33% prior knowledge, and
+  was dropped), projector 768 -> 2048 -> 2048 (semantic +
+  description_vector; semantic alone also measured), paraphrase training
+  on 3,529 nodes with 186 held out, four arms over 47 gold questions,
+  three projectors (two seeds, one vector variant), one continued to 20
+  epochs.
 
-  Was das Token trägt: auf zurückgehaltenen Knoten kostet der Name mit dem
-  richtigen Vektor 2,9 nats je Token, mit dem Vektor eines anderen Knotens
-  4,9 (fünf Epochen); 2,4 gegen 6,8 nach zwanzig. Identität fliesst, wachsend,
-  verallgemeinernd, bis der Projektor ab Epoche 15 auswendig lernt. Der
-  semantische Vektor allein trägt genauso viel wie beide zusammen.
+  What the token carries: on held-out nodes, the name with the correct
+  vector costs 2.9 nats per token, with another node's vector 4.9 (five
+  epochs); 2.4 against 6.8 after twenty. Identity flows, growing,
+  generalising, until the projector starts memorising from epoch 15. The
+  semantic vector alone carries just as much as both together.
 
-  Was der Leser daraus macht, streng bewertet (ohne die 30 von 111
-  Gold-Namen, die in der Frage selbst stehen; 39 Fragen): Text 49 %,
-  Vorwissen 14 %, Vektoren 9 / 11 / 1 / 11 % (both s0, both s1, semantic,
-  both 20 Epochen), untrainiert 0 %. Gepaart gegen Text: 0 Fragen besser in
-  jedem Lauf (24, 22, 25, 20 schlechter). Gegen untrainiert: gewinnt in jedem
-  Lauf, verliert nie. Gegen Vorwissen: gleich.
+  What the reader makes of it, strictly scored (without the 30 of 111
+  gold names that appear in the question itself; 39 questions): text
+  49%, prior knowledge 14%, vectors 9 / 11 / 1 / 11% (both s0, both s1,
+  semantic, both 20 epochs), untrained 0%. Paired against text: 0
+  questions better in every run (24, 22, 25, 20 worse). Against
+  untrained: wins in every run, never loses. Against prior knowledge:
+  even.
 
-  Der ausgelieferte Bewerter hätte Gleichstand gemeldet: nach 20 Epochen -2
-  gegen Text, 13 besser / 17 schlechter, 11 vollständige Antworten gegen 8.
-  Alle dreizehn Gewinne sind Fragen, deren Gold-Namen in der Frage stehen,
-  und der per Paraphrase trainierte Arm antwortet in Sätzen, die die Frage
-  nachsprechen (6 Wörter gegen 2). Die strenge Bewertung steht jetzt im
-  Harness (strict_rows), der Gold-Set-Fehler als Nachtrag in PHX-1098.
+  The shipped scorer would have reported a tie: after 20 epochs -2
+  against text, 13 better / 17 worse, 11 complete answers against 8. All
+  thirteen wins are questions whose gold names appear in the question,
+  and the arm trained by paraphrase answers in sentences that echo the
+  question back (6 words against 2). The strict scoring now lives in the
+  harness (strict_rows), the gold-set error as an addendum in PHX-1098.
 
-  Warum: gebaut ist xRAG Stufe 1 (das Token dekodieren), nicht Stufe 2
-  (das Token unter einer Anweisung benutzen, Instruktionstuning mit
-  Selbst-Destillation vom Text-Lehrer). Mehr Epochen sind nicht der Hebel
-  (streng 9 -> 11 %), Stufe 2 ist es, und die braucht Frage-Antwort-Daten,
-  die nicht das Gold-Set sind. VISION:44 zerfällt damit in zwei gemessene
-  Hälften: "receives structure" ja, "no text translation required" auf dieser
-  Skala und mit diesem Rezept nein.
+  Why: what is built is xRAG stage 1 (decode the token), not stage 2 (use
+  the token under an instruction, instruction tuning with
+  self-distillation from the text teacher). More epochs are not the
+  lever (strict 9 -> 11%), stage 2 is, and it needs question-answer data
+  that is not the gold set. VISION:44 thus splits into two measured
+  halves: "receives structure" yes, "no text translation required" at
+  this scale and with this recipe no.
 
-  Im Repo bleibt: latent_mile.py (Projektor, Leser mit eigenem Greedy-Loop,
-  weil generate() mit inputs_embeds auf MPS unter transformers 5.5 Unsinn
-  liefert; Paraphrase-Training mit Gradient-Checkpointing; vier Arme;
-  diagnose; strenge Bewertung), scripts/mesh_latent_mile.py, Tests, die
-  Kurven aller Läufe in docs/etappes/latent_mile_runs.json.
+  What stays in the repo: latent_mile.py (projector, reader with its own
+  greedy loop, because generate() with inputs_embeds on MPS under
+  transformers 5.5 delivers nonsense; paraphrase training with gradient
+  checkpointing; four arms; diagnostics; strict scoring),
+  scripts/mesh_latent_mile.py, tests, the curves of every run in
+  docs/etappes/latent_mile_runs.json.
 relates_to:
-  - PHX-1035   # das MNLM, blockiert auf GPU; dieses Ticket ist sein Falsifikator zu Fuß
-  - PHX-1087   # das Antwort-Instrument
-  - PHX-1098   # das Gold-Set: keine Aliase, und 30 Namen in der eigenen Frage
-  - PHX-1099   # k_seeds = 1, die Constellation, die hier übergeben wird
-  - PHX-1107   # was ein latenter Leser im Substrat vorfinden muss
+  - PHX-1035   # the MNLM, blocked on GPU; this ticket is its falsifier on foot
+  - PHX-1087   # the answer instrument
+  - PHX-1098   # the gold set: no aliases, and 30 names in the question itself
+  - PHX-1099   # k_seeds = 1, the constellation handed over here
+  - PHX-1107   # what a latent reader must find in the substrate
 linked_docs:
   - docs/etappes/latent_mile.md
   - docs/etappes/plan_from_the_vision_2026-09.md

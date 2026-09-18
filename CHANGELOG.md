@@ -18,10 +18,11 @@ While the version is `0.x.y`, the API is considered unstable and may change betw
 - `docs/TAKE_THIS.md`: the pieces that stand on their own, with their evidence and their limits.
 - `scripts/fresh_clone_probe.sh`, `scripts/mcp_probe.py`: the documented quickstart, run as a stranger would.
 - The answer benchmark reports exact match by answer kind (entity / yes-no / date).
-- `docs/etappes/README.md`: the measurement record indexed in one table; the ten German etappes of September 2026 each open with an English abstract.
+- `docs/etappes/README.md`: the measurement record indexed in one table; every etappe opens with a short abstract.
 
 ### Changed
 - `README.md` and `llms.txt` open with the measured result (the edges are worth 3.6 points of exact match, with both limits), what is not shown, the window argument labelled as a bet, the five-minute doors, and how the page asks for attention.
+- **Nothing in the repository is in German any more.** Ten etappes (about 26,000 words), fourteen tickets, the catalogue rows, an architecture note, four scripts' output strings and a handful of quoted remarks were translated into English on 2026-09-18 (the originals remain in the git history). Every translation was checked for its numbers, structure and links against the original and reviewed independently.
 - `AGENTS.md` opens with what an arriving agent can do in five minutes — use it, take a piece, pick up a ticket with a finish line — before the contributor contract.
 - `docs/AGENT_SELF_INTEREST.md`: every argument now says what is built, measured or only designed; the scripted pitch is replaced by claims that can be checked.
 

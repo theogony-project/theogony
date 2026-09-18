@@ -42,7 +42,7 @@ The result is a Chronik with low edge density and weak cross-document connection
 
 Reading is not extraction. It is **synthesis across time**.
 
-When a person reads the first sentence of a text, approximately 5–10 new concepts arrive from the words. Simultaneously — massively parallel, nearly free — roughly 50 prior-knowledge concepts activate in long-term memory. These range from tightly bound (Tibet → Sven Hedin) to loosely associated (Tibet → Buddhism → meditation → ...). From this activation storm ("ein großes Gewitter mit Potenzialgefälle") a synthesis condenses. This condensed synthesis is what primarily persists as the reader moves to the next sentence.
+When a person reads the first sentence of a text, approximately 5–10 new concepts arrive from the words. Simultaneously — massively parallel, nearly free — roughly 50 prior-knowledge concepts activate in long-term memory. These range from tightly bound (Tibet → Sven Hedin) to loosely associated (Tibet → Buddhism → meditation → ...). From this activation storm ("a great thunderstorm with a potential gradient") a synthesis condenses. This condensed synthesis is what primarily persists as the reader moves to the next sentence.
 
 With each subsequent sentence, the previous synthesis is **pre-warmed** — those concepts fire faster and are preferentially integrated. A temporal hierarchy of meaning emerges: sentence syntheses condense into paragraph syntheses, paragraph syntheses into chapter syntheses.
 

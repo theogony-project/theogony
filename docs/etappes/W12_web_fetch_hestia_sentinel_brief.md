@@ -24,7 +24,7 @@ This brief is auto-mode-grade. Every knob is locked. If you find yourself wantin
 
 ## Why this etappe exists
 
-W11 turned Argus into a researcher, but he can only act on Wikidata and Gutenberg. The user explicitly directed: "Jede Quelle. Websuche. Es soll keine Allowlist gepflegt werden müssen." Wave 2's whole-source promise needs Wikipedia and the open web.
+W11 turned Argus into a researcher, but he can only act on Wikidata and Gutenberg. The user explicitly directed: "Every source. Web search. No allowlist should have to be maintained." Wave 2's whole-source promise needs Wikipedia and the open web.
 
 Opening the web also means opening the governance question. The W7-B `HestiaLite` is a whitelist gatekeeper, which is the wrong shape for "any URL the planner picks". W12 replaces it with `HestiaSentinel`, which judges per-candidate (URL, content, claim profile) using deterministic defensive rules first and a small LLM fallback for the unsure cases.
 

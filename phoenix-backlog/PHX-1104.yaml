@@ -2,81 +2,86 @@ id: PHX-1104
 category: substrate-runtime
 priority: high
 status: done
-generation_target: MESH doctrine — "the mesh is alive", das Verb *lernt*
-title: "Das Substrat hält jetzt, was es benutzt — und das Retrieval sieht es nicht"
-filed_by: Claude Code (2026-09-01, aus dem PHX-1102-Herzschlag)
+generation_target: MESH doctrine — "the mesh is alive", the verb *learns*
+title: "The substrate now holds what it uses — and retrieval doesn't see it"
+filed_by: Claude Code (2026-09-01, from the PHX-1102 heartbeat)
 created_at: 2026-09-01
 description: >
-  PHX-1102 hat das Gate ausgeliefert: Kanten, die feuern, zerfallen nicht mehr.
-  Live auf einer Kopie des Founding-Mesh über zehn Runden tut es genau das —
-  ~15.700 Kanten je Tick verschont, das stärkste Gewicht hält bei 0,905, wo der
-  ausgelieferte Zerfall es auf 0,616 drückt.
+  PHX-1102 shipped the gate: edges that fire no longer decay. Live on a
+  copy of the founding mesh over ten rounds it does exactly that —
+  ~15,700 edges spared per tick, the strongest weight holds at 0.905, where
+  the shipped decay pushes it down to 0.616.
 
-  Und der Recall bewegt sich nicht. 84,8 % auf den benutzten, 82,2 % auf den
-  zurückgehaltenen Fragen — identisch in Runde 0 und Runde 10, unter dem
-  ausgelieferten Zerfall wie unter dem Gate. Kein Gold-Treffer hat sich bewegt.
+  And recall doesn't move. 84.8% on the used, 82.2% on the held-out
+  questions — identical in round 0 and round 10, under the shipped decay
+  as under the gate. No gold hit has moved.
 
-  Die Wachstums-Variante (Gate + Hebb auf Doktrin-Skala, α=0,1) macht es nicht
-  besser, sondern zeigt die Richtung der Pathologie: w_max sitzt ab Runde 2 an
-  der Kappe, die benutzten Fragen bleiben bei Rang 27,4 → 27,5, die
-  zurückgehaltenen fallen 82,2 → 80,0 % (Rang 30,3 → 31,0). Wachstum ohne
-  Gewichtssummen-Kappe und Renormalisierung ist die Hub-Pathologie, nicht der
-  Herzschlag.
+  The growth variant (gate + Hebb at doctrine scale, α=0.1) doesn't make it
+  better, but shows the direction of the pathology: w_max sits at the cap
+  from round 2 on, the used questions stay at rank 27.4 → 27.5, the
+  held-out ones fall 82.2 → 80.0% (rank 30.3 → 31.0). Growth without a
+  weight-sum cap and renormalisation is the hub pathology, not the
+  heartbeat.
 
-  WARUM: der ausgelieferte Operator ist PPR über die zeilennormalisierte
-  Adjazenz. Er liest Anteile, nicht Stärken. Zerfall w -> w(1-λw) ist je Knoten
-  fast gleichförmig und damit unsichtbar; das Gate erzeugt in zehn Ticks ~15 %
-  relativen Unterschied, was Reihenfolgen verschiebt (24/24) und keine
-  Gold-Mitgliedschaft (Jaccard-Median 1,000).
+  WHY: the shipped operator is PPR over the row-normalised adjacency. It
+  reads shares, not strengths. Decay w -> w(1-λw) is nearly uniform per
+  node and therefore invisible; the gate produces ~15% relative difference
+  in ten ticks, which shifts orderings (24/24) and no gold membership
+  (Jaccard median 1.000).
 
-  DREI BEDINGUNGEN, unter denen der Herzschlag messbar würde, jede mit Grund:
-    1. Längerer Horizont — 50+ Ticks statt 10. Simulation billig, live ~1 min/Tick.
-    2. Gewichtssummen-Kappe (MESH_SUBSTRATE §3) und Renormalisierung (§6), damit
-       Wachstum die Verteilung verschiebt statt an w_max zu sättigen. Ohne beides
-       ist jedes α > 0 auf Doktrin-Skala ein Pathologie-Erzeuger.
-    3. Ein Instrument mit Spielraum. Auf dem Founding-Mesh nagelt k_seeds=1 mit
-       Namensankern die Gold-Mitgliedschaft so fest, dass das Retrieval die
-       Dynamik nicht braucht. Der Rang-Messer steht jetzt im Heartbeat-Skript;
-       der Korpus muss einer sein, auf dem Recall nicht schon bei 85 % steht.
+  THREE CONDITIONS under which the heartbeat would become measurable, each
+  with a reason:
+    1. Longer horizon — 50+ ticks instead of 10. Simulation cheap, live
+       ~1 min/tick.
+    2. Weight-sum cap (MESH_SUBSTRATE §3) and renormalisation (§6), so that
+       growth shifts the distribution instead of saturating at w_max.
+       Without both, every α > 0 at doctrine scale is a pathology
+       generator.
+    3. An instrument with room to move. On the founding mesh, k_seeds=1
+       with name anchors nails gold membership down so tightly that
+       retrieval doesn't need the dynamics. The rank meter now sits in the
+       heartbeat script; the corpus has to be one where recall isn't
+       already at 85%.
 
-  Das Verb *lernt* aus "the mesh is alive" ist von *nein* zu *hält* gewandert,
-  nicht zu *ja*.
+  The verb *learns* from "the mesh is alive" has moved from *no* to
+  *holds*, not to *yes*.
 resolution: >
-  Auf 2WikiMultihopQA gemessen, wo das Retrieval Spielraum hat (SA@5 0,777 /
-  0,813 gegen kNN 0,650 / 0,717): 150 benutzte / 150 zurückgehaltene Fragen,
-  50 Runden, vier Politiken, im Speicher auf den echten Tick-Funktionen.
+  Measured on 2WikiMultihopQA, where retrieval has room to move (SA@5
+  0.777 / 0.813 against kNN 0.650 / 0.717): 150 used / 150 held-out
+  questions, 50 rounds, four policies, in memory on the real tick
+  functions.
 
-      Runde 50            used@5   held@5
-      alter Zerfall        0,773    0,810
-      Gate                 0,780    0,798
-      Gate + Hebb α=0,01   0,790    0,798
-      Gate + Hebb α=0,1    0,787    0,797
+      Round 50            used@5   held@5
+      old decay             0.773    0.810
+      Gate                  0.780    0.798
+      Gate + Hebb α=0.01    0.790    0.798
+      Gate + Hebb α=0.1     0.787    0.797
 
-  DER HERZSCHLAG IST SICHTBAR: mit Gutschrift steigen die benutzten Fragen um
-  +1,3 Punkte (Sprung in Runde 1, hält über 50). Das erste Mal, dass sich das
-  Verb *lernt* auf einer Messung bewegt. UND DIE VERDRÄNGUNG AUCH: die
-  zurückgehaltenen fallen unter dem Gate um −1,5, monoton über acht
-  Messpunkte, mit oder ohne Gutschrift. 5,4 % der Kanten bleiben am Anschlag,
-  alle anderen fallen auf 0,28; ihr Anteil je Knoten wächst um das 3,5-fache,
-  und der Random Walk kippt zu den benutzten Regionen.
+  THE HEARTBEAT IS VISIBLE: with credit, the used questions rise by +1.3
+  points (jump in round 1, holds over 50). The first time the verb
+  *learns* moves on a measurement. AND SO DOES THE DISPLACEMENT: the
+  held-out ones fall under the gate by −1.5, monotonically over eight
+  measurement points, with or without credit. 5.4% of edges stay at the
+  ceiling, all others fall to 0.28; their share per node grows 3.5-fold,
+  and the random walk tips toward the used regions.
 
-  Gleichmäßiger Zerfall ist auch hier fast unsichtbar (72 % Gewichtsverlust,
-  −0,4 Punkte) — zweiter Korpus, dieselbe Aussage: der Operator liest Anteile.
+  Uniform decay is nearly invisible here too (72% weight loss, −0.4
+  points) — second corpus, same statement: the operator reads shares.
 
-  Von den drei Bedingungen sind zwei erfüllt (Horizont, Spielraum), und die
-  dritte ist damit nicht mehr Argument, sondern Messung: ohne die globale
-  Renormalisierung (MESH_SUBSTRATE §6) heißt „mehr Anteil für das Benutzte"
-  „weniger für alles andere". → PHX-1106.
+  Of the three conditions, two are met (horizon, room to move), and the
+  third is thereby no longer an argument but a measurement: without the
+  global renormalisation (MESH_SUBSTRATE §6), "more share for the used"
+  means "less for everything else". → PHX-1106.
 
-  Grenzen: 1–1,5 Punkte auf 150 Fragen sind ein bis zwei Fragen; die
-  Arbeitssets waren wegen 56,8 % gleicher Gewichte nicht vollständig
-  reproduzierbar (seit dem Lauf stabil sortiert); der Kern ist der des
-  Benchmarks, nicht `mesh ask`. Volltext: docs/etappes/heartbeat_2wiki.md.
+  Limits: 1–1.5 points on 150 questions are one or two questions; the
+  working sets were not fully reproducible because of 56.8% equal weights
+  (stably sorted since the run); the core is that of the benchmark, not
+  `mesh ask`. Full text: docs/etappes/heartbeat_2wiki.md.
 relates_to:
-  - PHX-1106   # die Renormalisierung, jetzt gemessen motiviert
-  - PHX-1102   # das Gate, das dies sichtbar gemacht hat
-  - PHX-1100   # die Inventur: Sättigung und Renormalisierung fehlen
-  - PHX-1099   # k_seeds=1, der Grund, warum das Founding-Retrieval keinen Spielraum hat
+  - PHX-1106   # the renormalisation, now motivated by measurement
+  - PHX-1102   # the gate that made this visible
+  - PHX-1100   # the inventory: saturation and renormalisation are absent
+  - PHX-1099   # k_seeds=1, the reason the founding retrieval has no room to move
 linked_scripts:
   - scripts/mesh_heartbeat.py
   - docs/etappes/hebbian_calibration.md

@@ -58,13 +58,13 @@ def main() -> None:
     retrieve_kwargs = {"k_seeds": args.seeds} if args.seeds is not None else {}
 
     _say(
-        f"Mesh {args.root}   Knoten {runtime.nodes.consolidated_count()}   "
-        f"Chunks {runtime.nodes.chunk_count()}   Kanten {runtime.edges.count_rows()}   "
-        f"Fragen {len(gold)}   top_k {args.top_k}   "
+        f"Mesh {args.root}   Nodes {runtime.nodes.consolidated_count()}   "
+        f"Chunks {runtime.nodes.chunk_count()}   Edges {runtime.edges.count_rows()}   "
+        f"Questions {len(gold)}   top_k {args.top_k}   "
         f"k_seeds {args.seeds if args.seeds is not None else DEFAULT_K_SEEDS}"
     )
     _say("")
-    _say(f"{'Profil':16s} {'beide Seiten':>13s} {'eine Seite':>11s} {'Seiten Ø':>9s}")
+    _say(f"{'Profile':16s} {'both sides':>13s} {'one side':>11s} {'sides avg':>9s}")
 
     everything: dict[str, list[dict[str, object]]] = {}
     summaries: dict[str, dict[str, float]] = {}
@@ -100,8 +100,8 @@ def main() -> None:
             _say("")
             _say(f"== {profile}")
             for row in everything[profile]:
-                mark = "BEIDE" if row["both_sides"] else "     "
-                _say(f"  {mark} {row['id']:24s} ({row['nodes']} Knoten)")
+                mark = "BOTH " if row["both_sides"] else "     "
+                _say(f"  {mark} {row['id']:24s} ({row['nodes']} nodes)")
                 for side in row["sides"]:  # type: ignore[union-attr]
                     got = ", ".join(side["found"]) or "—"
                     _say(f"        {side['label'][:46]:46s} {got}")
@@ -123,7 +123,7 @@ def main() -> None:
             ),
             encoding="utf-8",
         )
-        _say(f"\nDetail geschrieben: {args.out}")
+        _say(f"\nDetail written: {args.out}")
 
 
 if __name__ == "__main__":

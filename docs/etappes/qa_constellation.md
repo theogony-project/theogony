@@ -1,6 +1,6 @@
-# Der Antwort-Arm auf einem Korpus, den das Modell nicht kennt (PHX-1110)
+# The answer arm on a corpus the model does not know (PHX-1110)
 
-> **English abstract.** *Question.* Does the graph help a model answer on a
+> **Abstract.** *Question.* Does the graph help a model answer on a
 > corpus it does not know? The founding corpus could not say: the model's
 > unaided prior there is 86% (PHX-1098). *Method.* All 6,119 passages of
 > 2WikiMultihopQA read into a mesh by replaying cached Kadmos readings through
@@ -22,212 +22,211 @@
 > harness rendering drops structural edges by default. Follow-ups: PHX-1113
 > (yes/no), PHX-1114 (dates).
 
-**Stand:** 2026-09-16, gemessen. Spur C des Plans, zweites und letztes Stück.
-**Werkzeug:** `eval/qa_mesh.py` (Replay-Ingestion, fünf Arme, gepaarter
-Vorzeichentest), `scripts/mesh_qa_mesh_ingest.py`, `scripts/mesh_qa_constellation.py`.
+**Status:** 2026-09-16, measured. Track C of the plan, second and last piece.
+**Tools:** `eval/qa_mesh.py` (replay ingestion, five arms, paired
+sign test), `scripts/mesh_qa_mesh_ingest.py`, `scripts/mesh_qa_constellation.py`.
 
-## Warum dieses Stück jetzt das einzige ist
+## Why this piece is now the only one
 
-PHX-1098 hat den Founding-Korpus als Kontrollgruppe geschlossen: unter dem
-korrigierten Gold beantwortet deepseek-chat Hesiod zu **86 %** ohne jedes
-Material, und die Constellation liegt mit 75 % darunter. Auf einem Korpus,
-den das Modell auswendig kann, misst der Antwort-Arm den Preis der Bindung
-an das Material, nicht den Mehrwert des Graphen. Die Frage „hilft der Graph
-beim Antworten" lässt sich nur stellen, wo das Vorwissen niedrig ist.
+PHX-1098 closed the founding corpus as a control group: under the
+corrected gold, deepseek-chat answers Hesiod at **86%** with no material
+at all, and the Constellation sits below it at 75%. On a corpus the
+model knows by heart, the answer arm measures the cost of binding to the
+material, not the graph's added value. The question "does the graph help
+with answering" can only be asked where prior knowledge is low.
 
-2WikiMultihopQA ist so ein Korpus. PHX-1089 hat dort das Vorwissen bei
-**24,8 % EM** gemessen und das Retrieval bei +11 bis +23 Punkten darüber.
-Was PHX-1089 dem Modell reichte, waren aber **Passagen**: ganze Absätze,
-von kNN oder von Spreading Activation über einen billigen spaCy-Graphen
-ausgewählt. Das Konsumformat des Substrats selbst — die Constellation aus
-Entitäten und typisierten Relationen, die `mesh ask` rendert — ist auf
-einem unbekannten Korpus nie gemessen worden.
+2WikiMultihopQA is such a corpus. PHX-1089 measured prior knowledge there at
+**24.8% EM** and retrieval at +11 to +23 points above it. But what
+PHX-1089 handed the model were **passages**: whole paragraphs, selected
+by kNN or by Spreading Activation over a cheap spaCy graph. The
+substrate's own consumption format — the Constellation of entities and
+typed relations that `mesh ask` renders — has never been measured on an
+unfamiliar corpus.
 
-## Der Aufbau
+## The setup
 
-**Ein Mesh aus 2Wiki, ohne einen LLM-Aufruf.** `scripts/mesh_qa_kadmos.py`
-hatte für PHX-1089 jede der 6.119 Passagen einmal von Kadmos lesen lassen
-und die Lesung gecacht (Schlüssel: blake2b-128 des Passagentexts). Ein
-Replay-Provider beantwortet den Absatz-Prompt des Lesers aus diesem Cache,
-und der ausgelieferte Schreibpfad (`MeshParagraphReader`) baut daraus ein
-Mesh — derselbe Linker, dieselbe Identitätsauflösung, dieselben Kanten, die
-ein Nutzerkorpus bekäme. Ein Absatz, den der Cache nicht hält, wird als
-Lesefehler gezählt, nicht erfunden (auf 2Wiki: 6.119 von 6.119 gefunden).
-Das Ergebnis, `data/mesh-2wiki`: 6.119 Chunks, **35.906 konsolidierte
-Knoten, 38.746 gelesene Relationen**, 3.322 Absatzkonzepte, 616 MB nach der
-Kompaktierung; 81 Minuten bei 0,80 s je Absatz, 0 Ticks.
+**A mesh from 2Wiki, without a single LLM call.** For PHX-1089,
+`scripts/mesh_qa_kadmos.py` had each of the 6,119 passages read once by
+Kadmos and cached the reading (key: blake2b-128 of the passage text). A
+replay provider answers the reader's paragraph prompt from this cache,
+and the shipped write path (`MeshParagraphReader`) builds a mesh from it
+— the same linker, the same identity resolution, the same edges a user
+corpus would get. A paragraph the cache does not hold counts as a read
+failure, not a fabrication (on 2Wiki: 6,119 of 6,119 found). The result,
+`data/mesh-2wiki`: 6,119 chunks, **35,906 consolidated nodes, 38,746
+read relations**, 3,322 paragraph concepts, 616 MB after compaction; 81
+minutes at 0.80 s per paragraph, 0 ticks.
 
-**Fünf Arme, ein Modell, ein Bewerter.** deepseek-chat, Temperatur 0, die
-Prompts von PHX-1089 (nur „passages" wird zu „material", weil zwei Arme
-Entitäten reichen statt Absätze). Bewertet mit SQuAD EM/F1 gegen den
-Antwortschlüssel samt Aliasen — nicht mit dem Founding-Bewerter, der Ziffern
-streicht (der Korpus trägt Fußnotenzahlen), denn die Hälfte der
-2Wiki-Antworten sind Daten.
+**Five arms, one model, one scorer.** deepseek-chat, temperature 0, the
+prompts from PHX-1089 (only "passages" becomes "material", because two
+arms hand over entities instead of paragraphs). Scored with SQuAD EM/F1
+against the answer key with aliases — not with the founding scorer,
+which strips digits (the corpus carries footnote numbers), because half
+of the 2Wiki answers are dates.
 
-| Arm | Material | Frage, die er beantwortet |
+| Arm | Material | Question it answers |
 |---|---|---|
-| `closed_book` | keines | das Vorwissen |
-| `passages` | Top-5 Passagen nach Kosinus | schlichtes RAG; die Brücke zu PHX-1089 (`knn`) |
-| `vector_only` | Top-50 Mesh-Entitäten nach Kosinus, als Beschreibungen | was der Knotenspeicher allein trägt |
-| `constellation` | dieselbe Art Entitäten plus die Relationen zwischen ihnen | das ausgelieferte Rendering (`mesh ask`) |
-| `constellation_typed` | dasselbe ohne die Strukturkanten | ob die Strukturkanten den Leser etwas kosten |
+| `closed_book` | none | the prior |
+| `passages` | top-5 passages by cosine | plain RAG; the bridge to PHX-1089 (`knn`) |
+| `vector_only` | top-50 mesh entities by cosine, as descriptions | what the node store alone carries |
+| `constellation` | the same kind of entities plus the relations between them | the shipped rendering (`mesh ask`) |
+| `constellation_typed` | the same without the structural edges | whether the structural edges cost the reader anything |
 
-Die Aussage, die zählt, ist `constellation` gegen `vector_only`: derselbe
-Knotenspeicher, dieselbe Einbettung, der einzige Unterschied ist, ob die
-Kanten gezeigt werden. Gegen `passages` ist die härtere Frage, ob die
-Rendering-Form des Substrats mit schlichtem RAG überhaupt mithält. Jeder
-Arm trägt seine Decke mit (`gold in ctx`: stand die Antwort im Material?),
-damit ein Leseproblem von einem Retrieval-Problem zu unterscheiden bleibt.
-Gepaart, Frage für Frage, mit exaktem Vorzeichentest auf den diskordanten
-Paaren, `k_seeds = 1`, `record_firing=False`, 0 Ticks.
+The claim that counts is `constellation` against `vector_only`: the
+same node store, the same embedding, the only difference is whether the
+edges are shown. Against `passages` the harder question is whether the
+substrate's rendering form keeps up with plain RAG at all. Every arm
+carries its own ceiling (`gold in ctx`: did the answer stand in the
+material?), so a reading problem stays distinguishable from a retrieval
+problem. Paired, question by question, with an exact sign test on the
+discordant pairs, `k_seeds = 1`, `record_firing=False`, 0 ticks.
 
-Was die Arme dem Modell reichen (auf 20 Fragen gemessen, vor dem Lauf):
+What the arms hand the model (measured on 20 questions, before the run):
 
-| Arm | Zeichen je Prompt | Zeilen | Antwort steht im Material |
+| Arm | Characters per prompt | Lines | Answer stands in the material |
 |---|---|---|---|
-| `passages` | 3.216 | 5 Passagen | 50 % |
-| `vector_only` | 4.261 | 50 Entitäten | 40 % |
-| `constellation` | 7.567 | 50 Entitäten + ~50 Relationen | 45 % |
-| `constellation_typed` | 5.109 | 50 Entitäten + ~15 Relationen | 45 % |
+| `passages` | 3,216 | 5 passages | 50% |
+| `vector_only` | 4,261 | 50 entities | 40% |
+| `constellation` | 7,567 | 50 entities + ~50 relations | 45% |
+| `constellation_typed` | 5,109 | 50 entities + ~15 relations | 45% |
 
-Die Mesh-Arme reichen mehr Zeichen und treffen die Antwort seltener: eine
-Entitätsbeschreibung trägt, was Kadmos über die Entität geschrieben hat,
-nicht jedes Datum des Absatzes. Das ist keine Eigenschaft des Harness,
-sondern des Substrats — es hält, was es gelesen hat.
+The mesh arms hand over more characters and hit the answer less often:
+an entity description carries what Kadmos wrote about the entity, not
+every date in the paragraph. That is not a property of the harness but
+of the substrate — it holds what it read.
 
-## Zwei Befunde vor der ersten Antwort
+## Two findings before the first answer
 
-**Ein Lesen wurde quadratisch.** Die Ingestion begann bei 0,55 s je
-Absatz und stand nach 400 Absätzen bei über 6 s. Ursache: jeder Knoten ist
-ein eigenes Lance-Fragment, bis etwas kompaktiert, und jede Vektorsuche —
-zwei je Konzept, für die Identität — liest alle Fragmente. Gemessen: 2.617
-Knoten in 2.617 Fragmenten, **98 ms je Suche gegen 10 ms** auf denselben
-Zeilen kompaktiert. Der Tick kompaktiert (`prune_history`, PHX-1060), aber
-ein Lesen tickt nicht. `MeshRuntime.compact()` macht die Wartung außerhalb
-des Ticks aufrufbar, und der Leser ruft sie jetzt alle 200 Absätze
-(`compact_every`). Der Founding-Korpus mit 1.206 Absätzen hatte das nie
-sichtbar gemacht; ein Korpus in Buchlänge hätte es.
+**A read turned quadratic.** Ingestion began at 0.55 s per paragraph
+and stood above 6 s after 400 paragraphs. Cause: every node is its own
+Lance fragment until something compacts it, and every vector search —
+two per concept, for identity — reads all fragments. Measured: 2,617
+nodes in 2,617 fragments, **98 ms per search against 10 ms** on the
+same rows compacted. The tick compacts (`prune_history`, PHX-1060), but
+a read does not tick. `MeshRuntime.compact()` makes the maintenance
+callable outside the tick, and the reader now calls it every 200
+paragraphs (`compact_every`). The founding corpus, at 1,206 paragraphs,
+had never made this visible; a book-length corpus would have.
 
-**60 % der gerenderten Relationen sind Strukturkanten.** Auf den 47
-Founding-Fragen bekommt eine Constellation im Mittel 65 Relationszeilen,
-davon 60 % `co_mentions_in_paragraph`, `appears_in_source` und Verwandte;
-auf 2Wiki 61 %. Das ist der ausgelieferte Pfad, und jede Founding-Messung
-(PHX-1087/1096/1097/1098) hat ihn so gemessen. `render_constellation`
-kennt jetzt `typed_only`, und der fünfte Arm misst, was die Zeilen kosten,
-bevor der Standard geändert wird.
+**60% of the rendered relations are structural edges.** On the 47
+founding questions, a Constellation gets 65 relation lines on average,
+60% of them `co_mentions_in_paragraph`, `appears_in_source` and kin; on
+2Wiki, 61%. That is the shipped path, and every founding measurement
+(PHX-1087/1096/1097/1098) measured it that way. `render_constellation`
+now knows `typed_only`, and the fifth arm measures what the lines cost
+before the default changes.
 
-## Ergebnis
+## Result
 
-1.000 Fragen, fünf Arme, deepseek-chat, 24,7 Minuten
+1,000 questions, five arms, deepseek-chat, 24.7 minutes
 (`data/run_reports/qa_constellation/2wiki_1000.json`):
 
-| Arm | EM | F1 | Antwort stand im Material |
+| Arm | EM | F1 | Answer stood in the material |
 |---|---|---|---|
-| `closed_book` (Vorwissen) | 33,8 % | 37,9 % | — |
-| `passages` (Top-5, schlichtes RAG) | 42,7 % | 48,3 % | 55,4 % |
-| `vector_only` (50 Entitäten) | 40,5 % | 45,5 % | 54,6 % |
-| `constellation` (mit Strukturkanten) | 41,2 % | 47,0 % | 61,0 % |
-| `constellation_typed` (ohne) | **44,1 %** | **49,8 %** | 61,0 % |
+| `closed_book` (the prior) | 33.8% | 37.9% | — |
+| `passages` (top-5, plain RAG) | 42.7% | 48.3% | 55.4% |
+| `vector_only` (50 entities) | 40.5% | 45.5% | 54.6% |
+| `constellation` (with structural edges) | 41.2% | 47.0% | 61.0% |
+| `constellation_typed` (without) | **44.1%** | **49.8%** | 61.0% |
 
-Gepaart, Frage für Frage (EM besser / schlechter, Vorzeichentest):
+Paired, question by question (EM better / worse, sign test):
 
-| Vergleich | ΔEM | ΔF1 | besser / schlechter | p (EM) |
+| Comparison | ΔEM | ΔF1 | better / worse | p (EM) |
 |---|---|---|---|---|
-| `constellation` gegen `vector_only` | +0,7 | +1,5 | 138 / 131 | 0,72 |
-| `constellation_typed` gegen `vector_only` | **+3,6** | **+4,3** | 147 / 111 | **0,03** |
-| `constellation_typed` gegen `constellation` | +2,9 | +2,8 | 63 / 34 | 0,004 |
-| `constellation_typed` gegen `passages` | +1,4 | +1,6 | 173 / 159 | 0,48 |
-| jeder Material-Arm gegen `closed_book` | +6,7 bis +8,9 | +7,6 bis +10,4 | | < 0,001 |
+| `constellation` against `vector_only` | +0.7 | +1.5 | 138 / 131 | 0.72 |
+| `constellation_typed` against `vector_only` | **+3.6** | **+4.3** | 147 / 111 | **0.03** |
+| `constellation_typed` against `constellation` | +2.9 | +2.8 | 63 / 34 | 0.004 |
+| `constellation_typed` against `passages` | +1.4 | +1.6 | 173 / 159 | 0.48 |
+| every material arm against `closed_book` | +6.7 to +8.9 | +7.6 to +10.4 | | < 0.001 |
 
-### Was das heißt
+### What that means
 
-**Der Graph hilft beim Antworten — um etwa vier Punkte, und nur ohne die
-Strukturkanten.** Dieselben fünfzig Entitäten, dieselbe Einbettung, der
-einzige Unterschied sind die Relationszeilen: mit den gelesenen Relationen
-allein 44,1 % gegen 40,5 %, signifikant, 147 Fragen besser und 111
-schlechter. Das ist die erste Messung dieser Aussage auf einem Korpus, den
-das Modell nicht kennt. Die +11 des Founding-Korpus (PHX-1097/1098) waren
-auf einem Korpus mit 86 % Vorwissen gemessen; hier, bei 34 %, bleiben +3,6.
+**The graph helps with answering — by about four points, and only
+without the structural edges.** The same fifty entities, the same
+embedding, the only difference is the relation lines: with the read
+relations alone, 44.1% against 40.5%, significant, 147 questions better
+and 111 worse. This is the first measurement of this claim on a corpus
+the model does not know. The founding corpus's +11 (PHX-1097/1098) was
+measured on a corpus with 86% prior knowledge; here, at 34%, +3.6 remains.
 
-**Die ausgelieferte Rendering-Form verschenkte den Gewinn.** Mit den
-Strukturkanten drin (`co_mentions_in_paragraph`, `appears_in_source`, 60 %
-der Zeilen) bleibt von den vier Punkten weniger als einer (+0,7, p = 0,72);
-die Strukturzeilen kosten 2,9 Punkte, 63 Fragen besser ohne sie, 34
-schlechter. Wo sie kosten, antwortet das Modell mit der falschen Art
-Entität: nach dem Film gefragt, nennt es den Regisseur; nach dem Sterbeort,
-eine andere Stadt aus der Liste. `render_constellation` lässt die
-Strukturkanten seit dieser Messung standardmäßig weg (`typed_only=True`);
-jede Founding-Zahl vor PHX-1110 wurde mit ihnen gemessen und bleibt so
-stehen. `mesh ask` zeigt sie dem Menschen weiterhin.
+**The shipped rendering form gave away the gain.** With the structural
+edges in (`co_mentions_in_paragraph`, `appears_in_source`, 60% of the
+lines), less than one of the four points remains (+0.7, p = 0.72); the
+structural lines cost 2.9 points, 63 questions better without them, 34
+worse. Where they cost, the model answers with the wrong kind of
+entity: asked about the film, it names the director; asked about the
+place of death, another city from the list. `render_constellation` has
+left the structural edges out by default since this measurement
+(`typed_only=True`); every founding figure before PHX-1110 was measured
+with them and stands as it is. `mesh ask` continues to show them to the
+human.
 
-**Gegen schlichtes RAG: Gleichstand, aus zwei gegenläufigen Stücken.** Die
-typisierte Constellation liegt 1,4 Punkte über fünf Passagen, nicht
-signifikant. Dahinter stecken zwei Effekte, die sich aufheben:
+**Against plain RAG: a tie made of two opposing pieces.** The typed
+Constellation sits 1.4 points above five passages, not significant.
+Behind it are two effects that cancel out:
 
-| Teilmenge | n | `closed_book` | `passages` | `vector_only` | `constellation` | `constellation_typed` |
+| Subset | n | `closed_book` | `passages` | `vector_only` | `constellation` | `constellation_typed` |
 |---|---|---|---|---|---|---|
-| Ja/Nein-Fragen | 110 | **57,3 %** | 55,5 % | 50,0 % | 28,2 % | 37,3 % |
-| Antwort ist ein Datum | 54 | 7,4 % | **33,3 %** | 3,7 % | 11,1 % | 9,3 % |
-| alle übrigen | 836 | 32,4 % | 41,6 % | 41,6 % | 44,9 % | **47,2 %** |
+| Yes/no questions | 110 | **57.3%** | 55.5% | 50.0% | 28.2% | 37.3% |
+| Answer is a date | 54 | 7.4% | **33.3%** | 3.7% | 11.1% | 9.3% |
+| all the rest | 836 | 32.4% | 41.6% | 41.6% | 44.9% | **47.2%** |
 
-Auf den 836 Fragen mit einer Entität als Antwort schlägt die typisierte
-Constellation die Passagen um 5,6 Punkte — das sind die
-Vergleichsfragen („which film came out first", „whose director is
-younger"), bei denen die Relationen die Kette sichtbar machen, die die
-Antwort braucht. Auf Ja/Nein-Fragen bricht sie ein: eine Liste von
-Entitäten verleitet das Modell, mit einer Entität zu antworten („Iran"
-statt „yes"), und die Constellation mit Strukturkanten fällt auf 28 %,
-unter das Vorwissen. Auf Datumsfragen trägt das Mesh die Antwort meist
-nicht: eine Entitätsbeschreibung hält, was Kadmos über die Entität
-schrieb, nicht jedes Datum des Absatzes — 33 % für die Passagen gegen
-unter 12 % für jeden Mesh-Arm.
+On the 836 questions with an entity as the answer, the typed
+Constellation beats the passages by 5.6 points — these are the
+comparison questions ("which film came out first", "whose director is
+younger"), where the relations make visible the chain the answer needs.
+On yes/no questions it collapses: a list of entities tempts the model to
+answer with an entity ("Iran" instead of "yes"), and the Constellation
+with structural edges falls to 28%, below prior knowledge. On date questions
+the mesh mostly does not carry the answer: an entity description holds
+what Kadmos wrote about the entity, not every date in the paragraph —
+33% for the passages against under 12% for every mesh arm.
 
-**Die Decke ist höher, die Ausbeute niedriger.** Das Mesh hält die Antwort
-bei 61 % der Fragen im Material, die Passagen bei 55 %: das Retrieval
-über den Graphen findet mehr. Steht die Antwort da, macht das Modell aus
-den Passagen zu 62 % eine richtige Antwort, aus der typisierten
-Constellation zu 64 %, aus der mit Strukturkanten zu 60 %. Steht sie
-nicht da, hilft das Vorwissen bei den Passagen noch zu 19 %, bei der
-Constellation nur zu 12 %: das größere Material bindet das Modell stärker
-an sich.
+**The ceiling is higher, the yield is lower.** The mesh holds the
+answer in the material for 61% of the questions, the passages for 55%:
+retrieval over the graph finds more. Where the answer stands there, the
+model turns the passages into a correct answer 62% of the time, the
+typed Constellation 64%, the one with structural edges 60%. Where it
+does not stand there, prior knowledge still helps with the passages 19% of
+the time, with the Constellation only 12%: the larger material binds
+the model to itself more strongly.
 
-**Kontrollläufe.** Dieselben zwei Arme noch einmal gefragt
-(`2wiki_1000_repeat.json`): `vector_only` 40,6 %, `constellation_typed`
-44,6 %, **+4,0 EM / +4,9 F1, p = 0,015** (148 besser / 108 schlechter). Die
-Streuung zwischen zwei Läufen liegt unter einem halben Punkt je Arm; der
-Abstand hält.
+**Control runs.** The same two arms asked again
+(`2wiki_1000_repeat.json`): `vector_only` 40.6%, `constellation_typed`
+44.6%, **+4.0 EM / +4.9 F1, p = 0.015** (148 better / 108 worse). The
+spread between two runs is under half a point per arm; the gap holds.
 
-Mit halbem Budget (`top_k = 25`, `2wiki_1000_topk25.json`) schrumpft der
-Abstand: `vector_only` 41,1 %, `constellation` 40,9 %, `constellation_typed`
-42,3 % — **+1,2 EM (p = 0,49) / +2,7 F1 (p = 0,03)**, und die Decke fällt von
-61 auf 53 %. Der Gewinn des Graphen hängt am Budget: er braucht genug
-Entitäten im Arbeitsvorrat, damit Relationen zwischen ihnen überhaupt
-gerendert werden, während die reine Entitätsliste mit weniger Material
-eher besser wird (41,1 gegen 40,5). Auf F1 bleibt der Vorteil bei beiden
-Budgets signifikant, auf EM nur bei fünfzig.
+At half the budget (`top_k = 25`, `2wiki_1000_topk25.json`) the gap
+shrinks: `vector_only` 41.1%, `constellation` 40.9%, `constellation_typed`
+42.3% — **+1.2 EM (p = 0.49) / +2.7 F1 (p = 0.03)**, and the ceiling falls
+from 61 to 53%. The graph's gain depends on the budget: it needs enough
+entities in the working pool for relations between them to be rendered
+at all, while the plain entity list tends to do better with less
+material (41.1 against 40.5). On F1 the advantage stays significant at
+both budgets, on EM only at fifty.
 
-**Vorbehalt zur Kontrollgruppe.** PHX-1089 hatte das Vorwissen am
-26. August bei 24,8 % EM gemessen, derselbe Modellname, dieselben Prompts,
-dieselben 1.000 Fragen; heute stehen 33,8 %. Was hinter `deepseek-chat`
-antwortet, ist nicht dasselbe Modell wie damals. Der Passagen-Arm liegt
-mit 42,7 % dagegen fast auf dem `knn`-Arm von damals (43,4 %). Alle
-Vergleiche hier sind innerhalb eines Laufs, eines Tages, eines Modells.
+**Reservation about the control group.** PHX-1089 measured prior knowledge on
+August 26 at 24.8% EM, same model name, same prompts, same 1,000
+questions; today it stands at 33.8%. Whatever answers behind
+`deepseek-chat` is not the same model as back then. The passages arm,
+at 42.7%, sits almost exactly against the `knn` arm from back then
+(43.4%). Every comparison here is within one run, one day, one model.
 
-## Was offen bleibt
+## What remains open
 
-- **Ja/Nein-Fragen.** Eine Liste von Entitäten verleitet das Modell zur
-  Entitätsantwort; die Passagen tun das nicht. Das ist eine Eigenschaft der
-  Rendering-Form, nicht des Retrievals, und ein Prompt, der die Frageart
-  erkennt, oder ein Rendering, das Vergleiche als Vergleiche zeigt, ist die
-  naheliegende Probe.
-- **Daten.** Das Mesh hält keinen Absatztext, nur `raw_text_ref`, und die
-  Beschreibung einer Entität trägt, was Kadmos über sie schrieb. Ein Arm, der
-  zu den Entitäten der Constellation die Absätze legt, aus denen sie stammen,
-  würde die Decke der Passagen (Daten) mit der Decke des Graphen (Ketten)
-  verbinden; er ist nicht gemessen.
-- **`mesh ask`** rendert die Strukturkanten weiterhin für den Menschen. Ob
-  sie dort etwas kosten, ist nicht gemessen; dass sie einem Modell 2,9 Punkte
-  kosten, ist es.
-- **Die Kontrollgruppe ist beweglich.** Zwischen dem 26. August und heute hat
-  sich das Vorwissen desselben Modellnamens um neun Punkte bewegt. Jede
-  Aussage dieses Instruments gilt innerhalb eines Laufs.
+- **Yes/no questions.** A list of entities tempts the model into an
+  entity answer; the passages do not. That is a property of the
+  rendering form, not of retrieval, and a prompt that recognizes the
+  question type, or a rendering that shows comparisons as comparisons,
+  is the obvious test.
+- **Dates.** The mesh holds no paragraph text, only `raw_text_ref`, and
+  an entity's description carries what Kadmos wrote about it. An arm
+  that adds to the Constellation's entities the paragraphs they came
+  from would combine the passages' ceiling (dates) with the graph's
+  ceiling (chains); it has not been measured.
+- **`mesh ask`** still renders the structural edges for the human.
+  Whether they cost anything there is not measured; that they cost a
+  model 2.9 points is.
+- **The control group moves.** Between August 26 and today, prior knowledge
+  of the same model name has moved by nine points. Every claim of this
+  instrument holds within one run.

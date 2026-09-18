@@ -2677,7 +2677,7 @@
   "kind": "thesis",
   "load_bearing": true,
   "status": "partly-confirmed",
-  "evidence": "Network exists: ~5,002 nodes / 94,490 edges read by Kadmos (doctrine_inventory.md:3-4; PHX-1045). 'Living' contested: what_gen1_promises.md:59-61 'wird gelesen, aktiviert, und vergisst \u2026 lernt nicht, heilt nicht'. 'Verifiable': all 1,206 raw_text_ref point at a deleted scratchpad (PHX-1103, doctrine_inventory.md:198-208); source anchors repaired (PHX-1084)."
+  "evidence": "Network exists: ~5,002 nodes / 94,490 edges read by Kadmos (doctrine_inventory.md:3-4; PHX-1045). 'Living' contested: what_gen1_promises.md:81-83 'is read, activated, and forgets \u2026 does not learn, does not heal'. 'Verifiable': all 1,206 raw_text_ref point at a deleted scratchpad (PHX-1103, doctrine_inventory.md:198-208); source anchors repaired (PHX-1084)."
  },
  {
   "claim": "The MESH triplet is the binding behavioural specification for everything that follows.",

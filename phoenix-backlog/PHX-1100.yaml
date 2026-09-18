@@ -3,77 +3,77 @@ category: doctrine
 priority: critical
 status: done
 generation_target: MESH doctrine — state of the substrate
-title: "Inventur: von 119 Doktrin-Mechanismen laufen 9"
-filed_by: Claude Code (2026-08-31, auf Jakobs Frage nach einem Recap)
+title: "Inventory: of 119 doctrine mechanisms, 9 run"
+filed_by: Claude Code (2026-08-31, on Jakob's request for a recap)
 created_at: 2026-08-31
 description: >
-  Fünfmal in Folge war beim Arbeiten an etwas anderem ein Doktrin-Mechanismus
-  aufgefallen, dessen Eingabe niemand schreibt (decay_tier, die
-  Aktivierungsschwelle, frame_consistency, der Frame-Routing-Aufrufer,
-  fired_total). Diese Inventur prüft, ob das ein Muster ist.
+  Five times in a row, while working on something else, a doctrine mechanism
+  turned up whose input nobody writes (decay_tier, the activation threshold,
+  frame_consistency, the frame-routing caller, fired_total). This inventory
+  checks whether that is a pattern.
 
-  Es ist eines. Für jeden Mechanismus der drei Doktrindokumente wurde geprüft:
-  implementiert? von einem echten Pfad erreicht? Eingaben tatsächlich erzeugt?
-  Fünf Aufnahme-Durchgänge, danach je ein adversarialer Durchgang, der jedes
-  "läuft nicht" zu widerlegen versuchte — 110 Versuche, 105 bestätigt, 4 nach
-  oben korrigiert, 1 nach unten.
+  It is one. For every mechanism in the three doctrine documents, the check
+  was: implemented? reached by a real path? inputs actually produced? Five
+  intake passes, then one adversarial pass each that tried to refute every
+  "does not run" — 110 attempts, 105 confirmed, 4 corrected upward, 1 downward.
 
-      läuft        9
-      teilweise   24
+      runs         9
+      partial     24
       inert       34
-      blockiert   10
-      fehlt       42
+      blocked     10
+      absent      42
                  119
 
-  Die Zahl 119 ist eine Zerlegungsentscheidung; die Muster darunter sind der
-  Befund. Volltext: docs/etappes/doctrine_inventory.md.
+  The number 119 is a decomposition choice; the patterns underneath it are the
+  finding. Full text: docs/etappes/doctrine_inventory.md.
 resolution: >
-  Die Inventur liegt vor. Fünf Muster, die drei wichtigsten selbst nachgemessen:
+  The inventory is in. Five patterns, the three most important remeasured
+  myself:
 
-  1. DAS SUBSTRAT KANN NUR VERGESSEN. Der Zerfall läuft (14 Ticks, λ=0,05, im
-  Gewichtsspektrum sichtbar). Die Hebbsche Verstärkung hat nie gefeuert — alle 14
-  Tick-Records tragen `delta_drained: 0`. Und die Kalibrierung: acht echte
-  Abfragen mit `hebbian=True` schrieben 512 Deltas, stärkstes 2,9e-4, Median
-  1,9e-5, gegen 4,8e-3 Zerfall je Tick auf dem Mediangewicht. **Die stärkste
-  Verstärkung einer Abfrage ist 17-mal kleiner als ein Tick Vergessen, im Median
-  254-mal.** α und λ wurden nie gegeneinander gemessen. Ausgegliedert als
-  PHX-1102.
+  1. THE SUBSTRATE CAN ONLY FORGET. Decay runs (14 ticks, λ=0.05, visible in
+  the weight spectrum). Hebbian reinforcement has never fired — all 14 tick
+  records carry `delta_drained: 0`. And the calibration: eight real queries with
+  `hebbian=True` wrote 512 deltas, strongest 2.9e-4, median 1.9e-5, against
+  4.8e-3 decay per tick on the median weight. **The strongest reinforcement a
+  single query can give is 17 times smaller than one tick of forgetting, 254
+  times in the median.** α and λ were never measured against each other. Split
+  out as PHX-1102.
 
-  2. SIEBZEHN FELDER HALTEN IM GANZEN SUBSTRAT EINEN WERT. Gemessen über 5.002
-  Knoten und 94.490 Kanten: fired_total, fired_recent, die drei Feedback-Zähler,
-  eligibility, feedback_modulated_strength, decay_tier, frame_consistency,
-  consolidation_tier, consolidation_history, structural_vector, temporal_vector,
-  activation_entropy, node_potential_cache, is_anchor, qids. Das sind nicht
-  siebzehn Fehler, sondern einer: **das Substrat führt kein Gedächtnis seiner
-  eigenen Aktivität**, und alles, was daraus liest, liest eine Geschichte, die
-  niemand aufschreibt. Ausgegliedert als PHX-1101.
+  2. SEVENTEEN FIELDS HOLD ONE VALUE ACROSS THE WHOLE SUBSTRATE. Measured over
+  5,002 nodes and 94,490 edges: fired_total, fired_recent, the three feedback
+  counters, eligibility, feedback_modulated_strength, decay_tier,
+  frame_consistency, consolidation_tier, consolidation_history,
+  structural_vector, temporal_vector, activation_entropy, node_potential_cache,
+  is_anchor, qids. That is not seventeen bugs but one: **the substrate keeps no
+  memory of its own activity**, and everything that reads from it reads a story
+  nobody writes down. Split out as PHX-1101.
 
-  3. DIE TIER-LEITER IST VERKEHRT HERUM, wo das Substrat lebt. Für 0 < w < 1 gilt
-  w^1,2 > w^2 — ein kleinerer Exponent entfernt MEHR Gewicht. Am Mediangewicht
-  0,3112: k=2 verliert 0,00484 je Tick, k=1,2 verliert 0,01226. Jedes Gewicht
-  liegt unter 1, weil w_max es dort hält. **Das Feld ehrlich zu füllen wäre keine
-  Reparatur, sondern die Umkehrung der Absicht.** Die globale Renormalisierung
-  (nicht gebaut) muss davor kommen.
+  3. THE TIER LADDER IS BACKWARDS, where the substrate lives. For 0 < w < 1,
+  w^1.2 > w^2 — a smaller exponent removes MORE weight. At the median weight
+  0.3112: k=2 loses 0.00484 per tick, k=1.2 loses 0.01226. Every weight sits
+  below 1 because w_max holds it there. **Filling the field honestly would not
+  be a fix but the reversal of the intent.** The global renormalisation (not
+  built) has to come before it.
 
-  4. VERDRAHTET, ABER OHNE UNTERSCHEIDUNGSKRAFT: Frame-Routing (kein Aufrufer
-  übergibt ein query_frame, und die Frame-Vektoren sind eine gesalzene
-  SHA-256-Projektion des Labels), Dämpfung und Hop-Zahl (nur im raw/degnorm-Zweig
-  gelesen, ausgeliefert ist ppr), Sättigung (Kappe 10.000 gegen maximalen
-  Ausgangsgrad 1.093), Aktivierungsschwelle (existiert nicht).
+  4. WIRED UP, BUT WITHOUT DISCRIMINATING POWER: frame routing (no caller
+  passes a query_frame, and the frame vectors are a salted SHA-256 projection of
+  the label), damping and hop count (read only in the raw/degnorm branch,
+  shipped is ppr), saturation (cap 10,000 against a maximum out-degree of 1,093),
+  activation threshold (does not exist).
 
-  5. ZWEI SCHREIBER, KEIN SCHLOSS, KEIN SCHNAPPSCHUSS. read_consistency=0 ist das
-  Gegenteil eines gepinnten Snapshots; checkout/restore/as_of kommen im Repo nicht
-  vor; keine Sperre irgendwo in src/. Seit PHX-1097 sind es zwei ungeschützte
-  Lese-Ändere-Schreibe-Zyklen über das ganze Substrat aus verschiedenen Prozessen.
+  5. TWO WRITERS, NO LOCK, NO SNAPSHOT. read_consistency=0 is the opposite of
+  a pinned snapshot; checkout/restore/as_of do not occur anywhere in the repo; no
+  lock anywhere in src/. Since PHX-1097 there have been two unprotected
+  read-modify-write cycles across the whole substrate from different processes.
 
-  Nebenbefund, eigenes Ticket: alle 1.206 raw_text_ref zeigen auf 13 Dateien in
-  einem gelöschten Sitzungs-Scratchpad (PHX-1103).
+  Side finding, its own ticket: all 1,206 raw_text_ref point to 13 files in a
+  deleted session scratchpad (PHX-1103).
 remaining: ""
 relates_to:
-  - PHX-1101   # Aktivierungsgedächtnis — entsperrt vier Mechanismen
-  - PHX-1102   # α gegen λ
-  - PHX-1103   # tote raw_text_ref auf dem Demo-Mesh
-  - PHX-1095   # decay_tier und die Aktivierungsschwelle, dort zuerst gefunden
-  - PHX-1097   # Tier-Beförderung, dort als blockiert protokolliert
+  - PHX-1101   # activation memory — unlocks four mechanisms
+  - PHX-1102   # α against λ
+  - PHX-1103   # dead raw_text_ref on the demo mesh
+  - PHX-1095   # decay_tier and the activation threshold, found there first
+  - PHX-1097   # tier promotion, logged there as blocked
 linked_scripts:
   - docs/etappes/doctrine_inventory.md
