@@ -80,21 +80,21 @@ def main() -> None:
 
     _say("")
     _say(
-        f"Mesh {args.root}   Adjudikator {result.adjudicator_model}   "
-        f"max_group {args.max_group}   {'geschrieben' if args.apply else 'Probelauf'}"
+        f"Mesh {args.root}   Adjudicator {result.adjudicator_model}   "
+        f"max_group {args.max_group}   {'written' if args.apply else 'dry run'}"
     )
     _say(
-        f"Kandidaten {result.candidates}   bestätigt {result.confirmed}   "
-        f"vereinbar {result.compatible}   unklar {result.uncertain}   "
+        f"Candidates {result.candidates}   confirmed {result.confirmed}   "
+        f"compatible {result.compatible}   uncertain {result.uncertain}   "
         f"({result.elapsed_s:.0f}s)"
     )
     if args.apply:
-        _say(f"Kanten geschrieben {result.edges_written}   Absätze markiert {result.chunks_marked}")
+        _say(f"Edges written {result.edges_written}   paragraphs marked {result.chunks_marked}")
 
     confirmed = [f for f in result.findings if f["verdict"] == "CONTRADICTION"]
     if confirmed:
         _say("")
-        _say("Bestätigte Widersprüche:")
+        _say("Confirmed contradictions:")
         for f in confirmed:
             left = f"{f['left_name']} {f['descriptor']} {f['shared_name']}"
             right = f"{f['right_name']} {f['descriptor']} {f['shared_name']}"
@@ -128,7 +128,7 @@ def main() -> None:
             ),
             encoding="utf-8",
         )
-        _say(f"\nDetail geschrieben: {args.out}")
+        _say(f"\nDetail written: {args.out}")
 
 
 if __name__ == "__main__":

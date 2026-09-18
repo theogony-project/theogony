@@ -1,6 +1,6 @@
-# Was Gen 1 verspricht — die Vision gegen die Inventur gehalten
+# What Gen 1 promises — the vision held against the inventory
 
-> **English abstract.** The doctrine inventory (PHX-1100) says which mechanisms
+> **Abstract.** The doctrine inventory (PHX-1100) says which mechanisms
 > run; this page says what that means for the vision. *"The mesh is alive: it
 > grows, it links, it forgets, it consolidates, and it heals"* — verb by verb,
 > as of 2026-08-31: it grows; it links, though 93% of edges are proximity rather
@@ -21,287 +21,290 @@
 > Two addenda from the following day move the verb "learns": to *holds what it
 > uses* (PHX-1102), then, on 2Wiki, to *learns, and displaces* (PHX-1104).
 
-*2026-08-31, nach PHX-1097 (Konsolidierung), PHX-1100 (Inventur) und PHX-1101
-(Aktivierungsgedächtnis). Gegen `README.md`, `docs/VISION.md`, das MESH-Triplett
-und `ROADMAP.md`, mit den Messungen dieser Sitzung.*
+*2026-08-31, after PHX-1097 (consolidation), PHX-1100 (inventory) and PHX-1101
+(activation memory). Against `README.md`, `docs/VISION.md`, the MESH triplet,
+and `ROADMAP.md`, with this session's measurements.*
 
-## Warum diese Seite
+## Why this page
 
-Die Inventur ([`doctrine_inventory.md`](doctrine_inventory.md)) sagt, welche
-Mechanismen laufen. Sie sagt nicht, was das für die Vision bedeutet — und die
-Vision ist der Grund, aus dem alles andere gebaut wird. Diese Seite hält die
-beiden gegeneinander und formuliert am Ende neu, was das Substrat in Gen 1
-ehrlich verspricht.
+The inventory ([`doctrine_inventory.md`](doctrine_inventory.md)) says which
+mechanisms run. It does not say what that means for the vision — and the
+vision is the reason everything else is built. This page holds the two
+against each other and, at the end, restates what the substrate honestly
+promises in Gen 1.
 
-Die Doktrin verlangt das ausdrücklich. `MESH_SUBSTRATE.md` §„Why the substrate's
-mechanism is a system": *„Implementations should be honest about which subset
-they realise and which failure modes are open as a result."* Das hier ist diese
-Ehrlichkeit, auf einer Seite.
+The doctrine demands this explicitly. `MESH_SUBSTRATE.md` §"Why the
+substrate's mechanism is a system": *"Implementations should be honest about
+which subset they realise and which failure modes are open as a result."*
+This is that honesty, on one page.
 
-## Die Vision hat drei Schichten, und die Inventur trifft nur eine
+## The vision has three layers, and the inventory reaches only one
 
-**Die zivilisatorische Schicht** — Schienen statt Fahrzeuge, ein Commons, das
-niemandem gehört, Provenienz und Widerspruch als erste Klasse, eine Stiftung
-statt eines Exits. Nichts in der Inventur berührt sie. Sie ist eine Wette auf
-Governance, keine auf Code, und sie wird nicht dadurch falsch, dass ein Zähler
-auf Null steht. Diese Seite lässt sie in Ruhe.
+**The civilisational layer** — rails instead of vehicles, a commons that
+belongs to no one, provenance and contradiction as first-class citizens, a
+foundation instead of an exit. Nothing in the inventory touches it. It is a
+bet on governance, not on code, and it does not become wrong because a
+counter stands at zero. This page leaves it alone.
 
-**Die empirische Schicht** — die drei Fragen, an denen die README das Projekt
-misst. Eine davon ist beantwortet, zwei sind offen. Dazu unten.
+**The empirical layer** — the three questions against which the README
+measures the project. One of them is answered, two are open. More on this
+below.
 
-**Die architektonische Schicht** — das MESH-Triplett, der Satz *„The mesh is
-alive"*, die fünf lebensähnlichen Dynamiken, der permanente Traum. Hier hat die
-Inventur ihre Wirkung, und hier ist der Abstand zwischen dem, was die Dokumente
-sagen, und dem, was läuft, am größten. Der Rest dieser Seite handelt davon.
+**The architectural layer** — the MESH triplet, the sentence *"The mesh is
+alive"*, the five lifelike dynamics, the permanent dream. This is where the
+inventory has its effect, and here the gap between what the documents say and
+what runs is largest. The rest of this page is about that.
 
 ---
 
-## „The mesh is alive" — Wort für Wort
+## "The mesh is alive" — verb by verb
 
-Der Satz, auf den sich MESH_SUBSTRATE verdichtet: *„The mesh is alive: it grows,
-it links, it forgets, it consolidates, and it heals."* Nach der Inventur, mit dem
-Beleg je Verb:
+The sentence MESH_SUBSTRATE condenses to: *"The mesh is alive: it grows, it
+links, it forgets, it consolidates, and it heals."* After the inventory, with
+the evidence per verb:
 
-| es… | Stand | Beleg |
+| it… | status | evidence |
 |---|---|---|
-| **wächst** | ja | 1.210 Absätze gelesen, 5.002 Knoten, 94.490 Kanten; Ingestion läuft und ist auditiert (13.883 Audit-Zeilen) |
-| **verknüpft** | ja, mit einer Einschränkung | der Eager-Linker läuft; aber 93 % der Kanten sind Nähe, nicht Urteil (PHX-1066), und das stärkste Identitätssignal — Q-IDs — existiert auf dem Mesh nicht mehr (127 von 130 waren konfabuliert, PHX-1063) |
-| **vergisst** | **ja — und nur das** | 14 Ticks superlinearer Zerfall, im Gewichtsspektrum sichtbar; unbedingt, weil kein Feuersignal existierte |
-| **konsolidiert** | seit heute, von Hand | PHX-1097: 48 Cluster, 68 Knoten; als Skript, nicht im Tick, weil es ein Sprachmodell braucht |
-| **heilt** | nein | Pathologie-Überwachung, Therapie, Widerspruchsauflösung, Falschinformations-Entfernung: nichts davon existiert |
-| *lernt aus Benutzung* | **nein** | Hebbsche Verstärkung verdrahtet, in 14 Ticks nie gefeuert, und 17–254× zu schwach gegen den Zerfall (PHX-1102) |
+| **grows** | yes | 1,210 paragraphs read, 5,002 nodes, 94,490 edges; ingestion runs and is audited (13,883 audit lines) |
+| **links** | yes, with one caveat | the eager linker runs; but 93% of edges are proximity, not judgement (PHX-1066), and the strongest identity signal — Q-IDs — no longer exists on the mesh (127 of 130 were confabulated, PHX-1063) |
+| **forgets** | **yes — and only that** | 14 ticks of super-linear decay, visible in the weight spectrum; unconditional, because no firing signal existed |
+| **consolidates** | as of today, by hand | PHX-1097: 48 clusters, 68 nodes; as a script, not in the tick, because it needs a language model |
+| **heals** | no | pathology monitoring, therapy, contradiction resolution, misinformation removal: none of it exists |
+| *learns from use* | **no** | Hebbian reinforcement wired, never fired in 14 ticks, and 17–254× too weak against decay (PHX-1102) |
 
-Das letzte Verb steht nicht im Satz. Es steht in der README („The learning loop
-closes"), in VISION.md („amplified by Hebbian reactivation along frequently-used
-paths") und in der Doktrin als erste der fünf Primitiven. Es ist das Verb, das
-ein Substrat von einer Datenbank unterscheidet — und es ist das, das am
-weitesten vom Laufen entfernt ist.
+The last verb is not in the sentence. It is in the README ("The learning loop
+closes"), in VISION.md ("amplified by Hebbian reactivation along
+frequently-used paths"), and in the doctrine as the first of the five
+primitives. It is the verb that distinguishes a substrate from a database —
+and it is the one furthest from running.
 
-Der ehrliche Satz für Gen 1, heute: **Das Mesh wird gelesen, aktiviert, und
-vergisst. Es konsolidiert auf Anweisung. Es merkt sich seit heute, was es
-benutzt hat. Es lernt nicht, es heilt nicht.**
+The honest sentence for Gen 1, today: **The mesh is read, activated, and
+forgets. It consolidates on instruction. As of today, it remembers what it
+has used. It does not learn, it does not heal.**
 
-## Die fünf lebensähnlichen Dynamiken
+## The five lifelike dynamics
 
-Die README, Abschnitt 2: *„Lifelike dynamics — Hebbian strengthening,
+The README, section 2: *"Lifelike dynamics — Hebbian strengthening,
 super-linear decay, bounded saturation, atrophy decoupled from deletion,
-homeostatic renormalisation."* Fünf Mechanismen in einem Atemzug.
+homeostatic renormalisation."* Five mechanisms in one breath.
 
-| | läuft? | was die Messung sagt |
+| | runs? | what the measurement says |
 |---|---|---|
-| Hebbsche Verstärkung | verdrahtet, nie gefeuert | stärkstes Delta einer Abfrage 2,9e-4 gegen 4,8e-3 Zerfall je Tick; Kanten *erzeugen* kann sie gar nicht — der Zweig ist vom Produktionspfad aus unerreichbar |
-| superlinearer Zerfall | **ja** | k=2, λ=0,05, jeder Tick, jede Kante |
-| begrenzte Sättigung | inert | Kappe 10.000 gegen maximalen Ausgangsgrad 1.093; hat in 14 Ticks nie etwas abgeschnitten; die Gewichtssumme-Kappe der Doktrin fehlt |
-| Atrophie ohne Löschung | fehlt | kein gesundes Band, kein Pruner, kein Ressourcendruck-Auslöser |
-| homöostatische Renormalisierung | fehlt | ein einziger Treffer im Repo: der Docstring, der sagt, dass es nicht gebaut ist |
+| Hebbian reinforcement | wired, never fired | strongest delta of one query 2.9e-4 against 4.8e-3 decay per tick; it cannot even *create* edges — the branch is unreachable from the production path |
+| super-linear decay | **yes** | k=2, λ=0.05, every tick, every edge |
+| bounded saturation | inert | cap 10,000 against a maximum out-degree of 1,093; never clipped anything in 14 ticks; the doctrine's weight-sum cap is absent |
+| atrophy decoupled from deletion | absent | no health band, no pruner, no resource-pressure trigger |
+| homeostatic renormalisation | absent | a single hit in the repo: the docstring saying it is not built |
 
-**Einer von fünf.** Und der eine, der läuft, ist der, der wegnimmt.
+**One of five.** And the one that runs is the one that takes away.
 
-Das ist kein Vorwurf an die Doktrin. Sie sagt selbst, dass ein Teilsystem *„fails
-differently than the full design"*. Superlinearer Zerfall ohne Renormalisierung
-und ohne Verstärkung ist genau so ein Teilsystem, und seine Ausfallart ist
-benennbar: **ein Substrat, dessen Gewichte monoton gegen Null laufen, gebremst
-nur durch die Häufigkeit der Ticks.** Vierzehn Ticks in elf Tagen haben das
-Founding-Mesh von einem Gewichtsmodus bei 0,4 auf 0,31 gebracht. Nichts hält
-dagegen.
+This is not a criticism of the doctrine. It says itself that a subsystem
+*"fails differently than the full design"*. Super-linear decay without
+renormalisation and without reinforcement is exactly such a subsystem, and
+its failure mode can be named: **a substrate whose weights run monotonically
+toward zero, slowed only by how often ticks happen.** Fourteen ticks over
+eleven days moved the founding mesh from a weight mode of 0.4 to 0.31.
+Nothing pushes back.
 
-## Der permanente Traum
+## The permanent dream
 
-VISION.md: *„There is no nightly batch job. Instead, a continuous, low-priority
-'dreaming' process runs at all times."* README: *„a continuous low-priority
-process that runs activation across existing knowledge, treats the resulting
-constellations as new observations, and writes back denser connections. The
-Chronik grows wiser without reading new text."*
+VISION.md: *"There is no nightly batch job. Instead, a continuous,
+low-priority 'dreaming' process runs at all times."* README: *"a continuous
+low-priority process that runs activation across existing knowledge, treats
+the resulting constellations as new observations, and writes back denser
+connections. The Chronik grows wiser without reading new text."*
 
-Drei Dinge daran, jedes für sich belegt:
+Three things about this, each individually evidenced:
 
-1. **Der Mesh-Tick hat keinen Zeitplan.** `run_minimal_tick` hat genau einen
-   Aufrufer außerhalb der Tests: die CLI. Es gibt einen `OneirosWorker` mit
-   `tick_interval_s` — er treibt den **Gen-1-Store** und importiert `theogony.mesh`
-   nirgends. Der permanente Traum ist der alte Traum, über der alten Datenbank.
-2. **„Writes back denser connections"** — die Hebbsche Rückschreibung kann keine
-   Kante erzeugen (der Zweig ist unerreichbar), und sie hat auf dem Mesh nie
-   gefeuert. Jede der 94.490 Kanten stammt aus der Ingestion.
-3. **Das „+34,8 % MRR ohne neuen Text"** der README stammt aus
-   `scripts/mesh_oneiros_dream.py`, das laut eigenem Docstring *„never writes to
-   the workspace"*. Es ist eine Simulation über eine Kopie im Speicher, mit den
-   echten Tick-Funktionen — ein legitimes Experiment, aber kein Prozess, der
-   irgendwo läuft, und kein Mesh, das dadurch dichter geworden wäre.
+1. **The mesh tick has no schedule.** `run_minimal_tick` has exactly one
+   caller outside the tests: the CLI. There is an `OneirosWorker` with
+   `tick_interval_s` — it drives the **Gen-1 store** and imports
+   `theogony.mesh` nowhere. The permanent dream is the old dream, over the
+   old database.
+2. **"Writes back denser connections"** — the Hebbian write-back cannot
+   create an edge (the branch is unreachable), and it has never fired on the
+   mesh. Every one of the 94,490 edges comes from ingestion.
+3. **The README's "+34.8% MRR with no new text"** comes from
+   `scripts/mesh_oneiros_dream.py`, which, by its own docstring, *"never
+   writes to the workspace"*. It is a simulation over an in-memory copy,
+   using the real tick functions — a legitimate experiment, but not a
+   process that runs anywhere, and not a mesh that became denser through it.
 
-Der Traum ist als Messung real und als Prozess Fiktion. Das ist eine andere
-Aussage als die der README.
+The dream is real as a measurement and fiction as a process. That is a
+different claim than the README's.
 
-## Die drei empirischen Fragen
+## The three empirical questions
 
-Die README nennt sie *„the line between believing in the substrate and
+The README calls them *"the line between believing in the substrate and
 demonstrating it."*
 
-**1. Liest Kadmos v2 dichter als Chunking?** Unbeantwortet, und die Frage ist
-schlechter gestellt als sie aussieht: es gibt **zwei** Kadmos v2
-(`kadmos/reader.py`, kognitiv, mit totem Ähnlichkeitskanal; und
-`mesh/ingestion/kadmos_v2.py`, produktiv, aber *„paradigmatisch v1: zustandslos
-je Absatz"* — Tiefenaudit Juli). Das, was das Founding-Mesh gelesen hat, ist das
-zweite. `TARGET_ARCHITECTURE` führt die Frage als *Monkey 1* mit Stand *„Kadmos v1
-baseline established (0.49 ratio). True Nous not yet implemented."* Das ist noch
-der Stand.
+**1. Does Kadmos v2 read denser than chunking?** Unanswered, and the question
+is posed worse than it looks: there are **two** Kadmos v2's
+(`kadmos/reader.py`, cognitive, with a dead similarity channel; and
+`mesh/ingestion/kadmos_v2.py`, production, but *"paradigmatically v1:
+stateless per paragraph"* — the July deep audit). What the founding mesh read
+is the second one. `TARGET_ARCHITECTURE` lists the question as *Monkey 1*
+with status *"Kadmos v1 baseline established (0.49 ratio). True Nous not yet
+implemented."* That is still the status.
 
-**2. Schlägt Spreading Activation kNN bei hoher Kantendichte?** **Ja, gemessen —
-das eine demonstrierte Ergebnis des Projekts.** Auf zurückgehaltenen
-HippoRAG-Fragen, Konfiguration ohne Blick auf sie gewählt: **+0,102 Recall@5 auf
-2Wiki**, +0,030 HotpotQA, kein Einbruch auf PopQA. Und der Weg dorthin war
-lehrreich: die erste Messung fand *exakte Parität*, und die war ein
-Seeding-Artefakt (Seed-Retention 1,000, Rettungsrate 0,000). Der Vorteil lebt
-bei engem Seeding — was diese Sitzung auf dem Founding-Mesh bestätigt hat
-(k_seeds=1: 87 %, k_seeds=5: 78 %, k_seeds=32: 59 %).
+**2. Does Spreading Activation beat kNN at high edge density?** **Yes,
+measured — the one demonstrated result of the project.** On held-out
+HippoRAG questions, with a configuration chosen without looking at them:
+**+0.102 recall@5 on 2Wiki**, +0.030 HotpotQA, no drop on PopQA. And the path
+there was instructive: the first measurement found *exact parity*, and that
+was a seeding artefact (seed retention 1.000, rescue rate 0.000). The
+advantage lives at tight seeding — which this session confirmed on the
+founding mesh (k_seeds=1: 87%, k_seeds=5: 78%, k_seeds=32: 59%).
 
-Zwei Einschränkungen, die dazugehören. Das Retrieval auf dem Founding-Mesh liegt
-bei 87 % Recall — aber der **Antwortschritt** bewegt sich nicht, egal was das
-Retrieval liefert, und das Instrument, das das messen soll, hat auf seiner
-mesh-unabhängigen Kontrollgruppe **neun Punkte Streuung** (43–52 %) und ein
-Gold-Set, das eine Dopplung belohnt, die das Substrat entfernen soll (PHX-1098).
-Der Korpus ist Hesiod, und das Modell hat Hesiod gelesen; die Hälfte jedes
-Antwort-Ergebnisses ist Vorwissen. **Auf diesem Korpus lässt sich die zweite
-Frage für den Antwortschritt nicht mehr entscheiden.** Für das Retrieval ist sie
-entschieden.
+Two caveats belong here. Retrieval on the founding mesh sits at 87% recall —
+but the **answer step** does not move, no matter what retrieval delivers, and
+the instrument meant to measure that has **nine points of spread** (43–52%)
+on its mesh-independent control group, and a gold set that rewards a
+duplication the substrate is supposed to remove (PHX-1098). The corpus is
+Hesiod, and the model has read Hesiod; half of every answer result is prior
+knowledge. **On this corpus, the second question can no longer be decided for
+the answer step.** For retrieval, it is decided.
 
-**3. Erzeugt das MNLM Schlüsse, die in keiner Quelle stehen?** Nicht getestet.
-Blockiert auf H100-Rechenzeit (PHX-1035). Und der Falsifikator hat einen
-strukturellen Falsch-Positiv-Kanal, den das Tiefenaudit benannt hat: das Modell
-schreibt in den Index, den der Grader liest, und Llama kennt Wikipedia. Die
-Ablation-Kontrollen (frozen-mesh, parametric-only) stehen inzwischen im Brief
-§6.2 — aber die Frage bleibt die einzige der drei, zu der es keine einzige Zahl
-gibt.
+**3. Does the MNLM produce inferences that appear in no source?** Not tested.
+Blocked on H100 compute time (PHX-1035). And the falsifier has a structural
+false-positive channel that the deep audit named: the model writes into the
+index the grader reads, and Llama knows Wikipedia. The ablation controls
+(frozen-mesh, parametric-only) are now in the brief §6.2 — but the question
+remains the only one of the three for which there is not a single number.
 
-**Bilanz: eine von drei beantwortet, für das Retrieval.** Das ist mehr, als die
-meisten Projekte dieser Größe vorweisen können, und weniger, als die README
-suggeriert, wenn sie die drei Fragen als *„next milestones"* nebeneinanderstellt.
+**Balance: one of three answered, for retrieval.** That is more than most
+projects of this size can show, and less than the README suggests when it
+lines the three questions up as *"next milestones"*.
 
-## Wo die Doktrin selbst korrigiert werden muss
+## Where the doctrine itself needs correcting
 
-Die Inventur fand vor allem Implementierungslücken. An vier Stellen fand sie
-etwas anderes: Sätze im Triplett, die so nicht stehen bleiben können, weil die
-Messung ihnen widerspricht.
+The inventory found mostly implementation gaps. In four places it found
+something else: sentences in the triplet that cannot stand as written,
+because measurement contradicts them.
 
-1. **Tier-modulierter Zerfall.** MESH_SUBSTRATE §2: höhere Stufen tragen
-   *„gentler decay exponents"* (k=2 → 1,5 → 1,2 → 1). Für `0 < w < 1` gilt
-   `w^1,2 > w^2`; der kleinere Exponent entfernt *mehr*. Am Mediangewicht 0,3112
-   verliert k=1,2 das 2,5-fache von k=2. Alle Gewichte liegen unter 1, weil
-   `w_max` sie dort hält. **Die Leiter ist im Gewichtsbereich, den das Substrat
-   bewohnt, verkehrt herum.** Entweder Gewichte dürfen über 1 leben
-   (Renormalisierung), oder die Modulation muss anders formuliert werden
-   (z. B. λ je Tier statt k je Tier).
-2. **Die Aktivierungsschwelle.** MESH_IMPLEMENTATION §„Damping and stop
-   conditions" und ROADMAP: *„propagation halts at min_activation (~0.05)"*. Die
-   Zahl ist für `x_{t+1} = damping · A · x_t + injection` kalibriert. Was läuft,
-   ist PPR, massenerhaltend, auf einer anderen Skala: im Median erreichen 9 von
-   50 Knoten 0,05. Die Zahl gehört zu einem Operator, der nicht ausgeliefert ist.
-3. **„Typically 10–30 % of edges have any descriptor populated."**
-   (MESH_IMPLEMENTATION §„Edges"). Gemessen auf jedem Mesh im Repo: **100 %** —
-   94.490 von 94.490, 984.070 von 984.070. Der Satz beschreibt eine
-   Extraktion, die es nicht gibt; die Folge ist, dass die Metadaten-Tabelle so
-   groß ist wie der Kantentensor und ein kalter `mesh ask` 352 ms für ihren
-   Aufbau zahlt.
-4. **`fired_recent` ist ein „rolling window counter"** ohne Fensterlänge, und
-   nichts im Triplett sagt, ob ein Quellanker feuert. PHX-1101 hat beides
-   entscheiden müssen (γ=0,9, unbegründet; Anker ja, gemessen) — die Doktrin
-   sollte es nachtragen, statt die Antwort in einem Ticket zu lassen.
+1. **Tier-modulated decay.** MESH_SUBSTRATE §2: higher tiers carry *"gentler
+   decay exponents"* (k=2 → 1.5 → 1.2 → 1). For `0 < w < 1`, `w^1,2 > w^2`
+   holds; the smaller exponent removes *more*. At the median weight 0.3112,
+   k=1.2 loses 2.5× what k=2 loses. All weights sit below 1, because `w_max`
+   holds them there. **The ladder runs backwards in the weight range the
+   substrate actually inhabits.** Either weights are allowed to live above 1
+   (renormalisation), or the modulation has to be formulated differently
+   (e.g. λ per tier instead of k per tier).
+2. **The activation threshold.** MESH_IMPLEMENTATION §"Damping and stop
+   conditions" and ROADMAP: *"propagation halts at min_activation (~0.05)"*.
+   The number is calibrated for `x_{t+1} = damping · A · x_t + injection`.
+   What runs is PPR, mass-conserving, on a different scale: at the median, 9
+   of 50 nodes reach 0.05. The number belongs to an operator that has not
+   shipped.
+3. **"Typically 10–30 % of edges have any descriptor populated."**
+   (MESH_IMPLEMENTATION §"Edges"). Measured on every mesh in the repo:
+   **100%** — 94,490 of 94,490, 984,070 of 984,070. The sentence describes an
+   extraction that does not exist; the consequence is that the metadata
+   table is as large as the edge tensor, and a cold `mesh ask` pays 352 ms
+   to build it.
+4. **`fired_recent` is a "rolling window counter"** with no window length,
+   and nothing in the triplet says whether a source anchor fires. PHX-1101
+   had to decide both (γ=0.9, unjustified; anchor yes, measured) — the
+   doctrine should append this, rather than leaving the answer in a ticket.
 
-Dazu, aus dem Tiefenaudit vom Juli und unverändert: die Tier-1-Arithmetik in
-`CHRONIK_SCALE` geht nicht auf (CSR 95–250 GB gegen 80 GB GPU), und
-MESH_IMPLEMENTATION widerspricht sich bei der Kantenzahl (10⁹ gegen 10¹⁰).
+In addition, from the July deep audit and still unchanged: the tier-1
+arithmetic in `CHRONIK_SCALE` does not add up (CSR 95–250 GB against 80 GB
+GPU), and MESH_IMPLEMENTATION contradicts itself on the edge count (10⁹
+against 10¹⁰).
 
-## Was in der README nicht mehr stimmt
+## What in the README is no longer true
 
-Der Abschnitt *„Where we are — honestly"* ist das stärkste Stück der README, und
-genau deshalb müssen seine Sätze stimmen. Fünf davon tun das nicht mehr, oder
-nicht so, wie sie dastehen. Hier stehen sie mit dem Beleg — **nicht geändert**,
-weil die README Jakobs Stimme ist und weil der Umfang dieser Seite ein Dokument
-war, nicht zwei.
+The section *"Where we are — honestly"* is the README's strongest piece, and
+exactly for that reason its sentences have to be true. Five of them no longer
+are, or not as they stand. Here they are with the evidence — **not
+changed**, because the README is Jakob's voice and because the scope of
+this page was one document, not two.
 
-| README sagt | Stand | Vorschlag |
+| README says | Status | Proposal |
 |---|---|---|
-| *„Lifelike dynamics — Hebbian strengthening, super-linear decay, bounded saturation, atrophy decoupled from deletion, homeostatic renormalisation."* | einer von fünf läuft | *„Lifelike dynamics — super-linear decay runs; Hebbian strengthening is wired and at the shipped calibration cannot hold an edge against one tick of decay (PHX-1102); saturation, atrophy and renormalisation are specified and unbuilt (PHX-1100)."* |
-| *„A continuous Oneiros process scores and promotes knowledge"* | Gen-1-Worker; der Mesh-Tick ist unscheduled; nichts wurde je befördert (`consolidation_tier` = 1 überall) | *„A continuous Oneiros process runs on the Gen-1 store; the mesh tick is invoked by hand (`mesh tick`), and tier promotion has an input only since PHX-1101."* |
-| *„The learning loop closes … Query → reinforcement → tick → denser mesh now runs end to end"* | läuft end-to-end, wurde nie ausgeführt, kann keine Kante erzeugen, und ist 17–254× zu schwach | *„The learning loop is wired end to end and has never run on the founding mesh: all 14 ticks drained zero reinforcement, and at the shipped α/λ a single query's strongest delta is 17× smaller than one tick of decay (PHX-1102). It cannot create edges; the create branch is unreachable from the query path."* |
-| *„one continuous Oneiros 'dream' pass improved held-out link-prediction MRR by +34.8 %"* | in-memory-Simulation, schreibt nie zurück | *„an in-memory simulation of the dream pass, using the substrate's real tick functions on a copy, improved held-out MRR by +34.8 % — no mesh was changed by it."* |
-| *„recall over them runs 74 % at the default 50-node constellation"* | 80 % am Default, 87 % bei k_seeds=1 (konsolidiert) | Zahl aktualisieren und den Seed-Befund nennen (PHX-1099). |
+| *"Lifelike dynamics — Hebbian strengthening, super-linear decay, bounded saturation, atrophy decoupled from deletion, homeostatic renormalisation."* | one of five runs | *"Lifelike dynamics — super-linear decay runs; Hebbian strengthening is wired and at the shipped calibration cannot hold an edge against one tick of decay (PHX-1102); saturation, atrophy and renormalisation are specified and unbuilt (PHX-1100)."* |
+| *"A continuous Oneiros process scores and promotes knowledge"* | Gen-1 worker; the mesh tick is unscheduled; nothing was ever promoted (`consolidation_tier` = 1 everywhere) | *"A continuous Oneiros process runs on the Gen-1 store; the mesh tick is invoked by hand (`mesh tick`), and tier promotion has an input only since PHX-1101."* |
+| *"The learning loop closes … Query → reinforcement → tick → denser mesh now runs end to end"* | runs end-to-end, was never executed, cannot create an edge, and is 17–254× too weak | *"The learning loop is wired end to end and has never run on the founding mesh: all 14 ticks drained zero reinforcement, and at the shipped α/λ a single query's strongest delta is 17× smaller than one tick of decay (PHX-1102). It cannot create edges; the create branch is unreachable from the query path."* |
+| *"one continuous Oneiros 'dream' pass improved held-out link-prediction MRR by +34.8 %"* | in-memory simulation, never writes back | *"an in-memory simulation of the dream pass, using the substrate's real tick functions on a copy, improved held-out MRR by +34.8 % — no mesh was changed by it."* |
+| *"recall over them runs 74 % at the default 50-node constellation"* | 80% at default, 87% at k_seeds=1 (consolidated) | Update the number and name the seed finding (PHX-1099). |
 
-Und ein Satz, der fehlt: **dass die Konsolidierung existiert** (PHX-1097) und
-dass die Inventur öffentlich ist. Das eine ist das Substrat, das zum ersten Mal
-seine eigene Identität geklärt hat; das andere ist die ehrlichste Statuszeile,
-die dieses Projekt je hatte.
+And a sentence that is missing: **that consolidation exists** (PHX-1097) and
+that the inventory is public. The first is the substrate clarifying its own
+identity for the first time; the second is the most honest status line this
+project has ever had.
 
-`llms.txt` trägt dieselben Sätze in kürzerer Form und dieselben Fehler.
+`llms.txt` carries the same sentences in shorter form, and the same errors.
 
 ---
 
-## Was Gen 1 ehrlich verspricht
+## What Gen 1 honestly promises
 
-Die Vision ist nicht falsch geworden. Was die Inventur gezeigt hat, ist der
-Abstand zwischen dem Satz *„the mesh is alive"* und dem Stand — und dass dieser
-Abstand aus **Sensorik** besteht, nicht aus Einsicht. Mehrere Organe sind gebaut
-und an Messfühler angeschlossen, die nie eingebaut wurden. Seit heute ist der
-erste eingebaut.
+The vision has not become wrong. What the inventory showed is the gap
+between the sentence *"the mesh is alive"* and the status quo — and that this
+gap consists of **sensing**, not insight. Several organs are built and
+connected to sensors that were never installed. As of today, the first one
+is installed.
 
-Also, neu formuliert, was das Substrat in Gen 1 verspricht — jeder Satz belegt:
+So, restated, what the substrate promises in Gen 1 — every sentence with
+evidence:
 
-> **Gen 1 ist ein Substrat, in das gelesen und aus dem aktiviert wird.**
-> Es hält Wissen als Vektoren und gewichtete Kanten, ohne Rohtext als Nutzlast,
-> und die Aktivierung darüber schlägt Nearest-Neighbour auf Mehrsprung-Fragen —
-> gemessen auf zurückgehaltenen Fragen, mit einer Konfiguration, die ohne Blick
-> auf sie gewählt wurde.
+> **Gen 1 is a substrate that is read into and activated from.**
+> It holds knowledge as vectors and weighted edges, with no raw text as
+> payload, and activation over it beats nearest-neighbour on multi-hop
+> questions — measured on held-out questions, with a configuration chosen
+> without looking at them.
 >
-> **Es vergisst.** Superlinear, jeden Tick, jede Kante.
+> **It forgets.** Super-linearly, every tick, every edge.
 >
-> **Es konsolidiert auf Anweisung.** Ein Pass, der Entitätskandidaten mit einem
-> Sprachmodell zusammenführt, die Beschreibung neu erzeugt und jede Absorption
-> im Audit hinterlässt.
+> **It consolidates on instruction.** A pass that merges entity candidates
+> with a language model, regenerates the description, and leaves every
+> absorption in the audit.
 >
-> **Es merkt sich, was es benutzt hat.** Seit heute — und noch liest nichts
-> daraus.
+> **It remembers what it has used.** As of today — and nothing reads from
+> it yet.
 >
-> **Es lernt nicht aus Benutzung, es heilt nicht, es befördert nicht.** Die
-> Organe dafür sind zum Teil gebaut, ihre Kalibrierung ist es nicht, und die
-> Doktrin, nach der sie gebaut wurden, braucht an vier Stellen eine Korrektur.
+> **It does not learn from use, it does not heal, it does not promote.**
+> The organs for this are partly built, their calibration is not, and the
+> doctrine they were built from needs correcting in four places.
 >
-> **Und es sagt das alles selbst.** Jede Behauptung über dieses Substrat ist
-> gegen eine Kontrolle gemessen, jeder Fehlschlag ist als Ticket abgelegt, und
-> die Inventur dessen, was läuft, ist öffentlich. Das ist das eine Versprechen,
-> das Gen 1 heute vollständig hält.
+> **And it says all of this itself.** Every claim about this substrate is
+> measured against a control, every failure is filed as a ticket, and the
+> inventory of what runs is public. That is the one promise Gen 1 fully
+> keeps today.
 
-Das ist weniger als *„a language model turned inside out"* und mehr als *„a very
-good RAG"*. Es ist ein Lese-Substrat mit dem Skelett eines lebenden, dessen
-Herzschlag noch nicht gemessen wurde — und dessen erster Herzschlag die nächste
-Arbeit ist ([`PHX-1102`](../../phoenix-backlog/PHX-1102.yaml)).
+That is less than *"a language model turned inside out"* and more than *"a
+very good RAG"*. It is a reading substrate with the skeleton of a living
+one, whose heartbeat has not yet been measured — and whose first heartbeat is
+the next work ([`PHX-1102`](../../phoenix-backlog/PHX-1102.yaml)).
 
-## Nachtrag, am Tag danach
+## Addendum, the day after
 
-Die Zeile *lernt aus Benutzung — nein* in der Tabelle oben ist seit PHX-1102
-ungenau, und zwar in beide Richtungen. Der Zerfall verschont jetzt, was gefeuert
-hat; das Substrat **hält, was es benutzt** — gemessen, ohne Nebenwirkung auf das
-Ungenutzte. Und der Herzschlag, „antwortet besser auf das Benutzte", ist live
-gemessen und **nicht** erschienen: Recall über zehn Runden invariant, unter jeder
-Politik. Das Verb ist von *nein* zu *hält* gewandert, nicht zu *ja*. Die
-Neuformulierung oben bleibt, wie sie am 31. August stand; der eine Satz darin,
-der sich geändert hat, ist „es lernt nicht aus Benutzung" → „es hält, was es
-benutzt, und lernt noch nicht sichtbar". Warum, und was den Herzschlag sichtbar
-machen würde: [`hebbian_calibration.md`](hebbian_calibration.md), PHX-1104.
+The line *learns from use — no* in the table above has been inaccurate since
+PHX-1102, in both directions. Decay now spares what has fired; the substrate
+**holds what it uses** — measured, with no side effect on what is unused. And
+the heartbeat, "responds better to what has been used", was measured live and
+**did not** appear: recall invariant over ten rounds, under every policy. The
+verb moved from *no* to *holds*, not to *yes*. The reformulation above stays
+as it stood on 31 August; the one sentence in it that has changed is "it does
+not learn from use" → "it holds what it uses, and does not yet learn
+visibly". Why, and what would make the heartbeat visible:
+[`hebbian_calibration.md`](hebbian_calibration.md), PHX-1104.
 
-## Nachtrag II, am Tag danach
+## Addendum II, the day after
 
-Auf 2Wiki, wo das Retrieval Spielraum hat, **bewegt sich das Verb zum ersten
-Mal**: mit Gate und Hebb auf Doktrin-Skala werden die benutzten Fragen um +1,3
-Punkte besser und bleiben es über 50 Runden. Und die zurückgehaltenen werden um
-−1,5 schlechter — monoton, mit oder ohne Gutschrift. *Lernt* ist damit von
-*hält* zu **„lernt, und verdrängt dabei"** gewandert. Die Gegenkraft, die die
-Doktrin dafür vorsieht, ist die Renormalisierung (§6); sie ist das nächste Organ
+On 2Wiki, where retrieval has room to move, **the verb moves for the first
+time**: with gate and Hebb at doctrine scale, the used questions improve by
++1.3 points and stay improved over 50 rounds. And the held-out ones get worse
+by −1.5 — monotonically, with or without credit. *Learns* has thus moved from
+*holds* to **"learns, and displaces while doing it"**. The counterforce the
+doctrine provides for this is renormalisation (§6); it is the next organ
 ([`heartbeat_2wiki.md`](heartbeat_2wiki.md), PHX-1106).
 
-## Was das für die Reihenfolge heißt
+## What this means for the order
 
-Nichts Neues gegenüber der Inventur, nur bestätigt aus der Vision heraus: Das
-Verb, das der Vision am meisten fehlt, ist *lernt*. Der Weg dorthin ist
-Aktivierungsgedächtnis (gebaut) → Zerfall nur auf Ungefeuertes und α gegen λ
-(PHX-1102) → Renormalisierung, damit die Tier-Leiter das Richtige tut. Splits,
-Pathologie und Therapie danach — sie lesen aus einer Geschichte, die seit heute
-erst geschrieben wird.
+Nothing new relative to the inventory, only confirmed from the vision's
+side: the verb the vision misses most is *learns*. The path there is
+activation memory (built) → decay only on what has not fired, and α against λ
+(PHX-1102) → renormalisation, so the tier ladder does the right thing.
+Splits, pathology and therapy after that — they read from a history that, as
+of today, has only just begun being written.

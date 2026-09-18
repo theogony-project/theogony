@@ -82,10 +82,10 @@ def cmd_train(args: argparse.Namespace) -> None:
             f"{len(previous.report['epochs']) if previous.report else '?'} epochs"
         )
     _say(
-        f"Leser {reader.name} auf {reader.device} ({args.dtype})   Knoten {len(nodes)}   "
-        f"Vektoren {args.vectors}   Projektor {node_dim} -> {reader.llm_dim}   "
-        f"Seed {args.seed}   Epochen {args.epochs}"
-        + (f"   fortgesetzt von {resumed}" if resumed else "")
+        f"Reader {reader.name} on {reader.device} ({args.dtype})   Nodes {len(nodes)}   "
+        f"Vectors {args.vectors}   Projector {node_dim} -> {reader.llm_dim}   "
+        f"Seed {args.seed}   Epochs {args.epochs}"
+        + (f"   resumed from {resumed}" if resumed else "")
     )
     report = train_projector(
         reader,
@@ -102,7 +102,7 @@ def cmd_train(args: argparse.Namespace) -> None:
         log=_say,
     )
     save_projector(projector, args.projector, report)
-    _say(f"Projektor geschrieben: {args.projector}")
+    _say(f"Projector written: {args.projector}")
 
 
 def cmd_answer(args: argparse.Namespace) -> None:
@@ -141,24 +141,24 @@ def cmd_answer(args: argparse.Namespace) -> None:
     summary = summarise_answers(results)
 
     _say(
-        f"Leser {reader.name}   Ticks {runtime.tick_count()}   top_k {args.top_k}   "
+        f"Reader {reader.name}   Ticks {runtime.tick_count()}   top_k {args.top_k}   "
         f"k_seeds {args.seeds if args.seeds is not None else DEFAULT_K_SEEDS}   "
-        f"Fragen {len(gold)}   Vektoren {mode}   Projektor {args.projector or '-'}"
+        f"Questions {len(gold)}   Vectors {mode}   Projector {args.projector or '-'}"
     )
     if training:
         last = training["epochs"][-1]
         _say(
-            f"Projektor-Training: {training['nodes_train']} Knoten, "
-            f"{len(training['epochs'])} Epochen, Verlust {last['train_loss']:.3f}, "
-            f"Label wiedererkannt {last['label_recovery_train']:.0%} (Training) / "
-            f"{last['label_recovery_holdout']:.0%} (zurückgehalten)"
+            f"Projector training: {training['nodes_train']} nodes, "
+            f"{len(training['epochs'])} epochs, loss {last['train_loss']:.3f}, "
+            f"label recovered {last['label_recovery_train']:.0%} (training) / "
+            f"{last['label_recovery_holdout']:.0%} (held-out)"
         )
     strict = strict_rows(results, gold)
     summary_strict = summarise_answers(strict)
     _say("")
     _say(
-        f"{'Arm':16s} {'Antwort-Recall':>15s} {'vollständig':>12s} "
-        f"{'streng':>8s} {'vollständig':>12s} {'Wörter':>7s}"
+        f"{'Arm':16s} {'Answer recall':>15s} {'complete':>12s} "
+        f"{'strict':>8s} {'complete':>12s} {'words':>7s}"
     )
     for arm in arms:
         s, t = summary.get(arm), summary_strict.get(arm)
@@ -173,25 +173,25 @@ def cmd_answer(args: argparse.Namespace) -> None:
                 f"{words:7.0f}"
             )
     _say(
-        "  streng = ohne die Gold-Namen, die in der Frage selbst stehen; ein Arm, der in "
-        "Sätzen antwortet, spricht die Frage nach und wird sonst dafür bezahlt"
+        "  strict = without the gold names that appear in the question itself; an arm that "
+        "answers in sentences echoes the question back and is otherwise paid for it"
     )
 
     comparisons = [
-        ("soft", "constellation", "Vektoren gegen Text, dieselbe Constellation"),
-        ("soft", "soft_untrained", "trainiert gegen untrainiert"),
-        ("soft", "closed_book", "Vektoren gegen Vorwissen"),
-        ("constellation", "closed_book", "Text gegen Vorwissen"),
+        ("soft", "constellation", "vectors vs. text, the same constellation"),
+        ("soft", "soft_untrained", "trained vs. untrained"),
+        ("soft", "closed_book", "vectors vs. prior knowledge"),
+        ("constellation", "closed_book", "text vs. prior knowledge"),
     ]
     for arm, against, label in comparisons:
         if arm in summary and against in summary:
             pair = paired_arms(results, arm=arm, against=against)
             tight = paired_arms(strict, arm=arm, against=against)
             _say(
-                f"\n{label}: {pair['delta']:+.0%} Recall; Frage für Frage "
-                f"{pair['better']:.0f} besser / {pair['worse']:.0f} schlechter / "
-                f"{pair['equal']:.0f} gleich"
-                f"   | streng {tight['delta']:+.0%}, {tight['better']:.0f} / "
+                f"\n{label}: {pair['delta']:+.0%} recall; question by question "
+                f"{pair['better']:.0f} better / {pair['worse']:.0f} worse / "
+                f"{pair['equal']:.0f} tied"
+                f"   | strict {tight['delta']:+.0%}, {tight['better']:.0f} / "
                 f"{tight['worse']:.0f} / {tight['equal']:.0f}"
             )
 
@@ -227,7 +227,7 @@ def cmd_answer(args: argparse.Namespace) -> None:
             ),
             encoding="utf-8",
         )
-        _say(f"\nDetail geschrieben: {args.out}")
+        _say(f"\nDetail written: {args.out}")
 
 
 def cmd_diagnose(args: argparse.Namespace) -> None:
@@ -239,17 +239,17 @@ def cmd_diagnose(args: argparse.Namespace) -> None:
     train, holdout = split_holdout(nodes, args.holdout, args.seed)
     control = fresh_projector(reader, loaded.projector.node_dim, seed=CONTROL_SEED)
     _say(
-        f"Leser {reader.name}   Projektor {args.projector} "
-        f"({len(loaded.report['epochs']) if loaded.report else '?'} Epochen, {loaded.mode})   "
-        f"je {args.sample} Knoten"
+        f"Reader {reader.name}   Projector {args.projector} "
+        f"({len(loaded.report['epochs']) if loaded.report else '?'} epochs, {loaded.mode})   "
+        f"{args.sample} nodes each"
     )
-    _say(f"{'Knoten':8s} {'Vektor':10s} {'Name-Token':>11s} {'Beschreibung-Token':>19s}")
+    _say(f"{'Nodes':8s} {'Vector':10s} {'Name token':>11s} {'Description token':>19s}")
     for name, group in (("train", train[: args.sample]), ("holdout", holdout[: args.sample])):
         shifted = list(group[7:]) + list(group[:7])
         for label, projector, source in (
-            ("richtig", loaded.projector, None),
-            ("fremd", loaded.projector, shifted),
-            ("Kontrolle", control, None),
+            ("correct", loaded.projector, None),
+            ("foreign", loaded.projector, shifted),
+            ("control", control, None),
         ):
             split = token_loss_split(reader, projector, group, mode=loaded.mode, vector_from=source)
             _say(

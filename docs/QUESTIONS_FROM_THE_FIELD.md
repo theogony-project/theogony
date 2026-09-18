@@ -31,9 +31,9 @@ Order is most-recent first.
 
 **Question** (original German, verbatim):
 
-> Gibt es irgendwo eine Übersicht — Status, Cluster, Reports — die
-> ich im Browser öffnen kann, ohne JSON-Dateien zu grep-en? MCP ist
-> für Agenten; was ist die Fläche für Menschen?
+> Is there an overview somewhere — status, clusters, reports — that
+> I can open in the browser without grepping through JSON files? MCP
+> is for agents; what is the surface for humans?
 
 **English sense:** Is there an overview — status, clusters, reports — I can open in the browser without grepping JSON files? MCP is for agents; what is the human-facing surface?
 
@@ -53,14 +53,13 @@ Shipped as **[PHX-0074 — Iris / Pantheon Cockpit](../phoenix-backlog/archive/P
 
 **Question** (original German, verbatim):
 
-> Sind die Vektordimensionen für alle Daten gleich? Würde es Sinn
-> machen, für bestimmte Datentypen andere Vektordimensionen zu
-> verwenden? Zum Beispiel für normalen Text unser klassisches
-> Embedding und für genetischen Code ein anderes Embedding mit
-> anderer Dimensionalität und vielleicht für Code wieder ein
-> anderes Embedding? Ließe sich das alles in einer einzigen
-> Vektordatenbank halten und wie würde der Zugriff auf diese Daten
-> aussehen? Und ließen sich diese Daten verknüpfen?
+> Are the vector dimensions the same for all data? Would it make sense
+> to use different vector dimensions for certain data types? For
+> example, our classic embedding for normal text, and a different
+> embedding with a different dimensionality for genetic code, and
+> perhaps yet another embedding for code? Could all of this be kept in
+> a single vector database, and what would access to this data look
+> like? And could this data be linked?
 
 **English sense:** Are vector dimensions the same for all data? Should different modalities use different embedding dimensions (e.g. text vs genetic code vs code)? Can they live in one vector store, how would access work, and can they be linked?
 

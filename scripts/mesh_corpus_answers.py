@@ -94,13 +94,13 @@ def main() -> None:
     summary = summarise_answers(results)
 
     print(
-        f"Modell {settings.llm.provider}/{settings.llm.model_id or '<default>'}   "
+        f"Model {settings.llm.provider}/{settings.llm.model_id or '<default>'}   "
         f"Ticks {runtime.tick_count()}   top_k {args.top_k}   "
         f"k_seeds {args.seeds if args.seeds is not None else DEFAULT_K_SEEDS}   "
-        f"Fragen {len(gold)}   Laeufe {args.repeat}   Rendering typed_only"
+        f"Questions {len(gold)}   Runs {args.repeat}   Rendering typed_only"
     )
     print()
-    print(f"{'Arm':16s} {'Antwort-Recall':>15s} {'vollstaendig':>13s} {'verweigert':>11s}")
+    print(f"{'Arm':16s} {'Answer recall':>15s} {'complete':>13s} {'declined':>11s}")
     for arm in arms:
         s = summary.get(arm)
         if not s:
@@ -118,10 +118,10 @@ def main() -> None:
 
     if "constellation" in summary and "vector_only" in summary:
         delta = summary["constellation"]["answer_recall"] - summary["vector_only"]["answer_recall"]
-        print(f"\nGraph gegen reine Vektorsuche: {delta:+.0%}")
+        print(f"\nGraph vs. pure vector search: {delta:+.0%}")
     if "constellation" in summary and "closed_book" in summary:
         delta = summary["constellation"]["answer_recall"] - summary["closed_book"]["answer_recall"]
-        print(f"Graph gegen Vorwissen:        {delta:+.0%}")
+        print(f"Graph vs. prior knowledge:    {delta:+.0%}")
 
     # Paired, because the totals above are the wrong comparison when the control
     # is this noisy: both arms' totals move with the model's mood, the pairing
@@ -132,13 +132,13 @@ def main() -> None:
             continue
         pair = paired_against(results, arm=arm)
         print(
-            f"\n{arm} gegen closed_book, Frage fuer Frage: "
-            f"{pair['better']:.0f} besser / {pair['worse']:.0f} schlechter / "
-            f"{pair['equal']:.0f} gleich"
+            f"\n{arm} vs. closed_book, question by question: "
+            f"{pair['better']:.0f} better / {pair['worse']:.0f} worse / "
+            f"{pair['equal']:.0f} tied"
         )
         print(
-            f"  auf den {pair['slice_questions']:.0f} Fragen, die closed_book nicht "
-            f"vollstaendig beantwortet: {pair['slice_recall']:.0%}"
+            f"  on the {pair['slice_questions']:.0f} questions closed_book does not "
+            f"answer completely: {pair['slice_recall']:.0%}"
         )
 
     if args.verbose:
@@ -183,7 +183,7 @@ def main() -> None:
             ),
             encoding="utf-8",
         )
-        print(f"\nDetail geschrieben: {args.out}")
+        print(f"\nDetail written: {args.out}")
 
 
 if __name__ == "__main__":

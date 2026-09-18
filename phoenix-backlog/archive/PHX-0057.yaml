@@ -11,7 +11,7 @@ description: |
   ``RelevanceTracker.bump`` raises ``relevance`` and
   ``last_accessed`` on every cited *node* by δ=0.05 per
   retrieval. Three structural gaps relative to a real
-  pheromone-trail model (the user's "Ameisenstraße" framing,
+  pheromone-trail model (the user's "ant-trail" framing,
   conversation 2026-04-20):
 
   1. **Edges are not strengthened.** When an answer travels
@@ -121,4 +121,4 @@ related:
 
 referenced_in:
   - "docs/COGNITIVE_ARCHITECTURE.md Fast/Slow Path — gives this ticket its conceptual home"
-  - "Composer conversation 2026-04-20 — user introduced the Ameisenstraße/pheromone framing and explicitly named the Slow-Path-emancipation requirement"
+  - "Composer conversation 2026-04-20 — user introduced the ant-trail/pheromone framing and explicitly named the Slow-Path-emancipation requirement"

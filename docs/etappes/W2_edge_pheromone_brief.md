@@ -13,7 +13,7 @@ Direct brief, no Daedalus. Five design knobs are pre-locked below — your job i
 
 ## Why this etappe exists
 
-Today's pheromone signal is **node-level only**: `RelevanceTracker.bump_all` raises `relevance` and `last_accessed` on every cited *node* by δ=0.05 per retrieval. Three structural gaps relative to the user's "Ameisenstraße" framing (PHX-0057):
+Today's pheromone signal is **node-level only**: `RelevanceTracker.bump_all` raises `relevance` and `last_accessed` on every cited *node* by δ=0.05 per retrieval. Three structural gaps relative to the user's "ant-trail" framing (PHX-0057):
 
 1. **Edges are not strengthened.** When an answer travels through path A → B → C, today only nodes A, B, C receive a bump. The edges (A,B) and (B,C) — the actual conduit the next query will follow — keep their original weight. The trail is invisible to the graph itself.
 2. **No symmetric edge decay.** Nodes have `freshness` that decays with idle days. Edges have no analogous erosion. Without it, the first successes become permanent autobahns — concept lock-in by attention bias.

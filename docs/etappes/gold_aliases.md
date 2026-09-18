@@ -1,6 +1,6 @@
-# Das Gold-Set repariert: Aliase, und nichts mehr, was die Frage verrät (PHX-1098)
+# The gold set repaired: aliases, and nothing left that gives away the question (PHX-1098)
 
-> **English abstract.** *Question.* Can the founding gold set be trusted as an
+> **Abstract.** *Question.* Can the founding gold set be trusted as an
 > instrument? *Found.* Two defects in one file: no answer aliases ("Eos, Selene,
 > Helios, Helius" scored 3/3 for naming one god twice, the correct "Helios, Eos,
 > Selene" 2/3), and 30 of 111 gold names standing in their own question, which
@@ -19,148 +19,148 @@
 > does not know (PHX-1110). Historical figures stay in their tickets as
 > measured.
 
-**Stand:** 2026-09-16, gemessen. Spur C des Plans, erstes Stück.
-**Werkzeug:** `eval/gold/founding_corpus.json` (`aliases` je Frage), `corpus_answers._score(…, aliases)`, `corpus_qa.GoldQuestion.names_for`, zwei neue Hygiene-Tests.
+**Status:** 2026-09-16, measured. Track C of the plan, first piece.
+**Tools:** `eval/gold/founding_corpus.json` (`aliases` per question), `corpus_answers._score(…, aliases)`, `corpus_qa.GoldQuestion.names_for`, two new hygiene tests.
 
-## Zwei Fehler in einer Datei
+## Two defects in one file
 
-**Keine Aliase.** Der Bewerter verglich den Gold-String wörtlich. Das Gold sagte
-`Helius`, die Übersetzung und die Modelle sagen auch `Helios`, und so bekam
-„Eos, Selene, Helios, Helius" 3 von 3 dafür, einen Gott zweimal zu nennen,
-während das richtige „Helios, Eos, Selene" 2 von 3 bekam. Ein Gold-Set, das
-durch eine Verdopplung zu erfüllen war, die das Substrat entfernen soll
-(gefunden in PHX-1097, bewusst nicht dort behoben, weil eine
-Instrumentkorrektur, die mit dem Ergebnis landet, das sie schmeichelt, nichts
-wert ist).
+**No aliases.** The scorer compared the gold string literally. The gold said
+`Helius`, the translation and the models also say `Helios`, and so "Eos,
+Selene, Helios, Helius" scored 3 of 3 for naming one god twice, while the
+correct "Helios, Eos, Selene" scored 2 of 3. A gold set that could be
+satisfied by a duplication that the substrate is meant to remove (found in
+PHX-1097, deliberately not fixed there, because an instrument correction that
+lands on the result that flatters it is worth nothing).
 
-**Die Frage verriet die Antwort.** 30 der 111 Gold-Namen standen in ihrer
-eigenen Frage — „What measures the depth of Tartarus?" erwartete `Tartarus`,
-„How were Chrysaor and Pegasus born?" erwartete Chrysaor und Pegasus. Ein
-Substring-Bewerter bezahlt das, sobald eine Antwort die Frage nachspricht, und
-bezahlt einen Arm, der in Sätzen antwortet, am meisten: der weiche Arm der
-latenten Meile (PHX-1109) kam so auf 28 %, wo eine strenge Zählung 11 % gab.
+**The question gave away the answer.** 30 of the 111 gold names stood in
+their own question — "What measures the depth of Tartarus?" expected
+`Tartarus`, "How were Chrysaor and Pegasus born?" expected Chrysaor and
+Pegasus. A substring scorer pays for that the moment an answer echoes the
+question, and pays the arm that answers in sentences the most: the soft arm
+of the latent mile (PHX-1109) came out at 28% that way, where a strict count
+gave 11%.
 
-Beim Aufräumen stellten sich **drei Erwartungen als schlicht falsch** heraus,
-jede gegen den Korpus geprüft:
+Cleaning up exposed **three expectations that were simply wrong**, each
+checked against the corpus:
 
-| Frage | stand im Gold | steht im Text |
+| Question | stood in the gold | stands in the text |
 |---|---|---|
-| Whom did Hermaon beget with Thronia? | Thronia, Belus | **Arabus** — Belus ist Thronias Vater (Fr. 15) |
-| What offspring did Echidna bear to Orthus? | Echidna, Orthus | **Sphinx** und **Nemean lion** (Theog. 326) |
-| Who are the sons of Iapetus? | Menoetius, Prometheus, Epimetheus | dazu **Atlas** (Theog. 509) |
+| Whom did Hermaon beget with Thronia? | Thronia, Belus | **Arabus** — Belus is Thronia's father (Fr. 15) |
+| What offspring did Echidna bear to Orthus? | Echidna, Orthus | **Sphinx** and **Nemean lion** (Theog. 326) |
+| Who are the sons of Iapetus? | Menoetius, Prometheus, Epimetheus | plus **Atlas** (Theog. 509) |
 
-Und mehrere Fragen, deren „Antwort" nur ihr eigenes Subjekt war, erwarten
-jetzt, was sie fragen: `fifty` für die Töchter des Nereus, `foam` für
-Aphrodite, `anvil` für die Tiefe des Tartaros, `fire` für die Chimaira,
-`flesh`/`bones` für die Portionen des Prometheus, `Earth`/`Heaven` für den
-Grund, aus dem Kronos seine Kinder verschlang.
+And several questions whose "answer" was only their own subject now expect
+what they ask: `fifty` for the daughters of Nereus, `foam` for Aphrodite,
+`anvil` for the depth of Tartarus, `fire` for the Chimaera, `flesh`/`bones`
+for Prometheus's portions, `Earth`/`Heaven` for the reason Cronus swallowed
+his children.
 
-## Was sich geändert hat
+## What changed
 
-- **92 Gold-Namen statt 111, mit 130 Aliasen.** Jeder Name trägt die
-  Schreibungen, die diese Übersetzung und die Modelle benutzen (Helius/Helios,
-  Heaven/Uranus, Sea/Pontus, Eunomia/Order). Der Bewerter akzeptiert jede und
-  zählt den kanonischen Namen einmal.
-- **Der Retrieval-Abgleich** liest die Aliase ebenfalls: ein Knoten, den das
-  Substrat `Helios` nennt, beantwortet einen Gold-Eintrag `Helius`.
-- **Zwei Tests halten das fest:** kein erwarteter Name und kein Alias steht in
-  seiner eigenen Frage; jeder Alias gehört zu einem erwarteten Namen. Die
-  Zählungen sind exakt gepinnt (92, 65 genealogisch), weil eine Untergrenze
-  nicht bemerkt, wenn eine veröffentlichte Zahl aufhört, zur Datei zu passen.
+- **92 gold names instead of 111, with 130 aliases.** Every name carries the
+  spellings that this translation and the models use (Helius/Helios,
+  Heaven/Uranus, Sea/Pontus, Eunomia/Order). The scorer accepts any of them
+  and counts the canonical name once.
+- **The retrieval matcher** reads the aliases too: a node that the substrate
+  names `Helios` answers a gold entry `Helius`.
+- **Two tests hold this in place:** no expected name and no alias stands in
+  its own question; every alias belongs to an expected name. The counts are
+  pinned exactly (92, 65 genealogical), because a lower bound does not notice
+  when a published number stops matching the file.
 
-## Die Neubewertung — die Wirkung des Instruments, getrennt vom Modell
+## The re-scoring — the effect of the instrument, separated from the model
 
-Die Tickets PHX-1087, 1096 und 1097 wurden auf dem alten Bewerter gemessen.
-Ihre Zahlen werden hier nicht stillschweigend ersetzt, sondern die Änderung
-wird selbst gemessen: **dieselben gespeicherten Antworten, drei Bewertungen.**
+Tickets PHX-1087, 1096 and 1097 were measured on the old scorer. Their
+numbers are not silently replaced here; instead the change itself is
+measured: **the same stored answers, three scorings.**
 
-### Die latente Meile (PHX-1109), gespeicherte Antworten des 3B-Lesers
+### The latent mile (PHX-1109), stored answers from the 3B reader
 
-| Arm | altes Gold, 111 Namen | altes Gold ohne die nachgesprochenen | neues Gold, 92 Namen mit Aliasen |
+| Arm | old gold, 111 names | old gold without the echoed ones | new gold, 92 names with aliases |
 |---|---|---|---|
-| `closed_book` | 16 % (4/47) | 14 % (3/39) | 15 % (6/47) |
-| `constellation` (Text) | 38 % (8/47) | 49 % (13/39) | **47 % (16/47)** |
-| `soft`, 20 Epochen | 28 % (11/47) | 11 % (4/39) | **14 % (6/47)** |
-| `soft`, 5 Epochen | 19 % (6/47) | 9 % (2/39) | 10 % (3/47) |
-| `soft_untrained` | 11 % (2/47) | 0 % (0/39) | 0 % (0/47) |
+| `closed_book` | 16% (4/47) | 14% (3/39) | 15% (6/47) |
+| `constellation` (text) | 38% (8/47) | 49% (13/39) | **47% (16/47)** |
+| `soft`, 20 epochs | 28% (11/47) | 11% (4/39) | **14% (6/47)** |
+| `soft`, 5 epochs | 19% (6/47) | 9% (2/39) | 10% (3/47) |
+| `soft_untrained` | 11% (2/47) | 0% (0/39) | 0% (0/47) |
 
-Das neue Gold reproduziert die strenge Zählung aus PHX-1109 fast auf den Punkt
-— und tut es über alle 47 Fragen statt über die 39, die die strenge Zählung
-übrig ließ. Der Text-Arm steigt (die Aliase zahlen sich aus, und die Fragen
-verlangen jetzt Antworten, die er gibt), der weiche Arm fällt auf das, was er
-wirklich trägt. Die beiden Korrekturen — im Harness und in der Datei — sagen
-dasselbe, unabhängig voneinander.
+The new gold reproduces the strict count from PHX-1109 almost exactly — and
+does so over all 47 questions instead of the 39 the strict count left over.
+The text arm rises (the aliases pay off, and the questions now demand answers
+it gives), the soft arm falls to what it actually carries. The two
+corrections — in the harness and in the file — say the same thing,
+independently of each other.
 
-### Retrieval auf dem Founding-Mesh (`k_seeds=1`, `top_k=50`, 14 Ticks)
+### Retrieval on the founding mesh (`k_seeds=1`, `top_k=50`, 14 ticks)
 
-| | altes Gold | neues Gold |
+| | old gold | new gold |
 |---|---|---|
-| Recall | 87 % | **80 %** (72 von 90 vorhandenen) |
-| vollständig | 39/47 | 34/47 |
-| genealogisch / erzählend | — | 86 % / 65 % |
+| Recall | 87% | **80%** (72 of 90 present) |
+| complete | 39/47 | 34/47 |
+| genealogical / narrative | — | 86% / 65% |
 
-Der Rückgang ist die Korrektur selbst: die nachgesprochenen Namen waren gratis
-abrufbar, weil die Frage sie nennt und die Namensanker sie seeden. Was jetzt
-fehlt, sind echte Antworten, und zwei davon sind keine Entitäten (`fifty`,
-`anvil` — Abdeckung 98 %) und einige weitere sind Gemeinnamen, die das
-Substrat hält, aber nicht aktiviert (`foam`, `fire`, `stone`, `Sea`, `Hecate`,
-die drei Schildfiguren, `flesh`/`bones`). Das ist eine ehrlichere Zahl für den
-erzählenden Teil: 65 % statt der 86 %, die PHX-1080 für ihn berichtete.
+The drop is the correction itself: the echoed names were free to retrieve,
+because the question names them and the name anchors seed them. What is
+missing now are real answers, and two of them are not entities (`fifty`,
+`anvil` — coverage 98%) and a few more are common nouns that the substrate
+holds but does not activate (`foam`, `fire`, `stone`, `Sea`, `Hecate`, the
+three shield figures, `flesh`/`bones`). That is a more honest number for the
+narrative part: 65% instead of the 86% PHX-1080 reported for it.
 
-### Der Antwort-Arm (deepseek-chat, drei Wiederholungen, `data/mesh-founding`, 14 Ticks)
+### The answer arm (deepseek-chat, three repeats, `data/mesh-founding`, 14 ticks)
 
-423 Antworten, einmal erzeugt, dreimal bewertet:
+423 answers, generated once, scored three times:
 
-| Arm | altes Gold, 111 Namen | altes Gold ohne die nachgesprochenen | neues Gold, 92 Namen mit Aliasen |
+| Arm | old gold, 111 names | old gold without the echoed ones | new gold, 92 names with aliases |
 |---|---|---|---|
-| `closed_book` (Vorwissen) | 47 % (13/47) | 65 % (21/39) | **86 % (39/47)** |
-| `vector_only` | 47 % (13/47) | 57 % (20/39) | 63 % (29/47) |
-| `constellation` (Graph) | 61 % (18/47) | 72 % (24/39) | **75 % (31/47)** |
+| `closed_book` (the prior) | 47% (13/47) | 65% (21/39) | **86% (39/47)** |
+| `vector_only` | 47% (13/47) | 57% (20/39) | 63% (29/47) |
+| `constellation` (graph) | 61% (18/47) | 72% (24/39) | **75% (31/47)** |
 
-Streuung über die drei Wiederholungen unter dem neuen Gold: Vorwissen
-85–87 %, Vektorsuche 63–64 %, Graph 73–76 %. **Der alte Bewerter hatte auf der
-Kontrollgruppe neun Punkte gestreut** (43–51 %, PHX-1087); mit Aliasen sind es
-zwei. Ein Teil dessen, was als Modellrauschen galt, war der Bewerter, der je
-nach Schreibung zählte oder nicht.
+Spread across the three repeats under the new gold: the prior 85–87%,
+vector search 63–64%, graph 73–76%. **The old scorer had spread nine points
+on the control group** (43–51%, PHX-1087); with aliases it is two. Part of
+what counted as model noise was the scorer, which counted or did not depending
+on spelling.
 
-**Zwei Aussagen, eine hält und eine kippt.**
+**Two claims, one holds and one flips.**
 
-*Graph gegen reine Vektorsuche: +11, und das hält.* 63 % gegen 75 %, unter
-jedem der drei Bewerter, mit derselben Zahl wie in PHX-1097. Die Kanten unter
-denselben Knoten tragen etwas, das Kosinus-Nachbarschaft nicht trägt.
+*Graph against pure vector search: +11, and it holds.* 63% against 75%, under
+each of the three scorers, with the same number as in PHX-1097. The edges
+under the same nodes carry something that cosine neighbourhood does not
+carry.
 
-*Graph gegen Vorwissen: aus +11 wird −11.* Unter dem alten Gold lag das
-Vorwissen bei 47 %, unter dem neuen bei 86 %, und die Constellation liegt
-darunter. Der Grund ist der Bewerter, nicht das Modell: das alte Gold erwartete
-bei 30 Namen das Subjekt der Frage — „Cerberus" auf *what offspring did
-Echidna bear to Orthus* war eine richtige Antwort und bekam null, weil das
-Gold Echidna und Orthus wollte. Das Vorwissen antwortet richtig und wurde
-dafür systematisch unterbewertet. Und das neue Gold verlangt, was die Frage
-fragt: `foam`, `fire`, `anvil`, `fifty`, `flesh`/`bones` — Dinge, die ein
-Modell über Hesiod weiß, die aber im Substrat keine Entitäten sind oder nicht
-aktiviert werden.
+*Graph against the prior: +11 flips to −11.* Under the old gold, the prior
+stood at 47%, under the new one at 86%, and the Constellation falls
+below it. The reason is the scorer, not the model: the old gold expected the
+subject of the question for 30 names — "Cerberus" for *what offspring did
+Echidna bear to Orthus* was a correct answer and scored zero, because the
+gold wanted Echidna and Orthus. The prior answers correctly and was
+systematically under-scored for it. And the new gold demands what the
+question asks: `foam`, `fire`, `anvil`, `fifty`, `flesh`/`bones` — things a
+model knows about Hesiod that are not entities in the substrate, or are not
+activated.
 
-Frage für Frage: der Graph gewinnt 5, verliert 11, 31 gleich. Die elf
-Verluste sind zweierlei. **Instruktionell:** der Graph-Arm darf nur das
-Material benutzen und sagt „I don't know" zum Stein, den Kronos verschluckte,
-und „no entity or relation that measures" zur Tiefe des Tartaros — das
-Vorwissen antwortet „a stone" und „anvil". **Retrieval:** die Constellation
-trägt Coeus, Crius und Mnemosyne nicht, nicht Eunomia, Dike und Eirene, nicht
-Briareos, und ein Modell, das an das Material gebunden ist, kann sie nicht
-nennen. Die fünf Gewinne sind, was der Korpus eigenwillig sagt und ein Modell
-nicht auswendig kann: Eosphorus, die Schildkröte, die Kinder des Streits, die
-Eltern des Typhoeus.
+Question by question: the graph wins 5, loses 11, ties 31. The eleven losses
+are of two kinds. **Instructional:** the graph arm may use only the material
+and says "I don't know" to the stone Cronus swallowed, and "no entity or
+relation that measures" to the depth of Tartarus — the prior answers "a
+stone" and "anvil". **Retrieval:** the Constellation does not carry Coeus,
+Crius and Mnemosyne, nor Eunomia, Dike and Eirene, nor Briareos, and a model
+bound to the material cannot name them. The five wins are what the corpus
+says idiosyncratically and a model cannot know by heart: Eosphorus, the
+tortoise, the children of Strife, the parents of Typhoeus.
 
-**Die Folge für das Instrument.** Auf einem Korpus, den das Modell zu 86 %
-auswendig kann, misst der Antwort-Arm nicht den Mehrwert des Graphen, sondern
-den Preis der Bindung an ihn. PHX-1087 hatte das Vorwissen bei 50 % gesehen
-und daraus gefolgert, der Korpus tauge als Kontrollgruppe; die 50 % waren der
-Bewerter. Was bleibt, ist der Vergleich gegen die Vektorsuche — und das zweite
-Stück von Spur C, der Antwort-Arm auf einem Korpus, den das Modell nicht
-kennt, ist damit nicht mehr eine Ergänzung, sondern die einzige Art, die
-Frage „hilft der Graph beim Antworten" überhaupt zu stellen.
+**The consequence for the instrument.** On a corpus the model knows by heart
+at 86%, the answer arm does not measure the graph's added value, but the
+price of binding to it. PHX-1087 had seen the prior at 50% and
+concluded from it that the corpus was fit as a control group; the 50% was the
+scorer. What remains is the comparison against vector search — and the
+second piece of Track C, the answer arm on a corpus the model does not know,
+is thereby no longer a supplement but the only way to ask the question "does
+the graph help with answering" at all.
 
-Die Zahlen aus PHX-1087, 1096, 1097 und 1099 stehen in ihren Tickets, wie sie
-gemessen wurden; diese Tabelle ist die Neubewertung, nicht ihr Ersatz. Die
-Entscheidung `k_seeds = 1` (PHX-1099) ruht auf dem Retrieval-Tune/Test, nicht
-auf dem Antwort-Arm, und bleibt.
+The numbers from PHX-1087, 1096, 1097 and 1099 stand in their tickets as they
+were measured; this table is the re-scoring, not their replacement. The
+decision `k_seeds = 1` (PHX-1099) rests on the retrieval tune/test, not on
+the answer arm, and stands.

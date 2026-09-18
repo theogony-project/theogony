@@ -69,15 +69,14 @@ description: >
   CI against silently ageing dependencies — is a project decision.
 
 resolution: >
-  Entschieden nach dem vierten Bruch (PHX-1105, lancedb 0.38): `constraints.txt`
-  pinnt genau die Pakete, an denen dieses Repo gebrochen ist — lancedb, pyarrow,
+  Decided after the fourth break (PHX-1105, lancedb 0.38): `constraints.txt`
+  pins exactly the packages on which this repo has broken — lancedb, pyarrow,
   torch, pydantic, pydantic-settings, sentence-transformers, transformers, mcp,
-  numpy — und wird mit `-c` in CI und in der dokumentierten Install-Zeile
-  installiert. pyproject bleibt bewusst lose (der Code ist gegen APIs
-  geschrieben, nicht gegen Versionen); alles andere floatet. Bumps bewusst, im
-  eigenen PR, mit grüner Suite auf der neuen Version. Kein Lockfile-Werkzeug,
-  weil ein Constraints-File dasselbe Problem mit einer Datei löst, die jeder
-  lesen kann.
+  numpy — and is installed with `-c` in CI and in the documented install line.
+  pyproject deliberately stays loose (the code is written against APIs, not
+  against versions); everything else floats. Bumps are deliberate, in their
+  own PR, with a green suite on the new version. No lockfile tool, because a
+  constraints file solves the same problem with a file anyone can read.
 relates_to: []
 linked_scripts:
   - pyproject.toml

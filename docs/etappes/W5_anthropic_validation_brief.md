@@ -15,7 +15,7 @@ Direct brief, no Daedalus. Execution etappe: validate the new default end-to-end
 
 Three problems collapse into one PR:
 
-1. **PR #30 changed the default LLM but never ran live against the pipeline.** Unit + integration tests with mocks pass; the forced-tool path on Anthropic's Messages API has not been exercised end-to-end against our Pydantic schemas with a real book. That is the User's original request ("Können wir das einfach umstellen und dann nochmal einen Testlauf machen?") still open.
+1. **PR #30 changed the default LLM but never ran live against the pipeline.** Unit + integration tests with mocks pass; the forced-tool path on Anthropic's Messages API has not been exercised end-to-end against our Pydantic schemas with a real book. That is the User's original request ("Can we simply switch it over and then do another test run?") still open.
 
 2. **The W4 demo log is bounded (50 sentences, 106 nodes).** Honest at the time — Gemini's free tier was exhausted — but not enough material for a 5-min screen recording: the answer-quality is too thin, the Hover-Lupe walk has too few nodes to traverse interestingly, the Oneiros activity is too small to read.
 

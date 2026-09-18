@@ -1,6 +1,6 @@
-# Der Herzschlag auf 2Wiki — das Substrat lernt aus Benutzung, und verdrängt dabei
+# The heartbeat on 2Wiki — the substrate learns from use, and displaces while doing so
 
-> **English abstract.** *Setup.* The Kadmos graph of 2WikiMultihopQA from cache
+> **Abstract.** *Setup.* The Kadmos graph of 2WikiMultihopQA from cache
 > (6,119 passages, 32,499 entities, 283,144 edges); 300 questions split 150 used
 > / 150 held out; hybrid seeding S = 2, the operating point of the project's one
 > demonstrated result; 50 rounds, four policies, in memory on the substrate's
@@ -20,114 +20,115 @@
 > substrate's PPR; credit only reaches existing edges. *Later.* PHX-1106 found
 > the +1.3 to be one seed; the displacement held across datasets and seeds.
 
-*2026-09-02. 2WikiMultihopQA, Kadmos-Graph aus dem Cache: 6.119 Passagen, 32.499
-Entitäten, 283.144 Kanten. 300 Fragen, 150 benutzt / 150 zurückgehalten,
-hybrides Seeding S=2 — der Punkt, an dem das Projekt sein einziges demonstriertes
-Ergebnis hat. 50 Runden, vier Politiken. Kein LLM, kein Geld, 61 Minuten.
-`scripts/mesh_heartbeat_qa.py`, Report
+*2026-09-02. 2WikiMultihopQA, Kadmos graph from cache: 6,119 passages, 32,499
+entities, 283,144 edges. 300 questions, 150 used / 150 held out,
+hybrid seeding S=2 — the point at which the project has its one demonstrated
+result. 50 rounds, four policies. No LLM, no money, 61 minutes.
+`scripts/mesh_heartbeat_qa.py`, report
 `data/run_reports/mesh_eval/heartbeat_2wikimultihopqa_01M1HKG6ZGGNPXXWEZ46VRZD4A.json`.
 PHX-1104.*
 
-## Warum hier
+## Why here
 
-Auf dem Founding-Mesh konnte der Herzschlag nicht sichtbar werden: Recall 85 %,
-die Gold-Treffer von Namensankern festgenagelt, zehn Runden, keine Bewegung
-([`hebbian_calibration.md`](hebbian_calibration.md)). PHX-1104 nannte drei
-Bedingungen — längerer Horizont, ein Korpus mit Spielraum, die Renormalisierung
-als Gegenkraft. Dieser Lauf erfüllt die ersten beiden und misst, ob die dritte
-gebraucht wird.
+On the Founding Mesh the heartbeat could not become visible: recall 85%,
+the gold hits pinned down by name anchors, ten rounds, no movement
+([`hebbian_calibration.md`](hebbian_calibration.md)). PHX-1104 named three
+conditions — a longer horizon, a corpus with room to move, renormalisation
+as the counterforce. This run satisfies the first two and measures whether
+the third is needed.
 
-**Im Speicher, auf den echten Tick-Funktionen.** Der Graph ist der des
-Benchmarks, der Propagationskern der des Benchmarks (zeilennormalisierte
-Adjazenz, 3 Hops, Dämpfung 0,5 — der Betriebspunkt, an dem +0,102 gemessen
-wurde), die Dynamik die des Substrats: `merge_edge_deltas`,
-`decay_edges_inplace(fired=…)`, `enforce_saturation`, `fired_pairs`. Ein
-Durchgang ist das Top-50-Arbeitsset nach Aktivierung, wie eine Constellation.
-Nichts wird in einen Workspace geschrieben.
+**In memory, on the substrate's real tick functions.** The graph is the
+benchmark's, the propagation kernel the benchmark's (row-normalised
+adjacency, 3 hops, damping 0.5 — the operating point at which +0.102 was
+measured), the dynamics the substrate's: `merge_edge_deltas`,
+`decay_edges_inplace(fired=…)`, `enforce_saturation`, `fired_pairs`. One
+pass is the top-50 working set by activation, like a Constellation.
+Nothing is written to a workspace.
 
-**Das Gewichtsregime ist ein anderes als auf dem Founding-Mesh.** Die Kappe
-`w_max = 1,0` greift hier von Anfang an: Containment-Kanten kommen *bei* 1,0 an,
-Relationszähler darüber. Nach der Kappe liegen **56,8 % aller Kanten am
-Anschlag**, der Median ist 1,0. Auf dem rohen Graphen misst SA@5 0,777 / 0,818
-(benutzt / zurückgehalten), nach der Kappe 0,777 / 0,813 — die Kappe kostet einen
-halben Punkt. kNN, die Kontrolle, die sich nie bewegen darf: 0,650 / 0,717.
+**The weight regime is different from the Founding Mesh.** The cap
+`w_max = 1,0` bites here from the start: containment edges arrive *at* 1.0,
+relation counters above it. After the cap, **56.8% of all edges sit at
+the cap**, the median is 1.0. On the raw graph SA@5 measures 0.777 / 0.818
+(used / held out), after the cap 0.777 / 0.813 — the cap costs half a
+point. kNN, the control that must never move: 0.650 / 0.717.
 
-## Die vier Politiken
+## The four policies
 
-| Runde | Politik | used@5 | Rang | held@5 | Rang | w Median | am Anschlag | verschont |
+| Round | Policy | used@5 | Rank | held@5 | Rank | w median | at the cap | spared |
 |---|---|---|---|---|---|---|---|---|
-| 0 | — | 0,777 | 9,1 | 0,813 | 6,5 | 1,000 | 56,8 % | — |
-| 50 | **alter Zerfall** (alles zerfällt) | 0,773 | 9,7 | 0,810 | 6,8 | 0,281 | 0 % | 0 |
-| 50 | **Gate** (nur Ungefeuertes zerfällt) | 0,780 | 9,3 | **0,798** | 7,4 | 0,281 | 5,4 % | 36.760 |
-| 50 | **Gate + Hebb α=0,01**, normalisiert | **0,790** | **8,9** | 0,798 | 7,1 | 0,281 | 6,0 % | 30.092 |
-| 50 | **Gate + Hebb α=0,1**, normalisiert | 0,787 | 8,9 | 0,797 | 7,2 | 0,281 | 6,2 % | 30.070 |
+| 0 | — | 0.777 | 9.1 | 0.813 | 6.5 | 1.000 | 56.8% | — |
+| 50 | **old decay** (everything decays) | 0.773 | 9.7 | 0.810 | 6.8 | 0.281 | 0% | 0 |
+| 50 | **Gate** (only what did not fire decays) | 0.780 | 9.3 | **0.798** | 7.4 | 0.281 | 5.4% | 36,760 |
+| 50 | **Gate + Hebb α=0.01**, normalised | **0.790** | **8.9** | 0.798 | 7.1 | 0.281 | 6.0% | 30,092 |
+| 50 | **Gate + Hebb α=0.1**, normalised | 0.787 | 8.9 | 0.797 | 7.2 | 0.281 | 6.2% | 30,070 |
 
-Die vollständigen Verläufe an den Messpunkten 1/2/3/5/10/20/30/50 stehen im
-Report; die drei Bewegungen, auf die es ankommt:
+The complete trajectories at measurement points 1/2/3/5/10/20/30/50 are in
+the report; the three movements that matter:
 
-**Gleichmäßiger Zerfall ist auch hier fast unsichtbar.** Unter dem alten Zerfall
-verliert das Substrat 72 % seines Gewichts (Median 1,000 → 0,281) und das
-Retrieval verliert 0,4 Punkte. Zweiter Korpus, dieselbe Aussage wie auf dem
-Founding-Mesh: der Operator liest Anteile, nicht Stärken.
+**Uniform decay is nearly invisible here too.** Under the old decay
+the substrate loses 72% of its weight (median 1.000 → 0.281) and
+retrieval loses 0.4 points. Second corpus, the same statement as on the
+Founding Mesh: the operator reads shares, not strengths.
 
-**Mit Gutschrift steigt das Benutzte — und hält.** Gate plus Hebb auf
-Doktrin-Skala: benutzte Fragen 0,777 → **0,790** (+1,3 Punkte), Rang 9,1 → 8,9.
-Der Sprung kommt in Runde 1 (+1,0) und bleibt über 50 Runden stehen. Das ist das
-erste Mal, dass sich das Verb *lernt* aus „the mesh is alive" auf einer Messung
-überhaupt bewegt hat. Die Größe von α ist dabei nahezu egal (0,790 gegen 0,787):
-die gutgeschriebenen Kanten sitzen an der Kappe, und mehr Gutschrift hat dort
-nichts zu tun.
+**With credit, the used rises — and holds.** Gate plus Hebb at
+doctrine scale: used questions 0.777 → **0.790** (+1.3 points), rank 9.1 → 8.9.
+The jump comes in round 1 (+1.0) and stays put over 50 rounds. That is the
+first time the verb *learns* from "the mesh is alive" has moved on any
+measurement at all. The size of α is nearly irrelevant here (0.790 versus
+0.787): the credited edges sit at the cap, and more credit has nothing
+to do there.
 
-**Und das Zurückgehaltene fällt — unter dem Gate, mit oder ohne Gutschrift.**
-0,813 → **0,798** (−1,5 Punkte), Rang 6,5 → 7,4. Nicht als Sprung, sondern als
-Drift: 0,813 · 0,813 · 0,813 · 0,810 · 0,813 · 0,812 · 0,805 · 0,798 über die
-acht Messpunkte. Der Mechanismus ist sichtbar in der Spalte *am Anschlag*: 5,4 %
-der Kanten — die um die benutzten Fragen — bleiben bei 1,0, während alle anderen
-auf 0,28 fallen. Ihr *Anteil* an jedem Knoten, den sie berühren, wächst damit um
-das 3,5-fache, und der Random Walk kippt zu den benutzten Regionen. Fragen, deren
-Pfade durch gemischte Knoten laufen, verlieren Anteil.
+**And the held-out falls — under the gate, with or without credit.**
+0.813 → **0.798** (−1.5 points), rank 6.5 → 7.4. Not as a jump but as a
+drift: 0.813 · 0.813 · 0.813 · 0.810 · 0.813 · 0.812 · 0.805 · 0.798 across
+the eight measurement points. The mechanism is visible in the *at the cap*
+column: 5.4% of the edges — the ones around the used questions — stay at
+1.0, while all the others fall to 0.28. Their *share* of every node they
+touch thereby grows 3.5-fold, and the random walk tilts toward the used
+regions. Questions whose paths run through mixed nodes lose share.
 
-Eine Beobachtung, die ich nicht erklären kann und deshalb nur notiere: in Runde
-1 hebt die Gutschrift auf den benutzten Fragen **auch die zurückgehaltenen** —
-0,813 → 0,828, Rang 6,5 → 6,3. Der Gewinn zerfällt bis Runde 20 wieder. Am
-plausibelsten: 2Wiki-Fragen teilen Entitäten, und gestärkte Brücken helfen
-zunächst allen Fragen durch dieselben Hubs, bis die asymmetrische Verdrängung
-das überwiegt. Das ist eine Vermutung, keine Messung.
+An observation I cannot explain and therefore only note: in round
+1 the credit on the used questions **also lifts the held-out ones** —
+0.813 → 0.828, rank 6.5 → 6.3. The gain decays away again by round 20. Most
+plausibly: 2Wiki questions share entities, and strengthened bridges initially
+help all questions through the same hubs, until the asymmetric displacement
+outweighs that. That is a conjecture, not a measurement.
 
-## Was das heißt
+## What this means
 
-Die Vision sagt *„fire together, wire together"* und *„edges that are not fired
-weaken"*. Beides ist jetzt gebaut, und auf einem Korpus mit Spielraum tut beides,
-was es soll — benutzte Pfade werden besser, unbenutzte verblassen. Der Preis
-steht daneben, klein und monoton: **was nicht benutzt wird, wird nicht nur
-vergessen, sondern verdrängt.** Ein Substrat, das ein Jahr lang eine Handvoll
-Fragen beantwortet, würde auf alles andere schlechter, nicht nur älter.
+The vision says *"fire together, wire together"* and *"edges that are not
+fired weaken."* Both are now built, and on a corpus with room to move both do
+what they are supposed to — used paths get better, unused ones fade. The
+price stands right next to it, small and monotonic: **what is not used is
+not only forgotten, it is displaced.** A substrate that answered a handful
+of questions for a year would get worse on everything else, not just older.
 
-Das ist nicht das Scheitern des Gates. Es ist der gemessene Grund, aus dem die
-Doktrin in §6 die **globale homöostatische Renormalisierung** vorsieht — die
-Gegenkraft, die das Gesamtgewicht je Knoten stabil hält, damit „mehr Anteil für
-das Benutzte" nicht „weniger für alles andere" bedeutet. Bisher war das ein
-Argument. Jetzt ist es −1,5 Punkte über 50 Runden auf zurückgehaltenen Fragen,
-und das nächste Organ, das gebaut wird (PHX-1106).
+This is not the gate's failure. It is the measured reason that the
+doctrine in §6 provides for **global homeostatic renormalisation** — the
+counterforce that keeps the total weight per node stable, so that "more
+share for the used" does not mean "less for everything else." Until now
+that was an argument. Now it is −1.5 points over 50 rounds on held-out
+questions, and the next organ to be built (PHX-1106).
 
-## Grenzen dieses Laufs
+## Limits of this run
 
-- **Effektgrößen von 1–1,5 Punkten auf 150 Fragen** sind ein bis zwei Fragen.
-  Die Messung ist deterministisch (kein LLM), die Drift ist monoton über acht
-  Punkte, der Sprung in Runde 1 reproduziert sich in beiden Wachstums-Läufen —
-  aber es sind zwei Fragen, und ein zweiter Seed oder ein zweiter Datensatz
-  (HotpotQA, MuSiQue) müsste sie bestätigen.
-- **Die Arbeitssets waren nicht vollständig reproduzierbar.** 56,8 % der
-  Gewichte am Anschlag erzeugen exakt gleiche Aktivierungen, und `torch.topk`
-  bricht die Bindung zwischen zwei Politiken aus demselben Zustand verschieden
-  (36.858 gegen 30.214 verschonte Kanten in Runde 1). Das Top-5-Ranking war
-  davon unberührt, der Rand des Arbeitssets nicht. Das Skript sortiert seit
-  diesem Lauf stabil; dieser Lauf entstand davor.
-- **Kern und Tick sind zwei Systeme.** Der Propagationskern ist der des
-  Benchmarks (gedämpfte Diffusion), nicht `Propagator.propagate(operator="ppr")`
-  des Substrats (Neustart-PPR, 12 Iterationen). Beide lesen die zeilennormalisierte
-  Adjazenz; die Aussage über Anteile gilt für beide. Die Zahlen sind mit der
-  Seeding-Studie vergleichbar, nicht mit `mesh ask`.
-- **Nur Hebb-Gutschrift auf bestehende Kanten.** Der Erzeugungs-Zweig ist im
-  Substrat unerreichbar (PHX-1100); hier ebenso. „Denser mesh" hat auch dieser
-  Lauf nicht erzeugt.
+- **Effect sizes of 1–1.5 points on 150 questions** are one or two
+  questions. The measurement is deterministic (no LLM), the drift is
+  monotonic across eight points, the jump in round 1 reproduces in both
+  growth runs — but they are two questions, and a second seed or a second
+  dataset (HotpotQA, MuSiQue) would have to confirm them.
+- **The working sets were not fully reproducible.** 56.8% of the
+  weights at the cap produce exactly equal activations, and `torch.topk`
+  breaks the tie between two policies from the same state differently
+  (36,858 versus 30,214 spared edges in round 1). The top-5 ranking was
+  unaffected by this, the edge of the working set was not. The script has
+  sorted stably since this run; this run predates that.
+- **Kernel and tick are two systems.** The propagation kernel is the
+  benchmark's (damped diffusion), not the substrate's
+  `Propagator.propagate(operator="ppr")` (restart PPR, 12 iterations). Both
+  read the row-normalised adjacency; the statement about shares holds for
+  both. The numbers are comparable with the seeding study, not with
+  `mesh ask`.
+- **Only Hebbian credit on existing edges.** The creation branch is
+  unreachable in the substrate (PHX-1100); the same holds here. This run,
+  too, did not produce a "denser mesh."

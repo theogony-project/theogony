@@ -2,89 +2,93 @@ id: PHX-1110
 category: substrate-retrieval
 priority: high
 status: done
-generation_target: MESH — Konsumtion (MESH_RETRIEVAL Schritt 5), das Antwort-Instrument
-title: "Der Antwort-Arm auf einem Korpus, den das Modell nicht kennt: die Constellation auf 2WikiMultihopQA"
-filed_by: Claude Code (2026-09-16, Plan aus der Vision, Spur C zweites Stück)
+generation_target: MESH — consumption (MESH_RETRIEVAL step 5), the answer instrument
+title: "The answer arm on a corpus the model does not know: the Constellation on 2WikiMultihopQA"
+filed_by: Claude Code (2026-09-16, Plan from the Vision, track C second piece)
 created_at: 2026-09-16
 description: >
-  PHX-1098 hat den Founding-Korpus als Kontrollgruppe geschlossen: deepseek
-  beantwortet Hesiod zu 86 % ohne jedes Material, und die Constellation liegt
-  mit 75 % darunter. Auf diesem Korpus misst der Antwort-Arm den Preis der
-  Bindung an das Material, nicht den Mehrwert des Graphen. Die Frage "hilft
-  der Graph beim Antworten" lässt sich nur stellen, wo das Vorwissen niedrig
-  ist. 2WikiMultihopQA ist so ein Korpus: Vorwissen 24,8 % EM (PHX-1089).
+  PHX-1098 closed the founding corpus as a control group: deepseek answers
+  Hesiod at 86% with no material at all, and the Constellation comes in
+  below that at 75%. On this corpus the answer arm measures the price of
+  binding to the material, not the graph's added value. The question "does
+  the graph help with answering" can only be asked where prior knowledge is
+  low. 2WikiMultihopQA is such a corpus: prior knowledge 24.8% EM (PHX-1089).
 
-  Was PHX-1089 dort gemessen hat, waren Passagen: das Retrieval reicht dem
-  Modell ganze Absätze, und Spreading Activation über einen billigen
-  spaCy-Graphen wählte sie aus (+5,0 EM gegen kNN bei hybrid/S=2). Was es
-  nicht gemessen hat, ist das Konsumformat des Substrats selbst, die
-  Constellation aus Entitäten und typisierten Relationen, die `mesh ask`
-  rendert, auf einem Korpus, den das Modell nicht auswendig kann.
+  What PHX-1089 measured there was passages: retrieval hands the model
+  whole paragraphs, and Spreading Activation over a cheap spaCy graph
+  selected them (+5.0 EM over kNN at hybrid/S=2). What it did not measure
+  is the substrate's own consumption format, the Constellation of entities
+  and typed relations that `mesh ask` renders, on a corpus the model
+  cannot know by heart.
 
-  Umfang, als Messung: (1) ein Mesh aus den 6.119 Passagen von 2Wiki durch
-  den ausgelieferten Schreibpfad (MeshParagraphReader), die Kadmos-Lesungen
-  aus dem Cache von PHX-1089 abgespielt statt neu bezahlt, damit das Mesh
-  denselben Linker, dieselbe Identitätsauflösung und dieselben Kanten hat
-  wie ein Nutzerkorpus. (2) Vier Arme, ein Modell, ein Bewerter (SQuAD
-  EM/F1, weil der Founding-Bewerter Ziffern streicht und die Hälfte der
-  2Wiki-Antworten Daten sind): closed_book (Vorwissen), passages (Top-k
-  Passagen nach Kosinus, die Brücke zu den veröffentlichten Zahlen),
-  vector_only (Top-k Mesh-Entitäten nach Kosinus, als Beschreibungen),
-  constellation (dieselbe Art Entitäten plus die Relationen zwischen ihnen).
-  Gepaart, Frage für Frage, mit Vorzeichentest auf den diskordanten Paaren.
+  Scope, as a measurement: (1) a mesh from the 6,119 paragraphs of 2Wiki
+  through the shipped write path (MeshParagraphReader), the Kadmos
+  readings replayed from the PHX-1089 cache instead of paid for again, so
+  that the mesh has the same linker, the same identity resolution and the
+  same edges as a user corpus. (2) Four arms, one model, one scorer (SQuAD
+  EM/F1, because the founding scorer strips digits and half of the 2Wiki
+  answers are dates): closed_book (the prior), passages (top-k passages
+  by cosine, the bridge to the published numbers), vector_only (top-k
+  mesh entities by cosine, as descriptions), constellation (the same kind
+  of entities plus the relations between them). Paired, question by
+  question, with a sign test on the discordant pairs.
 
-  Die Aussage, die zählt, ist constellation gegen vector_only: derselbe
-  Knotenspeicher, dieselbe Einbettung, der einzige Unterschied ist, ob die
-  Kanten gezeigt werden. Gegen passages ist die härtere Frage, ob die
-  Rendering-Form des Substrats mit schlichtem RAG überhaupt mithält.
+  The statement that counts is constellation against vector_only: the
+  same node store, the same embedding, the only difference is whether the
+  edges are shown. Against passages the harder question is whether the
+  substrate's rendering form keeps up with plain RAG at all.
 resolution: >
-  Gemessen, 2026-09-16. Volltext: docs/etappes/qa_constellation.md.
+  Measured, 2026-09-16. Full text: docs/etappes/qa_constellation.md.
 
-  Aufbau: ein Mesh aus allen 6.119 Passagen von 2WikiMultihopQA durch den
-  ausgelieferten Schreibpfad, die Kadmos-Lesungen aus dem Cache von PHX-1089
-  abgespielt (35.906 Knoten, 38.746 gelesene Relationen, 81 Minuten, kein
-  LLM-Aufruf); fünf Arme über 1.000 Fragen, deepseek-chat, SQuAD EM/F1,
-  gepaart mit Vorzeichentest.
+  Setup: a mesh from all 6,119 paragraphs of 2WikiMultihopQA through the
+  shipped write path, the Kadmos readings replayed from the PHX-1089
+  cache (35,906 nodes, 38,746 relations read, 81 minutes, no LLM call);
+  five arms over 1,000 questions, deepseek-chat, SQuAD EM/F1, paired with
+  a sign test.
 
-  Ergebnis (EM): Vorwissen 33,8 %, fünf Passagen 42,7, fünfzig Entitäten
-  ohne Kanten 40,5, Constellation mit Strukturkanten 41,2, Constellation
-  ohne Strukturkanten 44,1. Der Graph hilft beim Antworten, wo das Modell den
-  Korpus nicht kennt: +3,6 EM / +4,3 F1 über dieselben Entitäten ohne Kanten
-  (p = 0,03; 147 Fragen besser, 111 schlechter) — aber nur, wenn die
-  Strukturkanten (co_mentions_in_paragraph, appears_in_source, 60 % der
-  gerenderten Zeilen) weggelassen werden; mit ihnen bleibt +0,7 (p = 0,72),
-  und sie kosten 2,9 Punkte (p = 0,004). Gegen fünf Passagen Gleichstand
-  (+1,4, n.s.), aus zwei gegenläufigen Stücken: auf den 836 Fragen mit einer
-  Entität als Antwort +5,6 über die Passagen (Vergleichsfragen, bei denen die
-  Relationen die Kette zeigen), auf Ja/Nein-Fragen ein Einbruch (37 % gegen
-  57 % Vorwissen: die Entitätsliste verleitet zur Entitätsantwort) und auf
-  Datumsfragen fast nichts (9 % gegen 33 %: Beschreibungen tragen die Daten
-  nicht). Die Decke des Mesh ist höher (Antwort im Material 61 % gegen 55 %),
-  die Ausbeute etwas niedriger, und das Vorwissen wird stärker unterdrückt.
-  Wiederholt: +4,0 EM / +4,9 F1 (p = 0,015), Streuung je Arm unter einem
-  halben Punkt. Mit halbem Budget (top_k 25) schrumpft der Abstand auf
-  +1,2 EM (n.s.) / +2,7 F1 (p = 0,03), die Decke fällt von 61 auf 53 %: der
-  Gewinn braucht genug Entitäten, damit Relationen zwischen ihnen sichtbar
-  werden.
+  Result (EM): prior knowledge 33.8%, five passages 42.7, fifty entities
+  without edges 40.5, constellation with structural edges 41.2,
+  constellation without structural edges 44.1. The graph helps with
+  answering where the model does not know the corpus: +3.6 EM / +4.3 F1
+  over the same entities without edges (p = 0.03; 147 questions better,
+  111 worse) — but only when the structural edges
+  (co_mentions_in_paragraph, appears_in_source, 60% of the rendered
+  lines) are left out; with them, +0.7 remains (p = 0.72), and they cost
+  2.9 points (p = 0.004). Against five passages, a tie (+1.4, n.s.), made
+  of two opposing pieces: on the 836 questions with a single entity as
+  the answer, +5.6 over the passages (comparison questions, where the
+  relations show the chain), on yes/no questions a collapse (37% against
+  57% prior knowledge: the entity list tempts an entity answer), and on
+  date questions almost nothing (9% against 33%: descriptions do not
+  carry the dates). The mesh's ceiling is higher (answer present in the
+  material 61% against 55%), the yield somewhat lower, and prior
+  knowledge is suppressed more strongly. Repeated: +4.0 EM / +4.9 F1
+  (p = 0.015), spread per arm under half a point. At half the budget
+  (top_k 25) the gap shrinks to +1.2 EM (n.s.) / +2.7 F1 (p = 0.03), the
+  ceiling falls from 61 to 53%: the gain needs enough entities for
+  relations between them to become visible.
 
-  Entscheidung: render_constellation lässt die Strukturkanten standardmäßig
-  weg (typed_only=True); jede Founding-Zahl vor PHX-1110 wurde mit ihnen
-  gemessen und bleibt so stehen; mesh ask zeigt sie dem Menschen weiter.
+  Decision: render_constellation leaves out the structural edges by
+  default (typed_only=True); every founding number before PHX-1110 was
+  measured with them and stands as is; mesh ask keeps showing them to
+  humans.
 
-  Nebenbefund, behoben: das Lesen war quadratisch — jeder Knoten ein
-  Lance-Fragment bis zur Kompaktierung, jede Vektorsuche liest alle (98 ms
-  gegen 10 ms), 0,55 s je Absatz am Anfang, über 6 s bei Absatz 400. Ein
-  Lesen kompaktiert jetzt alle 200 Absätze (MeshRuntime.compact,
-  MeshParagraphReader.compact_every) und hält 0,80 s je Absatz.
+  Side finding, fixed: reading was quadratic — every node a Lance
+  fragment until compaction, every vector search reads all of them
+  (98 ms against 10 ms), 0.55 s per paragraph at the start, over 6 s by
+  paragraph 400. A read now compacts every 200 paragraphs
+  (MeshRuntime.compact, MeshParagraphReader.compact_every) and holds at
+  0.80 s per paragraph.
 
-  Vorbehalt: das Vorwissen stand in PHX-1089 (26. August) bei 24,8 %, heute
-  bei 33,8 % — derselbe Modellname, dieselben Prompts und Fragen; hinter
-  deepseek-chat antwortet nicht mehr dasselbe Modell. Alle Vergleiche sind
-  innerhalb eines Laufs.
+  Caveat: prior knowledge stood at 24.8% in PHX-1089 (26 August), today
+  at 33.8% — same model name, same prompts and questions; the model
+  behind deepseek-chat is no longer the same one. All comparisons are
+  within a single run.
 
-  Offen, nicht als Ticket: die Ja/Nein-Schwäche der Entitäts-Rendering-Form,
-  die fehlenden Daten in den Beschreibungen (das Mesh hält keinen
-  Absatztext), und mesh ask, das die Strukturkanten weiter zeigt.
+  Open, not as a ticket: the yes/no weakness of the entity rendering
+  form, the missing dates in the descriptions (the mesh holds no
+  paragraph text), and mesh ask, which keeps showing the structural
+  edges.
 relates_to:
   - PHX-1098   # closed the founding corpus as a control group; this is the piece it demanded
   - PHX-1089   # the HippoRAG answer benchmark on passages, whose cache and scorer this reuses

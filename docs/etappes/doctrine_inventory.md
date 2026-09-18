@@ -1,6 +1,6 @@
-# Was vom lebenden Substrat tatsächlich läuft — eine Inventur
+# What actually runs in the living substrate — an inventory
 
-> **English abstract.** *Question.* Five times in a few weeks a doctrine
+> **Abstract.** *Question.* Five times in a few weeks a doctrine
 > mechanism turned up whose input nobody writes. A pattern, or five accidents?
 > *Method.* For every mechanism the MESH doctrine prescribes, three separate
 > questions: is it implemented, is it reached from a real path, are its inputs
@@ -25,296 +25,298 @@
 > first (built the same day, PHX-1101), then α against λ, then renormalisation
 > before tier modulation. The full table of 119 is the appendix.
 
-*2026-08-31. Gegen `data/mesh-founding` (5.002 konsolidierte Knoten, 94.490
-Kanten, 1.206 Chunks, 14 Ticks) und den Stand von `main` nach PHX-1097.*
+*2026-08-31. Against `data/mesh-founding` (5,002 consolidated nodes, 94,490
+edges, 1,206 chunks, 14 ticks) and the state of `main` after PHX-1097.*
 
-## Warum es diese Seite gibt
+## Why this page exists
 
-Fünfmal in den letzten Wochen bin ich beim Arbeiten an etwas anderem über einen
-Doktrin-Mechanismus gestolpert, dessen **Eingabe niemand schreibt**: `decay_tier`,
-die Aktivierungsschwelle, `frame_consistency`, der Frame-Routing-Aufrufer,
-`fired_total`. Jedes Mal war der Fund ein Zufall, und jedes Mal wurde er dort
-notiert, wo er auffiel — in einem Docstring, einem Kommentar, einem Ticket.
+Five times in recent weeks, while working on something else, I stumbled onto
+a doctrine mechanism whose **input nobody writes**: `decay_tier`,
+the activation threshold, `frame_consistency`, the frame-routing caller,
+`fired_total`. Each time the find was an accident, and each time it got noted
+wherever it turned up — in a docstring, a comment, a ticket.
 
-Die Vermutung war, dass das ein Muster ist und keine fünf Unfälle. Diese Seite
-prüft das systematisch: für jeden Mechanismus, den die MESH-Doktrin vorschreibt,
-läuft er?
+The suspicion was that this is a pattern, not five accidents. This page
+checks that systematically: for every mechanism the MESH doctrine prescribes,
+does it run?
 
-**Was hier „läuft" heißt.** Implementiert *und* von einem echten Pfad aus erreicht
-(`retrieve` / `ingest` / `tick` / ein CLI-Kommando) *und* seine Eingaben werden
-tatsächlich erzeugt. Drei getrennte Fragen, und jede einzelne kann verneint
-werden, während die anderen bejaht sind:
+**What "runs" means here.** Implemented *and* reached from a real path
+(`retrieve` / `ingest` / `tick` / a CLI command) *and* its inputs are
+actually produced. Three separate questions, and each one can be answered
+no while the others are answered yes:
 
-- implementiert, aber kein Aufrufer → **inert**
-- aufgerufen, aber die Eingabe ist im ganzen Substrat konstant → **auch inert**,
-  denn ein Zweig, der einen konstanten Wert liest, kann nichts unterscheiden
-- nicht implementiert, und nicht implementierbar, weil eine Eingabe fehlt →
-  **blockiert**
+- implemented, but no caller → **inert**
+- called, but the input is constant across the whole substrate → **also
+  inert**, because a branch that reads a constant value cannot discriminate
+  anything
+- not implemented, and not implementable, because an input is missing →
+  **blocked**
 
-Ein Test, der etwas aufruft, macht es nicht lebendig.
+A test that calls something does not make it alive.
 
-**Methode und ihre Grenzen.** Fünf Leser haben je einen Doktrinbereich
-aufgenommen; danach hat für jeden Bereich ein zweiter Durchgang versucht, jedes
-„läuft nicht" zu **widerlegen** — Schreiber suchen, Aufrufer suchen, den Pfad
-finden, der es doch funktionieren lässt. Ein falsches „das ist inert" ist hier
-der teure Fehler: es schickt die nächste Arbeit auf etwas, das schon läuft. Von
-110 Widerlegungsversuchen: **105 bestätigt, 4 nach oben korrigiert, 1 nach
-unten**. Die vier Korrekturen stehen in der Liste unten drin.
+**Method and its limits.** Five readers each took one doctrine area;
+afterward, for every area, a second pass tried to **refute** every "does not
+run" — looking for writers, looking for callers, finding the path that does
+make it work after all. A false "this is inert" is the expensive error here:
+it sends the next piece of work at something that already runs. Of
+110 refutation attempts: **105 confirmed, 4 corrected upward, 1 corrected
+downward**. The four corrections are in the list below.
 
-Die Zahl 119 ist eine Zerlegungsentscheidung, keine Naturkonstante — ein
-17-Schritte-Tick zählt hier als 17 Zeilen, ein Feld als eine. Das Verhältnis
-9/119 ist deshalb weniger aussagekräftig als die Muster darunter. Die *Muster*
-habe ich selbst nachgemessen, nicht übernommen.
+The number 119 is a decomposition decision, not a natural constant — a
+17-step tick counts here as 17 lines, a field as one. The ratio 9/119 is
+therefore less telling than the patterns beneath it. I re-measured the
+*patterns* myself, rather than taking them over.
 
-## Der Bestand
+## The inventory
 
-| | MESH_SUBSTRATE | MESH_RETRIEVAL | MESH_IMPLEMENTATION | gesamt |
+| | MESH_SUBSTRATE | MESH_RETRIEVAL | MESH_IMPLEMENTATION | total |
 |---|---|---|---|---|
-| **läuft** | 4 | 3 | 2 | **9** |
-| teilweise | 6 | 2 | 16 | 24 |
+| **runs** | 4 | 3 | 2 | **9** |
+| partial | 6 | 2 | 16 | 24 |
 | **inert** | 26 | 4 | 4 | **34** |
-| **blockiert** | 8 | 1 | 1 | **10** |
-| fehlt | 25 | 2 | 15 | 42 |
+| **blocked** | 8 | 1 | 1 | **10** |
+| absent | 25 | 2 | 15 | 42 |
 | | 69 | 12 | 38 | **119** |
 
-Das Retrieval steht am besten da — es ist auch das einzige, an dem seit Monaten
-gearbeitet wird. Die *Dynamik* des Substrats, also das, was es zu einem lebenden
-Ding machen soll, steht am schlechtesten.
+Retrieval stands best — it is also the only one that has been worked on for
+months. The substrate's *dynamics* — the thing meant to make it a living
+thing — stands worst.
 
 ---
 
-## Fünf Muster
+## Five patterns
 
-### 1. Das Substrat kann nur vergessen
+### 1. The substrate can only forget
 
-Das ist der schwerwiegendste Befund, und ich habe ihn selbst nachgemessen.
+This is the most serious finding, and I re-measured it myself.
 
-Der Zerfall läuft: 14 Ticks, λ=0,05, `Δw = -λ·dt·w²`, und die Wirkung ist im
-Substrat sichtbar (Gewichte 0,2802–0,9049, der Modus bei 0,3112 reproduziert eine
-Vorwärtssimulation über 14 Ticks). Die Hebbsche Verstärkung — das Gegenstück —
-ist verdrahtet, durchgehend bis zum Tick, und **hat auf diesem Mesh nie
-gefeuert**: alle 14 Tick-Records im Audit-Log tragen `delta_drained: 0`, und die
-Sidecar-Datei ist leer. Jedes der 94.490 Gewichte ist reine Ingestion plus
-Zerfall.
+Decay runs: 14 ticks, λ=0.05, `Δw = -λ·dt·w²`, and the effect is visible in
+the substrate (weights 0.2802–0.9049, the mode at 0.3112 reproduces a
+forward simulation over 14 ticks). Hebbian reinforcement — the counterpart —
+is wired, all the way through to the tick, and **has never fired on this
+mesh**: all 14 tick records in the audit log carry `delta_drained: 0`, and
+the sidecar file is empty. Every one of the 94,490 weights is pure ingestion
+plus decay.
 
-Das allein wäre nur „niemand hat das Flag gesetzt". Der eigentliche Befund ist
-die **Kalibrierung**. Acht echte Abfragen mit `hebbian=True` gegen das lebende
-Substrat schrieben 512 Deltas:
+That alone would just be "nobody set the flag." The real finding is the
+**calibration**. Eight real queries with `hebbian=True` against the live
+substrate wrote 512 deltas:
 
-    stärkstes Delta einer Abfrage      2,9 · 10⁻⁴
-    Median-Delta                       1,9 · 10⁻⁵
-    ein Tick Zerfall (Mediangewicht)   4,8 · 10⁻³
+    strongest delta from one query      2.9 · 10⁻⁴
+    median delta                        1.9 · 10⁻⁵
+    one tick of decay (median weight)   4.8 · 10⁻³
 
-**Die stärkste Verstärkung, die eine einzelne Abfrage einer Kante geben kann, ist
-17-mal kleiner als ein Tick Vergessen. Im Median 254-mal.** Und der Tick zerfällt
-*jede* Kante, während eine Abfrage nur die wenigen berührt, die sie aktiviert.
+**The strongest reinforcement a single query can give an edge is 17 times
+smaller than one tick of forgetting. At the median, 254 times.** And the
+tick decays *every* edge, while a query only touches the few it activates.
 
-„Fire together, wire together" steht in der Doktrin als erste der fünf Primitiven.
-Sie ist gebaut, sie ist erreichbar, und bei den ausgelieferten Parametern kann sie
-gegen den ausgelieferten Zerfall nichts halten. α und λ wurden nie gegeneinander
-gemessen.
+"Fire together, wire together" is doctrine's first of the five primitives.
+It is built, it is reachable, and at the shipped parameters it cannot hold
+anything against the shipped decay. α and λ were never measured against
+each other.
 
-Dazu kommt: der Zerfall ist **unbedingt**. Die Doktrin sagt „Kanten, die *nicht*
-feuern, schwächen sich"; `decay_edges_inplace` zerfällt alle, und der Tick wendet
-ihn *nach* dem Merge an — eine gerade verstärkte Kante wird im selben Durchgang
-mitzerfallen. Ein Feuersignal, auf das man verzichten könnte, gibt es ohnehin
-nicht (siehe Muster 2).
+On top of that: decay is **unconditional**. Doctrine says "edges that do
+*not* fire weaken themselves"; `decay_edges_inplace` decays all of them, and
+the tick applies it *after* the merge — an edge just reinforced decays along
+with the rest in the same pass. A firing signal to exempt from it does not
+exist anyway (see pattern 2).
 
-### 2. Siebzehn Felder halten im ganzen Substrat genau einen Wert
+### 2. Seventeen fields hold exactly one value across the whole substrate
 
-Gemessen über alle 5.002 konsolidierten Knoten und alle 94.490 Kanten:
+Measured across all 5,002 consolidated nodes and all 94,490 edges:
 
-| Feld | Wert überall | wofür die Doktrin es vorsieht |
+| Field | Value everywhere | what doctrine intends it for |
 |---|---|---|
-| `fired_total`, `fired_recent` | 0 | Tier-Beförderung, Replay, Zerfall-Gating |
-| `positive_feedback_total`, `negative_feedback_total`, `feedback_recent` | 0 | Drei-Faktor-RL |
-| `eligibility`, `feedback_modulated_strength` | 0.0 | Eligibility-Traces, modulierte Plastizität |
-| `decay_tier` | 0 | gestufter Zerfall |
-| `frame_consistency` | 1.0 | Frame-Routing |
-| `consolidation_tier` | 1 | Tier-Beförderung, Sättigungsbudgets |
-| `consolidation_history` | leer | Alterskorrektur im Atrophie-Band |
-| `structural_vector`, `temporal_vector` | None | Sub-Mesh-Matching, zeitliche Nähe |
-| `activation_entropy`, `node_potential_cache` | None | Pathologie-Symptome, Pruning |
-| `is_anchor` | False | eigene Anker-Klasse (eine `anchor_nodes`-Tabelle existiert nirgends) |
-| `qids` | leer | die stärkste Identitätsspur der Doktrin |
+| `fired_total`, `fired_recent` | 0 | tier promotion, replay, decay gating |
+| `positive_feedback_total`, `negative_feedback_total`, `feedback_recent` | 0 | three-factor RL |
+| `eligibility`, `feedback_modulated_strength` | 0.0 | eligibility traces, modulated plasticity |
+| `decay_tier` | 0 | tiered decay |
+| `frame_consistency` | 1.0 | frame routing |
+| `consolidation_tier` | 1 | tier promotion, saturation budgets |
+| `consolidation_history` | empty | age correction in the atrophy band |
+| `structural_vector`, `temporal_vector` | None | sub-mesh matching, temporal proximity |
+| `activation_entropy`, `node_potential_cache` | None | pathology symptoms, pruning |
+| `is_anchor` | False | a separate anchor class (an `anchor_nodes` table exists nowhere) |
+| `qids` | empty | doctrine's strongest identity signal |
 
-Das sind nicht siebzehn Bugs. Das ist **ein** Befund: die Doktrin beschreibt ein
-Substrat mit einem Gedächtnis für die eigene Aktivität, und **dieses Gedächtnis
-wird nirgends geführt**. Alles, was daraus liest — Tier-Beförderung, Oneiros'
-Replay zum Schutz des Seltenen-aber-Wichtigen, Argus' Pathologie-Überwachung, die
-Eligibility-Traces des RL — liest eine Geschichte, die niemand aufschreibt.
+These are not seventeen bugs. This is **one** finding: doctrine describes a
+substrate with a memory of its own activity, and **that memory is kept
+nowhere**. Everything that reads from it — tier promotion, Oneiros' replay
+to protect the rare-but-important, Argus' pathology monitoring, RL's
+eligibility traces — reads a history that nobody writes down.
 
-`qids` steht aus einem anderen Grund in dieser Liste: die 130 einst vorhandenen
-Q-IDs wurden entfernt, weil 127 davon konfabuliert waren. Das war richtig. Die
-Folge ist, dass das stärkste der drei Identitätssignale der Doktrin auf diesem
-Mesh gar nicht existiert — und `_ensure_consolidated_indexes` kann seinen
-Vollständigkeits-Check deshalb nie bestehen und scannt bei **jedem** Öffnen des
-Workspaces 836 ms lang die Knotentabelle.
+`qids` is on this list for a different reason: the 130 Q-IDs that once
+existed were removed because 127 of them were confabulated. That was the
+right call. The consequence is that the strongest of doctrine's three
+identity signals does not exist on this mesh at all — and
+`_ensure_consolidated_indexes` can therefore never pass its completeness
+check, and scans the node table for 836 ms on **every** opening of the
+workspace.
 
-### 3. Die Tier-Leiter ist dort, wo das Substrat lebt, verkehrt herum
+### 3. The tier ladder is inverted where the substrate actually lives
 
-Die Doktrin sagt: höhere Konsolidierungsstufen tragen **sanftere**
-Zerfallsexponenten — Chunks k=2, Entitäten k≈1,5, Hubs k≈1,2 — damit
-Arbeitsbegriffe verdampfen und Grundstruktur bleibt.
+Doctrine says: higher consolidation tiers carry **gentler** decay
+exponents — chunks k=2, entities k≈1.5, hubs k≈1.2 — so that working terms
+evaporate and core structure stays.
 
-`decay_tier` ist 0 auf jeder Kante, also läuft immer k=2, und die anderen Zweige
-sind unerreichbar. Das war bekannt (PHX-1095). Neu ist, was passiert, wenn man
-das Feld ehrlich schreiben würde. Für `0 < w < 1` gilt `w^1,2 > w^2` — ein
-*kleinerer* Exponent entfernt *mehr* absolutes Gewicht. Am tatsächlichen
-Mediangewicht dieses Substrats (0,3112) und λ=0,05:
+`decay_tier` is 0 on every edge, so k=2 always runs, and the other branches
+are unreachable. That was already known (PHX-1095). What's new is what
+happens if the field were honestly written. For `0 < w < 1`, `w^1.2 > w^2` —
+a *smaller* exponent removes *more* absolute weight. At this substrate's
+actual median weight (0.3112) and λ=0.05:
 
-    k = 2    (Chunk)      Verlust je Tick  0,00484
-    k = 1,5  (Entität)                     0,00863
-    k = 1,2  (Hub)                         0,01226   ← 2,5× so viel
+    k = 2    (chunk)      loss per tick    0.00484
+    k = 1.5  (entity)                      0.00863
+    k = 1.2  (hub)                         0.01226   ← 2.5× as much
 
-Und jedes Gewicht im Mesh liegt unter 1, weil `w_max = 1.0` es dort festhält.
-**Die dokumentierte Tier-Modulation würde konsolidierte Struktur schneller
-verdampfen lassen als Chunks.** Das Feld zu füllen wäre keine Reparatur; es wäre
-die Umkehrung der beabsichtigten Wirkung. Der Mechanismus ist erst dann sinnvoll,
-wenn Gewichte über 1 leben dürfen — was die globale Renormalisierung leisten
-würde, die es nicht gibt (siehe unten).
+And every weight in the mesh sits below 1, because `w_max = 1.0` holds it
+there. **The documented tier modulation would make consolidated structure
+evaporate faster than chunks.** Filling in the field would not be a repair;
+it would be the reversal of the intended effect. The mechanism only makes
+sense once weights are allowed to live above 1 — which is what the global
+renormalisation would provide, and it does not exist (see below).
 
-### 4. Verdrahtet, aber ohne Unterscheidungskraft
+### 4. Wired, but without discriminating power
 
-Fünf Mechanismen laufen tatsächlich an und können trotzdem nichts bewirken:
+Five mechanisms actually run and still cannot accomplish anything:
 
-- **Frame-Routing** wird von `retrieve.py:423` aufgerufen — aber nur, wenn ein
-  `query_frame` übergeben wird, und **kein Aufrufer in `src/` oder `scripts/` tut
-  das**: nicht die CLI, nicht das Cockpit, nicht der Benchmark, nicht das
-  Demo-GIF. Es gibt kein Flag dafür. Schlimmer: die Frame-Vektoren des Mesh sind
-  eine gesalzene SHA-256-Projektion des Labels (`vectorizer.py:_hash_projection`),
-  also 4.977 verschiedene Hashes, keine epistemische Haltung. Routing darauf würde
-  Kanten nach einem Hash maskieren.
-- **Der Dämpfungsfaktor** (Doktrin: ≈0,5 als Abbruchbedingung) wird nur im
-  `raw`- und `degnorm`-Zweig gelesen. Der ausgelieferte Operator ist `ppr`, der
-  ihn nie liest — und `mesh ask` hat gar kein `--damping`.
-- **Die maximale Hop-Zahl** (Doktrin: 3, nie über 5) gilt ebenso nur für
-  `raw`/`degnorm`. `ppr` läuft 12 Iterationen, und `mesh ask --hops` wird in einen
-  Zweig durchgereicht, den der Default nie betritt.
-- **Die Sättigung** läuft bei jedem Tick und hat noch nie etwas abgeschnitten:
-  Kappe 10.000 gegen einen gemessenen maximalen Ausgangsgrad von 1.093. Der
-  begleitende `w_max`-Clamp ist gleich wirkungslos (größtes Gewicht 0,9049).
-- **Die Aktivierungsschwelle** (Doktrin: ≈0,05 je Knoten) existiert im Code
-  überhaupt nicht; die Zugehörigkeit zur Constellation ist `v > 0.0` plus Budget.
-  Sie einzubauen wäre auch keine Reparatur — bei PPR erreichen im Median 9 von 50
-  Knoten diesen Wert (PHX-1095).
+- **Frame routing** is called from `retrieve.py:423` — but only when a
+  `query_frame` is passed, and **no caller in `src/` or `scripts/` does
+  that**: not the CLI, not the cockpit, not the benchmark, not the demo GIF.
+  There is no flag for it. Worse: the mesh's frame vectors are a salted
+  SHA-256 projection of the label (`vectorizer.py:_hash_projection`), i.e.
+  4,977 distinct hashes, no epistemic stance. Routing on that would mask
+  edges by a hash.
+- **The damping factor** (doctrine: ≈0.5 as the stop condition) is read only
+  in the `raw` and `degnorm` branches. The shipped operator is `ppr`, which
+  never reads it — and `mesh ask` has no `--damping` at all.
+- **The maximum hop count** (doctrine: 3, never above 5) likewise applies
+  only to `raw`/`degnorm`. `ppr` runs 12 iterations, and `mesh ask --hops`
+  is passed through into a branch the default never enters.
+- **Saturation** runs on every tick and has never yet cut anything off: cap
+  10,000 against a measured maximum out-degree of 1,093. The accompanying
+  `w_max` clamp is just as ineffective (largest weight 0.9049).
+- **The activation threshold** (doctrine: ≈0.05 per node) does not exist in
+  the code at all; Constellation membership is `v > 0.0` plus a budget.
+  Building it in would not be a repair either — under PPR, a median of 9 of
+  50 nodes reach that value (PHX-1095).
 
-### 5. Zwei Schreiber, kein Schloss, kein Schnappschuss
+### 5. Two writers, no lock, no snapshot
 
-Die Doktrin verlangt Snapshot-Isolation für Lesevorgänge, gepufferte Schreibvorgänge
-und einen **serialisierten** Oneiros mit genau einem Schreiber je Substrat.
+Doctrine requires snapshot isolation for reads, buffered writes, and a
+**serialised** Oneiros with exactly one writer per substrate.
 
-Nichts davon hält. `_READ_CONSISTENCY = timedelta(0)` heißt „bei jeder Operation
-neu prüfen" — das genaue Gegenteil eines gepinnten Snapshots, und bewusst so
-(PHX-1093). `checkout`, `restore` und `as_of` kommen im ganzen Repo nicht vor, ein
-Durchgang *könnte* also gar nicht pinnen. Und es gibt keine Sperre: weder
-`filelock` noch `flock` noch ein Lockfile irgendwo in `src/`.
+None of it holds. `_READ_CONSISTENCY = timedelta(0)` means "re-check on
+every operation" — the exact opposite of a pinned snapshot, and deliberately
+so (PHX-1093). `checkout`, `restore` and `as_of` do not occur anywhere in the
+repo, so a pass *could not* pin even if it wanted to. And there is no lock:
+neither `filelock` nor `flock` nor a lockfile anywhere in `src/`.
 
-Dabei sind es inzwischen **zwei** ungeschützte Lese-Ändere-Schreibe-Zyklen über
-das ganze Substrat — `run_minimal_tick` und, seit heute, `run_consolidation`, aus
-verschiedenen Prozessen gleichzeitig erreichbar. Die Konsolidierung hat das in
-ihrem eigenen Docstring notiert („die Reihenfolge ist der einzige Schutz, den es
-gibt"), aber die Doktrin verlangt Serialisierung, und die gibt es nicht.
+By now there are **two** unprotected read-modify-write cycles across the
+whole substrate — `run_minimal_tick` and, as of today, `run_consolidation`,
+reachable simultaneously from different processes. Consolidation noted this
+in its own docstring ("ordering is the only protection there is"), but
+doctrine requires serialisation, and there is none.
 
 ---
 
-## Ein Nebenbefund, der eigene Aufmerksamkeit verdient
+## A side finding that deserves its own attention
 
-**Der einzige Zeiger des Substrats zurück auf seine Quellen ist tot.** Alle 1.206
-Chunk-Knoten tragen ein `raw_text_ref` der Form
+**The substrate's only pointer back to its sources is dead.** All 1,206
+chunk nodes carry a `raw_text_ref` of the form
 
     /private/tmp/claude-501/…/scratchpad/fullread/batch_00.txt#p1
 
-— 13 verschiedene Dateien in einem Sitzungs-Scratchpad, von denen **keine einzige
-noch existiert**. `SourceProvenance.source_identifier` trägt denselben toten Pfad.
+— 13 different files in a session scratchpad, of which **not a single one
+still exists**. `SourceProvenance.source_identifier` carries the same dead
+path.
 
-Die Doktrin nennt `raw_text_ref` ausdrücklich als das, woraus das Immunsystem oder
-ein Oneiros-Tick einen Chunk abseits des heißen Pfads neu ableiten kann. Auf
-diesem Mesh ist das unmöglich.
+Doctrine names `raw_text_ref` explicitly as what lets the immune system or
+an Oneiros tick re-derive a chunk off the hot path. On this mesh that is
+impossible.
 
-PHX-1084 hat genau dieses Problem für die **Quellanker** repariert und die
-Ingestion nach vorn korrigiert (`source_identifier` ist jetzt
-`gutenberg_{book_id}`). Die Chunk-Ebene des bestehenden Mesh wurde nie
-nachgezogen. Es ist also kein Code-Fehler mehr, sondern ein unbereinigtes
-Datenartefakt — auf dem Mesh, das die Demo zeigt.
-
----
-
-## Was daraus folgt
-
-Die Doktrin ist nicht falsch. Was fehlt, ist nicht Einsicht, sondern **Sensorik**:
-mehrere der beschriebenen Organe sind an Messfühler angeschlossen, die nie
-eingebaut wurden. Deshalb ist die Reihenfolge der nächsten Arbeit nicht beliebig.
-
-**Zuerst das Aktivierungsgedächtnis.** `fired_total`, `fired_recent`,
-`last_fired_at` auf dem Lesepfad zurückschreiben. Das ist wenig Code und entsperrt
-vier Mechanismen auf einmal: Tier-Beförderung, gating-fähigen Zerfall, Oneiros'
-Replay und die Eligibility-Traces. Ohne das sind Pathologie-Überwachung und
-Therapie Instrumente, die etwas beobachten sollen, das nicht aufgezeichnet wird.
-
-**Dann α gegen λ.** Die Hebbsche Verstärkung 17- bis 254-fach unter dem Zerfall zu
-lassen und gleichzeitig „das Substrat lernt aus Benutzung" zu behaupten, ist die
-Art Lücke, die dieses Repo sonst sofort aufschreibt. Entweder α anheben, λ senken,
-oder den Zerfall auf ungefeuerte Kanten beschränken — aber gemessen, nicht
-geraten.
-
-**Und die Renormalisierung vor der Tier-Modulation.** Solange jedes Gewicht unter
-1 liegt, dreht die dokumentierte Tier-Leiter ihre eigene Absicht um. Die globale
-homöostatische Renormalisierung ist der Mechanismus, der Gewichte in einen Bereich
-hebt, in dem die Leiter das Richtige tut — sie kommt also zuerst.
-
-**Nicht als Nächstes:** Splits, Pathologie, Therapie. Alle drei lesen aus der
-Aktivierungsgeschichte.
+PHX-1084 fixed exactly this problem for the **source anchors** and corrected
+ingestion going forward (`source_identifier` is now `gutenberg_{book_id}`).
+The chunk layer of the existing mesh was never backfilled. So it is no
+longer a code bug, but an uncleaned data artefact — on the mesh the demo
+shows.
 
 ---
 
-## Nachtrag, noch am selben Tag
+## What follows from this
 
-**PHX-1101 ist gebaut**, und damit ist der erste Eintrag aus Muster 2 abgeräumt:
-der Lesepfad zeichnet jetzt auf, welche Knoten ins Arbeitsset gelangt sind, die
-Ingestion zeichnet jede Referenz auf einen bereits vorhandenen Knoten auf, und
-der Tick faltet beides ein. `fired_total` ging auf einer Kopie des Founding-Mesh
-über 47 Abfragen **von einem distinkten Wert auf 32** — Zeus 45, Theogony 43,
-der Quellanker 41, Phoebus Apollo 40.
+Doctrine is not wrong. What's missing is not insight but **sensors**:
+several of the described organs are connected to sensing elements that were
+never built in. That is why the order of the next work is not arbitrary.
 
-Die Aufnahme oben bleibt stehen, wie sie gemessen wurde. Sie ist der Zustand vom
-31. August, und eine Inventur, die sich rückwirkend selbst korrigiert, ist keine.
+**Activation memory first.** Write `fired_total`, `fired_recent`,
+`last_fired_at` back on the read path. That is little code and unlocks four
+mechanisms at once: tier promotion, gating-capable decay, Oneiros' replay,
+and the eligibility traces. Without it, pathology monitoring and therapy are
+instruments meant to observe something that is never recorded.
 
-Was das entsperrt: Tier-Beförderung hat jetzt eine Eingabe, der Zerfall könnte auf
-ungefeuerte Kanten beschränkt werden (die doktrintreue Antwort auf PHX-1102),
-Oneiros' Replay hat ein Signal, und die Eligibility-Traces haben eine Basis. Keins
-davon ist damit gebaut — nur nicht mehr blockiert.
+**Then α against λ.** Leaving Hebbian reinforcement 17 to 254 times below
+decay while claiming "the substrate learns from use" is the kind of gap this
+repo would otherwise write up immediately. Either raise α, lower λ, or
+restrict decay to unfired edges — but measured, not guessed.
 
-**PHX-1102, am Tag danach:** Muster 1 ist zur Hälfte abgeräumt. Der Zerfall
-verschont jetzt, was gefeuert hat — die Regel aus MESH_SUBSTRATE §2, gemessen
-als die einzige der drei Stellschrauben, bei der Benutztes hält (0,594 gegen
-0,359 unter dem ausgelieferten Zerfall). Das Substrat kann nicht mehr *nur*
-vergessen. Ob es *lernt*, sieht das Retrieval auf diesem Mesh nicht — zehn
-Runden, kein Gold-Treffer bewegt — und warum, steht in
-[`hebbian_calibration.md`](hebbian_calibration.md) und PHX-1104.
+**And renormalisation before tier modulation.** As long as every weight sits
+below 1, the documented tier ladder reverses its own intent. Global
+homeostatic renormalisation is the mechanism that lifts weights into a range
+where the ladder does the right thing — so it comes first.
 
-Was diese Aufnahme für die Vision bedeutet — welche Verben von *„the mesh is
-alive"* heute stimmen, welche Sätze der README nicht mehr, und was Gen 1
-ehrlich verspricht — steht in [`what_gen1_promises.md`](what_gen1_promises.md).
+**Not next:** splits, pathology, therapy. All three read from the activation
+history.
 
-## Anhang — die vollständige Aufnahme
+---
 
-Nach Doktrindokument, innerhalb dessen nach Zustand. Jede Zeile trägt die kürzeste
-wahre Begründung, meist mit `datei:zeile`. Sie ist auf 230 Zeichen gekürzt — die
-Aufnahme sollte lesbar bleiben, und wer eine Zeile bezweifelt, findet den Beleg
-schneller im Code als in einem längeren Zitat.
+## Addendum, the same day
 
-### MESH_SUBSTRATE.md — 69 Mechanismen (4 läuft · 6 teilweise · 26 inert · 8 blockiert · 25 fehlt)
+**PHX-1101 is built**, and with it the first entry from pattern 2 is
+cleared: the read path now records which nodes made it into the working
+set, ingestion records every reference to an already-existing node, and the
+tick folds both in. `fired_total` went, on a copy of the founding mesh over
+47 queries, **from one distinct value to 32** — Zeus 45, Theogony 43, the
+source anchor 41, Phoebus Apollo 40.
+
+The record above stands as it was measured. It is the state of August 31,
+and an inventory that retroactively corrects itself is not one.
+
+What that unlocks: tier promotion now has an input, decay could be
+restricted to unfired edges (the doctrine-faithful answer to PHX-1102),
+Oneiros' replay has a signal, and the eligibility traces have a basis. None
+of that is thereby built — only no longer blocked.
+
+**PHX-1102, the day after:** pattern 1 is half cleared. Decay now spares
+what has fired — the rule from MESH_SUBSTRATE §2, measured as the one knob
+of the three where used items hold (0.594 against 0.359 under the shipped
+decay). The substrate can no longer *only* forget. Whether it *learns* is
+not visible to retrieval on this mesh — ten rounds, no gold hit moved — and
+why is in [`hebbian_calibration.md`](hebbian_calibration.md) and PHX-1104.
+
+What this record means for the vision — which verbs of *"the mesh is
+alive"* hold true today, which README sentences no longer do, and what
+Gen 1 honestly promises — is in
+[`what_gen1_promises.md`](what_gen1_promises.md).
+
+## Appendix — the complete record
+
+By doctrine document, and within that by status. Every line carries the
+shortest true justification, mostly with `datei:zeile`. It is cut to 230
+characters — the record should stay readable, and anyone who doubts a line
+finds the evidence faster in the code than in a longer quote.
+
+### MESH_SUBSTRATE.md — 69 mechanisms (4 runs · 6 partial · 26 inert · 8 blocked · 25 absent)
 
 
-**läuft**
+**runs**
 
 - **description (ConsolidatedNode)** — Written at ingest for every node (kadmos_v2.py:385 via `_entity_description`, source_anchor.py:41-45) and read on real paths: it is the Constellation's display name (retrieval/constellation.py:64-71, 176) and it feeds the `consoli…
 - **is_source_anchor (source-anchor entity class)** — Written by ingestion/source_anchor.py:36; live it partitions the mesh 1,219 anchors / 3,783 content nodes. Read on real paths and it changes behaviour: constellation.py:142 splits activated nodes into a separate anchor budget (`_P…
 - **relation_descriptor (short relation label)** — Written on every edge; non-null on 94,490/94,490 live edges with 2,680 distinct values. Read on real paths: it is part of the edge identity used for dedup and delta merging (storage/edges.py:237, 490-498, 235-236 — keying by node …
 - **tags (discriminating keyword cloud)** — Written at ingest (kadmos_v2.py:386 via `_concept_tags`, :523; source_anchor.py:46) and genuinely differentiating live: 1-7 tags per node, 7 distinct lengths across 5,002 nodes. Read on real paths — the tag-match linking signal (i…
 
-**teilweise**
+**partial**
 
 - **Agent-driven cleanup — Deduplication** — The *application* half exists and has run (consolidation.py:803-969; 48 clusters merged on data/mesh-s5-work, union of edges with weight-summing at :645-649, capped by `enforce_saturation` at :914, absorbed ids recorded at :933-93…
 - **Hebbian update (w ← w + α·fire(i)·fire(j))** — Nothing structural — an opt-in flag nobody passes, plus an α/λ calibration that has never been measured against each other.
@@ -352,7 +354,7 @@ schneller im Code als in einem längeren Zitat.
 - **qids (Q-ID identity anchor, signal 1 of eager linking)** — A trustworthy entity linker. The lookup path (linker.py:311-333) is fully built and would work the moment a seeded or authoritative Q-ID existed; nothing on the reading path produces one.
 - **source_url (machine-clean anchor on source-anchor entities)** — Written at src/theogony/mesh/ingestion/source_anchor.py:37. No reader: `grep -rn source_url src/theogony/mesh/` returns only the declaration (schemas.py:75) and that writer; the hits in cockpit/mesh_explorer.py:201 and reporting/m…
 
-**blockiert**
+**blocked**
 
 - **Oneiros operation — Tier promotion (Tier 1 → 2 → 3)** — `fired_total`/`fired_recent` have no writer, and Argus's pathology checks are unbuilt — three of the four promotion gates have no input.
 - **Saturation — Σ weight cap per node (S, 5·S, 20·S, 100·S)** — S, the substrate-wide weight unit, which doctrine defines via the §6 renormalisation target — and no renormalisation exists to set it.
@@ -363,7 +365,7 @@ schneller im Code als in einem längeren Zitat.
 - **structural_vector (ConsolidatedNode)** — Nothing in the repo computes a topology embedding — no Node2Vec/GraphSAGE anywhere in src/. The tick (src/theogony/mesh/runtime/oneiros_tick.py:398-415) has no phase that would produce one.
 - **temporal_vector (ConsolidatedNode)** — No temporal-anchor extraction exists on the reading path; nothing produces a date/interval representation for a node.
 
-**fehlt**
+**absent**
 
 - **Agent-driven cleanup — Contradiction resolution** — `grep -rni "contradict" src/theogony/mesh/` returns nothing. No `ContradictionFinding` type, no `CONTRADICTS` edge kind, no writer. Measured on the live mesh: `relation_kind` takes 10 values across 94,490 edges — co_occurrence 73,…
 - **Agent-driven cleanup — False-information removal** — No `RemovalProposal` type in src/ (grep). No removal path: MeshNodeStore exposes only `replace_all_consolidated` (nodes.py:336), no per-node removal with an evidence trail. No removal audit action exists — the founding mesh's audi…
@@ -391,16 +393,16 @@ schneller im Code als in einem längeren Zitat.
 - **activation_entropy (spiral / context-promiscuity signal)** — Declared src/theogony/mesh/schemas.py:91. The only occurrence outside the declaration in all of src/ and scripts/ is src/theogony/mesh/runtime/consolidation.py:594, which sets it to `None` (a cache invalidation of a value never co…
 - **is_anchor (anchor-node class: no Hebbian update, no decay, no split)** — `grep -rnw is_anchor src/ scripts/ tests/` returns exactly one hit in the whole repository: the declaration at src/theogony/mesh/schemas.py:73. (The tests/mesh/test_constellation_anchor_budget.py hits are a local variable of that …
 
-### MESH_RETRIEVAL.md — 12 Mechanismen (3 läuft · 2 teilweise · 4 inert · 1 blockiert · 2 fehlt)
+### MESH_RETRIEVAL.md — 12 mechanisms (3 runs · 2 partial · 4 inert · 1 blocked · 2 absent)
 
 
-**läuft**
+**runs**
 
 - **Diversified injection A — Maximum Marginal Relevance** — `mmr_order` (src/theogony/mesh/retrieval/diversified.py:49-82) is called by `select_seeds` (diversified.py:132), which is called by `retrieve` (retrieve.py:404-412) on all four real paths above. λ = 0.6 exactly as doctrine specifi…
 - **Diversified injection B — weight-class stratification** — `class_seats` and `WeightClasses` (src/theogony/mesh/stratification.py:98-183 and :65-95) are called from diversified.py:143, reached from retrieve.py:404-412, with global class boundaries supplied by `MeshRuntime.weight_classes()…
 - **Spreading Activation as the universal retrieval primitive** — `Propagator.propagate` (src/theogony/mesh/retrieval/propagation.py:111-163) is called at src/theogony/mesh/retrieval/retrieve.py:433, and `retrieve()` is reached from four real paths: `theogony mesh ask` (src/theogony/mesh/cli.py:…
 
-**teilweise**
+**partial**
 
 - **"Diversified injection (A + B) is *always* on" / nearest-neighbour seeding forbidden** — MMR and stratification are live (above), but they do not cover the seed set. `_name_anchor_seeds` (retrieve.py:211-293) looks up capitalised spans by label and injects up to 8 nodes at a flat weight of **1.0** (retrieve.py:289); t…
 - **The modulated Hebbian rule (three-factor plasticity)** — a feedback signal `f_target` (no channel exists — see "Sources of feedback") and a per-edge propagation trace `s_ij` that `propagate` does not produce.
@@ -412,24 +414,24 @@ schneller im Code als in einem längeren Zitat.
 - **Frame routing during Spreading Activation (frame-routed activation / masked SpMV)** — a frame encoder producing epistemic frames rather than a hash projection, plus a `query_frame` on some real caller (there is no flag, API parameter, or config to set one).
 - **Relation-conditioned masked hop (`Propagator.relation_masked_hop`)** — a query-relation input on the retrieval API and a relation-restricted adjacency builder — neither exists anywhere in src/.
 
-**blockiert**
+**blocked**
 
 - **Eligibility traces (multi-hop credit assignment)** — the per-edge propagation strength `s_ij(t)` — `Propagator.propagate` returns node activations only, so there is nothing to accumulate a trace from.
 
-**fehlt**
+**absent**
 
 - **Diversified injection C — sub-mesh injection (structural matching)** — Nothing exists. `grep -rni 'weisfeiler|wl_hash|submesh|sub_mesh|region_scor'` over src/ and scripts/ returns zero implementation hits — the only match in the repo is a disclaimer at scripts/mesh_relation_retrieval.py:11 ("This is …
 - **Sources of feedback (LLM self-rating, downstream task success, explicit user rating, implicit signals)** — None of the four channels exists. **LLM self-rating** (doctrine's default, "every activation"): `grep -rni 'self_rating|self-rating|rater|f_target|reward'` over src/theogony/mesh/ returns one hit — the honesty note at retrieve.py:…
 
-### MESH_IMPLEMENTATION.md — 38 Mechanismen (2 läuft · 16 teilweise · 4 inert · 1 blockiert · 15 fehlt)
+### MESH_IMPLEMENTATION.md — 38 mechanisms (2 runs · 16 partial · 4 inert · 1 blocked · 15 absent)
 
 
-**läuft**
+**runs**
 
 - **Diversified seeding — MMR over per-vector ANN results plus weight-class stratification** — select_seeds runs on every retrieval (src/theogony/mesh/retrieval/retrieve.py:404-412), consuming real ANN hits from search_consolidated_by_vector (:361). MMR is genuinely implemented (diversified.py:49-82) and class seats are all…
 - **Warm tier — LanceDB tables as source of truth** — MeshNodeStore creates/opens chunk_nodes and consolidated_nodes (src/theogony/mesh/storage/nodes.py:173-200); EdgeStore opens mesh_edges / edge_metadata / edge_dedup_index (src/theogony/mesh/storage/edges.py:466-479). Live on data/…
 
-**teilweise**
+**partial**
 
 - **Audit ledger — a record for every non-trivial Oneiros operation** — The ledger is real, append-only and reached from ingest and tick (src/theogony/mesh/storage/audit.py; oneiros_tick.py:454). But the actions it actually holds on data/mesh-founding are only mesh_ingest_link_decision (7,281), mesh_i…
 - **CSR holds (source, target, weight, decay_tier, frame_consistency)** — build_csr_from_columns (src/theogony/mesh/storage/edges.py:337-417) takes weight and frame_consistency and computes weight * frame (:408); decay_tier is not passed at all. Measured across all 94,490 edges of data/mesh-founding: fr…
@@ -455,11 +457,11 @@ schneller im Code als in einem längeren Zitat.
 - **Saturation eviction (Oneiros step 8-9)** — enforce_saturation is called on every tick (src/theogony/mesh/runtime/oneiros_tick.py:414) and is implemented (edges.py:310-334). But DEFAULT_MAX_OUT_DEGREE = 10_000 (edges.py:307) and the largest out-degree on data/mesh-founding …
 - **Tick step 2 — Drain the delta buffer** — Implemented and called: oneiros_tick.py:409 `drained = self.edges.delta.drain()`, merged at :412. A producer exists behind an opt-in flag — src/theogony/mesh/cli.py:518-526 `mesh ask --hebbian`, default `False` — reaching src/theo…
 
-**blockiert**
+**blocked**
 
 - **Automatic, statistical Hot↔Warm tier movement** — fired_recent / fired_total — declared on both node schemas, never written by any path
 
-**fehlt**
+**absent**
 
 - **Agent-driven cleanup queue drained by the tick (step 5)** — Of the four record types doctrine names, only MergeProposal exists (src/theogony/mesh/runtime/consolidation.py:140); RemovalProposal, ContradictionFinding and RedundancyProposal have zero definitions in src/. MergeProposal is prod…
 - **Anchor nodes — separate anchor_nodes Lance table plus inverted anchor index** — Grep over src/, scripts/, tests/ for anchor_nodes and anchor_index returns exactly one hit — the doctrine line itself. No temporal_anchor or geo_anchor field exists anywhere in src/. The live workspace data/mesh-founding/lance con…

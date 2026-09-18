@@ -2,42 +2,43 @@ id: PHX-1103
 category: data-hygiene
 priority: medium
 status: done
-generation_target: MESH — Datenhygiene auf dem Demo-Mesh
-title: "Alle 1.206 raw_text_ref zeigen auf ein gelöschtes Sitzungsverzeichnis"
-filed_by: Claude Code (2026-08-31, aus der Doktrin-Inventur)
+generation_target: MESH — data hygiene on the demo mesh
+title: "All 1,206 raw_text_ref point to a deleted session directory"
+filed_by: Claude Code (2026-08-31, from the doctrine inventory)
 created_at: 2026-08-31
 description: >
-  Jeder Chunk-Knoten in `data/mesh-founding` trägt ein `raw_text_ref` der Form
+  Every chunk node in `data/mesh-founding` carries a `raw_text_ref` of the form
 
       /private/tmp/claude-501/…/scratchpad/fullread/batch_00.txt#p1
 
-  13 verschiedene Dateien, **keine einzige existiert noch**.
-  `SourceProvenance.source_identifier` trägt denselben toten Pfad.
+  13 different files, **not a single one still exists**.
+  `SourceProvenance.source_identifier` carries the same dead path.
 
-  MESH_SUBSTRATE nennt `raw_text_ref` ausdrücklich als das, woraus das Immunsystem
-  oder ein Oneiros-Tick einen Chunk abseits des heißen Pfads neu ableiten kann —
+  MESH_SUBSTRATE names `raw_text_ref` explicitly as what lets the immune system
+  or an Oneiros tick re-derive a chunk off the hot path —
   "an opaque pointer back to the source — an identifier like `gutenberg_43497#p17`".
-  Auf diesem Mesh ist das unmöglich.
+  On this mesh that is impossible.
 
-  PHX-1084 hat genau dieses Problem für die **Quellanker** repariert und die
-  Ingestion nach vorn korrigiert (`source_identifier` ist heute
-  `gutenberg_{book_id}`). Die Chunk-Ebene des bestehenden Mesh wurde nie
-  nachgezogen, und `scripts/mesh_repair_anchor_provenance.py` schreibt nur die
-  konsolidierte Tabelle.
+  PHX-1084 repaired exactly this problem for the **source anchors** and
+  corrected ingestion going forward (`source_identifier` is now
+  `gutenberg_{book_id}`). The chunk level of the existing mesh was never
+  brought up to date, and `scripts/mesh_repair_anchor_provenance.py` only
+  writes the consolidated table.
 
-  Es ist also kein Code-Fehler mehr, sondern ein unbereinigtes Datenartefakt — auf
-  genau dem Mesh, das die Demo zeigt. Umfang: ein Reparaturlauf über
-  `chunk_nodes`, der den Pfadpräfix durch die Gutenberg-Kennung ersetzt und die
-  Absatznummer behält.
+  So it is no longer a code defect but an uncleaned data artefact — on exactly
+  the mesh that the demo shows. Scope: a repair run over `chunk_nodes` that
+  replaces the path prefix with the Gutenberg identifier and keeps the
+  paragraph number.
 resolution: >
-  Repariert auf `data/mesh-founding` (dem seit 2026-09-02 beförderten,
-  konsolidierten Mesh): `scripts/mesh_repair_chunk_provenance.py --apply`
-  schrieb alle 1.206 Chunks um — `batch_NN.txt#pM` → `gutenberg_348#p(NN·100+M)`,
-  `source_identifier` → `gutenberg_348`, die Nummerierung, die die reparierte
-  Ingestion (PHX-1084) schreibt. Gemessen vorher: Batches 00–11 tragen p1..p100,
-  Batch 12 p1..p10 — 1.210 Absätze, die Zahl des Volllaufs. Idempotent: ein
-  zweiter Lauf findet 0 zu reparierende Chunks. Dafür `MeshNodeStore.iter_chunks`
-  und `replace_all_chunks` (ein Overwrite, PHX-1082) mit Tests.
+  Repaired on `data/mesh-founding` (the consolidated mesh promoted since
+  2026-09-02): `scripts/mesh_repair_chunk_provenance.py --apply` rewrote all
+  1,206 chunks — `batch_NN.txt#pM` → `gutenberg_348#p(NN·100+M)`,
+  `source_identifier` → `gutenberg_348`, the numbering that the repaired
+  ingestion (PHX-1084) writes. Measured beforehand: batches 00–11 carry
+  p1..p100, batch 12 p1..p10 — 1,210 paragraphs, the number from the full
+  run. Idempotent: a second run finds 0 chunks left to repair. For this,
+  `MeshNodeStore.iter_chunks` and `replace_all_chunks` (an overwrite,
+  PHX-1082) with tests.
 relates_to:
-  - PHX-1084   # dieselbe Reparatur, für die Anker
-  - PHX-1100   # die Inventur
+  - PHX-1084   # the same repair, for the anchors
+  - PHX-1100   # the inventory

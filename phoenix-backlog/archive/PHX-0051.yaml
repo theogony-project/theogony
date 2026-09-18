@@ -45,7 +45,7 @@ description: |
        expansion. Cost: protocol surface grows, both stores need
        implementations, both contract suites grow.
 
-  Daedalus-vorläufig: Option A. Reasons:
+  Daedalus-preliminary: Option A. Reasons:
     - The Reviewer agent (PHX-0035) will care about reporting
       schema clarity, not per-hop forensics. A clear schema
       with one field that is always truthful beats two fields

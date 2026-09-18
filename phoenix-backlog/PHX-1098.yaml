@@ -36,7 +36,7 @@ description: >
   affects (PHX-1087, PHX-1096, PHX-1097). Note that this changes historical
   numbers, so the re-run has to be reported as a re-measurement rather than
   quietly replacing them.
-  Nachtrag 2026-09-12 (PHX-1109): a second defect of the same file, the
+  Addendum 2026-09-12 (PHX-1109): a second defect of the same file, the
   mirror image of the first. 30 of the 111 gold names stand in their own
   question — "How were Chrysaor and Pegasus born?" expects Chrysaor and
   Pegasus, "What measures the depth of Tartarus?" expects Tartarus — and the
@@ -48,40 +48,40 @@ description: >
   8 questions that have nothing left; the fix in the gold file is to expect
   what the question asks for, not what it mentions.
 resolution: >
-  Repariert und neu gemessen, 2026-09-16. Volltext docs/etappes/gold_aliases.md.
+  Repaired and re-measured, 2026-09-16. Full text docs/etappes/gold_aliases.md.
 
-  Die Datei: 92 Gold-Namen statt 111, mit 130 Aliasen je erwartetem Namen
-  (die Schreibungen der Uebersetzung und der Modelle); die 30 Namen, die in
-  ihrer eigenen Frage standen, erwarten jetzt, was die Frage fragt; drei
-  Erwartungen waren gegen den Korpus falsch und sind korrigiert (Arabus statt
-  Belus; Sphinx und Nemeischer Loewe statt Echidna/Orthus; Atlas fehlte).
-  Der Code: `_score(..., aliases)` zaehlt den kanonischen Namen einmal, der
-  Retrieval-Abgleich, die latente Meile und der Herzschlag lesen die Aliase.
-  Zwei Tests halten es fest (kein Name oder Alias in der eigenen Frage; jeder
-  Alias gehoert zu einem erwarteten Namen); die Zaehlungen sind exakt gepinnt.
+  The file: 92 gold names instead of 111, with 130 aliases per expected name
+  (the spellings of the translation and of the models); the 30 names that
+  stood in their own question now expect what the question asks; three
+  expectations were wrong against the corpus and are corrected (Arabus instead
+  of Belus; Sphinx and Nemean Lion instead of Echidna/Orthus; Atlas was
+  missing). The code: `_score(..., aliases)` counts the canonical name once,
+  the retrieval match, the latent mile and the heartbeat read the aliases.
+  Two tests hold it in place (no name or alias in its own question; every
+  alias belongs to an expected name); the counts are pinned exactly.
 
-  Neu gemessen -- dieselben Antworten, drei Bewerter, statt die alten Zahlen
-  stillschweigend zu ersetzen:
+  Re-measured -- the same answers, three graders, instead of silently
+  replacing the old numbers:
 
-      deepseek-chat, 3 Laeufe     altes Gold   ohne nachgesprochene   neues Gold
-      closed_book (Vorwissen)        47 %             65 %              86 %
-      vector_only                    47 %             57 %              63 %
-      constellation (Graph)          61 %             72 %              75 %
+      deepseek-chat, 3 runs        old gold    without echoed       new gold
+      closed_book (the prior)        47%             65%              86%
+      vector_only                    47%             57%              63%
+      constellation (Graph)          61%             72%              75%
 
-  Was haelt: Graph gegen Vektorsuche +11, unter jedem Bewerter. Was kippt:
-  Graph gegen Vorwissen aus +11 wird -11, weil das alte Gold das Vorwissen
-  systematisch unterbewertet hatte ("Cerberus" auf die Echidna-Frage war
-  richtig und bekam null). Die Streuung der Kontrollgruppe fiel von neun
-  Punkten (PHX-1087) auf zwei -- ein Teil des "Modellrauschens" war der
-  Bewerter. Retrieval auf dem Founding-Mesh 80 statt 87 Prozent, weil
-  nachgesprochene Namen gratis abrufbar waren; erzaehlend 65 statt 86.
+  What holds: Graph against vector search +11, under every grader. What
+  flips: Graph against the prior from +11 becomes -11, because the old gold
+  had systematically underscored the prior ("Cerberus" on the Echidna
+  question was correct and scored zero). The control group's spread fell
+  from nine points (PHX-1087) to two -- part of the "model noise" was the
+  grader. Retrieval on the Founding mesh 80 rather than 87 percent, because
+  echoed names were retrievable for free; narrative 65 rather than 86.
 
-  Folge: auf einem Korpus, den das Modell zu 86 Prozent auswendig kann, misst
-  der Antwort-Arm den Preis der Bindung an das Material, nicht den Mehrwert
-  des Graphen. Der Antwort-Arm auf einem unbekannten Korpus (Spur C, zweites
-  Stueck) ist damit die einzige Art, diese Frage zu stellen. Die Zahlen aus
-  PHX-1087/1096/1097/1099 bleiben in ihren Tickets, wie gemessen; k_seeds = 1
-  ruht auf dem Retrieval-Tune/Test und bleibt.
+  Consequence: on a corpus the model can recite from memory 86 percent of
+  the time, the answer arm measures the cost of binding to the material, not
+  the graph's added value. The answer arm on an unfamiliar corpus (track C,
+  second piece) is thus the only way to ask this question. The numbers from
+  PHX-1087/1096/1097/1099 stay in their tickets, as measured; k_seeds = 1
+  rests on the retrieval tune/test and stays.
 relates_to:
   - PHX-1097   # where it was found
   - PHX-1089   # where answer_aliases already exist, for the HippoRAG sets

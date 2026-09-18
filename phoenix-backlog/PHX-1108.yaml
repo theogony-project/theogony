@@ -2,79 +2,77 @@ id: PHX-1108
 category: documentation
 priority: medium
 status: open
-generation_target: Doktrin und Vision — Sätze, die gemessen nicht mehr stimmen
-title: "Doktrin und Vision: die Sätze, die als Tatsache dastehen und widerlegt sind"
-filed_by: Claude Code (2026-09-07, aus dem Plan aus der Vision)
+generation_target: Doctrine and vision — sentences that no longer hold once measured
+title: "Doctrine and vision: the sentences that stand as fact and are refuted"
+filed_by: Claude Code (2026-09-07, from the plan from the vision)
 created_at: 2026-09-07
 description: >
-  Die Vision-Ledger (620 Aussagen aus 26 Dokumenten, 258 tragend, 61 widerlegt)
-  nennt Saetze, die als Status formuliert sind und nicht mehr stimmen, oder
-  Annahmen, die als Tatsachen dastehen und gemessen widerlegt sind. Vier reine
-  Statuszeilen sind am 2026-09-07 direkt korrigiert (TARGET_ARCHITECTURE
-  §Monkey 2 und §Dichte, CHRONICLE_PRINCIPLES 12, ROADMAP §Self-improvement).
-  Der Rest steht hier, damit die Dokumente ihre Stimme behalten und trotzdem
-  nicht luegen. Nicht die Vision aendern -- die Vision ist das Ziel; die
-  Stellen aendern, an denen ein Ziel als Zustand geschrieben ist.
+  The vision ledger (620 statements from 26 documents, 258 load-bearing, 61
+  refuted) names sentences that are phrased as status and no longer hold, or
+  assumptions that stand as facts and are refuted by measurement. Four pure
+  status lines were corrected directly on 2026-09-07 (TARGET_ARCHITECTURE
+  §Monkey 2 and §Density, CHRONICLE_PRINCIPLES 12, ROADMAP §Self-improvement).
+  The rest stands here, so that the documents keep their voice and still
+  don't lie. Not to change the vision -- the vision is the goal; to change
+  the places where a goal is written as a state.
 
-  Zu korrigieren, mit Beleg:
+  To correct, with evidence:
 
-  - MESH_SUBSTRATE §2, die Tier-Leiter: fuer w<1 gilt w^1,2 > w^2, das Feld
-    ehrlich zu fuellen liesse konsolidierte Struktur schneller verdampfen als
-    Chunks (PHX-1100 Muster 3). Repariert mit PHX-1106; der Doktrintext
-    danach nachziehen.
-  - MESH_SUBSTRATE, Zerfallsschwelle 0,05: nie erreicht, weil der Zerfall bis
-    PHX-1102 alles gleichmaessig traf; nach dem Gate ist die Schwelle die
-    Grenze fuer Unbenutztes, nicht fuer alles.
-  - MESH_SUBSTRATE §Edge anatomy, "10-30 % der Kanten mit Deskriptor": auf
-    dem Founding-Mesh tragen alle Ingestion-Kanten einen Deskriptor; die
-    Zahl beschreibt kein gemessenes Mesh.
-  - MESH_IMPLEMENTATION, "HNSW": der Index ist IVF-PQ (Lance); HNSW steht in
-    Doktrin, INDEX und Reading-Path.
-  - BUILD_DOCTRINE:65-67, "append-only ledger", "Fehler werden abgeloest,
-    nicht ueberschrieben", "diese Struktureigenschaften kosten nichts":
-    Knoten- und Kantentabellen werden je Tick mit overwrite geschrieben und
-    auf Retention 0 geprunt (PHX-1082); ein Volllauf musste wiederholt werden,
-    weil der Name beim Schreiben verworfen wurde (PHX-1051).
-  - VISION:84, PHILOSOPHY:100, CHRONIK_SCALE:146, "Oneiros laeuft
-    ununterbrochen / alle paar Minuten": kein Scheduler; der Tick wird von
-    Hand ueber die CLI aufgerufen; der Worker mit Intervall treibt den
-    Gen-1-Store.
-  - PHILOSOPHY:102, "Oneiros schreibt dichtere Verbindungen zurueck": der
-    Erzeugungszweig ist vom Abfragepfad unerreichbar; jede Kante stammt aus
-    der Ingestion.
-  - VISION:34, "gutes Wissen wird nach Mneme befoerdert": consolidation_tier
-    ist 1 auf jedem Knoten; keine Befoerderung im Code.
-  - CHRONICLE_PRINCIPLES:36, ROADMAP:67, "Q-IDs sind das staerkste
-    Identitaetssignal": 127 von 130 waren konfabuliert (PHX-1051); das Mesh
-    hat keine mehr; der staerkste Korruptionsvektor, nicht das staerkste
-    Signal.
-  - MESH_SUBSTRATE, das Fenster von fired_recent: die Doktrin nennt ein
-    Zeitfenster; gebaut ist ein exponentielles Gedaechtnis mit gamma = 0,9
-    (PHX-1101). Den Text auf das Gebaute ziehen oder das Gebaute auf den Text.
-  - CHRONESE.md:3, "Chronese ist die native Sprache; Graph, Vektor, Text sind
-    Projektionen": TARGET_ARCHITECTURE sagt das Gegenteil und ist bindend.
-    Das Dokument als historisch markieren.
-  - DEEP_TECH:45, "ein Verbatim-Layer bewahrt Quelltext": von TARGET
-    verboten; es gibt nur den Zeiger raw_text_ref.
+  - MESH_SUBSTRATE §2, the tier ladder: for w<1, w^1.2 > w^2 holds, honestly
+    filling the field would let consolidated structure evaporate faster than
+    chunks (PHX-1100 pattern 3). Fixed with PHX-1106; pull the doctrine text
+    after it.
+  - MESH_SUBSTRATE, decay threshold 0.05: never reached, because decay hit
+    everything uniformly until PHX-1102; after the gate, the threshold is
+    the boundary for the unused, not for everything.
+  - MESH_SUBSTRATE §Edge anatomy, "10-30% of edges carry a descriptor": on
+    the founding mesh all ingestion edges carry a descriptor; the number
+    describes no measured mesh.
+  - MESH_IMPLEMENTATION, "HNSW": the index is IVF-PQ (Lance); HNSW appears
+    in doctrine, INDEX, and Reading-Path.
+  - BUILD_DOCTRINE:65-67, "append-only ledger", "errors are superseded, not
+    overwritten", "these structural properties cost nothing": node and edge
+    tables are written per tick with overwrite and pruned to retention 0
+    (PHX-1082); a full run had to be repeated because the name was
+    discarded on write (PHX-1051).
+  - VISION:84, PHILOSOPHY:100, CHRONIK_SCALE:146, "Oneiros runs
+    uninterrupted / every few minutes": no scheduler; the tick is invoked
+    by hand via the CLI; the worker with an interval drives the gen-1
+    store.
+  - PHILOSOPHY:102, "Oneiros writes denser connections back": the
+    generation branch is unreachable from the query path; every edge comes
+    from ingestion.
+  - VISION:34, "good knowledge is promoted to Mneme": consolidation_tier is
+    1 on every node; no promotion in the code.
+  - CHRONICLE_PRINCIPLES:36, ROADMAP:67, "Q-IDs are the strongest identity
+    signal": 127 of 130 were confabulated (PHX-1051); the mesh has none
+    left; the strongest corruption vector, not the strongest signal.
+  - MESH_SUBSTRATE, the window of fired_recent: the doctrine names a time
+    window; what is built is an exponential memory with gamma = 0.9
+    (PHX-1101). Pull the text to what is built, or the built to the text.
+  - CHRONESE.md:3, "Chronese is the native language; graph, vector, text
+    are projections": TARGET_ARCHITECTURE says the opposite and is
+    binding. Mark the document as historical.
+  - DEEP_TECH:45, "a verbatim layer preserves the source text": forbidden
+    by TARGET; there is only the pointer raw_text_ref.
 
   - MESH_SUBSTRATE §6, "the correction is multiplicative across all edges ...
-    so relative ordering is preserved": gemessen (PHX-1106) erhaelt sie jeden
-    Anteil, und ein Operator, der zeilennormalisierte Adjazenz liest, sieht
-    sie nicht; mit unbegrenzten Gewichten ist sie ein Verstaerker der
-    Verdraengung (-3,8 gegen -2,0 auf Zurueckgehaltenem). Die Gegenkraft, die
-    §6 verspricht, entsteht erst mit der Kappe (w_max, in der Doktrin §3 als
-    Saettigung je Knoten). Der Paragraph muss sagen, dass die Renormalisierung
-    ohne Saettigung nichts haelt, und dass der Sollwert unter der
-    Eintrittsmasse liegen sollte (0,9 gemessen), damit die Kappe die
-    Gewichtsunterschiede nicht frisst.
+    so relative ordering is preserved": measured (PHX-1106), it preserves
+    every share, and an operator that reads row-normalised adjacency does
+    not see it; with unbounded weights it is an amplifier of displacement
+    (-3.8 against -2.0 on held-out). The counterforce that §6 promises only
+    arises with the cap (w_max, in doctrine §3 as per-node saturation). The
+    paragraph must say that renormalisation without saturation holds
+    nothing, and that the set point should lie below the incoming mass
+    (0.9 measured), so the cap does not eat the weight differences.
 
-  Fertig, wenn: jede Zeile oben entweder korrigiert ist oder mit Datum und
-  Grund als bewusst stehen gelassen markiert; `tests/test_docs_links.py`
-  gruen; die Ledger-Eintraege mit `status: corrected` nachgezogen.
+  Done when: every line above is either corrected or marked as deliberately
+  left standing with date and reason; `tests/test_docs_links.py` green; the
+  ledger entries followed up with `status: corrected`.
 relates_to:
-  - PHX-1100   # die Inventur, die die Mechanismen zaehlte
-  - PHX-1106   # repariert die Tier-Leiter
-  - PHX-1107   # der tragende Befund
+  - PHX-1100   # the inventory that counted the mechanisms
+  - PHX-1106   # fixes the tier ladder
+  - PHX-1107   # the load-bearing finding
 linked_docs:
   - docs/etappes/plan_from_the_vision_2026-09.md
   - docs/etappes/vision_claims_ledger.json

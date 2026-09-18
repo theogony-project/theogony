@@ -99,7 +99,7 @@ Optional Tier-1+ node field (`description_vector`). The embedding of the node's 
 **Anchor Node**  
 A special node class for index-like coordinates: years, geo cells, languages, genome positions. Immutable, very-high-cap, no Hebbian updates, no decay, no split. Observations reference anchors via fields (`temporal_anchor`, `geo_anchor`, etc.); range queries over anchors use index lookups, not graph traversal. The only discrete typing decision the substrate exposes.
 
-**Atrophy / Verödung**  
+**Atrophy**  
 A node whose total edge weight has dropped below the population-relative healthy band. Atrophic nodes lose firing privileges by default but remain in the substrate, can still receive Hebbian updates from external resonance, and are reactivable by sufficiently strong directed activation. Atrophy is decoupled from deletion: a node is removed only when the pruner runs under resource pressure.
 
 **Healthy Band**  

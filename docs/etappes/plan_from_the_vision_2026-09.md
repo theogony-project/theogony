@@ -1,6 +1,6 @@
-# Der Plan aus der Vision — September 2026
+# The Plan from the Vision — September 2026
 
-> **English abstract.** The original vision, sentence by sentence, held against
+> **Abstract.** The original vision, sentence by sentence, held against
 > what this repository has measured: a ledger of 620 claims
 > (`vision_claims_ledger.json`), 258 of them load-bearing — 171 confirmed, 170
 > partly, 61 refuted. *Seven verbs.* The substrate reads (statelessly, per
@@ -23,333 +23,338 @@
 > scale. An appendix lists the load-bearing claims that can no longer stand as
 > written, each with its source line and its evidence.
 
-*2026-09-03. Grundlage: die ursprüngliche, umfassende Vision — `PHILOSOPHY.md`,
+*2026-09-03. Basis: the original, comprehensive vision — `PHILOSOPHY.md`,
 `docs/VISION.md`, `PANTHEON_VISION.md`, `DEEP_TECH_VISION.md`,
 `TARGET_ARCHITECTURE.md`, `CHRONICLE_PRINCIPLES.md`, `CURIOSITY.md`, `HIVE.md`,
-`ROADMAP.md`, `BUILD_DOCTRINE.md`, die Migrationspläne — Satz für Satz gegen das
-gehalten, was dieses Repository seit August gemessen hat. Die Ledger mit allen
-620 Aussagen, je mit Quelle, Beleg und Status, liegt daneben:
-[`vision_claims_ledger.json`](vision_claims_ledger.json). 258 davon sind
-tragend; 61 sind widerlegt, 170 teilweise bestätigt, 171 bestätigt, der Rest
-offen, unprüfbar oder Wert.*
+`ROADMAP.md`, `BUILD_DOCTRINE.md`, the migration plans — held sentence by
+sentence against what this repository has measured since August. The ledger
+with all 620 claims, each with source, evidence, and status, sits alongside
+it: [`vision_claims_ledger.json`](vision_claims_ledger.json). 258 of them are
+load-bearing; 61 are refuted, 170 partly confirmed, 171 confirmed, the rest
+open, unverifiable, or value.*
 
-## Wie dieser Plan zustande kam
+## How this plan came about
 
-Die Doktrin-Inventur (PHX-1100) hat gemessen, welche *Mechanismen* laufen. Sie
-sagt nichts darüber, welche *Versprechen* die Vision damit hält oder bricht —
-und die Vision ist der Grund, aus dem alles gebaut wird. Diese Seite geht den
-umgekehrten Weg: von der Vision zur Messung, und daraus zur Reihenfolge.
+The doctrine inventory (PHX-1100) measured which *mechanisms* run. It says
+nothing about which *promises* the vision thereby keeps or breaks — and the
+vision is the reason everything is built. This page takes the reverse path:
+from the vision to the measurement, and from that to the order.
 
-Vier Entscheidungen, die offen standen, sind unterwegs getroffen und umgesetzt
-worden, jede mit ihrer Zahl:
+Four decisions that stood open have been made and implemented along the
+way, each with its number:
 
-- **Die Konsolidierung ist auf `data/mesh-founding` angewandt.** Retrieval
-  84 → 87 %, 36 → 39 volle Fragen; die Identität von 68 Kandidaten ist geklärt;
-  von den zwei Antwort-Verlusten waren zwei Scorer-Artefakte. Das alte Mesh
-  liegt unter `data/mesh-founding.pre-consolidation-2026-09-02`.
-- **`DEFAULT_K_SEEDS` ist 1** — aber nur, weil das Mesh ein anderes ist. Mit
-  PHX-1091s eigenem Tune/Test-Protokoll (drei Mischungen, beide Richtungen):
-  auf dem *alten* Mesh verliert `k=1` zurückgehalten in 3 von 6 Splits, auf dem
-  *konsolidierten* wird es in 6 von 6 gewählt und gewinnt in 5 von 6
-  (+0,092 · +0,087 · +0,071 · +0,109 · 0,000 · +0,159). Die Entscheidungen
-  hängen zusammen; allein wäre die zweite falsch gewesen.
-- **Alle 1.206 `raw_text_ref` zeigen wieder auf eine Quelle** —
-  `gutenberg_348#p1..1210` statt eines gelöschten Sitzungsverzeichnisses
-  (PHX-1103). Das Substrat kann zum ersten Mal seit dem Volllauf einen Chunk
-  wieder herleiten.
-- **`constraints.txt` pinnt die Pakete, an denen das Repo viermal gebrochen
-  ist**, und wird in CI und Install-Zeile mit `-c` installiert (PHX-1076).
-  pyproject bleibt lose.
+- **Consolidation has been applied to `data/mesh-founding`.** Retrieval
+  84 → 87%, 36 → 39 full questions; the identity of 68 candidates has been
+  resolved; of the two answer losses, two were scorer artefacts. The old mesh
+  sits at `data/mesh-founding.pre-consolidation-2026-09-02`.
+- **`DEFAULT_K_SEEDS` is 1** — but only because the mesh is a different one.
+  Under PHX-1091's own tune/test protocol (three mixes, both directions): on
+  the *old* mesh, `k=1` loses held-out in 3 of 6 splits; on the *consolidated*
+  one it is chosen in 6 of 6 and wins in 5 of 6 (+0.092 · +0.087 · +0.071 ·
+  +0.109 · 0.000 · +0.159). The decisions are linked; alone, the second would
+  have been wrong.
+- **All 1,206 `raw_text_ref` values point to a source again** —
+  `gutenberg_348#p1..1210` instead of a deleted session directory (PHX-1103).
+  For the first time since the full run, the substrate can trace a chunk back
+  again.
+- **`constraints.txt` pins the packages that have broken the repo four
+  times**, and is installed in CI and the install line with `-c` (PHX-1076).
+  pyproject stays loose.
 
-Dazu sind die fünf falschen Sätze der README-Statussektion korrigiert, und
-`llms.txt` mit ihnen.
+Alongside that, the five wrong sentences of the README status section have
+been corrected, and `llms.txt` with them.
 
-## Die Vision in sieben Verben
+## The vision in seven verbs
 
-Was die Vision dem Substrat zuspricht, lässt sich auf sieben Verben bringen.
-Jedes gegen die Ledger:
+What the vision attributes to the substrate can be brought down to seven
+verbs. Each held against the ledger:
 
-| Verb | Vision | Stand | Beleg |
+| Verb | Vision | Status | Evidence |
 |---|---|---|---|
-| **liest** | Nous liest wie ein Mensch — Satz für Satz, mit Arbeitsgedächtnis, revidierend | Kadmos v2 liest zustandslos je Absatz; es gibt zwei Kadmos v2; Monkey 1 nie gelaufen | TARGET_ARCHITECTURE:158, ROADMAP:32 |
-| **aktiviert** | kein Nachschlagen, Aktivierung; Konstellation statt Dokument | **bestätigt** — die Primitive auf jedem echten Pfad; +0,102 Recall@5 gegen kNN auf zurückgehaltenem 2Wiki | TARGET:102, qa_benchmark |
-| **erinnert sich / lernt aus Benutzung** | jede Interaktion stärkt oder schwächt; das System wird durch Gebrauch besser | seit PHX-1101/1102: hält, was es benutzt; auf 2Wiki +1,3 auf Benutztem, **−1,5 auf Zurückgehaltenem** | PHILOSOPHY:108, heartbeat_2wiki |
-| **träumt** | Oneiros läuft ununterbrochen, schreibt dichtere Verbindungen zurück | **widerlegt als Prozess**: kein Scheduler, der Erzeugungs-Zweig unerreichbar; die +34,8 % sind eine Simulation im Speicher | PHILOSOPHY:100-102, VISION:84 |
-| **heilt** | Immunsystem, Widerspruchsauflösung, Beförderung nach Mneme | **nein** — kein Symptom, keine Therapie, keine Beförderung, und *kein Widerspruch darstellbar* | VISION:34, PANTHEON:244 |
-| **wächst, wo hingeschaut wird** | die Neugier-Schleife: Aufmerksamkeit wird Akquise | Gen-1-Skelett; auf dem Mesh nichts | CURIOSITY:5-17 |
-| **denkt innen** | das MNLM denkt *im* Mesh, Vektoren rein, Vektoren raus | blockiert auf GPU; kein einziger Messwert | ROADMAP:212, PHX-1035 |
+| **reads** | Nous reads like a human — sentence by sentence, with working memory, revising | Kadmos v2 reads statelessly per paragraph; there are two Kadmos v2; Monkey 1 never run | TARGET_ARCHITECTURE:158, ROADMAP:32 |
+| **activates** | no lookup, activation; constellation instead of document | **confirmed** — the primitive on every real path; +0.102 recall@5 over kNN on held-out 2Wiki | TARGET:102, qa_benchmark |
+| **remembers / learns from use** | every interaction strengthens or weakens; the system gets better through use | since PHX-1101/1102: holds what it uses; on 2Wiki +1.3 on used, **−1.5 on held-out** | PHILOSOPHY:108, heartbeat_2wiki |
+| **dreams** | Oneiros runs continuously, writes denser connections back | **refuted as a process**: no scheduler, the generation branch unreachable; the +34.8% figure is an in-memory simulation | PHILOSOPHY:100-102, VISION:84 |
+| **heals** | immune system, contradiction resolution, promotion to Mneme | **no** — no symptom, no therapy, no promotion, and *no contradiction representable* | VISION:34, PANTHEON:244 |
+| **grows where it is looked at** | the curiosity loop: attention becomes acquisition | Gen-1 skeleton; nothing on the mesh | CURIOSITY:5-17 |
+| **thinks inside** | the MNLM thinks *inside* the mesh, vectors in, vectors out | blocked on GPU; not a single measurement | ROADMAP:212, PHX-1035 |
 
-Zwei Verben tragen, drei sind gerade erst angeschlossen, zwei existieren nur
-als Dokument. Das ist ehrlicher als *„the mesh is alive"* — und es ist mehr, als
-vor vier Wochen wahr war.
+Two verbs carry, three have only just been connected, two exist only as
+document. That is more honest than *"the mesh is alive"* — and it is more
+than was true four weeks ago.
 
-## Der eine Befund, der die Reihenfolge festlegt
+## The one finding that sets the order
 
-Die Ledger enthält 61 widerlegte Aussagen. Die meisten sind Mechanismen, die
-nicht gebaut sind — das wusste die Inventur. Fünf davon sind etwas anderes: sie
-sind **Nicht-Verhandelbares** aus `PANTHEON_VISION` §„Non-Negotiable
-Principles", und sie scheitern nicht an fehlendem Code, sondern am
-**Datenmodell**:
+The ledger contains 61 refuted claims. Most are mechanisms that are not
+built — the inventory already knew that. Five of them are something else:
+they are **non-negotiables** from `PANTHEON_VISION` §"Non-Negotiable
+Principles", and they fail not for lack of code, but at the **data model**:
 
-| Nicht-verhandelbar | Stand im Mesh |
+| Non-negotiable | Status in the mesh |
 |---|---|
-| 2 — Widerspruch, Unsicherheit, konkurrierende Deutungen bleiben erhalten | keine Darstellung eines Widerspruchs, nirgends; `relation_kind` hat 10 Werte, keiner ist *contradicts* |
-| 3 — Zeit ist intrinsisch: Wandel, Ablösung, Erwartung, Zerfall | nur Zerfall; `temporal_vector` ist auf jedem Knoten `None`; keine Gültigkeit, keine Ablösung |
-| 1 — jede Aussage trägt Ursprung, Basis, Revisionspfad | Provenienz ja (seit heute wieder lebendig), Revision nein: Kanten haben weder Vertrauen noch Autor noch Geschichte |
-| 5 — Autorität, Zugriff, Verantwortung maschinenlesbar | kein Feld dafür, in keinem Schema |
-| „Chronik statt Enzyklopädie" — das Neue, Umstrittene, Abgelöste darstellbar | Gen 1 hatte `DISPUTED` als Status; das Mesh hat es nicht mehr |
+| 2 — contradiction, uncertainty, competing interpretations are preserved | no representation of a contradiction, anywhere; `relation_kind` has 10 values, none is *contradicts* |
+| 3 — time is intrinsic: change, supersession, expectation, decay | only decay; `temporal_vector` is `None` on every node; no validity, no supersession |
+| 1 — every claim carries origin, basis, revision path | provenance yes (alive again since today), revision no: edges have neither trust, nor author, nor history |
+| 5 — authority, access, responsibility machine-readable | no field for it, in no schema |
+| "Chronicle instead of encyclopedia" — the new, the disputed, the superseded representable | Gen 1 had `DISPUTED` as a status; the mesh no longer has it |
 
-Die MESH-Doktrin hat das alles in ein Feld verlegt: `frame_vector`, die
-epistemische Haltung eines Knotens — Behauptung, Verneinung, Hypothese,
-Widerspruch. Und `frame_vector` ist heute eine gesalzene SHA-256-Projektion des
-Labels (PHX-1095). Der Frame trägt einen Hash, keine Haltung.
+The MESH doctrine moved all of that into one field: `frame_vector`, the
+epistemic stance of a node — assertion, denial, hypothesis, contradiction.
+And `frame_vector` is today a salted SHA-256 projection of the label
+(PHX-1095). The frame carries a hash, not a stance.
 
-**Das ist derselbe Befund wie PHX-1101, eine Ebene höher.** Dort führte das
-Substrat kein Gedächtnis seiner eigenen *Aktivität*, und alles, was daraus las
-— Beförderung, Replay, Zerfall-Gating, RL — konnte nicht laufen. Hier führt es
-kein Gedächtnis des *Widerspruchs*, und alles, was daraus lesen müsste —
-Athene, Chronos, das Immunsystem, die Chronik, Metis' Voraussetzungen, die
-zweite Säule „Wissenschaftlicher Arbeitstisch" — kann nicht laufen. Das Verb
-*heilt* ist nicht ungebaut. Es ist unbaubar, bis das Substrat weiß, was ein
-Widerspruch ist.
+**This is the same finding as PHX-1101, one level up.** There, the
+substrate kept no memory of its own *activity*, and everything that read
+from it — promotion, replay, decay gating, RL — could not run. Here it
+keeps no memory of *contradiction*, and everything that would need to read
+from it — Athene, Chronos, the immune system, the chronicle, Metis's
+prerequisites, the second pillar "scientific workbench" — cannot run. The
+verb *heals* is not unbuilt. It is unbuildable, until the substrate knows
+what a contradiction is.
 
-## Der Plan — vier Spuren, in dieser Reihenfolge
+## The plan — four tracks, in this order
 
-### A. Sicher lernen — die Renormalisierung (PHX-1106)
+### A. Learning safely — the renormalisation (PHX-1106)
 
-Das Verb *lernt* ist angeschlossen und verdrängt. MESH_SUBSTRATE §6 sieht die
-Gegenkraft vor; die Ledger sagt, sie ist nicht gebaut; der 2Wiki-Herzschlag
-sagt, sie wird gebraucht (−1,5 auf Zurückgehaltenem über 50 Runden). Ein
-Tick-Schritt nach dem Zerfall, der das Gewicht je Knoten auf eine Zielsumme
-hält. Repariert nebenbei die verkehrte Tier-Leiter.
+The verb *learns* is connected and displaces. MESH_SUBSTRATE §6 provides
+for the counterforce; the ledger says it is not built; the 2Wiki heartbeat
+says it is needed (−1.5 on held-out over 50 rounds). A tick step after decay
+that holds the weight per node to a target sum. Fixes the inverted tier
+ladder along the way.
 
-*Fertig, wenn:* auf 2Wiki über 50 Runden benutzt ≥ +1 und zurückgehalten ≥ 0 —
-und dasselbe auf HotpotQA und mit einem zweiten Seed, damit zwei Fragen Effekt
-nicht die ganze Last tragen. Eine bis zwei Sitzungen.
+*Done when:* on 2Wiki over 50 rounds, used ≥ +1 and held-out ≥ 0 — and the
+same on HotpotQA and with a second seed, so that two questions' worth of
+effect does not carry the whole load. One to two sessions.
 
-**Ergebnis (2026-09-12, [`renormalisation.md`](renormalisation.md)):** gebaut
-und gemessen, die Bedingung so nicht erfüllt — und zwar von der Baseline
-nicht: der Gewinn +1,3 aus PHX-1104 war ein Seed (+0,3 auf HotpotQA, −0,7 mit
-Seed 1). Was über beide Datensätze und beide Seeds hält, ist die Verdrängung
-(−1,5 / −2,3 / −2,3), und die globale Renormalisierung *mit Kappe* hebt sie
-jedes Mal auf (+1,5 / −0,7 / +0,7) für einen halben Punkt auf dem Benutzten.
-Ohne Kappe ist §6 unsichtbar und dann ein Verstärker (−3,8). `mesh tick` läuft
-jetzt standardmäßig damit, Sollwert 0,9 der Eintrittsmasse. Das Verb *lernt*
-bleibt bei *hält, ohne zu verdrängen*; ob es je *gewinnt*, entscheidet nicht
-die Dynamik, sondern der Erzeugungszweig (PHX-1100), der unerreichbar ist.
+**Result (2026-09-12, [`renormalisation.md`](renormalisation.md)):** built
+and measured, the condition not met as stated — and not by the baseline:
+the +1.3 gain from PHX-1104 was a seed (+0.3 on HotpotQA, −0.7 with seed 1).
+What holds across both datasets and both seeds is the displacement
+(−1.5 / −2.3 / −2.3), and global renormalisation *with a cap* cancels it
+out every time (+1.5 / −0.7 / +0.7) for half a point on the used. Without a
+cap, §6 is invisible and then a reinforcer (−3.8). `mesh tick` now runs
+with this by default, set point 0.9 of the entry mass. The verb *learns*
+stays at *holds, without displacing*; whether it ever *wins* is decided not
+by the dynamics but by the generation branch (PHX-1100), which is
+unreachable.
 
-### B. Das Gedächtnis des Widerspruchs (PHX-1107)
+### B. The memory of contradiction (PHX-1107)
 
-Der Befund oben, als Bauplan. Nicht das ganze Immunsystem — die Voraussetzung
-dafür, die alle heilenden Verben teilen:
+The finding above, as a blueprint. Not the whole immune system — the
+prerequisite for it that all the healing verbs share:
 
-1. **Echte Frames.** Kadmos gibt je Chunk und je Relation eine epistemische
-   Haltung aus — behauptet, verneint, hypothetisch, bestritten, abgelöst —
-   und der Vectorizer projiziert sie in den 64-d Frame-Raum über eine feste
-   Basis statt über einen Hash. Damit wird Frame-Routing von inert zu
-   wirksam, ohne eine Zeile im Retrieval zu ändern: der Mechanismus wartet seit
-   S3 auf sein Signal.
-2. **`contradicts` und `supersedes` als `relation_kind`**, mit `valid_from` /
-   `valid_to` auf der Kante — die kleinste Darstellung von Zeit, die
-   Nicht-Verhandelbares 3 erfüllt. Kein neues Schema; die Felder sind frei.
-3. **Ein Widerspruchs-Gold-Set** auf dem Founding-Korpus. Hesiod widerspricht
-   sich selbst (die Geburt der Aphrodite, die Eltern der Musen); der Demo-Beat 2
-   hing seit PHX-1045 an genau so einer Frage.
-4. **Den Founding-Korpus neu lesen**, mit Frames. 1 h 41 min, € 0,26 — der
-   billigste Weg, ein Substrat zu bekommen, das weiß, was es bezweifelt.
+1. **Real frames.** Kadmos outputs an epistemic stance per chunk and per
+   relation — asserted, denied, hypothetical, disputed, superseded — and
+   the vectorizer projects it into the 64-d frame space over a fixed basis
+   instead of a hash. That turns frame routing from inert to effective,
+   without changing a single line in retrieval: the mechanism has been
+   waiting for its signal since S3.
+2. **`contradicts` and `supersedes` as `relation_kind`**, with `valid_from`
+   / `valid_to` on the edge — the smallest representation of time that
+   satisfies non-negotiable 3. No new schema; the fields are free.
+3. **A contradiction gold set** on the founding corpus. Hesiod contradicts
+   himself (the birth of Aphrodite, the parents of the Muses); demo beat 2
+   has hinged on exactly such a question since PHX-1045.
+4. **Re-reading the founding corpus**, with frames. 1 h 41 min, €0.26 — the
+   cheapest way to get a substrate that knows what it doubts.
 
-*Fertig, wenn:* eine Widerspruchsfrage aus dem Gold-Set beide Seiten in der
-Constellation zurückgibt, Frame-Routing auf dem neu gelesenen Mesh eine
-messbare Wirkung hat (Recall auf dem Widerspruchs-Set mit gegen ohne), und das
-Verb *heilt* zum ersten Mal einen Eingang hat, auf dem Athene etwas finden
-könnte. Drei bis fünf Sitzungen.
+*Done when:* a contradiction question from the gold set returns both sides
+in the constellation, frame routing on the newly read mesh has a
+measurable effect (recall on the contradiction set, with versus without),
+and the verb *heals* has, for the first time, an entry point on which
+Athene could find something. Three to five sessions.
 
-**Ergebnis (2026-09-12, [`contradiction.md`](contradiction.md)):** gebaut und
-gemessen. Der Korpus ist mit Frames neu gelesen (Haltungen über acht Werte,
-39 Absätze `disputed`), der Widerspruchs-Pass hat 74 Widersprüche bestätigt und
-334 Kanten geschrieben, und eine strittige Frage gibt in 6 von 7 Fällen beide
-Seiten zurück. Frame-Routing hat eine Wirkung — aber erst, nachdem Entitäten
-die Haltung ihrer Absätze erben, und als Tausch statt als Gewinn. Der stärkste
-Befund ist die Kontrolle: auf dem alten Mesh mit Hash-Frames kostet dasselbe
-Routing 42 Punkte. Das Verb *heilt* hat damit zum ersten Mal einen Eingang.
+**Result (2026-09-12, [`contradiction.md`](contradiction.md)):** built and
+measured. The corpus has been re-read with frames (stances over eight
+values, 39 paragraphs `disputed`), the contradiction pass confirmed 74
+contradictions and wrote 334 edges, and a disputed question returns both
+sides in 6 of 7 cases. Frame routing has an effect — but only after
+entities inherit the stance of their paragraphs, and as a trade rather than
+a gain. The strongest finding is the control: on the old mesh with hash
+frames, the same routing costs 42 points. The verb *heals* thereby has, for
+the first time, an entry point.
 
-### C. Das Instrument — fortlaufend, klein
+### C. The instrument — ongoing, small
 
-Alles oben wird nur sichtbar, wenn das Instrument es sehen kann. Drei Dinge,
-jedes eine halbe Sitzung: die Gold-Aliase (PHX-1098, damit „Helios" nicht
-„Helius" verfehlt); der Antwort-Arm auf einem Korpus, den das Modell nicht
-auswendig kann (HippoRAG, wo die Kontrollgruppe nicht bei 50 % steht); und das
-Widerspruchs-Gold-Set aus B als drittes Instrument neben Retrieval und Antwort.
+Everything above becomes visible only if the instrument can see it. Three
+things, each half a session: the gold aliases (PHX-1098, so that "Helios"
+does not miss "Helius"); the answer arm on a corpus the model cannot
+recite from memory (HippoRAG, where the control group does not sit at
+50%); and the contradiction gold set from B as a third instrument
+alongside retrieval and answer.
 
-**Ergebnis, erstes und drittes Stück (2026-09-16,
+**Result, first and third piece (2026-09-16,
 [`gold_aliases.md`](gold_aliases.md), [`contradiction.md`](contradiction.md)):**
-das Widerspruchs-Gold-Set ist mit B entstanden (sieben Fälle, beide-Seiten-
-Recall). Die Aliase sind gebaut, und beim Bauen fiel der zweite Fehler der
-Datei: 30 Namen standen in ihrer eigenen Frage, drei Erwartungen waren falsch.
-Die Neubewertung derselben Antworten kippt eine Aussage: das Vorwissen von
-deepseek steht unter dem korrigierten Gold bei **86 %**, nicht 50, und der
-Graph liegt mit 75 % darunter — der alte Bewerter hatte die Kontrollgruppe
-systematisch unterbewertet. Graph gegen Vektorsuche +11 hält. **Damit ist das
-zweite Stück — der Antwort-Arm auf einem Korpus, den das Modell nicht kennt —
-nicht mehr Ergänzung, sondern die einzige Art, die Frage „hilft der Graph beim
-Antworten" zu stellen.**
+the contradiction gold set came into being with B (seven cases, both-sides
+recall). The aliases are built, and building them turned up the file's
+second bug: 30 names stood in their own question, three expectations were
+wrong. Re-scoring the same answers overturns one claim: deepseek's prior
+knowledge stands under the corrected gold at **86%**, not 50, and the graph
+sits below it at 75% — the old scorer had systematically undervalued the
+control group. Graph over vector search holds at +11. **This makes the
+second piece — the answer arm on a corpus the model does not know — no
+longer a supplement, but the only way to ask the question "does the graph
+help with answering."**
 
-**Ergebnis, zweites Stück (2026-09-16,
-[`qa_constellation.md`](qa_constellation.md), PHX-1110):** die Frage ist
-gestellt und beantwortet. Auf 2WikiMultihopQA, 1.000 Fragen, Vorwissen
-33,8 % EM, ein Mesh aus allen 6.119 Passagen: die Constellation antwortet
-**+3,6 EM über dieselben fünfzig Entitäten ohne Kanten** (p = 0,03) und
-liegt gleichauf mit fünf Passagen — aber nur ohne die Strukturkanten, die
-60 % des ausgelieferten Renderings ausmachten; mit ihnen bleibt +0,7. Die
-Rendering-Form der Harnesses lässt sie seit dieser Messung weg. Wo der Graph
-gewinnt, sind die Vergleichsfragen (+5,6 über Passagen auf 836 Fragen); wo
-er verliert, Ja/Nein und Daten, die eine Entitätsbeschreibung nicht trägt.
-Nebenbei fiel ein zweiter quadratischer Term im Lesen (ein Lance-Fragment je
-Knoten), behoben durch Kompaktierung alle 200 Absätze. Spur C ist damit
-vollständig; nächste Spur D.
+**Result, second piece (2026-09-16,
+[`qa_constellation.md`](qa_constellation.md), PHX-1110):** the question has
+been asked and answered. On 2WikiMultihopQA, 1,000 questions, prior
+knowledge 33.8% EM, a mesh of all 6,119 passages: the constellation answers
+**+3.6 EM over the same fifty entities without edges** (p = 0.03) and ties
+with five passages — but only without the structural edges, which made up
+60% of the shipped rendering; with them, +0.7 remains. The harness's
+rendering form has left them out since this measurement. Where the graph
+wins are the comparison questions (+5.6 over passages on 836 questions);
+where it loses, yes/no and dates, which an entity description does not
+carry. Along the way, a second quadratic term in reading turned up (one
+Lance fragment per node), fixed by compaction every 200 paragraphs. Track C
+is thereby complete; next, track D.
 
-### D. Nous — das Lesen mit Arbeitsgedächtnis (Monkey 1)
+### D. Nous — reading with working memory (Monkey 1)
 
-Das erste Verb der Vision und ihre Phase 1. Es steht hier hinten, nicht weil es
-weniger wichtig wäre, sondern weil die Messung sagt, wo es zahlt: bei
-Passagen-Seeding ist die Konstruktion fast unsichtbar (±0,01), bei
-Entitäts-Seeding entscheidet sie (+0,18). Der bessere Leser lohnt sich dort, wo
-die Antwort eine Entität oder ein Pfad ist — und das Instrument dafür entsteht
-in B und C. Nous vorher zu bauen hieße, es nicht messen zu können.
+The vision's first verb, and its phase 1. It stands here at the back, not
+because it matters less, but because the measurement says where it pays
+off: under passage seeding the construction is almost invisible (±0.01),
+under entity seeding it is decisive (+0.18). The better reader pays off
+where the answer is an entity or a path — and the instrument for that
+comes out of B and C. Building Nous earlier would mean being unable to
+measure it.
 
-## Was bewusst nicht als Nächstes kommt
+## What deliberately does not come next
 
-- **Das MNLM** (Phase 4, Monkey 3): auf H100-Rechenzeit blockiert. Der
-  Falsifikator hat inzwischen die Ablation-Kontrollen, die das Tiefenaudit
-  verlangte. Sobald Rechenzeit da ist, ist der Brief bereit; bis dahin ist jeder
-  Satz darüber ein Versprechen.
-- **Die Neugier-Schleife auf dem Mesh**: braucht Stub-Erkennung, Auslöser,
-  Dispatcher — und vor allem etwas, das die Akquise wieder ins Substrat schreibt.
-  Nach B, weil neues Wissen zuerst als *bestritten* ankommen können muss.
-- **Föderation, Sichtbarkeit, Tiers**: Nicht-Verhandelbares 5. Die Vision selbst
-  sagt, nicht in Gen 1.
-- **Der Agenten-Roster auf dem Mesh** (Argus, Athene, Chronos, Nemesis, Eris,
-  Mnemosyne): der Gen-1-Code läuft auf dem Store, der abgelöst wird. Auf das
-  Mesh portieren heißt, ihnen etwas zum Finden zu geben — B.
-- **S4 und S6** (Backend-Abstraktion, Entfernung des Legacy-Pfads): 105 Dateien
-  referenzieren das alte Schema. Reine Ingenieursarbeit, ohne die kein Vorhaben
-  der Vision scheitert. Nach A und B, wenn das Mesh auf jeder Oberfläche das
-  bessere Substrat ist.
-- **Skalierung auf 4,81 M** (S2.5): der RAM-Fehler im Resolver ist echt und
-  klein; er ist nicht das, was die Vision heute blockiert.
-- **Chronese**: von `TARGET_ARCHITECTURE` selbst widerlegt — Vektoren sind das
-  Medium, nicht eine kanonische Sprache. Bleibt Dokument.
+- **The MNLM** (phase 4, Monkey 3): blocked on H100 compute time. The
+  falsifier now has the ablation controls the deep audit demanded. As soon
+  as compute time is available, the brief is ready; until then, every
+  sentence about it is a promise.
+- **The curiosity loop on the mesh**: needs stub detection, triggers, a
+  dispatcher — and above all something that writes the acquisition back
+  into the substrate. After B, because new knowledge must first be able to
+  arrive as *disputed*.
+- **Federation, visibility, tiers**: non-negotiable 5. The vision itself
+  says, not in Gen 1.
+- **The agent roster on the mesh** (Argus, Athene, Chronos, Nemesis, Eris,
+  Mnemosyne): the Gen-1 code runs on the store that is being superseded.
+  Porting it to the mesh means giving them something to find — B.
+- **S4 and S6** (backend abstraction, removal of the legacy path): 105
+  files reference the old schema. Pure engineering work, without which no
+  undertaking of the vision fails. After A and B, once the mesh is the
+  better substrate on every surface.
+- **Scaling to 4.81 M** (S2.5): the RAM bug in the resolver is real and
+  small; it is not what is blocking the vision today.
+- **Chronese**: refuted by `TARGET_ARCHITECTURE` itself — vectors are the
+  medium, not a canonical language. Stays a document.
 
-## Korrekturen an Doktrin und Vision (PHX-1108)
+## Corrections to doctrine and vision (PHX-1108)
 
-Die Ledger nennt Sätze, die als Status formuliert sind und nicht mehr stimmen,
-oder Annahmen, die als Tatsachen dastehen und gemessen widerlegt sind. Drei sind
-heute korrigiert, weil sie reine Statuszeilen sind; der Rest steht im Ticket,
-damit die Dokumente ihre Stimme behalten und trotzdem nicht lügen:
+The ledger names sentences that are phrased as status and are no longer
+true, or assumptions that stand as facts and are refuted by measurement.
+Three are corrected today, because they are pure status lines; the rest
+sit in the ticket, so the documents keep their voice and still don't lie:
 
-- `TARGET_ARCHITECTURE` §Monkey 2 — *„Not yet run"* → gemessen, +0,102.
-- `TARGET_ARCHITECTURE` §Dichte — *„Minimum viable density 20:1"* → widerlegt
-  in beide Richtungen: der Vorteil zeigt sich bei 7:1, und dichtere Brücken
-  bewegen nichts.
-- `CHRONICLE_PRINCIPLES` 12 — *„consolidation + immune system — live today"* →
-  Konsolidierung seit 2026-08-31 als Pass, Immunsystem nein.
-- Im Ticket: die Tier-Leiter (§2), die Schwelle 0,05, „10–30 % der Kanten mit
-  Deskriptor", HNSW (es ist IVF-PQ), „append-only ledger" gegen
-  Overwrite-und-Prune je Tick, „Oneiros läuft ununterbrochen" (VISION,
-  PHILOSOPHY, CHRONIK_SCALE), das Fenster von `fired_recent`.
+- `TARGET_ARCHITECTURE` §Monkey 2 — *"Not yet run"* → measured, +0.102.
+- `TARGET_ARCHITECTURE` §Density — *"Minimum viable density 20:1"* →
+  refuted in both directions: the advantage shows up at 7:1, and denser
+  bridges move nothing.
+- `CHRONICLE_PRINCIPLES` 12 — *"consolidation + immune system — live
+  today"* → consolidation as a pass since 2026-08-31, immune system no.
+- In the ticket: the tier ladder (§2), the threshold 0.05, "10–30% of
+  edges with a descriptor", HNSW (it's IVF-PQ), "append-only ledger"
+  versus overwrite-and-prune per tick, "Oneiros runs continuously" (VISION,
+  PHILOSOPHY, CHRONIK_SCALE), the window of `fired_recent`.
 
-## Anhang — die tragenden Aussagen, die nicht mehr so stehen können
+## Appendix — the load-bearing claims that can no longer stand as written
 
-Aus den 258 tragenden Aussagen der Ledger die widerlegten, mit Quelle und dem
-Beleg in einem Satz. Der Volltext steht in
+From the ledger's 258 load-bearing claims, the refuted ones, with source
+and the evidence in one sentence. The full text is in
 [`vision_claims_ledger.json`](vision_claims_ledger.json).
 
-| Aussage | Quelle | Beleg |
+| Claim | Source | Evidence |
 |---|---|---|
-| Es gibt keinen nächtlichen Batch; Oneiros läuft ununterbrochen | PHILOSOPHY:100, VISION:84 | `run_minimal_tick` hat einen Aufrufer außerhalb der Tests, die CLI; der Worker mit Intervall treibt den Gen-1-Store |
-| Oneiros schreibt dichtere Verbindungen zurück | PHILOSOPHY:102 | der Erzeugungs-Zweig ist vom Abfragepfad unerreichbar; jede der 94.490 Kanten stammt aus der Ingestion |
-| Gutes Wissen wird nach Mneme befördert | VISION:34 | `consolidation_tier` = 1 auf jedem Knoten; keine Beförderung im Code |
-| Q-IDs sind das stärkste Identitätssignal | CHRONICLE_PRINCIPLES:36, ROADMAP:67 | 127 von 130 waren konfabuliert; das Mesh hat keine mehr; der stärkste Korruptionsvektor, nicht das stärkste Signal |
-| Widerspruch und Unsicherheit bleiben erhalten | PANTHEON:244 | keine Darstellung eines Widerspruchs im Mesh |
-| Zeit ist intrinsisch | PANTHEON:248 | nur Zerfall; `temporal_vector` überall `None` |
-| Autorität, Zugriff, Verantwortung maschinenlesbar | PANTHEON:256 | kein Feld, in keinem Schema |
-| Redundanz-Kollaps: ein zweites Lesen fügt Kanten hinzu, keinen Knoten | PANTHEON:194 | sechs Zeus-Knoten, bis PHX-1097; `MergeNodes` ist ein MNLM-DTO, keine Substrat-Primitive |
-| Ein Chronik wird nicht schwerer zu betreiben, je weiser sie wird | PANTHEON:228 | Konsolidierung ein Handlauf; MNLM blockiert; kein Arbeitsset, die ganze CSR im Speicher |
-| Kadmos v2 liest mit Arbeitsgedächtnis und revidiert | TARGET:158 | der produktive Leser hat keinen Zustand über Absätze hinweg |
-| Nous verdichtet über einen GNN-Encoder, Text nie als Zwischenmedium | TARGET:39 | kein GNN im Repo; Nous-Brief „ready for implementation" seit Mai |
-| Mindestdichte 20:1, darunter schlägt SA kNN nicht | TARGET:113 | +0,102 zurückgehalten bei ≈ 7:1; Dichte-Sweeps flach |
-| Ein Verbatim-Layer bewahrt Quelltext für Forensik und Zitat | DEEP_TECH:45 | von TARGET verboten; nur ein Zeiger, der bis heute tot war |
-| Chronese ist die native Sprache; Graph, Vektor, Text sind Projektionen | CHRONESE:3 | TARGET sagt das Gegenteil, und TARGET ist bindend |
-| Selbstverbesserung Stufe 1 (Konsolidierung + Immunsystem) ist heute live | CHRONICLE_PRINCIPLES:54, ROADMAP:274 | Konsolidierung seit 2026-08-31 als Pass; Immunsystem nein; heute korrigiert |
-| Das Ledger ist append-only; Fehler werden abgelöst, nicht überschrieben | BUILD_DOCTRINE:65 | Knoten- und Kantentabellen werden je Tick mit `overwrite` geschrieben und auf Retention 0 geprunt |
-| Diese Struktureigenschaften kosten nichts und machen Wachstum-mit-Fehlern reparierbar | BUILD_DOCTRINE:67 | ein Volllauf musste wiederholt werden, weil der Name beim Schreiben verworfen wurde; Chunks waren bis heute nicht herleitbar |
-| Gen 1 setzt die Neugier-Schleife nicht um, aber so, dass sie ohne Neugründung nachrüstbar ist | CURIOSITY:11 | die Neugründung fand statt: der MESH-Pivot vom 2026-05-13 |
-| Hestia hat ein stehendes Abonnement auf jeden Neugier-Auslöser | CURIOSITY:143 | HestiaLite wurde in W13 gelöscht; `hestia.py` ist ein Schema ohne Laufzeit |
-| Der Oneiros-Tick läuft alle paar Minuten, mit Renormalisierung und gestuftem Zerfall | CHRONIK_SCALE:146 | kein Scheduler; nur k=2; keine Renormalisierung |
-| Neo4j ist hinter dem Store-Protokoll vollständig reversibel | GEN1_LEGACY:588 | der Migrationsplan nannte die Diskrepanz strukturell und schrieb sechs Schritte |
+| There is no nightly batch; Oneiros runs continuously | PHILOSOPHY:100, VISION:84 | `run_minimal_tick` has one caller outside the tests, the CLI; the interval worker drives the Gen-1 store |
+| Oneiros writes denser connections back | PHILOSOPHY:102 | the generation branch is unreachable from the query path; every one of the 94,490 edges comes from ingestion |
+| Good knowledge is promoted to Mneme | VISION:34 | `consolidation_tier` = 1 on every node; no promotion in the code |
+| Q-IDs are the strongest identity signal | CHRONICLE_PRINCIPLES:36, ROADMAP:67 | 127 of 130 were confabulated; the mesh no longer has any; the strongest corruption vector, not the strongest signal |
+| Contradiction and uncertainty are preserved | PANTHEON:244 | no representation of a contradiction in the mesh |
+| Time is intrinsic | PANTHEON:248 | only decay; `temporal_vector` is `None` everywhere |
+| Authority, access, responsibility machine-readable | PANTHEON:256 | no field, in no schema |
+| Redundancy collapse: a second reading adds edges, not a node | PANTHEON:194 | six Zeus nodes, until PHX-1097; `MergeNodes` is an MNLM DTO, not a substrate primitive |
+| A chronicle does not get harder to run the wiser it gets | PANTHEON:228 | consolidation a handrail; MNLM blocked; no working set, the whole CSR in memory |
+| Kadmos v2 reads with working memory and revises | TARGET:158 | the production reader has no state across paragraphs |
+| Nous condenses via a GNN encoder, text never as an intermediate medium | TARGET:39 | no GNN in the repo; the Nous brief "ready for implementation" since May |
+| Minimum density 20:1, below which SA does not beat kNN | TARGET:113 | +0.102 held-out at ≈ 7:1; density sweeps flat |
+| A verbatim layer preserves source text for forensics and citation | DEEP_TECH:45 | forbidden by TARGET; only a pointer, which was dead until today |
+| Chronese is the native language; graph, vector, text are projections | CHRONESE:3 | TARGET says the opposite, and TARGET is binding |
+| Self-improvement stage 1 (consolidation + immune system) is live today | CHRONICLE_PRINCIPLES:54, ROADMAP:274 | consolidation as a pass since 2026-08-31; immune system no; corrected today |
+| The ledger is append-only; errors are superseded, not overwritten | BUILD_DOCTRINE:65 | node and edge tables are written with `overwrite` every tick and pruned to retention 0 |
+| These structural properties cost nothing and make growth-with-errors repairable | BUILD_DOCTRINE:67 | a full run had to be repeated because the name was discarded on write; chunks were untraceable until today |
+| Gen 1 does not implement the curiosity loop, but in a way that lets it be retrofitted without a re-founding | CURIOSITY:11 | the re-founding happened: the MESH pivot of 2026-05-13 |
+| Hestia has a standing subscription to every curiosity trigger | CURIOSITY:143 | HestiaLite was deleted in W13; `hestia.py` is a schema without a runtime |
+| The Oneiros tick runs every few minutes, with renormalisation and tiered decay | CHRONIK_SCALE:146 | no scheduler; only k=2; no renormalisation |
+| Neo4j is fully reversible behind the store protocol | GEN1_LEGACY:588 | the migration plan called the discrepancy structural and wrote six steps |
 
 ---
 
-## Nachtrag 2026-09-11 — Spur E: die latente letzte Meile (PHX-1109)
+## Addendum 2026-09-11 — Track E: the latent last mile (PHX-1109)
 
-Anlass war Jakobs Frage nach den Berichten, dass Sprachmodelle ihr Denken
-zunehmend in internen Schichten erledigen und keine lesbaren Zwischenschritte
-mehr brauchen. Die Recherche ergab zwei Befunde, die man auseinanderhalten
-muss:
+The prompt was Jakob's question about the reports that language models are
+increasingly doing their thinking in internal layers and no longer need
+readable intermediate steps. The research turned up two findings that must
+be kept apart:
 
-- **Heutige Frontier-Modelle rechnen schon jetzt Wesentliches ohne Spur im
-  Text.** Baherwani, Goldstein und Panda (Juli 2026) heben mit inhaltsleeren
-  Fülltokens die Genauigkeit von 13 Frontier-Modellen um bis zu 13 Punkte;
-  Wang (April 2026) nennt die latente Trajektorie die Arbeitshypothese des
-  Feldes und den Text ihre Projektion; Anthropic übersetzt seit Mai
-  Aktivierungen per Autoencoder in Sprache und findet dort, was die Kette
-  verschweigt.
-- **Architekturen ohne Text-Zwischenschritte funktionieren, aber klein.**
-  Coconut (Meta) füttert den verborgenen Zustand zurück, ein kontinuierlicher
-  Gedanke kodiert mehrere nächste Schritte zugleich. Rekurrente Tiefe (Huginn,
-  3,5B) erreicht die Reasoning-Leistung deutlich größerer Modelle. LOTUS (Juni
-  2026) schließt bei 3B zum expliziten Chain-of-Thought auf, bei 2,5- bis
-  6,9-fach geringerer Latenz — und sagt zugleich, dass frühere latente
-  Methoden über 1B zurückfielen. Kohli et al. (COLM 2026): rekurrente
-  Transformer kombinieren in einem Vorwärtsdurchlauf Fakten, die im Training
-  nie zusammen vorkamen. Kein Frontier-Lab hat einen latenten Reasoner
-  ausgeliefert (Turing Post, Juli 2026).
+- **Today's frontier models already compute essential parts without a
+  trace in the text.** Baherwani, Goldstein, and Panda (July 2026) raise
+  the accuracy of 13 frontier models by up to 13 points using
+  content-free filler tokens; Wang (April 2026) calls the latent
+  trajectory the field's working hypothesis and the text its projection;
+  since May, Anthropic has been translating activations into language via
+  an autoencoder and finding there what the chain withholds.
+- **Architectures without text intermediate steps work, but small.**
+  Coconut (Meta) feeds the hidden state back in, a continuous thought
+  encodes several next steps at once. Recurrent depth (Huginn, 3.5B)
+  reaches the reasoning performance of considerably larger models. LOTUS
+  (June 2026) closes the gap to explicit chain-of-thought at 3B, at 2.5-
+  to 6.9-fold lower latency — and at the same time says earlier latent
+  methods fell behind above 1B. Kohli et al. (COLM 2026): recurrent
+  transformers combine, in a single forward pass, facts that never
+  occurred together in training. No frontier lab has shipped a latent
+  reasoner (Turing Post, July 2026).
 
-**Was das für Theogony heißt, in vier Sätzen.** Die Richtung der Kernthese
-wird respektabel, für eine andere Behauptung als unsere: Text ist auch *im*
-Modell nicht das Medium. Bei uns läuft trotzdem alles durch Text, deshalb ist
-VISION:44 („der Agent liest keinen Kontext, er empfängt Struktur") bei uns
-ungemessen. Was latentes Denken wegnimmt, die lesbare Spur, ist genau das, was
-ein Substrat mit Ursprung, Revisionspfad und lesbarem Widerspruch anbietet —
-**das Substrat ist die Prüfspur, die latente Modelle nicht mehr erzeugen**, und
-das gilt nur, wenn PHX-1107 existiert. Und die Konkurrenz wird schärfer: wenn
-Modelle Fakten in den Gewichten komponieren, muss das Mesh zeigen, dass es
-komponiert, was *gestern* gelesen wurde, mit Provenienz (Monkey 3).
+**What this means for Theogony, in four sentences.** The direction of the
+core thesis becomes respectable, for a different claim than ours: text is
+not the medium *inside* the model either. For us, everything still runs
+through text, which is why VISION:44 ("the agent does not read context, it
+receives structure") is unmeasured for us. What latent thinking takes
+away — the readable trace — is exactly what a substrate with origin,
+revision path, and readable contradiction offers — **the substrate is the
+audit trail that latent models no longer produce**, and that only holds if
+PHX-1107 exists. And the competition sharpens: if models compose facts in
+their weights, the mesh must show that it composes what was read
+*yesterday*, with provenance (Monkey 3).
 
-**Spur E, nach B eingeordnet, heute begonnen, weil sie das Instrument nutzt,
-das da ist.** xRAG (2024) zeigt: eingefrorener Retriever, eingefrorenes
-Modell, kleiner trainierter Projektor, ein Dokument als ein Token. Auf uns
-übertragen: Knotenvektoren aus bge-small-en, ein Projektor, der
-Einbettungsraum eines offenen Kleinlesers; die Constellation wird zu weichen
-Tokens plus Kantenstruktur statt zu einem Textblock. Drei Arme mit demselben
-lokalen Leser, dieselbe Bewertung wie das Antwort-Instrument, untrainierter
-Projektor als Kontrolle. Das MNLM-Brief hat diesen Weg als verwässert
-abgelehnt; das Brief hat beim Horizont recht und bei der Reihenfolge nicht.
+**Track E, placed after B, begun today because it uses the instrument
+that is already there.** xRAG (2024) shows: a frozen retriever, a frozen
+model, a small trained projector, one document as one token. Carried over
+to us: node vectors from bge-small-en, a projector into the embedding
+space of an open small reader; the constellation becomes soft tokens plus
+edge structure instead of a block of text. Three arms with the same local
+reader, the same scoring as the answer instrument, an untrained projector
+as control. The MNLM brief rejected this path as diluted; the brief is
+right about the horizon and wrong about the order.
 
-*Fertig, wenn:* die weiche Constellation gegen die Text-Constellation auf dem
-Gold-Set gemessen ist, mit Streuung. Ein Nullergebnis ist ein Ergebnis. An der
-Reihenfolge A → B ändert sich nichts: beide sind Voraussetzungen für jeden
-Leser, ob Text oder latent.
+*Done when:* the soft constellation is measured against the text
+constellation on the gold set, with spread. A null result is a result.
+Nothing changes about the order A → B: both are prerequisites for any
+reader, whether text or latent.
 
-**Ergebnis (2026-09-12, [`latent_mile.md`](latent_mile.md)):** der Vektor
-kommt an, die Antwort nicht. Ein eingefrorener 3B-Leser liest aus dem
-projizierten Knotenvektor die Identität des Knotens (2,4 gegen 6,8 nats je
-Namens-Token mit dem richtigen gegen einen fremden Vektor, auf ungesehenen
-Knoten), bildet aber aus fünfzig solchen Tokens keine Antwort: streng bewertet
-Text 49 %, Vorwissen 14 %, Vektoren 9–11 %, gegen den Text auf keiner Frage
-besser. Gebaut ist xRAG Stufe 1; der Hebel ist Stufe 2, Instruktionstuning
-mit Selbst-Destillation, und die braucht Frage-Antwort-Daten jenseits des
-Gold-Sets. VISION:44 zerfällt in „receives structure" (ja) und „no text
-translation required" (auf dieser Skala nein). Spur E bleibt nach B; die
-Reihenfolge ändert sich nicht. Nebenbefund fürs Instrument: 30 der 111
-Gold-Namen stehen in der eigenen Frage (PHX-1098).
+**Result (2026-09-12, [`latent_mile.md`](latent_mile.md)):** the vector
+arrives, the answer does not. A frozen 3B reader reads the node's
+identity from the projected node vector (2.4 against 6.8 nats per name
+token with the correct versus a foreign vector, on unseen nodes), but
+forms no answer from fifty such tokens: strictly scored, text 49%, prior
+knowledge 14%, vectors 9–11%, better than the text on no question. What
+is built is xRAG stage 1; the lever is stage 2, instruction tuning with
+self-distillation, and that needs question-answer data beyond the gold
+set. VISION:44 splits into "receives structure" (yes) and "no text
+translation required" (no, at this scale). Track E stays after B; the
+order does not change. A side finding for the instrument: 30 of the 111
+gold names appear in their own question (PHX-1098).

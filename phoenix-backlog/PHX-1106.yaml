@@ -3,94 +3,94 @@ category: substrate-runtime
 priority: high
 status: done
 generation_target: MESH doctrine — §6 Global homeostatic renormalisation
-title: "Renormalisierung: die Gegenkraft, die das Gate braucht — gemessen −1,5 auf Zurückgehaltenem"
-filed_by: Claude Code (2026-09-02, aus dem 2Wiki-Herzschlag)
+title: "Renormalisation: the counterforce the gate needs — measured −1.5 on held-out"
+filed_by: Claude Code (2026-09-02, from the 2Wiki heartbeat)
 created_at: 2026-09-02
 description: >
-  Seit PHX-1102 verschont der Zerfall, was gefeuert hat. Auf 2Wiki über 50
-  Runden tut das, was es soll — benutzte Fragen +1,3 Punkte mit Gutschrift —
-  und hat einen Preis, der monoton wächst: die zurückgehaltenen Fragen fallen
-  um −1,5 (0,813 → 0,798), mit oder ohne Gutschrift.
+  Since PHX-1102, decay spares what has fired. On 2Wiki, over 50 rounds, it
+  does what it should — used questions +1.3 points with credit — and it has
+  a price that grows monotonically: held-out questions fall by −1.5
+  (0.813 → 0.798), with or without credit.
 
-  Der Mechanismus ist sichtbar: 5,4 % der Kanten bleiben am Anschlag, alle
-  anderen fallen von 1,0 auf 0,28. Weil der Operator Anteile liest, wächst der
-  Anteil der verschonten Kanten an jedem Knoten um das 3,5-fache, und der
-  Random Walk kippt zu den benutzten Regionen. Was nicht benutzt wird, wird
-  nicht nur vergessen, sondern verdrängt.
+  The mechanism is visible: 5.4% of edges stay pinned at the ceiling, all
+  others fall from 1.0 to 0.28. Because the operator reads proportions, the
+  share of spared edges at every node grows 3.5-fold, and the random walk
+  tips toward the used regions. What is not used is not merely forgotten,
+  but displaced.
 
-  MESH_SUBSTRATE §6 sieht genau dafür die globale homöostatische
-  Renormalisierung vor: das Gesamtgewicht je Knoten (oder das Verhältnis
-  Gesamtgewicht/Knotenzahl, R_ideal) stabil halten, damit Verstärkung die
-  Verteilung verschiebt statt den Rest zu erdrücken. Die Inventur (PHX-1100)
-  fand sie nicht gebaut — ein einziger Treffer im Repo, der Docstring, der sagt,
-  dass sie fehlt.
+  MESH_SUBSTRATE §6 provides exactly for this: global homeostatic
+  renormalisation — hold the total weight per node (or the ratio total
+  weight/node count, R_ideal) stable, so that reinforcement shifts the
+  distribution instead of crushing the rest. The inventory (PHX-1100) found
+  it not built — a single hit in the repo, the docstring that says it is
+  absent.
 
-  Sie repariert nebenbei die verkehrte Tier-Leiter (PHX-1100, Muster 3): mit
-  Gewichten, die über 1 leben dürfen, tut die dokumentierte Modulation wieder
-  das Richtige.
+  It also fixes, incidentally, the inverted tier ladder (PHX-1100, pattern
+  3): with weights allowed to live above 1, the documented modulation does
+  the right thing again.
 
-  UMFANG: ein Tick-Schritt nach dem Zerfall, der je Knoten die Ausgangsgewichte
-  auf eine Zielsumme skaliert (oder global auf R_ideal), mit dem
-  tier-bewussten Softening aus §6 als Option. Gemessen gegen denselben
-  Herzschlag-Lauf: die Hypothese ist, dass benutzt +1,3 bleibt und
-  zurückgehalten nicht mehr fällt. Wenn beides fällt, ist die Zielsumme falsch;
-  wenn benutzt fällt, frisst die Renormalisierung die Gutschrift.
+  SCOPE: a tick step after decay that scales, per node, the outgoing weights
+  to a target sum (or globally to R_ideal), with the tier-aware softening
+  from §6 as an option. Measured against the same heartbeat run: the
+  hypothesis is that used stays at +1.3 and held-out no longer falls. If
+  both fall, the target sum is wrong; if used falls, renormalisation eats
+  the credit.
 
-  Dazu, aus dem Lauf: eine zweite Bestätigung auf HotpotQA oder MuSiQue, und
-  ein zweiter Seed, bevor 1–1,5 Punkte als Effekt gelten.
+  In addition, from the run: a second confirmation on HotpotQA or MuSiQue,
+  and a second seed, before 1–1.5 points count as an effect.
 resolution: >
-  Gebaut und gemessen, 2026-09-12. Volltext docs/etappes/renormalisation.md.
+  Built and measured, 2026-09-12. Full text docs/etappes/renormalisation.md.
 
-  Gebaut: `renormalise_edges_inplace` in drei Lesarten von §6 -- global (ein
-  Faktor über alle Kanten, Sollwert als Gewicht je Knoten, beim ersten
-  Einschalten in mesh_state.json verankert), out und in (je Knoten die
-  Summe der Ausgangs- bzw. Eingangsgewichte vom Tick-Eintritt gehalten) --,
-  als Tick-Schritt nach dem Zerfall und vor der Sättigung, wie
-  MESH_IMPLEMENTATION es ordnet; tier-bewusste Milderung als Option;
-  `mesh tick --renormalise global|out|in|off --renorm-scale`; die Politiken
-  im 2Wiki-Herzschlag und im Founding-Herzschlag.
+  Built: `renormalise_edges_inplace` in three readings of §6 -- global (one
+  factor across all edges, set point as weight per node, anchored in
+  mesh_state.json on first activation), out and in (per node, the sum of
+  outgoing or incoming weights held at tick entry) --, as a tick step after
+  decay and before saturation, as MESH_IMPLEMENTATION prescribes;
+  tier-aware softening as an option;
+  `mesh tick --renormalise global|out|in|off --renorm-scale`; the policies
+  in the 2Wiki heartbeat and the founding heartbeat.
 
-  Gemessen, derselbe Herzschlag wie PHX-1104, fünf Politiken, 50 Runden,
-  Delta gegen Runde 0 (benutzt / zurückgehalten):
+  Measured, the same heartbeat as PHX-1104, five policies, 50 rounds, delta
+  against round 0 (used / held-out):
 
-      2Wiki Seed 0     Baseline +1,3 / -1,5   global +1,2 / +1,5
-      HotpotQA Seed 0  Baseline +0,3 / -2,3   global -0,7 / -0,7
-      2Wiki Seed 1     Baseline -0,7 / -2,3   global -1,5 / +0,7
+      2Wiki Seed 0     Baseline +1.3 / -1.5   global +1.2 / +1.5
+      HotpotQA Seed 0  Baseline +0.3 / -2.3   global -0.7 / -0.7
+      2Wiki Seed 1     Baseline -0.7 / -2.3   global -1.5 / +0.7
 
-  Was hält: das Gate verdrängt, in jedem Lauf; die globale Renormalisierung
-  hebt das auf, in jedem Lauf (im Mittel 2,5 Punkte auf dem Zurückgehaltenen)
-  und kostet im Mittel einen halben Punkt auf dem Benutzten. Was nicht hält:
-  der Gewinn aus PHX-1104 -- +1,3 war ein Seed. Die Bedingung des Plans
-  (benutzt >= +1 und zurückgehalten >= 0 auf beiden Datensätzen und Seeds)
-  erfüllt keine Politik, weil ihre erste Hälfte schon die Baseline nur einmal
-  erfüllt. out halbiert den Gewinn (+0,7 / 0), in bremst die Drift nur.
+  What holds: the gate displaces, in every run; global renormalisation
+  cancels that, in every run (on average 2.5 points on held-out) and costs
+  on average half a point on used. What does not hold: the gain from
+  PHX-1104 -- +1.3 was a seed. The plan's condition (used >= +1 and
+  held-out >= 0 on both datasets and seeds) is met by no policy, because its
+  first half is already met by the baseline only once. out halves the gain
+  (+0.7 / 0), in only slows the drift.
 
-  Der Mechanismus, mit Kontrolle: §6 wie geschrieben ist für einen Operator,
-  der zeilennormalisierte Adjazenz liest, unsichtbar -- ohne Kappe sind
-  Baseline und Renormalisierung bis Runde 10 identisch, und danach ist die
-  Renormalisierung ein Verstärker der Verdrängung (-3,8 gegen -2,0), weil die
-  gefeuerten Kanten ohne Grenze wachsen (max 41,9) und alles andere
-  herunterskaliert wird. Die Gegenkraft ist die Kappe: die Skalierung hebt
-  das Unbenutzte zurück, w_max schneidet das Benutzte ab. Sollwert-Sweep:
-  bei 1,0 flacht der Graph ab (Median 0,28 -> 0,95), bei 0,9 dieselbe
-  Gegenkraft mit Median 0,85 und halbem Preis auf HotpotQA, bei 0,7 ist die
-  Gegenkraft weg -> DEFAULT_RENORM_SCALE = 0,9.
+  The mechanism, with a control: §6 as written is invisible to an operator
+  that reads row-normalised adjacency -- without a cap, baseline and
+  renormalisation are identical up to round 10, and after that
+  renormalisation is an amplifier of displacement (-3.8 against -2.0),
+  because the fired edges grow without a bound (max 41.9) and everything
+  else is scaled down. The counterforce is the cap: scaling lifts the
+  unused back up, w_max cuts off the used. Set-point sweep: at 1.0 the graph
+  flattens (median 0.28 -> 0.95), at 0.9 the same counterforce with a
+  median of 0.85 and half the price on HotpotQA, at 0.7 the counterforce is
+  gone -> DEFAULT_RENORM_SCALE = 0.9.
 
-  Ausgeliefert: `mesh tick` läuft standardmäßig mit global / 0,9;
-  `run_minimal_tick` bleibt bei None, die Funktion ist die Primitive. Die
-  Tier-Leiter bleibt unangetastet, weil die Gewichte weiter unter 1 leben.
-  Für die Doktrin: PHX-1108 (§6 ist ohne Kappe kein Gegengewicht).
+  Shipped: `mesh tick` runs by default with global / 0.9; `run_minimal_tick`
+  stays at None, the function is the primitive. The tier ladder remains
+  untouched, because the weights continue to live below 1. For the
+  doctrine: PHX-1108 (§6 without a cap is no counterweight).
 
-  Auf dem Founding-Mesh selbst (echter Tick, 10 Runden, 24/23 Fragen):
-  Baseline und Renormalisierung an jedem Messpunkt identisch (87,9 / 84,4 %
-  nach Runde 1), weil dort die Gewichte unter der Kappe leben; die
-  Renormalisierung hält die Masse (Median 0,293 statt 0,276 nach 10 Ticks).
-  Als Standard gemessen harmlos, wo die Kappe nicht greift, und nötig, wo
-  sie greift.
+  On the founding mesh itself (real tick, 10 rounds, 24/23 questions):
+  baseline and renormalisation identical at every measurement point (87.9 /
+  84.4% after round 1), because the weights there live below the cap;
+  renormalisation holds the mass (median 0.293 instead of 0.276 after 10
+  ticks). Measured as the default: harmless where the cap does not bite,
+  and needed where it does.
 relates_to:
-  - PHX-1104   # die Messung, die dies motiviert
-  - PHX-1102   # das Gate
-  - PHX-1100   # Muster 3, die verkehrte Tier-Leiter
+  - PHX-1104   # the measurement that motivates this
+  - PHX-1102   # the gate
+  - PHX-1100   # pattern 3, the inverted tier ladder
 linked_scripts:
   - scripts/mesh_heartbeat_qa.py
   - scripts/mesh_heartbeat.py

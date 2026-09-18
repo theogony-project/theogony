@@ -71,7 +71,7 @@ following points are reproduced or paraphrased closely; quotations are theirs.
 Simultaneously, a "massively parallel, energy-cheap" search runs through prior
 knowledge — the user estimates this activates roughly 50 already-learned
 concepts, ranging from tightly bound to loosely associated. From this storm
-("ein großes Gewitter mit Potenzialgefälle") a synthesis condenses. This
+("a great thunderstorm with a potential gradient") a synthesis condenses. This
 synthesis is what primarily remains as the next sentence is read.
 
 **Subsequent sentences.** The same storm happens, but the previous sentence's
@@ -282,8 +282,8 @@ that the audit can trace **why** a concept exists.
 
 The user has explicitly relaxed the cockpit-first requirement:
 
-> Es ist auch in Ordnung, wenn wir mit Stufe C beginnen und dann vorerst
-> statistische Auswertungen machen. Oder ich lese das JSON einfach selbst.
+> It is also fine if we begin with stage C and do statistical evaluations for
+> the time being. Or I simply read the JSON myself. *(translated from the German)*
 
 So the implementation can begin **without** a cockpit. The first version of
 the agent should produce a JSON output in a format the user can read directly

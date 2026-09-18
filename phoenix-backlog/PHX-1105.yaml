@@ -2,44 +2,44 @@ id: PHX-1105
 category: infrastructure
 priority: high
 status: done
-generation_target: MESH — Speicherschicht
-title: "lancedb 0.38 liest doppelte Anführungszeichen als Bezeichner — jeder Filter im Store brach"
-filed_by: Claude Code (2026-09-02, aus dem ersten CI-Lauf von PHX-1102)
+generation_target: MESH — storage layer
+title: "lancedb 0.38 reads double quotes as identifiers — every filter in the store broke"
+filed_by: Claude Code (2026-09-02, from the first CI run of PHX-1102)
 created_at: 2026-09-02
 description: >
-  Der erste Code-PR nach dem Versionssprung (lokal 0.37.1, CI löst 0.38.0 auf)
-  fiel mit 40 Tests in CI durch, bei 1.851 grünen Tests lokal. Fehlerbild:
+  The first code PR after the version jump (local 0.37.1, CI resolves 0.38.0)
+  failed with 40 tests in CI, with 1,851 green tests locally. Error signature:
 
       Schema error: No field named "01M1H1A7D3BB77Z0SF36SMRG05".
       Valid fields are id, payload_json, semantic_vector, ...
 
-  lance-datafusion 11 liest ein doppelt angeführtes Token in `where`/`delete` als
-  **Bezeichner**, wie Standard-SQL; 0.37 hatte es als String toleriert. Jeder
-  Filter in `storage/nodes.py` und `storage/edges.py` — `id = "{…}"`,
-  `id IN ("…","…")`, `label = "…"`, `qid = "…"`, `source_id = "…"` — war so
-  gebaut. Zehn Stellen.
+  lance-datafusion 11 reads a double-quoted token in `where`/`delete` as an
+  **identifier**, as standard SQL does; 0.37 had tolerated it as a string.
+  Every filter in `storage/nodes.py` and `storage/edges.py` — `id = "{…}"`,
+  `id IN ("…","…")`, `label = "…"`, `qid = "…"`, `source_id = "…"` — was
+  built that way. Ten places.
 
-  Das ist die vierte Ausprägung derselben Lücke (AGENTS.md §5, PHX-1057,
-  PHX-1076): CI löst Paketversionen neuer auf als das lokale venv, und
-  lokal-grün heißt nichts.
+  This is the fourth manifestation of the same gap (AGENTS.md §5, PHX-1057,
+  PHX-1076): CI resolves package versions newer than the local venv, and
+  local-green means nothing.
 resolution: >
-  Reproduziert lokal, indem das venv auf 0.38.0 gehoben wurde (innerhalb des
-  in pyproject erlaubten `lancedb>=0.6.0`) — 66 Fehler in tests/mesh + cockpit.
-  Dann ein Helfer `storage/sql.py` mit `sql_literal()` / `sql_in()`: einfache
-  Anführungszeichen, `'` als `''` verdoppelt — Standard-SQL, von 0.37 wie 0.38
-  akzeptiert (beides gemessen). Alle zehn Stellen umgestellt, `_sql_quote`
-  (das `"` escapte) entfernt. 444 Tests in tests/mesh + cockpit grün auf 0.38.
+  Reproduced locally by raising the venv to 0.38.0 (within the
+  `lancedb>=0.6.0` allowed in pyproject) — 66 failures in tests/mesh +
+  cockpit. Then a helper `storage/sql.py` with `sql_literal()` / `sql_in()`:
+  single quotes, `'` doubled as `''` — standard SQL, accepted by 0.37 as by
+  0.38 (both measured). All ten places converted, `_sql_quote` (which
+  escaped `"`) removed. 444 tests in tests/mesh + cockpit green on 0.38.
 
-  Festgenagelt in tests/mesh/test_sql_literals.py: ein statischer Test, der die
-  Form `= "{…}"` in jeder Store-Datei verweigert, und ein funktionaler, der ein
-  Apostroph durch jede Lookup-Methode schickt.
+  Pinned down in tests/mesh/test_sql_literals.py: a static test that refuses
+  the form `= "{…}"` in every store file, and a functional one that sends an
+  apostrophe through every lookup method.
 
-  Nicht gemacht: eine Pinning-Entscheidung. Das ist PHX-1076 und Jakobs Wahl;
-  der Dialekt-Fix ist unabhängig davon richtig.
+  Not done: a pinning decision. That is PHX-1076 and Jakob's choice; the
+  dialect fix is correct independent of it.
 relates_to:
-  - PHX-1102   # der PR, der es fand
-  - PHX-1076   # Lockfile / Pinning, offen
-  - PHX-1057   # das erste Mal, dass eine lancedb-API zwischen lokal und CI wanderte
+  - PHX-1102   # the PR that found it
+  - PHX-1076   # lockfile / pinning, open
+  - PHX-1057   # the first time a lancedb API drifted between local and CI
 linked_scripts:
   - src/theogony/mesh/storage/sql.py
   - tests/mesh/test_sql_literals.py

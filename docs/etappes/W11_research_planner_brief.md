@@ -112,7 +112,7 @@ Rules:
 - "wikidata_lookup": target = a name or Q-id, e.g. "Sven Hedin" or "Q154759".
 - "gutenberg_search": target = a focused search query for Project Gutenberg's
   catalogue, NOT the user's natural-language question. Good: "Hedin Tibet
-  expedition". Bad: "Was weißt du über Tibet/Hedin".
+  expedition". Bad: "What do you know about Tibet/Hedin".
 - "wikipedia_fetch": target = a Wikipedia article title (en preferred, de OK),
   e.g. "Sven Hedin" or "Trans-Himalaya (book series)".
 - "web_fetch": target = a single concrete URL. Use the web_search tool first
