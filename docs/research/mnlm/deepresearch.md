@@ -66,7 +66,7 @@ The optimal "mesh-out" architecture is a Latent Flow Matching Decoder that model
 
 Derived from precedent set by the LatentRxnFlow framework, the MNLM utilizes Conditional Flow Matching (CFM) to learn a time-dependent vector field v 
 θ
-​
+
  (z∣⋅). Instead of committing immediately to a rigid discrete edit, the MNLM simulates reasoning as a smooth transport process. The starting representation (the ingested subgraph) evolves continuously along a latent coordinate space toward a targeted product state (the structural revision).   
 
 Representing Revision and Contradiction:
@@ -80,7 +80,7 @@ This output is never merged blindly. It is emitted as a Bounded Constellation—
 Auditability and the Immune System:
 The continuous nature of Latent Flow Matching provides unprecedented auditability for post-hoc validation. Because the trajectory is continuous, it exposes the full generative evolution. The post-hoc immune system can inspect intermediate states (z 
 t
-​
+
  ) along the trajectory to identify precisely where a hallucination or logic error was introduced before the final structural delta was consolidated. Furthermore, the geometric properties of these trajectories provide an intrinsic signal of epistemic uncertainty. Trajectories that exhibit high curvature or extended oscillation indicate low confidence, allowing the immune system to automatically flag ambiguous structural revisions for deeper verification without relying on external linguistic analysis.   
 
 2.3 Q3 — Training Signal: Optimizing for Subgraph Output
@@ -116,16 +116,16 @@ The Adapter Class: A cross-modality pooling module and domain projector (derived
 
 Targeted LoRA: The core weights of the LLM remain strictly frozen to preserve its pre-trained logical faculties. Low-Rank Adaptation (LoRA) matrices are applied specifically and exclusively to the self-attention mechanisms (W 
 q
-​
+
  ,W 
 k
-​
+
  ,W 
 v
-​
+
  ,W 
 o
-​
+
  ). Studies utilizing GNP methodologies show that keeping the base model frozen and relying on LoRA for adaptation improves graph reasoning tasks by up to +13.5% over baselines, bypassing the catastrophic forgetting associated with full fine-tuning.   
 
 The Failure Profile of Closed-Weights APIs:
@@ -140,18 +140,18 @@ The MNLM eliminates text mediation by executing a direct continuous communicatio
 The Typed Packet:
 The minimal typed inter-agent packet is a continuous memory object, not a text string. It consists of the Layer-wise Key-Value (KV) caches containing the predecessor agent's latent thoughts, packaged alongside an alignment matrix (W 
 a
-​
+
  ).   
 
 Within LatentMAS, agents do not decode their outputs to text. They perform reasoning by auto-regressively generating hidden representations from their final transformer layers. These representations accumulate directly in the working memory (K 
 cache
-​
+
  ,V 
 cache
-​
+
  ). When Agent A (Nous) completes its synthesis phase, it transfers this accumulated working memory to Agent B (Oneiros). Agent B systematically prepends Agent A's layer-wise KV matrices directly to its own cache. To prevent out-of-distribution activation patterns caused by transferring hidden states between potentially heterogeneous agents or specialized LoRA adapters, the alignment matrix (W 
 a
-​
+
  )—derived via ridge regression—maps the predecessor's hidden states into a mathematically valid input embedding space for the recipient.   
 
 Provenance Preservation:
@@ -236,16 +236,16 @@ Frozen Base Model: Llama-3-8B-Instruct. (Chosen for memory bounds during continu
 
 Adapter Class: Low-Rank Adaptation (LoRA) matrices applied exclusively to the self-attention mechanisms (W 
 q
-​
+
  ,W 
 k
-​
+
  ,W 
 v
-​
+
  ,W 
 o
-​
+
  ), leaving deep MLP parametric layers fully frozen to preserve logical capacity.
 
 Graph Encoder (Input): Graph-KV Injection paired with Graph Neural Prompting (GNP). Subgraphs are not serialized. Nodes and edges are projected into continuous vector sequences (GNP). The graph topology is dynamically enforced as a structural block mask on the LLM's attention mechanism (Graph-KV), utilizing shared positional encoding intervals $
