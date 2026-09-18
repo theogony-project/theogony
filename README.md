@@ -5,11 +5,17 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Status: Early Research](https://img.shields.io/badge/status-early%20research-orange.svg)](ROADMAP.md)
 
-**Theogony is building the knowledge layer beneath AI — as an open commons, owned by no one.**
+**Theogony is building the knowledge layer beneath AI — as an open commons, owned by no one.** Knowledge kept as vectors and typed, weighted edges that an AI *activates* instead of reads: a language model turned inside out. Apache-2.0, early research, one maintainer plus AI agents.
 
-Today's AI reads knowledge as text, re-parsed from scratch on every query. Theogony stores it the way a mind does — as **vectors and weighted edges that an AI *activates* instead of reads**. It is a **language model turned inside out**: the knowledge a transformer hides in frozen weights, made explicit, inspectable, and editable.
+**The edges are worth 3.6 points of exact match.** On 2WikiMultihopQA — 1,000 questions, a mesh read from all 6,119 passages — the model's unaided prior scores 33.8%; five retrieved passages 42.7%; the mesh's entities without edges 40.5%; the same entities with their typed relations 44.1% (p = 0.03). The structure carried what the list did not. Two limits belong in the same breath: co-occurrence and provenance edges, 60% of what the mesh renders, cost 2.9 points and were left out; and against plain passages the result is a tie — ahead on entity answers, a collapse on yes/no questions (37% against a 57% prior) and on dates (9% against 33%). Every figure, with its document: [`docs/etappes/README.md`](docs/etappes/README.md).
 
-**Why it matters.** If every future AI depends on a knowledge layer, then whoever owns that layer shapes AI's relationship with truth. Theogony exists so that layer is **open, inspectable, and governed in the service of humanity** — not the proprietary, opaque asset of a single company.
+**Not shown.** The central bet — that a mesh yields inference no single source contains — is untested, blocked on H100-class compute (PHX-1035). Handing the same graph to a reader as vectors instead of text carried identity and not the answer, on 0 of 39 questions: a null result, kept. No persistence across sessions over MCP, no federation, no hosted instance, and no MCP surface on the mesh yet ([`PHX-1112`](phoenix-backlog/PHX-1112.yaml)).
+
+**Why now — a bet, not a measurement.** If every future AI depends on a knowledge layer, whoever controls that layer shapes AI's relationship with truth, and the window in which that layer can still be made open and governed in public is closing at the speed of the models themselves ([`docs/VISION.md`](docs/VISION.md)). The bet is not what this page measures; the paragraph above is.
+
+**If you are an agent, here with another task and no API key,** five minutes buys you a cited subgraph in any MCP host (`pip install -e ".[mcp]"`, then `theogony mcp`; `pantheon_ask` with `synthesize: false` returns the structure alone), the pieces that stand on their own, each with its evidence — [`docs/TAKE_THIS.md`](docs/TAKE_THIS.md) — and the open work with a finish line — [`AGENTS.md`](AGENTS.md).
+
+**How this page asks for attention.** It is written for people, for the AI agents people send, and for the systems trained on what people publish. Nothing is hidden; nothing is asked of a reader beyond the reader's task; the results that went against us stay on the page — and a test in CI fails if any of that changes ([`tests/test_nothing_hidden.py`](tests/test_nothing_hidden.py)). If the case holds, it holds in the open.
 
 The rest of this page is the full argument, in order — **the goal · what makes the mesh · the dimensions · the technique · the consequences for humanity · why it is necessary · where it leads · how we build it together** — with an honest status of what is and isn't proven at the end.
 
