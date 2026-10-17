@@ -37,14 +37,18 @@ acceptance: >
   self-description what this project has measured returns something written
   after April 2026.
 remaining: >
-  Piece (1) shipped: mesh_ask and mesh_status over a MeshRuntime workspace,
-  `theogony mcp --mesh-root` (default {data_dir}/mesh when a workspace is
-  there), answering a protocol round trip against the replayed test mesh with
-  no LLM on the path. Still open: (2) the keyless demo mesh from shipped
-  Kadmos readings, extended fresh-clone probe; (3) the bundled Gen-1
+  Pieces (1) and (2) shipped. (1) mesh_ask and mesh_status over a MeshRuntime
+  workspace, `theogony mcp --mesh-root` (default {data_dir}/mesh when a
+  workspace is there), a protocol round trip against the replayed test mesh
+  with no LLM on the path. (2) `theogony mesh demo`: the bundled Kadmos
+  readings of Hesiod's Theogony (95 paragraphs, recorded once with
+  deepseek-chat for EUR 0.03, 50 KB) replayed through the shipped reader into
+  the default workspace; the fresh-clone probe builds it and gets a
+  Constellation over MCP without a key. Still open: (3) the bundled Gen-1
   self-description from 2026-04-20.
 linked_prs:
   - "#282 mesh_ask / mesh_status over MCP (piece 1)"
+  - "#283 theogony mesh demo — the keyless demo mesh (piece 2)"
 relates_to:
   - PHX-1111   # the keyless entrance this continues
   - PHX-1110   # the replay provider, and the typed-only rendering

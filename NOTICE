@@ -3,3 +3,11 @@ Copyright 2025 Theogony Contributors
 
 This product is licensed under the Apache License, Version 2.0.
 The full text of the license is in the LICENSE file.
+
+Bundled third-party text
+------------------------
+src/theogony/seeds/hesiod_theogony.txt is Hesiod's Theogony in the English
+translation of Hugh G. Evelyn-White (Loeb Classical Library, 1914), which is in
+the public domain. The text was taken from Project Gutenberg eBook #348 with the
+Project Gutenberg header and licence removed, as that licence permits for a
+public-domain work; it is therefore not distributed as a Project Gutenberg eBook.

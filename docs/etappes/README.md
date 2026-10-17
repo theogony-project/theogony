@@ -18,6 +18,7 @@ decision — and the German originals remain in the git history.
 
 | Etappe | Ticket | What was measured, in one line |
 |---|---|---|
+| [`mesh_over_mcp.md`](mesh_over_mcp.md) | PHX-1112 | The mesh gets an MCP surface (`mesh_ask`: the measured Constellation, no LLM on the path) and a workspace an agent can build without a key: Hesiod's Theogony from recorded Kadmos readings, about 720 nodes and 17,500 edges in about a minute. |
 | [`arriving_agent.md`](arriving_agent.md) | PHX-1111, PHX-1115 | From a fresh clone with no API key, no documented path returned an answer or a constellation; seven defects no test could see. Fixed, and the entrance rewritten. |
 | [`qa_constellation.md`](qa_constellation.md) | PHX-1110 | On a corpus the model does not know, the graph's edges are worth +3.6 exact match over the same entities — only without structural edges; a tie with plain passages; worse on yes/no and dates. |
 | [`gold_aliases.md`](gold_aliases.md) | PHX-1098 | 30 of 111 gold names stood in their own question. Re-scoring the same answers moved the control from 47% to 86% and flipped a headline from +11 to −11. |

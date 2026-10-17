@@ -65,6 +65,19 @@ _EDGE_FLUSH_BATCH = 512
 _MAX_STRUCTURAL_NEIGHBOURS = 12
 _COMPACT_EVERY = 200  # paragraphs between workspace compactions during a read (PHX-1110)
 
+# The user prompt a paragraph is read with, in one place: the reader sends it,
+# the recorder (`scripts/record_demo_readings.py`) sends the identical string
+# so what it records is what Kadmos would have read, and the replay provider
+# (`mesh.ingestion.replay`) finds the paragraph between head and tail again.
+PARAGRAPH_PROMPT_HEAD = "PARAGRAPH:\n"
+PARAGRAPH_PROMPT_TAIL = "\n\nExtract the concepts, relations, and paragraph concept."
+
+
+def paragraph_prompt(text: str) -> str:
+    """The exact user prompt the reader sends for one paragraph."""
+    return f"{PARAGRAPH_PROMPT_HEAD}{text}{PARAGRAPH_PROMPT_TAIL}"
+
+
 SYSTEM_PROMPT = """You are Kadmos, the cognitive reader for a MESH substrate.
 
 Read the paragraph below and output valid JSON for this schema:
@@ -947,9 +960,7 @@ class MeshParagraphReader:
         self,
         text: str,
     ) -> tuple[ParagraphReadingOutput | None, dict[str, Any]]:
-        user_prompt = (
-            f"PARAGRAPH:\n{text}\n\nExtract the concepts, relations, and paragraph concept."
-        )
+        user_prompt = paragraph_prompt(text)
         started = time.monotonic()
         try:
             result = await self.llm.complete(

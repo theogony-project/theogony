@@ -1994,7 +1994,8 @@ def _resolve_mesh_root(mesh_root: Path | None, *, title: str) -> Path | None:
             _console.print(
                 Panel.fit(
                     f"[red]No mesh workspace at:[/red] {root}\n\n"
-                    "[dim]A workspace has lance/consolidated_nodes.lance. Build one with "
+                    "[dim]A workspace has lance/consolidated_nodes.lance. Build one there "
+                    "with [bold]theogony mesh demo --root[/bold] (no key, about a minute) or "
                     "[bold]theogony mesh ingest[/bold] (needs an LLM key), or omit "
                     "--mesh-root to serve the Gen-1 tools alone.[/dim]",
                     title=title,

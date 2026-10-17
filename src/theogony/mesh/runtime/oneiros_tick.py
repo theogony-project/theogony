@@ -281,6 +281,22 @@ class MeshRuntime:
     def _write_state(self, data: dict[str, Any]) -> None:
         self._state_path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
 
+    def state(self) -> dict[str, Any]:
+        """What ``mesh_state.json`` records about this workspace (a copy)."""
+        return dict(self._read_state())
+
+    def update_state(self, values: dict[str, Any]) -> None:
+        """Record ``values`` in ``mesh_state.json`` beside what is already there.
+
+        For facts about the workspace as a whole that no table holds — the
+        tick writes its timestamp and set point here, the demo build writes
+        what corpus it replayed (PHX-1112), so a later command can tell a
+        demo workspace from one somebody read with a key.
+        """
+        state = self._read_state()
+        state.update(values)
+        self._write_state(state)
+
     def compact(self, *, retention: timedelta = _DEFAULT_VERSION_RETENTION) -> dict[str, int]:
         """Compact every table's fragments and prune its version history.
 

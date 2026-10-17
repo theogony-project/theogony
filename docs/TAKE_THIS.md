@@ -69,11 +69,18 @@ more than once (PHX-1067).
 
 ## Lift a component
 
-**Replay an LLM-extracted graph without the LLM** — `ReplayReadingProvider`,
-`load_readings`, `readings_by_paragraph` in `src/theogony/mesh/eval/qa_mesh.py`.
-Record each paragraph's extraction once; afterwards any number of graphs can be
-rebuilt from the recordings through the real write path — deterministic, free,
-no key. Here: 6,119 passages, 35,906 nodes, zero LLM calls.
+**Replay an LLM-extracted graph without the LLM** —
+`src/theogony/mesh/ingestion/replay.py` (`ReplayReadingProvider`,
+`replay_text`, `reading_key`, `load_readings`), with
+`scripts/record_demo_readings.py` as the recorder. Record each paragraph's
+extraction once, with the reader's own prompt; afterwards any number of graphs
+can be rebuilt from the recordings through the real write path — deterministic,
+free, no key. Here: 6,119 passages, 35,906 nodes, zero LLM calls
+([`etappes/qa_constellation.md`](etappes/qa_constellation.md)); and the demo
+corpus an arriving agent builds — Hesiod's Theogony, 95 paragraphs, recorded for
+EUR 0.03 and shipped as a 50 KB file (`theogony mesh demo`, PHX-1112). The
+recordings are keyed by a hash of the paragraph, so a readings file carries no
+copy of the text.
 
 **A five-arm answer benchmark** — `build_qa_jobs`, `answer_qa_set` in the same
 module; `scripts/mesh_qa_constellation.py` drives it. Prior, plain passages,

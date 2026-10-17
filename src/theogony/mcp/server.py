@@ -191,7 +191,8 @@ async def open_resources(
         if not mesh_workspace_exists(mesh_root):
             raise RuntimeError(
                 f"no mesh workspace at {mesh_root} (no lance/consolidated_nodes.lance); "
-                "build one with `theogony mesh ingest` or point --mesh-root elsewhere"
+                "`theogony mesh demo --root` builds one there without a key, `theogony mesh "
+                "ingest` reads your own text (needs an LLM key), or point --mesh-root elsewhere"
             )
         mesh = MeshRuntime.open(mesh_root)
         if mesh.semantic_dim != settings.embedding.dim:
@@ -555,9 +556,11 @@ _MESH_NOTE = (
 def _mesh_unavailable(res: McpResources) -> str:
     return (
         "No mesh workspace is open on this server, so the mesh tools have nothing to "
-        f"serve. `theogony mcp` opens {res.settings.data_dir / 'mesh'} when a workspace is "
-        "there, or the directory passed as --mesh-root; `theogony mesh ingest` builds one "
-        "(reading needs an LLM key). The pantheon_* tools work without any of this."
+        f"serve. `theogony mesh demo` builds one at {res.settings.data_dir / 'mesh'} in about "
+        "a minute from the bundled Kadmos readings of Hesiod's Theogony — no API key — and "
+        "`theogony mcp` serves it from there on; `theogony mesh ingest` reads a text of your "
+        "own (that needs an LLM key); --mesh-root names another workspace. The pantheon_* "
+        "tools work without any of this."
     )
 
 
