@@ -1,7 +1,7 @@
 id: PHX-1112
 category: agent-surface
 priority: high
-status: open
+status: in_progress
 generation_target: MESH — consumption (MESH_RETRIEVAL step 5) over MCP
 title: "The mesh has no MCP surface, and no keyless way to obtain a workspace"
 filed_by: Claude Code (2026-09-17, from PHX-1111)
@@ -36,6 +36,13 @@ acceptance: >
   under three minutes, without any API key. (3) Asking the bundled
   self-description what this project has measured returns something written
   after April 2026.
+remaining: >
+  Piece (1) shipped: mesh_ask and mesh_status over a MeshRuntime workspace,
+  `theogony mcp --mesh-root` (default {data_dir}/mesh when a workspace is
+  there), answering a protocol round trip against the replayed test mesh with
+  no LLM on the path. Still open: (2) the keyless demo mesh from shipped
+  Kadmos readings, extended fresh-clone probe; (3) the bundled Gen-1
+  self-description from 2026-04-20.
 relates_to:
   - PHX-1111   # the keyless entrance this continues
   - PHX-1110   # the replay provider, and the typed-only rendering

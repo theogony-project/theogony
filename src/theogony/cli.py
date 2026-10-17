@@ -1966,6 +1966,45 @@ _MCP_SEED_FROM_OPT = typer.Option(
     "--seed-from",
     help="Chronicle dump (JSONL.gz) when --seed is set; default is bundled pantheon_self.",
 )
+_MCP_MESH_ROOT_OPT = typer.Option(
+    None,
+    "--mesh-root",
+    help=(
+        "Mesh workspace served through mesh_ask / mesh_status (PHX-1112). Default: "
+        "{data_dir}/mesh when a workspace is there; otherwise the mesh tools say that "
+        "none is open. Never creates a workspace."
+    ),
+)
+
+
+def _resolve_mesh_root(mesh_root: Path | None, *, title: str) -> Path | None:
+    """The mesh workspace to serve, or None when the session has none.
+
+    An explicit ``--mesh-root`` that holds no workspace is an error: the caller
+    asked for a mesh, and a server that starts without it would answer every
+    ``mesh_ask`` of the session with an apology. The default is only taken when
+    a workspace is actually there, so ``theogony mcp`` on a machine that never
+    built one serves the Gen-1 tools exactly as before.
+    """
+    from theogony.mesh.runtime.oneiros_tick import mesh_workspace_exists
+
+    if mesh_root is not None:
+        root = mesh_root.resolve()
+        if not mesh_workspace_exists(root):
+            _console.print(
+                Panel.fit(
+                    f"[red]No mesh workspace at:[/red] {root}\n\n"
+                    "[dim]A workspace has lance/consolidated_nodes.lance. Build one with "
+                    "[bold]theogony mesh ingest[/bold] (needs an LLM key), or omit "
+                    "--mesh-root to serve the Gen-1 tools alone.[/dim]",
+                    title=title,
+                    border_style="red",
+                )
+            )
+            raise typer.Exit(code=2)
+        return root
+    default = (Settings().data_dir / "mesh").resolve()
+    return default if mesh_workspace_exists(default) else None
 
 
 @app.command()
@@ -1997,13 +2036,15 @@ def mcp(
         ),
     ),
     seed_from: Path | None = _MCP_SEED_FROM_OPT,
+    mesh_root: Path | None = _MCP_MESH_ROOT_OPT,
 ) -> None:
     """Run Theogony as an MCP (Model Context Protocol) server.
 
     Exposes the Chronik to any MCP-compatible host: Claude Desktop,
     Cursor, ChatGPT Desktop, Codex, and any other MCP client. Tools
     registered: pantheon_ask, pantheon_node, pantheon_status,
-    pantheon_reports_list, pantheon_reports_show, pantheon_chronicle_append.
+    pantheon_reports_list, pantheon_reports_show, pantheon_chronicle_append;
+    and, over a mesh workspace, mesh_ask and mesh_status (no LLM on that path).
 
     Requires the ``mcp`` extra: ``pip install -e ".[mcp]"``.
 
@@ -2030,6 +2071,7 @@ def mcp(
         raise typer.Exit(code=2)
 
     seed_path = _resolve_seed_path(seed, seed_from, title="theogony mcp")
+    resolved_mesh_root = _resolve_mesh_root(mesh_root, title="theogony mcp")
 
     try:
         from theogony.mcp.server import serve_sse, serve_stdio
@@ -2049,14 +2091,21 @@ def mcp(
         if host != "127.0.0.1" or port != 8080:
             logging.getLogger(__name__).info("stdio transport: --host/--port ignored")
         try:
-            asyncio.run(serve_stdio(seed_path=seed_path))
+            asyncio.run(serve_stdio(seed_path=seed_path, mesh_root=resolved_mesh_root))
         except RuntimeError as exc:
             _mcp_fail_panel(exc)
     else:
         bind_host = os.environ.get("HOST", host)
         bind_port = int(os.environ["PORT"]) if "PORT" in os.environ else port
         try:
-            asyncio.run(serve_sse(host=bind_host, port=bind_port, seed_path=seed_path))
+            asyncio.run(
+                serve_sse(
+                    host=bind_host,
+                    port=bind_port,
+                    seed_path=seed_path,
+                    mesh_root=resolved_mesh_root,
+                )
+            )
         except RuntimeError as exc:
             _mcp_fail_panel(exc)
 

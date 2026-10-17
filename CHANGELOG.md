@@ -14,6 +14,7 @@ While the version is `0.x.y`, the API is considered unstable and may change betw
 ## [Unreleased]
 
 ### Added
+- **The mesh has an MCP surface** (PHX-1112, piece 1). `mesh_ask` returns the Constellation that Spreading Activation produces over a `MeshRuntime` workspace — entities with descriptions and activation, typed relations with the seed-touching ones first, source anchors, gaps — and `material`, the same constellation rendered as the text the answer benchmark measured; `frame_profile` routes through the epistemic frames (`contradiction` admits the disputed and refuted). `mesh_status` reports node, edge and tick counts and whether the server's embedder matches the workspace. No language model is on either path. `theogony mcp --mesh-root` names the workspace; by default `{data_dir}/mesh` is served when one is there, and nothing is ever created. `pantheon_status` says whether a mesh is open.
 - `tests/test_nothing_hidden.py`: nothing in a tracked document is hidden from a human reader — no invisible characters, no HTML comments in markdown, no hidden styling, no prompt-injection idioms. The README's paragraph on how the repository asks for attention points at it.
 - `docs/TAKE_THIS.md`: the pieces that stand on their own, with their evidence and their limits.
 - `scripts/fresh_clone_probe.sh`, `scripts/mcp_probe.py`: the documented quickstart, run as a stranger would.

@@ -36,10 +36,13 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from theogony.mesh.eval.corpus_qa import GoldQuestion, _normalise, load_gold
-from theogony.mesh.retrieval.constellation import Constellation
+from theogony.mesh.retrieval.constellation import (
+    render_constellation,
+)
 from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
 from theogony.mesh.retrieval.retrieve import retrieve
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
+from theogony.mesh.storage.edges import STRUCTURAL_DESCRIPTORS
 
 ARMS = ("closed_book", "vector_only", "constellation")
 
@@ -140,91 +143,11 @@ def _constellation_context(
     return render_constellation(result.constellation, typed_only=typed_only)
 
 
-# The descriptors the reader writes on its structural passes — density,
-# cross-paragraph, mentions, source attribution, paragraph concepts, extraction
-# and section edges (`creation_context` kadmos_*). They carry topology, not a
-# claim, and the shipped rendering shows them anyway: 60% of the relation lines
-# a founding-corpus question gets are these (PHX-1110). Kept as a set here so a
-# consumer can leave them out without knowing how the reader names its passes.
-STRUCTURAL_DESCRIPTORS = frozenset(
-    {
-        "co_mentions_in_paragraph",
-        "shares_entities_with",
-        "develops_across_paragraphs",
-        "mentions",
-        "appears_in_source",
-        "summarised_as",
-        "has_paragraph_concept",
-        "extracted_from",
-        "is_section_of",
-    }
-)
-
-
-def render_constellation(constellation: Constellation, *, typed_only: bool = True) -> str:
-    """The text rendering of a Constellation that the answer harnesses hand a model.
-
-    Split out of `_constellation_context` so that the latent-mile harness
-    (PHX-1109) can hand the *same* Constellation to the same reader twice, once
-    as this text and once as vectors, and attribute any difference to the
-    medium rather than to the retrieval.
-
-    `typed_only` drops the structural descriptors (`STRUCTURAL_DESCRIPTORS`)
-    from the relation list. It is the default since PHX-1110 measured what they
-    cost on a corpus the model does not know (2WikiMultihopQA, 1,000 questions,
-    deepseek-chat): with the structural lines the Constellation scored 41.2% EM
-    against 40.5% for the same entities without any relations (+0.7, p=0.72);
-    without them 44.1% (+3.6 over no relations, p=0.03; +2.9 over the shipped
-    list, p=0.004, 63 questions better and 34 worse). Every founding-corpus
-    figure before PHX-1110 (PHX-1087/1096/1097/1098) was measured with the
-    structural lines in — `typed_only=False` reproduces that rendering.
-    """
-    lines = ["Entities:"]
-    lines += [f"- {n.name}" for n in constellation.nodes if not n.is_source_anchor]
-
-    # Only the relations that touch a seed. A seed is where the query entered the
-    # graph, so an edge touching one lies on a path from the question into the
-    # substrate; the rest is scenery propagation happened to light up.
-    #
-    # This is a consumer's choice, not a change to what the Constellation carries.
-    # The Constellation ranks seed-touching edges first (PHX-1096) and still holds
-    # the others; a prompt is where showing them stops paying. Measured on the 47
-    # gold questions, answer recall through the model, three runs per arm:
-    #
-    #     entities only, no relations at all       57 / 52 / 52
-    #     every edge in the Constellation          50 / 50 / 51    <- the old default
-    #     ranked seed-first but not cut            52 / 52 / 53
-    #     cut to the edges touching a seed         50 / 53 / 53    <- this
-    #
-    # About three points over the old default, and the honest reading is that the
-    # spread is nearly the size of the effect. The same arm measured through an
-    # ad-hoc renderer scored 56 / 53 / 56; the only difference was the header
-    # wording ("Relations:" against "Relations between them:"), and three words of
-    # prompt are worth two to three points on this instrument (PHX-1087). The
-    # figures above are the shipped path's, because those are the ones a user gets.
-    #
-    # What is solid across all of it: the unscoped list is the worst arm, in six
-    # runs out of six — **worse than showing no relations at all**. Ranking alone
-    # does not fix that; the non-seed tail still occupies the prompt.
-    seeds = set(constellation.seed_node_ids)
-    described = [
-        e
-        for e in constellation.edges
-        if e.relation_descriptor
-        and (e.source_id in seeds or e.target_id in seeds)
-        and not (typed_only and e.relation_descriptor in STRUCTURAL_DESCRIPTORS)
-    ]
-    if described:
-        lines.append("")
-        lines.append("Relations between them:")
-        lines += [
-            f"- {e.source_name.split(' — ')[0]} {e.relation_descriptor} "
-            f"{e.target_name.split(' — ')[0]}"
-            for e in described[:120]
-        ]
-    return "\n".join(lines)
-
-
+# `render_constellation` and `STRUCTURAL_DESCRIPTORS` moved: the renderer is a
+# consumer of the Constellation, so it lives beside the Constellation
+# (`mesh.retrieval.constellation`) and the MCP surface uses it too (PHX-1112).
+# Re-exported here because the harnesses, the latent-mile probe and the scripts
+# import them from this module.
 def _vector_context(runtime: MeshRuntime, vector: Any, top_k: int) -> str:
     hits = runtime.nodes.search_consolidated_by_vector(
         list(vector), vector_column_name="semantic_vector", limit=top_k
@@ -407,3 +330,14 @@ def paired_against(
         "slice_questions": float(slice_questions),
         "slice_recall": slice_found / slice_expected if slice_expected else 0.0,
     }
+
+
+__all__ = [
+    "ARMS",
+    "STRUCTURAL_DESCRIPTORS",
+    "AnswerResult",
+    "answer_gold_set",
+    "paired_against",
+    "render_constellation",
+    "summarise_answers",
+]
