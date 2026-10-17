@@ -66,7 +66,7 @@ resolution: >
 linked_prs:
   - "#282 mesh_ask / mesh_status over MCP (piece 1)"
   - "#283 theogony mesh demo — the keyless demo mesh (piece 2)"
-  - "the self-description regenerated with the measurement record (piece 3; number added when opened)"
+  - "#284 the self-description regenerated with the measurement record (piece 3)"
 relates_to:
   - PHX-1111   # the keyless entrance this continues
   - PHX-1110   # the replay provider, and the typed-only rendering
