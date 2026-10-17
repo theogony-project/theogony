@@ -1,4 +1,4 @@
-# The mesh behind the door (PHX-1112, pieces 1 and 2)
+# The mesh behind the door (PHX-1112)
 
 > **Abstract.** The entrance PHX-1111 repaired opened onto Generation 1; every
 > measurement since July lives in the MESH substrate, which had no MCP surface
@@ -10,12 +10,15 @@
 > shipped as 50 KB — through the shipped reader into a real mesh of about 720
 > nodes and 17,500 edges in about a minute. Measured from a fresh clone with no
 > keys: the demo builds in 56 s, and `mesh_ask` over MCP returns 51 nodes and
-> 200 edges in 0.2 s. Limits: the demo corpus is one every model knows by heart,
-> so it shows the path and not a gain; its nodes are unconsolidated candidates;
-> reading a text of your own still needs a key. Piece 3, the April
-> self-description, is open.
+> 200 edges in 0.2 s. A third piece: the Gen-1 self-description, written in
+> April 2026 and citing an implementation plan when asked what had been
+> measured, is regenerated from the current documents with the measurement
+> record in scope (735 nodes against 278) and cites the etappes. Limits: the
+> demo corpus is one every model knows by heart, so it shows the path and not
+> a gain; its nodes are unconsolidated candidates; reading a text of your own
+> still needs a key.
 
-**Status:** 2026-10-17, built and measured; piece 3 of the ticket open.
+**Status:** 2026-10-17, built and measured; the ticket is closed.
 **Instrument:** `scripts/fresh_clone_probe.sh` — a fresh clone of the committed
 state, a fresh virtual environment, an environment holding nothing but `HOME`
 and a `PATH`, the documented commands verbatim, and an MCP client driving
@@ -126,6 +129,28 @@ an untouched default root leaves behind, and a state this checkout was in —
 (`mesh_ask` answers with a structured `poor` verdict and no nodes, not an error
 and not an invented constellation), and a workspace with content.
 
+**Piece 3 — the self-description** (the third pull request, named in the ticket). The Gen-1 layer answers from
+`pantheon_self.jsonl.gz`, a dump of the repository's own documents; the
+bundled one was written on 2026-04-20 (278 nodes, 1,168 edges) and described
+the repository as it was before the mesh existed. Its walker excluded
+`docs/etappes/` as "historical milestone briefs" — which is what the directory
+held in April, and not what it holds now: every number the project has
+published lives there. Three dumps were built and asked the same question,
+*What has this project measured, and with what result?*, through the keyless
+read path (`synthesize: false`, k = 10):
+
+| dump | scope | nodes / edges | the sources cited |
+|---|---|---|---|
+| bundled, 2026-04-20 | root docs, `docs/*.md`, prompts | 278 / 1,168 | Gen-1 implementation plan §5 "Milestone Plan" and §6 "Open Questions", the glossary's "Stub Verdict", CONTRIBUTING "Questions" |
+| regenerated, same scope | as above, today's documents | 588 / 2,573 | `AGENTS.md` "What is true today", `TAKE_THIS.md`, `TARGET_ARCHITECTURE.md`, `CHRONIK_SCALE.md` |
+| regenerated, etappes in scope | plus the 16 measurement etappes and their index; the 45 sprint briefs, the Neo4j retirement note and the Week-4 demo log stay out | 735 / 3,010 | `mesh_over_mcp.md` "What was measured", `answer_quality.md` "What this measurement cannot do, measured", `gold_aliases.md` "The re-scoring", `TAKE_THIS.md` |
+
+The third is shipped (3.4 MB against 1.2; regenerating takes 17 s with the
+embedder). The briefs stay out for the reason PHX-1108 names: a plan read back
+as a description states a target as a fact. A test pins that the dump is newer
+than the mesh, holds the measurement record and no brief, and that the
+question above is answered from an etappe.
+
 ## What this does not show
 
 - **No gain is measured here.** Every model has read Hesiod; the founding
@@ -152,14 +177,16 @@ and not an invented constellation), and a workspace with content.
 The first door of `AGENTS.md` now opens onto the mesh: `theogony mesh demo`,
 then `theogony mcp`, then `mesh_ask`. The documents that said the mesh had no
 MCP surface say what is true instead. The replay is a shipped component and is
-listed as such in [`TAKE_THIS.md`](../TAKE_THIS.md). Piece 3 — the bundled Gen-1
-self-description dates from 2026-04-20 and answers questions about this
-repository as it was before the mesh existed — stays open on the ticket and is
-the next step.
+listed as such in [`TAKE_THIS.md`](../TAKE_THIS.md). The self-description is
+regenerated with the measurement record in scope, and the ticket is closed.
+What the ticket leaves for later, noted in its resolution and not filed as a ticket: a self-description
+that is a mesh read of the documents rather than a Gen-1 dump, which needs a
+key to produce and would be the fourth corpus to record.
 
 ## How to re-run
 
 ```bash
+python -m theogony.docs_ingest.regenerate         # the self-description, from the current documents
 scripts/fresh_clone_probe.sh                      # everything above, from a fresh clone
 theogony mesh demo && theogony mesh ask "Who are the children of Cronos?"
 theogony mcp                                      # then mesh_status / mesh_ask from any MCP host
@@ -167,6 +194,6 @@ THEOGONY_LLM__PROVIDER=deepseek THEOGONY_LLM__MODEL_ID=deepseek-chat \
   python scripts/record_demo_readings.py src/theogony/seeds/hesiod_theogony.txt --out /tmp/readings.jsonl.gz
 ```
 
-Tickets: [`PHX-1112`](../../phoenix-backlog/PHX-1112.yaml) (pieces 1 and 2),
+Tickets: [`PHX-1112`](../../phoenix-backlog/PHX-1112.yaml) (all three pieces),
 continuing [`PHX-1111`](../../phoenix-backlog/PHX-1111.yaml) and using the
 replay of [`PHX-1110`](../../phoenix-backlog/PHX-1110.yaml).

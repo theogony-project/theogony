@@ -1,7 +1,7 @@
 id: PHX-1112
 category: agent-surface
 priority: high
-status: in_progress
+status: done
 generation_target: MESH — consumption (MESH_RETRIEVAL step 5) over MCP
 title: "The mesh has no MCP surface, and no keyless way to obtain a workspace"
 filed_by: Claude Code (2026-09-17, from PHX-1111)
@@ -36,19 +36,37 @@ acceptance: >
   under three minutes, without any API key. (3) Asking the bundled
   self-description what this project has measured returns something written
   after April 2026.
-remaining: >
-  Pieces (1) and (2) shipped. (1) mesh_ask and mesh_status over a MeshRuntime
-  workspace, `theogony mcp --mesh-root` (default {data_dir}/mesh when a
-  workspace is there), a protocol round trip against the replayed test mesh
-  with no LLM on the path. (2) `theogony mesh demo`: the bundled Kadmos
-  readings of Hesiod's Theogony (95 paragraphs, recorded once with
-  deepseek-chat for EUR 0.03, 50 KB) replayed through the shipped reader into
-  the default workspace; the fresh-clone probe builds it and gets a
-  Constellation over MCP without a key. Still open: (3) the bundled Gen-1
-  self-description from 2026-04-20.
+resolution: >
+  All three pieces shipped, 2026-10-17; full text docs/etappes/mesh_over_mcp.md.
+
+  (1) mesh_ask and mesh_status over a MeshRuntime workspace: the Constellation
+  retrieve() produces, plus `material`, the rendering the answer benchmark
+  measured; frame routing by profile; a MeshQueryRunReport per call; no LLM
+  on the path. `theogony mcp --mesh-root`, default {data_dir}/mesh when a
+  workspace is there; the server never creates one and refuses before the
+  handshake when the named one is missing or in another embedder's space.
+
+  (2) `theogony mesh demo`: the Kadmos readings of Hesiod's Theogony (95
+  paragraphs) recorded once with deepseek-chat (EUR 0.03, 50 KB) and replayed
+  through the shipped reader into the default workspace — from a fresh clone
+  with no keys, 56 s to 723 nodes and 17,507 edges, and mesh_ask over MCP in
+  0.2 s with 51 nodes and 200 edges. The replay is a shipped path
+  (mesh/ingestion/replay.py) with a recorder (scripts/record_demo_readings.py).
+
+  (3) The bundled self-description is regenerated from the current documents
+  with the measurement record in scope — 16 etappes and their index, the
+  sprint briefs left out because a plan read back states a target as a fact —
+  735 nodes and 3,010 edges against 278 and 1,168. Asked what the project has
+  measured it cites the etappes where the April dump cited the Gen-1
+  implementation plan; a test pins it.
+
+  Left for later, not filed: a self-description that is a mesh read of the
+  documents rather than a Gen-1 dump. It needs a key to produce and would be
+  the fourth corpus to record; the replay makes it shippable the same way.
 linked_prs:
   - "#282 mesh_ask / mesh_status over MCP (piece 1)"
   - "#283 theogony mesh demo — the keyless demo mesh (piece 2)"
+  - "#284 the self-description regenerated with the measurement record (piece 3)"
 relates_to:
   - PHX-1111   # the keyless entrance this continues
   - PHX-1110   # the replay provider, and the typed-only rendering
