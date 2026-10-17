@@ -125,7 +125,16 @@ def fixture_repo(tmp_path: Path) -> Path:
         Read [AGENTS.md](../AGENTS.md) before contributing.
         """,
     )
-    # Files explicitly OUT of scope — must NOT appear in walk output.
+    # The measurement record IS in scope since PHX-1112 ...
+    _write(
+        tmp_path / "docs/etappes/qa_constellation.md",
+        """
+        # The answer arm on a corpus the model does not know
+
+        > **Abstract.** The edges are worth 3.6 points of exact match.
+        """,
+    )
+    # ... the sprint briefs and the Neo4j-era notes are not.
     _write(
         tmp_path / "docs/etappes/W4_brief.md",
         """
@@ -133,6 +142,9 @@ def fixture_repo(tmp_path: Path) -> Path:
         Historical artefact, do not ingest.
         """,
     )
+    _write(tmp_path / "docs/etappes/kadmos_v2_brief.md", "# Kadmos v2 brief\nA plan.\n")
+    _write(tmp_path / "docs/etappes/demo_log.md", "# Demo log\nNeo4j era.\n")
+    _write(tmp_path / "docs/etappes/RETIREMENT_NEO4J_MULTIHOP.md", "# Retirement\nNeo4j.\n")
     _write(
         tmp_path / "CODE_OF_CONDUCT.md",
         """
@@ -157,8 +169,14 @@ def test_walk_repo_honours_include_and_exclude(fixture_repo: Path) -> None:
     assert "docs/VISION.md" in rels
     assert "docs/GLOSSARY.md" in rels
     assert "prompts/talos.md" in rels
+    assert "docs/etappes/qa_constellation.md" in rels, "the measurement record (PHX-1112)"
     # Out of scope:
     assert "docs/etappes/W4_brief.md" not in rels
+    assert "docs/etappes/kadmos_v2_brief.md" not in rels, (
+        "a plan read back states a target as a fact"
+    )
+    assert "docs/etappes/demo_log.md" not in rels
+    assert "docs/etappes/RETIREMENT_NEO4J_MULTIHOP.md" not in rels
     assert "CODE_OF_CONDUCT.md" not in rels
 
 

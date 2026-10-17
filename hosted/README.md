@@ -1,6 +1,6 @@
 # Hosted Theogony MCP (read-first + bounded growth)
 
-This directory packages a **single-instance** MCP server over **HTTP/SSE**. The default image pre-seeds the bundled `pantheon_self` chronicle (the project’s own vision, doctrine, architecture, glossary, and prompts) into **memory** for a frictionless demo.
+This directory packages a **single-instance** MCP server over **HTTP/SSE**. The default image pre-seeds the bundled `pantheon_self` chronicle (the project’s own vision, doctrine, architecture, glossary, prompts and, since PHX-1112, the measurement record in `docs/etappes/`) into **memory** for a frictionless demo.
 
 **Bounded writes:** the MCP tool `pantheon_chronicle_append` lets agents add short text fragments as new `KnowledgeNode` rows (embedded, `mcp_agent` provenance, `hypothesized` status) under strict size caps. There is still **no full Gutenberg ingest** over MCP (that remains the long-running API/CLI path).
 
@@ -53,7 +53,7 @@ The reference deployment lives at **https://theogony-mcp.fly.dev/** (single-inst
    If the image build fails with `file does not exist: src/theogony/__init__.py`, Fly is using a Dockerfile that only copied `pyproject.toml` — fix the app's `[build]` dockerfile path or deploy from an up-to-date checkout with the root `fly.toml` present.
    **`fly launch plan generate` (experimental)** can fail with: *launch manifest was created for a FastAPI app, but this is a Dockerfile app*. The hosted MCP image is **Dockerfile-first**; `fastapi` is only a library dependency. Regenerate the plan from the **repo root** so Fly reads your pinned build: `fly launch plan propose -c fly.toml -r <region> [--name <unique>]` and pass **only the JSON object** from that command’s stdout (strip any leading log lines) as the manifest to `generate`. Safer for this repo: skip `launch plan` and use **`fly deploy`** (or `fly deploy --build-only --push`) with the same `fly.toml`. Note: `generate` may rewrite `fly.toml` — review diffs or work on a branch.
    First build is **slow** (~30–40 min wall-clock end-to-end): pip install of CUDA-bundled PyTorch wheels takes ~8 min × 2 (multi-arch), layer export ~8 min × 2, push to `registry.fly.io` ~4 min, machine rollout ~30 s. Image lands at ~2.7 GB. Subsequent deploys with cached layers are much faster.
-4. Health: `https://<your-app>.fly.dev/health` returns JSON (`status`, `embedding_model`, `node_count`, `edge_count`, `uptime_seconds`, `last_query_at`). For the `pantheon_self` seed expect `node_count=278`, `edge_count=1168`.
+4. Health: `https://<your-app>.fly.dev/health` returns JSON (`status`, `embedding_model`, `node_count`, `edge_count`, `uptime_seconds`, `last_query_at`). For the bundled `pantheon_self` seed the counts are those of the dump's header row — `node_count=735`, `edge_count=3010` for the regeneration of 2026-10-17.
 5. MCP SSE URL for clients: `https://<your-app>.fly.dev/sse` (POST JSON-RPC to the `endpoint` URL the SSE stream advertises under `/messages/`).
 
 ### Persistent Neo4j (Chronik keeps growing across deploys)

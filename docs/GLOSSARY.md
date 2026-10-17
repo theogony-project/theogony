@@ -52,9 +52,6 @@ The mathematical and physical representation of the Chronik. It abandons pointer
 **Latent Space Communication**  
 The protocol by which AI agents interact with the Chronik. Agents do not send or receive natural language text. They inject their internal vector states (hidden states) into the mesh and receive a Constellation matrix back, communicating natively in mathematics.
 
-**Constellation**  
-The structured, query-relevant working set returned to agents after Spreading Activation. It is not a list of text chunks, but an activated subgraph of vectors (a tensor matrix) that is directly injected into the reading agent's latent space (e.g., via soft prompts).
-
 **Codebook (Edge Compression)**  
 A technique used to store billions of vector edges in VRAM. Instead of storing full high-dimensional vectors for every edge, the system learns a vocabulary of edge types (the codebook) and stores only a 2-byte index per edge.
 
@@ -171,7 +168,7 @@ The proposed canonical semantic language of the Chronik. A language-neutral, eve
 The core primitive proposed for Chronese. A structured representation of an event, state, claim, or inference involving participants, roles, time, place, qualifiers, epistemic state, and source grounding.
 
 **Constellation**  
-A structured, query-relevant working set returned by the Chronik to an agent. It contains the currently relevant nodes, edges, evidence, sources, gaps, and sometimes contradictions or competing hypotheses.
+A structured, query-relevant working set returned by the Chronik to an agent after Spreading Activation. It contains the currently relevant nodes, edges, evidence, sources, gaps, and sometimes contradictions or competing hypotheses. The MNLM target consumes it as vectors rather than text; today's consumers read it as text, and the vector route is so far a measured null result ([`etappes/latent_mile.md`](etappes/latent_mile.md)).
 
 **Hover-Lupe**  
 The idea that any entity or concept mentioned in an answer can be opened into a deeper local knowledge landscape. Not a static article, but a dynamic contextual zoom into the Chronik. The Hover-Lupe is also the entry point of the [Curiosity Loop](CURIOSITY.md): a zoom into a thin region triggers research in exactly that region.

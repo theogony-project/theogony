@@ -2,17 +2,27 @@
 Walk a repository and return the set of Markdown files in scope for
 the docs-aware ingest path.
 
-Scope policy (Pantheon-of-Pantheon seed, v1):
+Scope policy (Pantheon-of-Pantheon seed, v2 — PHX-1112):
 
 In scope:
 - Root: README.md, AGENTS.md, PHILOSOPHY.md, CONTRIBUTING.md
 - ``docs/*.md`` — all top-level docs (vision, architecture, glossary,
   the agent-doctrine documents, RELEASING.md, etc.)
 - ``prompts/*.md`` — builder + Pantheon-agent prompt files
+- ``docs/etappes/*.md`` **except the sprint briefs** — the measurement
+  record. Until PHX-1112 the whole directory was out of scope as
+  "historical milestone briefs", and the self-description answered "what
+  has this project measured" with sections of the Gen-1 implementation
+  plan. The etappes are where every number this project has published
+  lives, with its limits; a self-description without them describes a
+  target and not a result.
 
 Explicitly out of scope (genre mismatch or transient):
-- ``docs/etappes/*.md`` — historical milestone briefs (the Pantheon
-  doc-pass already declared these untouchable)
+- ``docs/etappes/*brief*.md``, ``RETIREMENT_NEO4J_MULTIHOP.md``,
+  ``demo_log.md`` — the sprint briefs are design documents for work that
+  was planned, and a plan read back as a description states a target as
+  a fact (PHX-1108); the retirement note and the Week-4 demo log belong
+  to the retired Neo4j era
 - ``docs/run_reports/`` — operational data, not vision
 - ``docs/cypher_audit/`` — performance audit
 - ``genesis_conversation_log.md``, ``cursor_theogony_project_introduction.md``
@@ -39,12 +49,15 @@ DEFAULT_INCLUDE: tuple[str, ...] = (
     "PHILOSOPHY.md",
     "CONTRIBUTING.md",
     "docs/*.md",
+    "docs/etappes/*.md",
     "prompts/*.md",
 )
 
 #: Glob patterns to subtract from the include set even when matched.
 DEFAULT_EXCLUDE: tuple[str, ...] = (
-    "docs/etappes/**",
+    "docs/etappes/*brief*.md",
+    "docs/etappes/RETIREMENT_NEO4J_MULTIHOP.md",
+    "docs/etappes/demo_log.md",
     "docs/run_reports/**",
     "docs/cypher_audit/**",
     "docs/HISTORICAL_MD_INTENTIONALLY_UNTOUCHED.md",
