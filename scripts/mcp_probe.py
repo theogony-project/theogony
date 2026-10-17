@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Drive `theogony mcp` over stdio the way an MCP host does, and fail loudly.
 
-    python scripts/mcp_probe.py [theogony-executable] [working-directory]
+    python scripts/mcp_probe.py [theogony-executable] [working-directory] [--expect-mesh]
 
 Part of the fresh-clone probe (`scripts/fresh_clone_probe.sh`, PHX-1111). It
 checks what no unit test can see from inside a configured environment:
@@ -14,6 +14,8 @@ checks what no unit test can see from inside a configured environment:
     `mesh_status` / `mesh_ask` are offered; with a workspace open, `mesh_ask`
         returns nodes, edges and the measured rendering (PHX-1112); without one,
         both say so as a tool error that names the way to get a workspace
+    with --expect-mesh, a workspace with content must be open — the state the
+        fresh-clone probe is in after `theogony mesh demo`
 
 Exit code 0 only if all of that holds.
 """
@@ -57,8 +59,10 @@ def _is_error(result: Any) -> bool:
 
 
 async def main() -> int:
-    command = sys.argv[1] if len(sys.argv) > 1 else "theogony"
-    cwd = sys.argv[2] if len(sys.argv) > 2 else None
+    expect_mesh = "--expect-mesh" in sys.argv[1:]
+    positional = [a for a in sys.argv[1:] if not a.startswith("--")]
+    command = positional[0] if positional else "theogony"
+    cwd = positional[1] if len(positional) > 1 else None
     frames = _FrameErrors()
     logging.getLogger().addHandler(frames)
     logging.getLogger("mcp").addHandler(frames)
@@ -115,6 +119,10 @@ async def main() -> int:
             available = bool(status.get("mesh", {}).get("available"))
             mesh_status = await session.call_tool("mesh_status", {})
             mesh_payload = _payload(mesh_status)
+            if expect_mesh and (
+                not available or not int(mesh_payload.get("consolidated_nodes") or 0)
+            ):
+                failures.append("a mesh workspace with content was expected and none is served")
             if not available:
                 print(f"mesh_status      no workspace open: is_error={_is_error(mesh_status)}")
                 if not _is_error(mesh_status) or "theogony mesh" not in str(mesh_payload):

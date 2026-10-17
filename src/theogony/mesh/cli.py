@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -18,10 +19,20 @@ from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
 from theogony.mesh import frames
 from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
+from theogony.mesh.ingestion.replay import (
+    load_readings,
+    load_readings_meta,
+    paragraphs_of,
+    replay_text,
+)
 from theogony.mesh.retrieval import RetrievalResult, retrieve
 from theogony.mesh.retrieval.constellation import constellation_verdict
 from theogony.mesh.retrieval.defaults import DEFAULT_K_SEEDS, DEFAULT_TOP_K
-from theogony.mesh.runtime.oneiros_tick import DEFAULT_RENORM_SCALE, MeshRuntime
+from theogony.mesh.runtime.oneiros_tick import (
+    DEFAULT_RENORM_SCALE,
+    MeshRuntime,
+    mesh_workspace_exists,
+)
 from theogony.mesh.seeds.wikidata5m import (
     Wikidata5mSeedImporter,
     build_default_embedder,
@@ -31,6 +42,7 @@ from theogony.mesh.seeds.wikidata5m.embedder import EdgesOnlyEmbedder, MeshEmbed
 from theogony.mesh.storage.edges import DEFAULT_MAX_OUT_DEGREE
 from theogony.reporting.models import MeshQueryRunReport, MeshTickReport
 from theogony.reporting.writer import RunReportWriter
+from theogony.seeds import DEMO_CORPUS, demo_corpus_path, demo_readings_path
 
 mesh_app = typer.Typer(
     name="mesh",
@@ -178,6 +190,159 @@ def mesh_ingest(
         result = asyncio.run(reader.read_book(source))
 
     _console.print(Panel.fit(json.dumps(result, indent=2), title="mesh ingest result"))
+
+
+@mesh_app.command("demo")
+def mesh_demo(
+    paragraphs: int = typer.Option(
+        0, "--paragraphs", "-p", help="Paragraphs to replay (0 = the whole corpus, 95)."
+    ),
+    replace: bool = typer.Option(
+        False,
+        "--replace",
+        help=(
+            "Delete whatever workspace is at the root first. Without it the command "
+            "refuses to touch a workspace that is not the demo."
+        ),
+    ),
+    mesh_root: Path | None = MESH_ROOT,
+) -> None:
+    """Build a real mesh with no API key: Hesiod's Theogony, from bundled Kadmos readings.
+
+    The readings were recorded once with a live language model
+    (scripts/record_demo_readings.py); here they are replayed through the
+    shipped reader — the same linker, identity resolution, typed edges and
+    frames a live read produces — into the default workspace, where
+    `theogony mesh ask` and `theogony mcp` (mesh_ask) find it. About a minute.
+    """
+    settings = Settings()
+    root = mesh_root.resolve() if mesh_root is not None else _default_root(settings)
+
+    text = demo_corpus_path().read_text(encoding="utf-8")
+    readings = load_readings(demo_readings_path())
+    meta = load_readings_meta(demo_readings_path())
+    total = len(paragraphs_of(text))
+    planned = len(paragraphs_of(text, max_paragraphs=paragraphs)) if paragraphs > 0 else total
+
+    if mesh_workspace_exists(root):
+        existing = MeshRuntime.open(root)
+        state = existing.state()
+        nodes, edges = existing.nodes.consolidated_count(), existing.edges.count_rows()
+        is_demo = state.get("demo_corpus") == DEMO_CORPUS.slug
+        built = int(state.get("demo_paragraphs") or 0)
+        if is_demo and not replace and built >= planned:
+            _console.print(
+                Panel.fit(
+                    f"The demo mesh is already here: {root}\n"
+                    f"{nodes} nodes, {edges} edges, {built} of {total} paragraphs.\n\n"
+                    f'[dim]Ask it:[/dim]  theogony mesh ask "Who are the children of Cronos?"\n'
+                    "[dim]Serve it:[/dim] theogony mcp   [dim](mesh_ask, mesh_status)[/dim]\n"
+                    "[dim]Rebuild:[/dim]  theogony mesh demo --replace",
+                    title="theogony mesh demo",
+                    border_style="green",
+                )
+            )
+            return
+        # Ours to replace: the demo itself (asked for again, or for more of the
+        # corpus than it holds), or an initialised workspace with no rows — what
+        # `mesh status` or `mesh ask` leave behind at an untouched default root.
+        # Anything with content that is not the demo is somebody's, and stays.
+        empty = nodes == 0 and edges == 0 and existing.nodes.chunk_count() == 0
+        if not (is_demo or replace or empty):
+            _console.print(
+                Panel.fit(
+                    f"[red]A workspace is already at[/red] {root}\n"
+                    f"{nodes} nodes, {edges} edges — and it is not the demo.\n\n"
+                    "[dim]Pass --root for another directory, or --replace to delete this "
+                    "workspace and build the demo in its place.[/dim]",
+                    title="theogony mesh demo",
+                    border_style="red",
+                )
+            )
+            raise typer.Exit(code=1)
+        del existing
+        shutil.rmtree(root)
+
+    # The configured embedder's dimension, so the vectoriser uses that model
+    # and `theogony mcp` can query the workspace with the same one.
+    rt = MeshRuntime(root, semantic_dim=settings.embedding.dim, frame_dim=frames.DEFAULT_FRAME_DIM)
+    _console.print(
+        f"[dim]{DEMO_CORPUS.title}: replaying {planned} of {total} recorded paragraphs "
+        f"into {root} (embedder {settings.embedding.model_id})[/dim]"
+    )
+    started = time.perf_counter()
+
+    def progress(n: int) -> None:
+        if n % 10 == 0 or n == planned:
+            elapsed = time.perf_counter() - started
+            _console.print(
+                f"[dim]  {n:3d}/{planned}  {elapsed:5.1f} s  {elapsed / n:.2f} s/paragraph[/dim]"
+            )
+
+    def abandon() -> None:
+        # This command created the directory a moment ago; a half-built mesh
+        # left behind would be refused as "not the demo" on the next run and
+        # served by `theogony mcp` as if it were one.
+        del rt.nodes, rt.edges, rt.audit
+        shutil.rmtree(root, ignore_errors=True)
+
+    try:
+        result = asyncio.run(
+            replay_text(
+                rt,
+                text,
+                readings,
+                source_type=DEMO_CORPUS.source_type,
+                source_identifier=DEMO_CORPUS.source_identifier,
+                title=DEMO_CORPUS.title,
+                anchor=DEMO_CORPUS.anchor,
+                max_paragraphs=paragraphs if paragraphs > 0 else 0,
+                compact_every=50,
+                on_call=progress,
+                settings=settings,
+            )
+        )
+        rt.compact()
+    except BaseException:
+        abandon()
+        raise
+    elapsed = time.perf_counter() - started
+    nodes, edges = rt.nodes.consolidated_count(), rt.edges.count_rows()
+    summary = (
+        f"{DEMO_CORPUS.title}\n"
+        f"{result.paragraphs} paragraphs replayed ({result.hits} readings, "
+        f"{result.misses} missing) in {elapsed:.0f} s — {nodes} nodes, {edges} edges, "
+        f"{result.report.get('relations', '?')} typed relations.\n"
+        f"Workspace: {root}\n\n"
+        f'[dim]Ask it:[/dim]  theogony mesh ask "Who are the children of Cronos?"\n'
+        "[dim]Serve it:[/dim] theogony mcp   [dim]-> mesh_ask, mesh_status; no API key[/dim]\n"
+        f"[dim]Source:[/dim]  {DEMO_CORPUS.anchor} — {DEMO_CORPUS.provenance}"
+    )
+    if result.misses:
+        abandon()
+        _console.print(
+            Panel.fit(
+                f"[red]{result.misses} paragraph(s) had no recorded reading; the workspace "
+                "was not kept.[/red]\n"
+                "[dim]The bundled readings should cover every paragraph of the bundled text — "
+                "this is a defect worth a ticket.[/dim]\n\n" + summary,
+                title="theogony mesh demo — incomplete",
+                border_style="red",
+            )
+        )
+        raise typer.Exit(code=1)
+    # Marked only now: a workspace carries this marker only when every
+    # paragraph was read, so "already here" is never said of a holed build.
+    rt.update_state(
+        {
+            "demo_corpus": DEMO_CORPUS.slug,
+            "demo_built_at": datetime.now(UTC).isoformat(),
+            "demo_paragraphs": result.paragraphs,
+            "demo_readings_recorded_at": meta.get("recorded_at"),
+            "demo_readings_model_ids": meta.get("model_ids"),
+        }
+    )
+    _console.print(Panel.fit(summary, title="theogony mesh demo", border_style="green"))
 
 
 @mesh_app.command("tick")

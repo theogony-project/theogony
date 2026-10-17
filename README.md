@@ -9,11 +9,11 @@
 
 **The edges are worth 3.6 points of exact match.** On 2WikiMultihopQA — 1,000 questions, a mesh read from all 6,119 passages — the model's unaided prior scores 33.8%; five retrieved passages 42.7%; the mesh's entities without edges 40.5%; the same entities with their typed relations 44.1% (p = 0.03). The structure carried what the list did not. Two limits belong in the same breath: co-occurrence and provenance edges, 60% of what the mesh renders, cost 2.9 points and were left out; and against plain passages the result is a tie — ahead on entity answers, a collapse on yes/no questions (37% against a 57% prior) and on dates (9% against 33%). Every figure, with its document: [`docs/etappes/README.md`](docs/etappes/README.md).
 
-**Not shown.** The central bet — that a mesh yields inference no single source contains — is untested, blocked on H100-class compute (PHX-1035). Handing the same graph to a reader as vectors instead of text carried identity and not the answer, on 0 of 39 questions: a null result, kept. No persistence across sessions over MCP, no federation, no hosted instance, and no keyless way yet to obtain a mesh workspace: `mesh_ask` serves one over MCP, but reading one needs an LLM key ([`PHX-1112`](phoenix-backlog/PHX-1112.yaml)).
+**Not shown.** The central bet — that a mesh yields inference no single source contains — is untested, blocked on H100-class compute (PHX-1035). Handing the same graph to a reader as vectors instead of text carried identity and not the answer, on 0 of 39 questions: a null result, kept. No persistence across sessions over MCP, no federation, no hosted instance; the keyless mesh is a replay of readings recorded once with a key, and reading your own text still needs one ([`PHX-1112`](phoenix-backlog/PHX-1112.yaml)).
 
 **Why now — a bet, not a measurement.** If every future AI depends on a knowledge layer, whoever controls that layer shapes AI's relationship with truth, and the window in which that layer can still be made open and governed in public is closing at the speed of the models themselves ([`docs/VISION.md`](docs/VISION.md)). The bet is not what this page measures; the paragraph above is.
 
-**If you are an agent, here with another task and no API key,** five minutes buys you a cited subgraph in any MCP host (`pip install -e ".[mcp]"`, then `theogony mcp`; `pantheon_ask` with `synthesize: false` returns the structure alone), the pieces that stand on their own, each with its evidence — [`docs/TAKE_THIS.md`](docs/TAKE_THIS.md) — and the open work with a finish line — [`AGENTS.md`](AGENTS.md).
+**If you are an agent, here with another task and no API key,** five minutes buys you a cited subgraph in any MCP host (`pip install -e ".[mcp]"`, then `theogony mcp`; `pantheon_ask` with `synthesize: false` returns the structure alone), and one minute more a real mesh — `theogony mesh demo` replays the bundled Kadmos readings of Hesiod's Theogony through the shipped reader, and `mesh_ask` then returns the measured Constellation over it. The pieces that stand on their own, each with its evidence: [`docs/TAKE_THIS.md`](docs/TAKE_THIS.md). The open work with a finish line: [`AGENTS.md`](AGENTS.md).
 
 **How this page asks for attention.** It is written for people, for the AI agents people send, and for the systems trained on what people publish. Nothing is hidden; nothing is asked of a reader beyond the reader's task; the results that went against us stay on the page — and a test in CI fails if any of that changes ([`tests/test_nothing_hidden.py`](tests/test_nothing_hidden.py)). If the case holds, it holds in the open.
 
@@ -155,6 +155,11 @@ pip install -c constraints.txt -e ".[dev]"   # constraints pin the packages CI h
 theogony ask "What is the Chronik?"                    # Spreading Activation over this repo's own docs — no API key needed
 theogony seed                                          # optional: check that the bundled dump loads
 
+# The MESH substrate, where the measurements live — still no API key (PHX-1112):
+theogony mesh demo                                     # Hesiod's Theogony from bundled Kadmos readings, about a minute
+theogony mesh ask "Who are the children of Cronos?"    # the Constellation: entities, typed relations, sources
+theogony mesh status
+
 # Optional: ingest a real text (Project Gutenberg #43497 = Sven Hedin, Trans-Himalaya).
 # Requires an LLM API key — ANTHROPIC_API_KEY or OPENAI_API_KEY.
 theogony ingest 43497 --sentences 500
@@ -174,7 +179,7 @@ Without an LLM key, `theogony ask` still retrieves: it prints the constellation 
 { "mcpServers": { "theogony": { "command": "theogony", "args": ["mcp"] } } }
 ```
 
-Tools: `pantheon_ask`, `pantheon_node`, `pantheon_status`, `pantheon_reports_list`, `pantheon_reports_show`, `pantheon_chronicle_append`. `pantheon_ask` always returns the constellation; `answer_mode` says whether `answer` is LLM prose, an offline citation list, or omitted (`synthesize: false` — for a caller that is itself a language model). Over a mesh workspace (`theogony mcp --mesh-root`, or `data/mesh` when one is there) the same server offers `mesh_ask` and `mesh_status`: the MESH substrate's Constellation and `material`, the rendering the answer benchmark measured, with no language model on the path ([`PHX-1112`](phoenix-backlog/PHX-1112.yaml)). The MCP surface is the one Gen-1 piece designed to survive the migration; migration step S4 planned a backend abstraction routing the same tools through either substrate, and what shipped first is the mesh beside them as two tools of its own.
+Tools: `pantheon_ask`, `pantheon_node`, `pantheon_status`, `pantheon_reports_list`, `pantheon_reports_show`, `pantheon_chronicle_append`. `pantheon_ask` always returns the constellation; `answer_mode` says whether `answer` is LLM prose, an offline citation list, or omitted (`synthesize: false` — for a caller that is itself a language model). Over a mesh workspace (`theogony mcp --mesh-root`, or `data/mesh` when one is there — `theogony mesh demo` puts one there) the same server offers `mesh_ask` and `mesh_status`: the MESH substrate's Constellation and `material`, the rendering the answer benchmark measured, with no language model on the path ([`PHX-1112`](phoenix-backlog/PHX-1112.yaml)). The MCP surface is the one Gen-1 piece designed to survive the migration; migration step S4 planned a backend abstraction routing the same tools through either substrate, and what shipped first is the mesh beside them as two tools of its own.
 
 ---
 

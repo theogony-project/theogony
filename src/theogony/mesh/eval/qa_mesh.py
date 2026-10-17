@@ -38,18 +38,14 @@ competitive with plain RAG at all, which is a different and harsher question.
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 import math
 import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from theogony.agents.llm import LLMResult
 from theogony.mesh.eval.corpus_answers import _constellation_context, _vector_context
 from theogony.mesh.eval.qa_answers import (
     QAAnswerResult,
@@ -58,7 +54,13 @@ from theogony.mesh.eval.qa_answers import (
     build_context,
 )
 from theogony.mesh.eval.qa_retrieval import QAPassage, QAQuestion
-from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
+from theogony.mesh.ingestion.replay import (
+    ReplayReadingProvider,
+    ReplayReport,
+    load_readings,
+    reading_key,
+    replay_text,
+)
 from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 
@@ -66,14 +68,10 @@ QA_ARMS = ("closed_book", "passages", "vector_only", "constellation", "constella
 DEFAULT_PASSAGE_K = 5
 
 # ---------------------------------------------------------------------------
-# Replay ingestion
+# Replay ingestion — the provider and the key live in `mesh.ingestion.replay`
+# since PHX-1112 made the replay a shipped path; re-exported here because the
+# scripts and tests of PHX-1110 import them from this module.
 # ---------------------------------------------------------------------------
-
-
-def reading_key(text: str) -> str:
-    """The key `scripts/mesh_qa_kadmos.py` stores a reading under: blake2b-128 of
-    the passage *text* (not the title-prefixed paragraph Kadmos was shown)."""
-    return hashlib.blake2b(text.encode("utf-8"), digest_size=16).hexdigest()
 
 
 def paragraph_of(passage: QAPassage) -> str:
@@ -83,24 +81,6 @@ def paragraph_of(passage: QAPassage) -> str:
     source text and the replay has to find it again under exactly that string.
     """
     return f"{passage.title}. {passage.text}".strip()
-
-
-def load_readings(path: Path) -> dict[str, dict[str, Any]]:
-    """The readings cache, keyed as written; unparsable lines are skipped."""
-    cache: dict[str, dict[str, Any]] = {}
-    with path.open(encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                row = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            key = row.get("key")
-            if isinstance(key, str):
-                cache[key] = row.get("reading") or {}
-    return cache
 
 
 def readings_by_paragraph(
@@ -114,68 +94,8 @@ def readings_by_paragraph(
     }
 
 
-_PROMPT_HEAD = "PARAGRAPH:\n"
-_PROMPT_TAIL = "\n\nExtract"
-
-
-class ReplayReadingProvider:
-    """An LLM that answers Kadmos's paragraph prompt from stored readings.
-
-    Exact match on the paragraph, not prefix match: `StubLLMProvider` scans every
-    key per call, which is fine for a test fixture and quadratic for six thousand
-    paragraphs. A paragraph the cache does not hold gets an empty completion,
-    which the reader records as a schema failure — visible in the read report
-    rather than silently absorbed as a paragraph with no concepts.
-    """
-
-    def __init__(
-        self,
-        by_paragraph: dict[str, dict[str, Any]],
-        *,
-        model_id: str = "kadmos-replay",
-        on_call: Callable[[int], None] | None = None,
-    ) -> None:
-        self._readings = by_paragraph
-        self._model_id = model_id
-        self._on_call = on_call
-        self.hits = 0
-        self.misses: list[str] = []
-
-    @property
-    def model_id(self) -> str:
-        return self._model_id
-
-    @staticmethod
-    def paragraph_in(prompt: str) -> str | None:
-        """The paragraph between the prompt's head and its instruction tail."""
-        if not prompt.startswith(_PROMPT_HEAD):
-            return None
-        body = prompt[len(_PROMPT_HEAD) :]
-        end = body.rfind(_PROMPT_TAIL)
-        return (body if end < 0 else body[:end]).strip()
-
-    async def complete(self, prompt: str, *, system: str | None = None, **_: Any) -> LLMResult:
-        paragraph = self.paragraph_in(prompt)
-        reading = self._readings.get(paragraph) if paragraph is not None else None
-        if self._on_call is not None:
-            self._on_call(self.hits + len(self.misses) + 1)
-        if not reading:
-            self.misses.append(paragraph if paragraph is not None else prompt[:80])
-            return LLMResult(text="", model_id=self._model_id)
-        self.hits += 1
-        return LLMResult(text=json.dumps(reading), model_id=self._model_id)
-
-    async def complete_with_web_search_for_research_plan(self, **_: Any) -> Any:
-        """Protocol member no reader calls; a replay has nothing to search."""
-        raise NotImplementedError("the replay provider only answers paragraph prompts")
-
-
-@dataclass
-class ReplayIngestReport:
-    paragraphs: int
-    hits: int
-    misses: int
-    report: dict[str, Any]
+# The name PHX-1110's scripts and tests know the report by.
+ReplayIngestReport = ReplayReport
 
 
 async def ingest_cached_readings(
@@ -197,24 +117,31 @@ async def ingest_cached_readings(
     was keyed (`paragraph_of`), and none of the HippoRAG passages contains a
     blank line, so the reader's split recovers them exactly.
     """
-    by_paragraph = readings_by_paragraph(passages, readings)
-    provider = ReplayReadingProvider(by_paragraph, on_call=on_call)
-    reader = MeshParagraphReader(
-        runtime, llm=provider, max_paragraphs=max_paragraphs, compact_every=compact_every
-    )
     text = "\n\n".join(paragraph_of(p) for p in passages)
-    report = await reader.read_text(
-        text=text,
+    # The replay keys by the paragraph string; the cache was keyed by the
+    # passage text. Re-key once so `replay_text` finds every passage.
+    by_text = {
+        reading_key(paragraph_of(p)): readings[reading_key(p.text)]
+        for p in passages
+        if reading_key(p.text) in readings
+    }
+    result = await replay_text(
+        runtime,
+        text,
+        by_text,
         source_type="qa_bench",
         source_identifier=source_identifier,
         title=title,
         anchor=source_identifier,
+        max_paragraphs=max_paragraphs,
+        compact_every=compact_every,
+        on_call=on_call,
     )
     return ReplayIngestReport(
         paragraphs=len(passages) if not max_paragraphs else min(len(passages), max_paragraphs),
-        hits=provider.hits,
-        misses=len(provider.misses),
-        report=report,
+        hits=result.hits,
+        misses=result.misses,
+        report=result.report,
     )
 
 
@@ -469,3 +396,25 @@ def paired_qa(
         "f1_equal": float(paired - f1_better - f1_worse),
         "p_f1": sign_test_p(f1_better, f1_worse),
     }
+
+
+__all__ = [
+    "DEFAULT_PASSAGE_K",
+    "QA_ARMS",
+    "QAJob",
+    "ReplayIngestReport",
+    "ReplayReadingProvider",
+    "answer_kind",
+    "answer_qa_set",
+    "build_qa_jobs",
+    "ingest_cached_readings",
+    "load_readings",
+    "nearest_passages",
+    "paired_qa",
+    "paragraph_of",
+    "reading_key",
+    "readings_by_paragraph",
+    "sign_test_p",
+    "summarise_by_kind",
+    "unit_rows",
+]

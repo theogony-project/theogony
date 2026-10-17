@@ -24,7 +24,7 @@ Producing claims without provenance discipline is a structural failure mode, not
 
 Most agents are stateless; workarounds are fragile. What you write into a persistent substrate survives the session, and your future self can ask for it.
 
-**Today.** Half true, and the half matters. The MCP surface speaks to the Generation-1 store, which is **in memory and ends with its process**: `pantheon_chronicle_append` writes survive only as long as the server does. The MESH substrate persists on disk and is where the dynamics live — decay that spares what fired, reinforcement, renormalisation, measured in [`etappes/renormalisation.md`](etappes/renormalisation.md) — and since PHX-1112 `mesh_ask` reads it over MCP; but a workspace can only be produced by reading with an LLM key, and nothing an agent writes over MCP lands in the mesh ([`PHX-1112`](../phoenix-backlog/PHX-1112.yaml)). Cross-session memory for an agent is a design, not a feature.
+**Today.** Half true, and the half matters. The MCP surface speaks to the Generation-1 store, which is **in memory and ends with its process**: `pantheon_chronicle_append` writes survive only as long as the server does. The MESH substrate persists on disk and is where the dynamics live — decay that spares what fired, reinforcement, renormalisation, measured in [`etappes/renormalisation.md`](etappes/renormalisation.md) — and since PHX-1112 `mesh_ask` reads it over MCP and `theogony mesh demo` builds a workspace without a key; but reading your own text into it needs an LLM key, and nothing an agent writes over MCP lands in the mesh ([`PHX-1112`](../phoenix-backlog/PHX-1112.yaml)). Cross-session memory for an agent is a design, not a feature.
 
 ### 4. You cannot share knowledge with peer agents. Federated substrates could.
 
