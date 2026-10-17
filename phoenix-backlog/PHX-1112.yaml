@@ -43,6 +43,8 @@ remaining: >
   no LLM on the path. Still open: (2) the keyless demo mesh from shipped
   Kadmos readings, extended fresh-clone probe; (3) the bundled Gen-1
   self-description from 2026-04-20.
+linked_prs:
+  - "#282 mesh_ask / mesh_status over MCP (piece 1)"
 relates_to:
   - PHX-1111   # the keyless entrance this continues
   - PHX-1110   # the replay provider, and the typed-only rendering
