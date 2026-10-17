@@ -19,6 +19,22 @@ Tools (Gen 1, read-side surface)
   persists when the store is Neo4j; with ``--seed`` the in-memory demo
   grows until the process restarts.
 
+Tools (MESH substrate, read-side; PHX-1112)
+-------------------------------------------
+
+- ``mesh_ask``    — the Constellation ``retrieve()`` produces over a
+  :class:`~theogony.mesh.runtime.oneiros_tick.MeshRuntime` workspace, plus
+  the text rendering of it that the answer benchmarks measured. No language
+  model anywhere on this path.
+- ``mesh_status`` — node, edge and tick counts of the open workspace, its
+  vector dimensions, and whether this server's embedder matches them.
+
+The workspace is opened once per session (``theogony mcp --mesh-root``, or
+``{data_dir}/mesh`` when a workspace is there) and never created: a server
+that merely wants to know whether there is something to serve must not leave
+an empty mesh behind. Until the workspace exists the two tools answer with
+an error that says how to get one; the ``pantheon_*`` tools are unaffected.
+
 Lifespan and ownership
 ----------------------
 
@@ -74,7 +90,12 @@ from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
 from theogony.extraction.wikidata_cache import WikidataCache
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
-from theogony.reporting.models import OneirosTickReport
+from theogony.mesh import frames
+from theogony.mesh.retrieval.constellation import constellation_verdict, render_constellation
+from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
+from theogony.mesh.retrieval.retrieve import retrieve
+from theogony.mesh.runtime.oneiros_tick import MeshRuntime, mesh_workspace_exists
+from theogony.reporting.models import MeshQueryRunReport, OneirosTickReport
 from theogony.reporting.writer import RUN_REPORT_TYPE_SUBDIRS, RunReportWriter
 from theogony.retrieval.constellation import ConstellationAssembler
 from theogony.retrieval.pipeline import QueryPipeline
@@ -130,15 +151,23 @@ class McpResources:
     store: KnowledgeStore
     report_writer: RunReportWriter
     llm_unavailable_reason: str | None = None
+    #: The MESH workspace behind ``mesh_ask`` / ``mesh_status``, or ``None``
+    #: when the session was started without one (PHX-1112).
+    mesh: MeshRuntime | None = None
 
 
 @contextlib.asynccontextmanager
-async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpResources]:
+async def open_resources(
+    *, seed_path: Path | None = None, mesh_root: Path | None = None
+) -> AsyncIterator[McpResources]:
     """Open all long-lived resources for the MCP server.
 
     When ``seed_path`` is set, the dump is loaded into an in-memory store
     before traffic is accepted. When ``seed_path`` is ``None``, an empty
     in-memory store is used (Neo4j path retired).
+
+    When ``mesh_root`` is set, the mesh workspace there is opened for the
+    ``mesh_*`` tools. It must already exist — this never initialises one.
 
     Startup ordering: settings → logging → audit (sync open) →
     Wikidata cache (sync, optional) → embedder warm-up → LLM factory
@@ -151,6 +180,37 @@ async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpR
     """
     settings = Settings()
     setup_logging(settings)
+
+    # The mesh first, before anything is opened: both refusals need nothing but
+    # the path and the settings, and a refusal must not leave an audit handle or
+    # a loaded embedder behind. The caller asked for a mesh by name; starting
+    # without it, or with one this server cannot query, would answer every
+    # mesh_ask of the session with an apology (PHX-1112).
+    mesh: MeshRuntime | None = None
+    if mesh_root is not None:
+        if not mesh_workspace_exists(mesh_root):
+            raise RuntimeError(
+                f"no mesh workspace at {mesh_root} (no lance/consolidated_nodes.lance); "
+                "build one with `theogony mesh ingest` or point --mesh-root elsewhere"
+            )
+        mesh = MeshRuntime.open(mesh_root)
+        if mesh.semantic_dim != settings.embedding.dim:
+            raise RuntimeError(
+                f"the workspace at {mesh.root} stores {mesh.semantic_dim}-dimensional vectors "
+                f"and this server embeds with {settings.embedding.model_id} "
+                f"({settings.embedding.dim} dimensions); a query vector in the wrong space "
+                "finds nothing. Serve a workspace built with the configured embedder, or "
+                "query this one with `theogony mesh ask --embedder ...`."
+            )
+        log.info(
+            "mcp lifespan: mesh workspace %s (%d consolidated nodes, %d edges, "
+            "semantic_dim=%d, frame_dim=%d)",
+            mesh.root,
+            mesh.nodes.consolidated_count(),
+            mesh.edges.count_rows(),
+            mesh.semantic_dim,
+            mesh.frame_dim,
+        )
 
     audit = ExtractionAuditLog(settings.data_dir / "audit.sqlite")
     audit.__enter__()
@@ -212,6 +272,7 @@ async def open_resources(*, seed_path: Path | None = None) -> AsyncIterator[McpR
             store=store,
             report_writer=report_writer,
             llm_unavailable_reason=llm_unavailable_reason,
+            mesh=mesh,
         )
     finally:
         with contextlib.suppress(Exception):
@@ -417,6 +478,11 @@ async def tool_status(res: McpResources) -> dict[str, Any]:
         "embedding_dim": res.settings.embedding.dim,
         "morpheus_proposals_recent": _morpheus_proposals_recent(res.settings),
         "report_counts": {rtype: _count_reports(res, rtype) for rtype in RUN_REPORT_TYPE_SUBDIRS},
+        # Where the measured work lives, and whether this session can reach it.
+        "mesh": {
+            "available": res.mesh is not None,
+            "root": None if res.mesh is None else str(res.mesh.root),
+        },
     }
 
 
@@ -468,6 +534,176 @@ def tool_reports_show(res: McpResources, *, run_id: str) -> dict[str, Any]:
                 prefix_payload: dict[str, Any] = json.loads(p.read_text(encoding="utf-8"))
                 return prefix_payload
     return {"error": f"no report found for run_id={run_id!r}"}
+
+
+# --------------------------------------------------------------------------
+# MESH tools (PHX-1112) — the substrate everything measured since July lives in
+# --------------------------------------------------------------------------
+
+# The budget the descriptor promises. mcp 2.x validates the request envelope,
+# not a tool's inputSchema, so the promise has to be kept here as well.
+_MESH_ASK_MAX_TOP_K = 200
+
+_MESH_NOTE = (
+    "Nothing on this path is generated. `constellation` is what Spreading "
+    "Activation returned over the mesh; `material` is the same constellation "
+    "rendered as the text the answer benchmark measured "
+    "(docs/etappes/qa_constellation.md); no language model was called."
+)
+
+
+def _mesh_unavailable(res: McpResources) -> str:
+    return (
+        "No mesh workspace is open on this server, so the mesh tools have nothing to "
+        f"serve. `theogony mcp` opens {res.settings.data_dir / 'mesh'} when a workspace is "
+        "there, or the directory passed as --mesh-root; `theogony mesh ingest` builds one "
+        "(reading needs an LLM key). The pantheon_* tools work without any of this."
+    )
+
+
+def _mesh_problem(res: McpResources) -> str | None:
+    """Why ``mesh_ask`` cannot run on this session, or ``None`` when it can."""
+    if res.mesh is None:
+        return _mesh_unavailable(res)
+    if res.mesh.semantic_dim != res.embedder.dim:
+        return (
+            f"the workspace at {res.mesh.root} stores {res.mesh.semantic_dim}-dimensional "
+            f"vectors and this server embeds queries with {res.embedder.model_id} "
+            f"({res.embedder.dim} dimensions); a query vector in the wrong space finds "
+            "nothing. Query it with `theogony mesh ask --embedder ...` instead, or serve "
+            "a workspace built with the configured embedder."
+        )
+    return None
+
+
+def tool_mesh_status(res: McpResources) -> dict[str, Any]:
+    """Run :func:`mesh_status` and return the JSON-serialisable payload."""
+    mesh = res.mesh
+    if mesh is None:
+        return {"error": _mesh_unavailable(res)}
+    last_tick = mesh.last_tick_at()
+    return {
+        "mesh_root": str(mesh.root),
+        "chunk_nodes": mesh.nodes.chunk_count(),
+        "consolidated_nodes": mesh.nodes.consolidated_count(),
+        "mesh_edges": mesh.edges.count_rows(),
+        "delta_buffer_pending": mesh.edges.delta.pending(),
+        "tick_count": mesh.tick_count(),
+        "last_tick_at": None if last_tick is None else last_tick.isoformat(),
+        "semantic_dim": mesh.semantic_dim,
+        "frame_dim": mesh.frame_dim,
+        "embedder": {
+            "model_id": res.embedder.model_id,
+            "dim": res.embedder.dim,
+            "matches_workspace": res.embedder.dim == mesh.semantic_dim,
+        },
+        "frame_profiles": sorted(frames.QUERY_PROFILES),
+        "llm_on_path": False,
+    }
+
+
+async def tool_mesh_ask(
+    res: McpResources,
+    *,
+    q: str,
+    top_k: int = DEFAULT_TOP_K,
+    frame_profile: str = "any",
+    typed_only: bool = True,
+) -> dict[str, Any]:
+    """Run :func:`mesh_ask` and return the JSON-serialisable payload.
+
+    The same call ``theogony mesh ask`` makes — embed, diversified injection,
+    Spreading Activation, assembly — with the shipped defaults, and the same
+    ``MeshQueryRunReport`` written. ``material`` is
+    :func:`render_constellation` of the result: entities, then the typed
+    relations touching a seed, without the structural descriptors unless
+    ``typed_only`` is false. That rendering, not the raw constellation, is
+    what scored +3.6 exact match over the same entities without edges on
+    2WikiMultihopQA (PHX-1110), so a caller that wants the measured thing
+    gets it verbatim and a caller that wants the structure gets that too.
+
+    ``frame_profile`` routes the propagation through the epistemic frames
+    PHX-1107 added — ``contradiction`` attenuates settled claims and admits
+    the disputed and refuted; ``any`` is no routing at all.
+    """
+    problem = _mesh_problem(res)
+    if problem is not None:
+        return {"error": problem}
+    if frame_profile not in frames.QUERY_PROFILES:
+        return {
+            "error": (
+                f"frame_profile must be one of {sorted(frames.QUERY_PROFILES)}; "
+                f"got {frame_profile!r}"
+            )
+        }
+    if not q.strip():
+        return {"error": "q must be a non-empty question"}
+    if not 1 <= top_k <= _MESH_ASK_MAX_TOP_K:
+        return {"error": f"top_k must be between 1 and {_MESH_ASK_MAX_TOP_K}; got {top_k}"}
+    mesh = res.mesh
+    assert mesh is not None  # _mesh_problem checked
+    started_at = datetime.now(UTC)
+    t_embed = time.perf_counter()
+    vector = (await res.embedder.embed_many([q]))[0]
+    embed_ms = int((time.perf_counter() - t_embed) * 1000.0)
+
+    requested = frames.query_frame(frame_profile, dim=mesh.frame_dim)
+    active_frame = requested if any(abs(v) > 0.0 for v in requested) else None
+    # Torch and Lance work, synchronous by nature; off the loop so that pings,
+    # cancellations and a second SSE session are answered while it runs. The
+    # first call of a session also builds the CSR from the whole edge table.
+    result = await asyncio.to_thread(
+        retrieve, mesh, vector, top_k=top_k, query=q, query_frame=active_frame
+    )
+    c = result.constellation
+    finished_at = datetime.now(UTC)
+
+    verdict, reasoning = constellation_verdict(c)
+    report = MeshQueryRunReport(
+        started_at=started_at,
+        finished_at=finished_at,
+        duration_s=(finished_at - started_at).total_seconds(),
+        status="completed",
+        verdict=verdict,
+        verdict_reasoning=f"{reasoning} (embedder={res.embedder.model_id}, via mcp)",
+        query=q,
+        query_length_chars=len(q),
+        embedding_duration_ms=embed_ms,
+        operator=result.operator,
+        frame_routed=result.frame_routed,
+        ann_hit_count=result.ann_hit_count,
+        seed_count=len(result.seed_node_ids),
+        seed_node_ids=result.seed_node_ids,
+        constellation_node_count=len(c.nodes),
+        constellation_edge_count=len(c.edges),
+        source_anchor_count=len(c.source_anchor_ids),
+        gaps_identified=len(c.gaps),
+        csr_duration_ms=int(result.timings_ms.get("csr_ms", 0.0)),
+        ann_duration_ms=int(result.timings_ms.get("ann_ms", 0.0)),
+        propagate_duration_ms=int(result.timings_ms.get("propagate_ms", 0.0)),
+        assemble_duration_ms=int(result.timings_ms.get("assemble_ms", 0.0)),
+        cited_node_ids=[node.node_id for node in c.nodes],
+    )
+    if res.report_writer is not None:
+        res.report_writer.write(report)
+
+    return {
+        "query": q,
+        "mesh_root": str(mesh.root),
+        "frame_profile": frame_profile,
+        "constellation": c.model_dump(mode="json"),
+        "material": render_constellation(c, typed_only=typed_only),
+        "material_typed_only": typed_only,
+        "verdict": verdict,
+        "verdict_reasoning": reasoning,
+        "run_id": report.run_id,
+        "nodes_fired": result.nodes_fired,
+        "timings_ms": {
+            "embed": embed_ms,
+            **{k.removesuffix("_ms"): round(v, 1) for k, v in result.timings_ms.items()},
+        },
+        "note": _MESH_NOTE,
+    }
 
 
 # --------------------------------------------------------------------------
@@ -691,6 +927,78 @@ def _tool_descriptors() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "mesh_ask",
+            "description": (
+                "Ask the MESH substrate — the vector-graph where everything this "
+                "project has measured lives. Returns the Constellation that Spreading "
+                "Activation produced: entities with descriptions and activation, the "
+                "typed relations among them (those touching a seed first), source "
+                "anchors, and the gaps the substrate admits — plus `material`, the same "
+                "constellation rendered as the text the answer benchmark measured "
+                "(+3.6 exact match over the same entities without edges on "
+                "2WikiMultihopQA; docs/etappes/qa_constellation.md). No language model "
+                "is on this path: you are the reader. Needs a mesh workspace — call "
+                "`mesh_status` first; the error otherwise says how to get one."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "q": {
+                        "type": "string",
+                        "description": "The natural-language question.",
+                        "minLength": 1,
+                        "maxLength": 2000,
+                    },
+                    "top_k": {
+                        "type": "integer",
+                        "description": (
+                            "Nodes in the Constellation (default 50, the measured budget; max 200)."
+                        ),
+                        "minimum": 1,
+                        "maximum": _MESH_ASK_MAX_TOP_K,
+                        "default": DEFAULT_TOP_K,
+                    },
+                    "frame_profile": {
+                        "type": "string",
+                        "description": (
+                            "Epistemic frame to route the activation through: `any` "
+                            "(default, no routing), `what_is`, `what_was_believed`, "
+                            "`evidence`, or `contradiction` (attenuates settled claims, "
+                            "admits the disputed, refuted and superseded)."
+                        ),
+                        "enum": sorted(frames.QUERY_PROFILES),
+                        "default": "any",
+                    },
+                    "typed_only": {
+                        "type": "boolean",
+                        "description": (
+                            "Leave the structural descriptors (co-mention, shares "
+                            "entities, appears in source, ...) out of `material`. True is "
+                            "the measured rendering; false reproduces the pre-PHX-1110 one. "
+                            "The constellation itself is complete either way."
+                        ),
+                        "default": True,
+                    },
+                },
+                "required": ["q"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "mesh_status",
+            "description": (
+                "Node, edge and tick counts of the mesh workspace this server opened, "
+                "its vector dimensions, and whether the server's embedder matches "
+                "them. Call it before `mesh_ask`; if no workspace is open it says how "
+                "to get one."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -762,6 +1070,16 @@ def build_server(res: McpResources) -> Any:
                 fragments=frags,
                 context_note=arguments.get("context_note"),
             )
+        elif name == "mesh_ask":
+            payload = await tool_mesh_ask(
+                res,
+                q=arguments["q"],
+                top_k=int(arguments.get("top_k", DEFAULT_TOP_K)),
+                frame_profile=str(arguments.get("frame_profile", "any")),
+                typed_only=bool(arguments.get("typed_only", True)),
+            )
+        elif name == "mesh_status":
+            payload = tool_mesh_status(res)
         else:
             raise ValueError(f"unknown tool: {name}")
         return payload
@@ -917,7 +1235,7 @@ class _HostedRateLimitMiddleware:
         return wrapped
 
 
-async def serve_stdio(*, seed_path: Path | None = None) -> None:
+async def serve_stdio(*, seed_path: Path | None = None, mesh_root: Path | None = None) -> None:
     """Open resources, build the server, and run it over stdio.
 
     Used by ``theogony mcp`` and any other callsite that wants to host
@@ -929,7 +1247,7 @@ async def serve_stdio(*, seed_path: Path | None = None) -> None:
     except ImportError as exc:  # pragma: no cover - guard exercised only without extra
         raise RuntimeError(_INSTALL_HINT) from exc
 
-    async with open_resources(seed_path=seed_path) as res:
+    async with open_resources(seed_path=seed_path, mesh_root=mesh_root) as res:
         server = build_server(res)
         async with stdio_server() as (read_stream, write_stream):
             await server.run(
@@ -939,7 +1257,9 @@ async def serve_stdio(*, seed_path: Path | None = None) -> None:
             )
 
 
-async def serve_sse(*, host: str, port: int, seed_path: Path | None) -> None:
+async def serve_sse(
+    *, host: str, port: int, seed_path: Path | None, mesh_root: Path | None = None
+) -> None:
     """Run the MCP server over HTTP + SSE (Starlette + uvicorn).
 
     Lazily imports ``mcp.server.sse``, Starlette, and uvicorn so the core
@@ -1031,7 +1351,7 @@ async def serve_sse(*, host: str, port: int, seed_path: Path | None) -> None:
 
     @contextlib.asynccontextmanager
     async def sse_lifespan_outer(app: Starlette) -> AsyncIterator[None]:
-        async with open_resources(seed_path=seed_path) as res:
+        async with open_resources(seed_path=seed_path, mesh_root=mesh_root) as res:
             st = _SseHostingState()
             st.resources = res
             st.mcp_server = build_server(res)
@@ -1096,6 +1416,8 @@ __all__ = [
     "serve_sse",
     "serve_stdio",
     "tool_ask",
+    "tool_mesh_ask",
+    "tool_mesh_status",
     "tool_node",
     "tool_reports_list",
     "tool_reports_show",

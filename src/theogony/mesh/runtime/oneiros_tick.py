@@ -173,6 +173,19 @@ _READ_CONSISTENCY = timedelta(0)
 DEFAULT_RENORM_SCALE = 0.9
 
 
+def mesh_workspace_exists(root: Path) -> bool:
+    """Whether ``root`` already holds a mesh — without creating one.
+
+    :meth:`MeshRuntime.open` initialises an empty workspace at any path it is
+    given, which is right for a writer and wrong for a server that merely
+    wants to know whether there is something to serve: ``theogony mcp`` must
+    not leave a half-made ``data/mesh`` behind on a machine that never built
+    one. A workspace is recognised by its consolidated-node table, the one
+    table every write path creates first.
+    """
+    return (root / "lance" / "consolidated_nodes.lance").is_dir()
+
+
 class MeshRuntime:
     """Warm-tier mesh opened from a filesystem directory.
 

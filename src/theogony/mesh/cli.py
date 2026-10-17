@@ -19,6 +19,7 @@ from theogony.config.settings import Settings
 from theogony.mesh import frames
 from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
 from theogony.mesh.retrieval import RetrievalResult, retrieve
+from theogony.mesh.retrieval.constellation import constellation_verdict
 from theogony.mesh.retrieval.defaults import DEFAULT_K_SEEDS, DEFAULT_TOP_K
 from theogony.mesh.runtime.oneiros_tick import DEFAULT_RENORM_SCALE, MeshRuntime
 from theogony.mesh.seeds.wikidata5m import (
@@ -448,14 +449,7 @@ async def _query_embedder(target_dim: int, requested: str | None) -> MeshEmbedde
 def _mesh_query_verdict(
     result: RetrievalResult,
 ) -> tuple[Literal["good", "partial", "poor"], str]:
-    c = result.constellation
-    if not c.nodes:
-        return "poor", "no nodes activated"
-    if not c.edges and c.operator != "vector-only":
-        return "partial", "nodes activated but no edges in working set"
-    if not c.source_anchor_ids:
-        return "partial", "no source-anchored provenance reached"
-    return "good", "connected, provenance-anchored working set"
+    return constellation_verdict(result.constellation)
 
 
 def _render_constellation(result: RetrievalResult, *, max_nodes: int = 20) -> None:
