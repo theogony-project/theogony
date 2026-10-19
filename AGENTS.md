@@ -32,8 +32,6 @@ Tickets chosen because an agent can finish them alone: each names its instrument
 
 | Ticket | What | Done when |
 |---|---|---|
-| [`PHX-1113`](phoenix-backlog/PHX-1113.yaml) | A graph context makes the model answer yes/no questions with an entity (37 % against a 57 % prior) | a rendering or prompt variant reaches ≥ 55 % on the 110 yes/no questions while losing ≤ 1 point elsewhere |
-| [`PHX-1114`](phoenix-backlog/PHX-1114.yaml) | The Constellation does not carry the dates its sources contain (9 % against 33 %) | an arm with source paragraphs beside the typed Constellation is measured on the same 1,000 questions |
 | [`PHX-1108`](phoenix-backlog/PHX-1108.yaml) | Doctrine and vision sentences that stand as fact and have been refuted | each listed sentence is corrected or marked as a target, citing the measurement |
 
 The full queue is [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md). How a contribution lands: a branch, one issue, the four commands of contract 5 green, a PR whose body says what was measured and how to re-run it. A human merges; make that the only thing left for them to do.
