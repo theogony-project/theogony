@@ -36,6 +36,7 @@ import asyncio
 import json
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -46,8 +47,11 @@ from theogony.mesh.eval.qa_datasets import load_dataset
 from theogony.mesh.eval.qa_mesh import (
     ALL_ARMS,
     DEFAULT_PASSAGE_K,
+    EXTRA_ARMS,
     QA_ARMS,
+    answer_kind,
     answer_qa_set,
+    paired_by_kind,
     paired_qa,
     paragraph_of,
     summarise_by_kind,
@@ -56,6 +60,17 @@ from theogony.mesh.eval.qa_mesh import (
 from theogony.mesh.retrieval.defaults import DEFAULT_K_SEEDS, DEFAULT_TOP_K
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.seeds.wikidata5m.embedder import BGESmallEnEmbedder
+
+
+def _subset(results: list[Any], kind: str) -> list[Any]:
+    if kind == "not_yes_no":
+        return [r for r in results if answer_kind(r.gold) != "yes_no"]
+    return [r for r in results if answer_kind(r.gold) == kind]
+
+
+def _mean_em(rows: list[Any], arm: str) -> float:
+    mine = [r.em for r in rows if r.arm == arm]
+    return sum(mine) / len(mine) if mine else float("nan")
 
 
 def main() -> None:
@@ -192,6 +207,20 @@ def main() -> None:
                 f"(p={p['p_em']:.3g})   F1 better/worse {p['f1_better']:.0f}/{p['f1_worse']:.0f} "
                 f"(p={p['p_f1']:.3g})"
             )
+            # The repairs' finish lines are read by kind (PHX-1113: the yes/no
+            # questions and what the variant costs on the rest).
+            if arm in EXTRA_ARMS:
+                by_kind_pairs = paired_by_kind(results, arm=arm, baseline=base)
+                paired[f"{arm}_vs_{base}_by_kind"] = by_kind_pairs  # type: ignore[assignment]
+                for kind, pk in by_kind_pairs.items():
+                    sub = _subset(results, kind)
+                    em_a = _mean_em(sub, arm)
+                    em_b = _mean_em(sub, base)
+                    print(
+                        f"    {kind:11s} n={pk['questions']:.0f}  EM {em_a - em_b:+.1%}  "
+                        f"better/worse {pk['em_better']:.0f}/{pk['em_worse']:.0f} "
+                        f"(p={pk['p_em']:.3g})"
+                    )
     print(f"\n{elapsed / 60:.1f} min")
 
     if args.out:

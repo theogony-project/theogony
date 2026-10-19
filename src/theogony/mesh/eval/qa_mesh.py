@@ -516,6 +516,26 @@ def sign_test_p(better: int, worse: int) -> float:
     return float(min(1.0, 2.0 * tail))
 
 
+def paired_by_kind(
+    results: Sequence[QAAnswerResult], *, arm: str, baseline: str
+) -> dict[str, dict[str, float]]:
+    """`paired_qa` on each answer kind, and on everything that is not yes/no.
+
+    PHX-1113's finish line is two numbers from one run: the variant on the
+    yes/no questions, and what it costs on the other 890 — so the pairing has
+    to be read by kind, not only overall.
+    """
+    out: dict[str, dict[str, float]] = {}
+    for kind in ("entity", "yes_no", "date"):
+        subset = [r for r in results if answer_kind(r.gold) == kind]
+        if subset:
+            out[kind] = paired_qa(subset, arm=arm, baseline=baseline)
+    rest = [r for r in results if answer_kind(r.gold) != "yes_no"]
+    if rest:
+        out["not_yes_no"] = paired_qa(rest, arm=arm, baseline=baseline)
+    return out
+
+
 def paired_qa(
     results: Sequence[QAAnswerResult], *, arm: str, baseline: str = "closed_book"
 ) -> dict[str, float]:
@@ -564,6 +584,7 @@ __all__ = [
     "ingest_cached_readings",
     "load_readings",
     "nearest_passages",
+    "paired_by_kind",
     "paired_qa",
     "paragraph_of",
     "reading_key",

@@ -359,3 +359,24 @@ def test_the_sources_arm_lays_the_paragraphs_beside_the_constellation(tmp_path) 
     with pytest.raises(ValueError, match="SourceIndex"):
         build_qa_jobs(runtime, _embed, [q], PASSAGES, vectors, arms=("constellation_sources",))
     assert set(QA_ARMS) < set(ALL_ARMS)
+
+
+def test_the_pairing_is_read_by_answer_kind() -> None:
+    """PHX-1113's finish line: the yes/no questions, and the cost on the rest."""
+    from theogony.mesh.eval.qa_answers import QAAnswerResult
+    from theogony.mesh.eval.qa_mesh import paired_by_kind
+
+    rows = []
+    for qid, gold, a_em, b_em in (
+        ("y1", "yes", 1.0, 0.0),
+        ("y2", "no", 1.0, 0.0),
+        ("e1", "Gmunden", 0.0, 1.0),
+        ("d1", "1961", 1.0, 1.0),
+    ):
+        rows.append(QAAnswerResult(qid=qid, arm="a", question="", gold=gold, answer="", em=a_em))
+        rows.append(QAAnswerResult(qid=qid, arm="b", question="", gold=gold, answer="", em=b_em))
+    table = paired_by_kind(rows, arm="a", baseline="b")
+    assert set(table) == {"entity", "yes_no", "date", "not_yes_no"}
+    assert (table["yes_no"]["em_better"], table["yes_no"]["em_worse"]) == (2.0, 0.0)
+    assert (table["not_yes_no"]["questions"], table["not_yes_no"]["em_worse"]) == (2.0, 1.0)
+    assert table["date"]["em_equal"] == 1.0
