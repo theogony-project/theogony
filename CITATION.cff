@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, build on one of its measurements, or take one of
+  its pieces, please cite it. Every figure the project publishes is in
+  docs/etappes/ with its limits; cite the etappe for the figure.
+type: software
+title: >-
+  Theogony: an open vector-graph knowledge substrate beneath AI, queried by
+  Spreading Activation
+authors:
+  - family-names: Reinehr
+    given-names: Jakob
+version: 0.1.0
+date-released: "2026-04-16"
+repository-code: https://github.com/theogony-project/theogony
+url: https://github.com/theogony-project/theogony
+license: Apache-2.0
+keywords:
+  - knowledge substrate
+  - knowledge graph
+  - spreading activation
+  - retrieval
+  - graph RAG
+  - language model memory
+  - model context protocol
+  - provenance
+  - contradiction
+  - open commons
+abstract: >-
+  Theogony builds a knowledge layer beneath AI systems as an open commons:
+  knowledge kept as vectors and typed, weighted edges in a LanceDB and PyTorch
+  mesh that a model activates by Spreading Activation instead of reading text,
+  with provenance, time and contradiction as first-class fields. The
+  repository ships the substrate, a reader (Kadmos) that turns text into mesh,
+  a maintenance tick with decay that spares what fired, an MCP server with no
+  language model on the retrieval path, and the complete measurement record,
+  negative results included. On 1,000 questions of 2WikiMultihopQA the edges
+  of the mesh were worth 3.6 points of exact match over the same entities
+  without them.
