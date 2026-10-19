@@ -61,10 +61,18 @@ from theogony.mesh.ingestion.replay import (
     reading_key,
     replay_text,
 )
+from theogony.mesh.retrieval.constellation import render_constellation
 from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
+from theogony.mesh.retrieval.retrieve import retrieve
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 
 QA_ARMS = ("closed_book", "passages", "vector_only", "constellation", "constellation_typed")
+# The two repairs PHX-1110 asked for, as arms beside the measured five (PHX-1113,
+# PHX-1114): a prompt that lets a yes/no question be answered yes or no, and the
+# source paragraphs of the seed-touching entities laid beside the typed
+# Constellation. `_yn` suffixes the prompt variant onto an arm.
+EXTRA_ARMS = ("constellation_typed_yn", "constellation_sources", "constellation_sources_yn")
+ALL_ARMS = QA_ARMS + EXTRA_ARMS
 DEFAULT_PASSAGE_K = 5
 
 # ---------------------------------------------------------------------------
@@ -158,6 +166,15 @@ _ASK = (
 )
 _SYSTEM_MATERIAL = f"Answer the question using ONLY the material given. {_ASK}"
 _SYSTEM_CLOSED = f"Answer the question from your own knowledge. {_ASK}"
+# PHX-1113: a list of entities tempted the model into an entity where the
+# question asked whether something is the case — "Iran" for "are both villages
+# in the same country?" — on 30 of 110 yes/no questions. One sentence names the
+# question form and the two answers it takes; nothing else changes.
+_YES_NO = (
+    "If the question is a yes/no question — it begins with Are, Is, Do, Does, Did, "
+    "Was, Were or Has — answer yes or no."
+)
+_SYSTEM_MATERIAL_YN = f"{_SYSTEM_MATERIAL} {_YES_NO}"
 
 
 def unit_rows(vectors: np.ndarray) -> np.ndarray:
@@ -184,6 +201,103 @@ def _contains_any(context: str, golds: Sequence[str]) -> bool:
     return any(f" {_normalise(g)} " in haystack for g in golds if g)
 
 
+# ---------------------------------------------------------------------------
+# The source paragraphs behind a Constellation (PHX-1114)
+# ---------------------------------------------------------------------------
+
+_PARAGRAPH_REF = re.compile(r"#p(\d+)$")
+
+
+@dataclass
+class SourceIndex:
+    """From an entity to the passages whose paragraphs mention it.
+
+    The mesh holds no paragraph text, only a reference on each chunk
+    (`raw_text_ref`, ``<source>#p<N>`` with N counted from one, as the reader
+    numbers paragraphs) and a ``mentions`` edge from the chunk to every entity
+    the reader found in it. The benchmark holds the passage texts, so the two
+    together put the paragraph an entity was read from back beside it.
+    """
+
+    entity_chunks: dict[str, list[str]]
+    chunk_passage: dict[str, int]
+
+    @classmethod
+    def from_runtime(cls, runtime: MeshRuntime) -> SourceIndex:
+        chunk_passage: dict[str, int] = {}
+        for chunk in runtime.nodes.iter_chunks(page_size=1024):
+            match = _PARAGRAPH_REF.search(str(chunk.raw_text_ref or ""))
+            if match:
+                chunk_passage[str(chunk.id)] = int(match.group(1)) - 1
+        entity_chunks: dict[str, list[str]] = {}
+        # One scan of the edge table, once per run — 650k edges in about ten
+        # seconds on the 2Wiki mesh; a per-question read would be the
+        # one-transaction-per-item defect this substrate keeps having.
+        for edge in runtime.edges.load_all_edges():
+            if edge.relation_descriptor != "mentions":
+                continue
+            source = str(edge.source_id)
+            if source in chunk_passage:
+                entity_chunks.setdefault(str(edge.target_id), []).append(source)
+        return cls(entity_chunks=entity_chunks, chunk_passage=chunk_passage)
+
+    def passages_for(self, entity_ids: Sequence[str], *, limit: int) -> list[int]:
+        """Passage indices for the entities, in entity order, each passage once."""
+        seen: set[int] = set()
+        out: list[int] = []
+        for entity_id in entity_ids:
+            for chunk_id in self.entity_chunks.get(entity_id, ()):
+                index = self.chunk_passage.get(chunk_id)
+                if index is None or index in seen:
+                    continue
+                seen.add(index)
+                out.append(index)
+                if len(out) >= limit:
+                    return out
+        return out
+
+
+def seed_touching_entities(constellation: Any) -> list[str]:
+    """The seeds, then the other endpoints of the edges that touch a seed.
+
+    The same slice `render_constellation` shows as relations: where the query
+    entered the graph and what it is joined to. Order is the Constellation's,
+    which ranks seed-touching edges first and by activation.
+    """
+    seeds = list(constellation.seed_node_ids)
+    seed_set = set(seeds)
+    ordered = list(seeds)
+    for edge in constellation.edges:
+        if edge.source_id not in seed_set and edge.target_id not in seed_set:
+            continue
+        for node_id in (edge.source_id, edge.target_id):
+            if node_id not in seed_set and node_id not in ordered:
+                ordered.append(node_id)
+    return ordered
+
+
+def _sources_context(
+    runtime: MeshRuntime,
+    question: str,
+    vector: Any,
+    top_k: int,
+    passages: Sequence[QAPassage],
+    index: SourceIndex,
+    passage_k: int,
+    **retrieve_kwargs: Any,
+) -> str:
+    """The typed Constellation, then the paragraphs its seed-touching entities were read from."""
+    result = retrieve(
+        runtime, vector, query=question, top_k=top_k, record_firing=False, **retrieve_kwargs
+    )
+    constellation = result.constellation
+    text = render_constellation(constellation, typed_only=True)
+    hits = index.passages_for(seed_touching_entities(constellation), limit=passage_k)
+    if hits:
+        text += "\n\nSource passages:\n" + build_context(list(passages), hits, top_k=passage_k)
+    return text
+
+
 @dataclass
 class QAJob:
     result: QAAnswerResult
@@ -202,6 +316,7 @@ def build_qa_jobs(
     arms: Sequence[str] = QA_ARMS,
     top_k: int = DEFAULT_TOP_K,
     passage_k: int = DEFAULT_PASSAGE_K,
+    source_index: SourceIndex | None = None,
     **retrieve_kwargs: Any,
 ) -> list[QAJob]:
     """Every (question, arm) prompt, contexts built once.
@@ -210,24 +325,34 @@ def build_qa_jobs(
     a token-boundary match on the SQuAD-normalised strings — the ceiling each
     arm worked against, which is what separates a reading problem from a
     retrieval problem (PHX-1089).
+
+    An arm ending in ``_yn`` is its base arm with the yes/no sentence appended
+    to the system prompt and nothing else changed (PHX-1113).
     """
+    unknown = [a for a in arms if a not in ALL_ARMS]
+    if unknown:
+        raise ValueError(f"unknown arm(s) {unknown!r}; choose from {ALL_ARMS}")
+    if any(a.startswith("constellation_sources") for a in arms) and source_index is None:
+        raise ValueError("the sources arms need a SourceIndex (SourceIndex.from_runtime)")
     jobs: list[QAJob] = []
     for q in questions:
         vector = list(embed(q.question))
         golds = q.acceptable
         for arm in arms:
-            if arm == "closed_book":
+            yes_no = arm.endswith("_yn")
+            base = arm.removesuffix("_yn")
+            if base == "closed_book":
                 context = ""
                 system, prompt = _SYSTEM_CLOSED, f"Question: {q.question}"
             else:
-                if arm == "passages":
+                if base == "passages":
                     if passage_vectors is None:
                         raise ValueError("the passages arm needs passage vectors")
                     hits = nearest_passages(passage_vectors, vector, passage_k)
                     context = build_context(list(passages), hits, top_k=passage_k)
-                elif arm == "vector_only":
+                elif base == "vector_only":
                     context = _vector_context(runtime, vector, top_k)
-                elif arm in ("constellation", "constellation_typed"):
+                elif base in ("constellation", "constellation_typed"):
                     # `constellation_typed` is the same retrieval rendered without
                     # the structural descriptors — the shipped list is 60% of
                     # those, and whether they cost the reader anything is a
@@ -237,12 +362,24 @@ def build_qa_jobs(
                         q.question,
                         vector,
                         top_k,
-                        typed_only=arm == "constellation_typed",
+                        typed_only=base == "constellation_typed",
                         **retrieve_kwargs,
                     )
-                else:
+                elif base == "constellation_sources":
+                    assert source_index is not None  # checked above
+                    context = _sources_context(
+                        runtime,
+                        q.question,
+                        vector,
+                        top_k,
+                        passages,
+                        source_index,
+                        passage_k,
+                        **retrieve_kwargs,
+                    )
+                else:  # pragma: no cover - ALL_ARMS is checked above
                     raise ValueError(f"unknown arm {arm!r}")
-                system = _SYSTEM_MATERIAL
+                system = _SYSTEM_MATERIAL_YN if yes_no else _SYSTEM_MATERIAL
                 prompt = f"Material:\n{context}\n\nQuestion: {q.question}"
             jobs.append(
                 QAJob(
@@ -292,14 +429,17 @@ async def answer_qa_set(
     passage_k: int = DEFAULT_PASSAGE_K,
     concurrency: int = 8,
     max_output_tokens: int = 48,
+    source_index: SourceIndex | None = None,
     **retrieve_kwargs: Any,
 ) -> list[QAAnswerResult]:
     """Ask every question once per arm, concurrently, and score EM / F1.
 
     Retrieval never records a firing: a benchmark must not change the substrate
-    it measures (PHX-1101). `retrieve_kwargs` reach the constellation arm only.
+    it measures (PHX-1101). `retrieve_kwargs` reach the constellation arms only.
     """
     runtime.rebuild_csr()
+    if source_index is None and any(a.startswith("constellation_sources") for a in arms):
+        source_index = SourceIndex.from_runtime(runtime)
     jobs = build_qa_jobs(
         runtime,
         embed,
@@ -309,6 +449,7 @@ async def answer_qa_set(
         arms=arms,
         top_k=top_k,
         passage_k=passage_k,
+        source_index=source_index,
         **retrieve_kwargs,
     )
     semaphore = asyncio.Semaphore(max(1, concurrency))
@@ -340,14 +481,24 @@ def answer_kind(gold: str) -> str:
 
 
 def summarise_by_kind(results: Sequence[QAAnswerResult]) -> dict[str, dict[str, dict[str, float]]]:
-    """Exact match per answer kind and arm: ``{kind: {arm: {"questions", "exact_match"}}}``."""
-    table: dict[str, dict[str, list[float]]] = {}
+    """Per answer kind and arm: questions, exact match, F1, and the ceiling.
+
+    ``{kind: {arm: {"questions", "exact_match", "f1", "gold_in_context"}}}`` —
+    the ceiling (how often the answer stood in the material) beside the score,
+    because PHX-1114 asks whether an arm fails to find or fails to read.
+    """
+    table: dict[str, dict[str, list[QAAnswerResult]]] = {}
     for r in results:
-        table.setdefault(answer_kind(r.gold), {}).setdefault(r.arm, []).append(r.em)
+        table.setdefault(answer_kind(r.gold), {}).setdefault(r.arm, []).append(r)
     return {
         kind: {
-            arm: {"questions": float(len(ems)), "exact_match": sum(ems) / len(ems)}
-            for arm, ems in arms.items()
+            arm: {
+                "questions": float(len(rows)),
+                "exact_match": sum(r.em for r in rows) / len(rows),
+                "f1": sum(r.f1 for r in rows) / len(rows),
+                "gold_in_context": sum(1.0 for r in rows if r.gold_in_context) / len(rows),
+            }
+            for arm, rows in arms.items()
         }
         for kind, arms in table.items()
     }
@@ -399,9 +550,12 @@ def paired_qa(
 
 
 __all__ = [
+    "ALL_ARMS",
     "DEFAULT_PASSAGE_K",
+    "EXTRA_ARMS",
     "QA_ARMS",
     "QAJob",
+    "SourceIndex",
     "ReplayIngestReport",
     "ReplayReadingProvider",
     "answer_kind",
@@ -414,6 +568,7 @@ __all__ = [
     "paragraph_of",
     "reading_key",
     "readings_by_paragraph",
+    "seed_touching_entities",
     "sign_test_p",
     "summarise_by_kind",
     "unit_rows",

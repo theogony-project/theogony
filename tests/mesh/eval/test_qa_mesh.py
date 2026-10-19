@@ -256,7 +256,12 @@ def test_answers_are_broken_down_by_the_shape_of_the_gold() -> None:
         QAAnswerResult(qid="c", arm="x", question="", gold="Gmunden", answer="", em=1.0),
     ]
     table = summarise_by_kind(rows)
-    assert table["yes_no"]["x"] == {"questions": 2.0, "exact_match": 0.5}
+    assert table["yes_no"]["x"] == {
+        "questions": 2.0,
+        "exact_match": 0.5,
+        "f1": 0.0,
+        "gold_in_context": 0.0,
+    }
     assert table["entity"]["x"]["exact_match"] == 1.0
 
 
@@ -285,3 +290,72 @@ def test_paired_comparison_and_sign_test() -> None:
     assert sign_test_p(0, 0) == 1.0
     assert sign_test_p(5, 5) == pytest.approx(1.0)
     assert sign_test_p(10, 0) == pytest.approx(2 / 1024)
+
+
+def test_the_sources_arm_lays_the_paragraphs_beside_the_constellation(tmp_path) -> None:
+    """PHX-1114: the mesh keeps a reference to the paragraph, the benchmark
+    keeps the text; the arm puts them back together for the seed-touching
+    entities, and the yes/no sentence is one prompt line (PHX-1113)."""
+    from theogony.mesh.eval.qa_mesh import (
+        ALL_ARMS,
+        EXTRA_ARMS,
+        SourceIndex,
+        seed_touching_entities,
+    )
+
+    runtime, _ = _ingest(tmp_path)
+    index = SourceIndex.from_runtime(runtime)
+    assert len(index.chunk_passage) == 3, "one chunk per passage, #p1..#p3 -> 0..2"
+    assert set(index.chunk_passage.values()) == {0, 1, 2}
+    marie = next(
+        n for n in runtime.nodes.iter_consolidated() if n.tags and n.tags[0] == "Marie of Hanover"
+    )
+    assert index.passages_for([str(marie.id)], limit=5) == [0], "read from the first passage"
+    assert index.passages_for(["nobody"], limit=5) == []
+
+    q = QAQuestion(
+        qid="q1",
+        question="Who was the father of Marie of Hanover?",
+        answer="George V",
+        gold_idxs={0},
+    )
+    vectors = unit_rows(np.asarray([_embed(paragraph_of(p)) for p in PASSAGES], dtype=np.float32))
+    jobs = build_qa_jobs(
+        runtime,
+        _embed,
+        [q],
+        PASSAGES,
+        vectors,
+        arms=EXTRA_ARMS,
+        top_k=10,
+        passage_k=2,
+        source_index=index,
+    )
+    by_arm = {j.result.arm: j for j in jobs}
+    typed_yn = by_arm["constellation_typed_yn"]
+    assert typed_yn.system.endswith("answer yes or no.")
+    assert (
+        "Relations between them:" in typed_yn.prompt and "Source passages:" not in typed_yn.prompt
+    )
+    sources = by_arm["constellation_sources"]
+    assert not sources.system.endswith("answer yes or no.")
+    assert "Relations between them:" in sources.prompt
+    assert "Source passages:\n[1] Marie of Hanover\n" in sources.prompt
+    assert PASSAGES[0].text in sources.prompt, "the paragraph the seed was read from"
+    assert sources.result.gold_in_context, "the ceiling is measured on the combined text"
+    both = by_arm["constellation_sources_yn"]
+    assert both.system.endswith("answer yes or no.") and "Source passages:" in both.prompt
+
+    # the seeds come first, then what the seed-touching edges join them to
+    from theogony.mesh.retrieval.retrieve import retrieve
+
+    c = retrieve(runtime, _embed(q.question), query=q.question, top_k=10, record_firing=False)
+    ordered = seed_touching_entities(c.constellation)
+    assert ordered[: len(c.constellation.seed_node_ids)] == c.constellation.seed_node_ids
+    assert len(ordered) == len(set(ordered))
+
+    with pytest.raises(ValueError, match="unknown arm"):
+        build_qa_jobs(runtime, _embed, [q], PASSAGES, vectors, arms=("vibes",))
+    with pytest.raises(ValueError, match="SourceIndex"):
+        build_qa_jobs(runtime, _embed, [q], PASSAGES, vectors, arms=("constellation_sources",))
+    assert set(QA_ARMS) < set(ALL_ARMS)

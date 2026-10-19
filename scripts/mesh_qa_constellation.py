@@ -12,6 +12,15 @@ Four arms, one model, one scorer (SQuAD EM / F1, PHX-1089's):
     constellation        the same kind of entities plus the relations among them
     constellation_typed  the same, without the structural descriptors (60% of the list)
 
+Two repairs measured against them, from the losses PHX-1110 found (PHX-1113,
+PHX-1114):
+
+    constellation_typed_yn   the typed Constellation with one sentence more in the
+                             prompt: a yes/no question is answered yes or no
+    constellation_sources    the typed Constellation, then the source paragraphs
+                             of its seed-touching entities (passage_k of them)
+    constellation_sources_yn both
+
 `constellation` against `vector_only` is the graph's own contribution; against
 `passages` it is whether the substrate's rendering competes with plain RAG at
 all. The founding corpus could not ask either question (PHX-1098: prior 86%).
@@ -35,6 +44,7 @@ from theogony.config.settings import Settings
 from theogony.mesh.eval.qa_answers import summarise_qa_answers
 from theogony.mesh.eval.qa_datasets import load_dataset
 from theogony.mesh.eval.qa_mesh import (
+    ALL_ARMS,
     DEFAULT_PASSAGE_K,
     QA_ARMS,
     answer_qa_set,
@@ -58,7 +68,7 @@ def main() -> None:
     ap.add_argument(
         "--limit", type=int, default=0, help="first N of the sampled questions (0 = all)"
     )
-    ap.add_argument("--arms", default=",".join(QA_ARMS))
+    ap.add_argument("--arms", default=",".join(QA_ARMS), help=f"any of {','.join(ALL_ARMS)}")
     ap.add_argument("--top-k", type=int, default=DEFAULT_TOP_K, help="entities for the mesh arms")
     ap.add_argument("--passage-k", type=int, default=DEFAULT_PASSAGE_K)
     ap.add_argument("--seeds", type=int, default=None, help="k_seeds for the constellation arm")
@@ -138,14 +148,19 @@ def main() -> None:
         )
 
     by_kind = summarise_by_kind(results)
-    print(f"\n{'exact match by answer kind':28s} " + " ".join(f"{a[:12]:>12s}" for a in arms))
-    for kind in ("entity", "yes_no", "date"):
-        if kind in by_kind:
-            n = int(next(iter(by_kind[kind].values()))["questions"])
-            cells = " ".join(
-                f"{by_kind[kind].get(a, {}).get('exact_match', float('nan')):12.1%}" for a in arms
-            )
-            print(f"{kind + f' (n={n})':28s} {cells}")
+    for metric, label in (
+        ("exact_match", "exact match by answer kind"),
+        ("f1", "F1 by answer kind"),
+        ("gold_in_context", "answer in material, by kind"),
+    ):
+        print(f"\n{label:28s} " + " ".join(f"{a[:12]:>12s}" for a in arms))
+        for kind in ("entity", "yes_no", "date"):
+            if kind in by_kind:
+                n = int(next(iter(by_kind[kind].values()))["questions"])
+                cells = " ".join(
+                    f"{by_kind[kind].get(a, {}).get(metric, float('nan')):12.1%}" for a in arms
+                )
+                print(f"{kind + f' (n={n})':28s} {cells}")
 
     paired: dict[str, dict[str, float]] = {}
     for arm, base in (
@@ -157,6 +172,13 @@ def main() -> None:
         ("constellation_typed", "passages"),
         ("vector_only", "closed_book"),
         ("passages", "closed_book"),
+        # PHX-1113 / PHX-1114
+        ("constellation_typed_yn", "constellation_typed"),
+        ("constellation_sources", "constellation_typed"),
+        ("constellation_sources", "passages"),
+        ("constellation_sources_yn", "constellation_typed"),
+        ("constellation_sources_yn", "constellation_sources"),
+        ("constellation_sources_yn", "passages"),
     ):
         if arm in summary and base in summary:
             p = paired_qa(results, arm=arm, baseline=base)
