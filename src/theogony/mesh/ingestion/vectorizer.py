@@ -11,7 +11,7 @@ import hashlib
 from collections.abc import Iterable
 
 from theogony.config.settings import Settings
-from theogony.extraction.embedding import LocalSentenceTransformerEmbedder
+from theogony.extraction.embedding import EmbeddingProvider, LocalSentenceTransformerEmbedder
 
 
 def _hash_projection(text: str, dim: int, *, salt: str = "") -> list[float]:
@@ -44,12 +44,18 @@ class MeshTextVectorizer:
         semantic_dim: int,
         frame_dim: int,
         settings: Settings | None = None,
+        embedder: EmbeddingProvider | None = None,
     ) -> None:
         self._settings = settings or Settings()
         self.semantic_dim = semantic_dim
         self.frame_dim = frame_dim
-        self._semantic_embedder = None
-        if semantic_dim == self._settings.embedding.dim:
+        self._semantic_embedder: EmbeddingProvider | None = None
+        # A caller that already holds the embedder — the MCP server, which
+        # queries with it — hands it in, so one process loads one model and the
+        # vectors it writes are in the space it queries. Its dimension decides.
+        if embedder is not None and embedder.dim == semantic_dim:
+            self._semantic_embedder = embedder
+        elif embedder is None and semantic_dim == self._settings.embedding.dim:
             self._semantic_embedder = LocalSentenceTransformerEmbedder(
                 model_id=self._settings.embedding.model_id,
                 dim=self._settings.embedding.dim,

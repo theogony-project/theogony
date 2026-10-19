@@ -15,7 +15,8 @@ checks what no unit test can see from inside a configured environment:
         returns nodes, edges and the measured rendering (PHX-1112); without one,
         both say so as a tool error that names the way to get a workspace
     with --expect-mesh, a workspace with content must be open — the state the
-        fresh-clone probe is in after `theogony mesh demo`
+        fresh-clone probe is in after `theogony mesh demo` — and `mesh_append`
+        must write one paragraph with the caller's reading and grow the mesh
 
 Exit code 0 only if all of that holds.
 """
@@ -176,6 +177,59 @@ async def main() -> int:
                     failures.append("mesh_ask returned nodes but no edges")
                 elif "Entities:" not in material:
                     failures.append("mesh_ask returned no rendered material")
+                if expect_mesh and nodes_in_mesh:
+                    # Writing: the agent is the reader (no server-side model).
+                    appended = await session.call_tool(
+                        "mesh_append",
+                        {
+                            "text": (
+                                "The fresh-clone probe wrote this paragraph into the demo mesh "
+                                "with its own reading, on the day it ran."
+                            ),
+                            "reading": {
+                                "concepts": [
+                                    {
+                                        "label": "fresh-clone probe",
+                                        "entity_type": "concept",
+                                        "tags": ["probe"],
+                                        "description": "The script that runs the documented "
+                                        "quickstart as a stranger would.",
+                                    },
+                                    {
+                                        "label": "demo mesh",
+                                        "entity_type": "concept",
+                                        "tags": [],
+                                        "description": "The mesh built from the bundled readings.",
+                                    },
+                                ],
+                                "relations": [
+                                    {
+                                        "source": "fresh-clone probe",
+                                        "target": "demo mesh",
+                                        "relation_descriptor": "wrote_into",
+                                        "relation_kind": "causal",
+                                        "stance": "observation",
+                                        "rationale": "",
+                                    }
+                                ],
+                                "paragraph_concept": None,
+                                "stance": "observation",
+                            },
+                            "title": "probe note",
+                            "anchor": "scripts/mcp_probe.py",
+                        },
+                    )
+                    app_payload = _payload(appended)
+                    grown = _payload(await session.call_tool("mesh_status", {}))
+                    print(
+                        f"mesh_append      is_error={_is_error(appended)} "
+                        f"concepts={app_payload.get('written', {}).get('concepts')} "
+                        f"nodes {nodes_in_mesh} -> {grown.get('consolidated_nodes')}"
+                    )
+                    if _is_error(appended):
+                        failures.append(f"mesh_append failed: {str(app_payload)[:200]}")
+                    elif int(grown.get("consolidated_nodes") or 0) <= nodes_in_mesh:
+                        failures.append("mesh_append reported success but the mesh did not grow")
 
     print(f"stdout frames    {frames.count} line(s) the client could not parse as JSON-RPC")
     if frames.count:

@@ -15,6 +15,7 @@ from ulid import ULID
 from theogony.agents.llm import LLMProvider
 from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
+from theogony.extraction.embedding import EmbeddingProvider
 from theogony.mesh import frames
 from theogony.mesh.ingestion.concept_resolver import ConceptResolver
 from theogony.mesh.ingestion.linker import EagerLinker
@@ -165,6 +166,7 @@ class MeshParagraphReader:
         settings: Settings | None = None,
         max_structural_neighbours: int = _MAX_STRUCTURAL_NEIGHBOURS,
         compact_every: int = _COMPACT_EVERY,
+        embedder: EmbeddingProvider | None = None,
     ) -> None:
         self.mesh = mesh
         self.llm = llm
@@ -193,6 +195,7 @@ class MeshParagraphReader:
             semantic_dim=self.semantic_dim,
             frame_dim=self.frame_dim,
             settings=self.settings,
+            embedder=embedder,
         )
         self.report_writer = RunReportWriter(self.settings.run_reports_dir)
         self._pending_edges: list[Edge] = []

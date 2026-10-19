@@ -28,6 +28,13 @@ Tools (MESH substrate, read-side; PHX-1112)
   model anywhere on this path.
 - ``mesh_status`` — node, edge and tick counts of the open workspace, its
   vector dimensions, and whether this server's embedder matches them.
+- ``mesh_append`` — write one paragraph into the workspace with the reading
+  the caller supplies (concepts, relations, stance in the reader's own
+  schema), replayed through the shipped reader: the same linker, identity
+  resolution, typed edges and frames a live read produces, with the agent
+  as the language model. Persists in the workspace. No content gate — the
+  schema is checked, the claims are not (IMMUNE_SYSTEM.md); provenance
+  ``mcp_agent``.
 
 The workspace is opened once per session (``theogony mcp --mesh-root``, or
 ``{data_dir}/mesh`` when a workspace is there) and never created: a server
@@ -91,6 +98,12 @@ from theogony.extraction.wikidata_cache import WikidataCache
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.mesh import frames
+from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
+from theogony.mesh.ingestion.reading_schemas import (
+    ParagraphReadingOutput,
+    normalize_reading_payload,
+)
+from theogony.mesh.ingestion.replay import MIN_PARAGRAPH_CHARS, ReplayReadingProvider
 from theogony.mesh.retrieval.constellation import constellation_verdict, render_constellation
 from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
 from theogony.mesh.retrieval.retrieve import retrieve
@@ -709,6 +722,101 @@ async def tool_mesh_ask(
     }
 
 
+_MESH_APPEND_NOTE = (
+    "Written through the shipped reader with your reading in place of a language "
+    "model's: the paragraph is one chunk, each concept an entity (merged with an "
+    "existing one when the identity resolver recognises it), each relation a typed "
+    "edge, the stance a frame. Nothing judged the claims — the schema was checked, "
+    "the content was not (docs/IMMUNE_SYSTEM.md: verification is post-hoc). "
+    "Provenance is `mcp_agent`; the write persists in the workspace and the next "
+    "`mesh_ask` can reach it."
+)
+
+
+async def tool_mesh_append(
+    res: McpResources,
+    *,
+    text: str,
+    reading: dict[str, Any],
+    title: str | None = None,
+    anchor: str | None = None,
+) -> dict[str, Any]:
+    """Run :func:`mesh_append` and return the JSON-serialisable payload.
+
+    The caller is the language model: it hands over the paragraph and the
+    reading Kadmos would have produced for it, in the reader's schema. The
+    reading is validated the way the reader validates a model's reply and
+    replayed through `MeshParagraphReader` (PHX-1110's replay, PHX-1112's
+    demo path), so what lands in the mesh is what a live read would have
+    written — the agent's reading, not a server-side model's. Bounded by the
+    same caps as the Gen-1 append.
+    """
+    problem = _mesh_problem(res)
+    if problem is not None:
+        return {"error": problem}
+    caps = res.settings.mcp_append
+    if not caps.enabled:
+        return {"error": "appending is disabled (THEOGONY_MCP_APPEND__ENABLED=false)"}
+    paragraph = (text or "").strip()
+    if len(paragraph) < MIN_PARAGRAPH_CHARS:
+        return {"error": f"text must be a paragraph of at least {MIN_PARAGRAPH_CHARS} characters"}
+    if len(paragraph) > caps.max_body_chars_per_fragment:
+        return {
+            "error": (
+                f"text is {len(paragraph)} characters; the cap is "
+                f"{caps.max_body_chars_per_fragment}"
+            )
+        }
+    if "\n\n" in paragraph:
+        return {"error": "text must be one paragraph; call once per paragraph"}
+    if not isinstance(reading, dict):
+        return {
+            "error": "reading must be an object with concepts, relations, paragraph_concept, stance"
+        }
+    try:
+        validated = ParagraphReadingOutput.model_validate(normalize_reading_payload(reading))
+    except Exception as exc:  # noqa: BLE001 - the schema error is the answer
+        return {"error": f"reading does not fit the reader's schema: {exc}"}
+    if not validated.concepts:
+        return {"error": "reading names no concept; a paragraph with no concept writes nothing"}
+    mesh = res.mesh
+    assert mesh is not None  # _mesh_problem checked
+    source_identifier = f"mcp_agent:{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}"
+    provider = ReplayReadingProvider({paragraph: validated.model_dump()}, model_id="mcp-agent")
+    reader = MeshParagraphReader(
+        mesh, llm=provider, settings=res.settings, compact_every=0, embedder=res.embedder
+    )
+    # The reader embeds through a worker thread of its own and writes Lance
+    # synchronously in between; one paragraph is well under a second.
+    report = await reader.read_text(
+        text=paragraph,
+        source_type="mcp_agent",
+        source_identifier=source_identifier,
+        title=(title or paragraph[:60]).strip(),
+        anchor=(anchor or source_identifier).strip(),
+    )
+    mesh.invalidate_csr_cache()
+    return {
+        "source_identifier": source_identifier,
+        "source_anchor_id": report.get("source_anchor_id"),
+        "run_id": report.get("report_run_id"),
+        "verdict": report.get("verdict"),
+        "written": {
+            "paragraphs": report.get("paragraphs"),
+            "concepts": report.get("concepts"),
+            "relations": report.get("relations"),
+            "paragraph_concept_nodes": report.get("paragraph_concept_nodes"),
+            "stances": report.get("stances"),
+            "contradiction_edges": report.get("contradiction_edges"),
+        },
+        "mesh": {
+            "consolidated_nodes": mesh.nodes.consolidated_count(),
+            "mesh_edges": mesh.edges.count_rows(),
+        },
+        "note": _MESH_APPEND_NOTE,
+    }
+
+
 # --------------------------------------------------------------------------
 # Tool descriptors — single source of truth for ``tools/list``
 # --------------------------------------------------------------------------
@@ -1002,6 +1110,68 @@ def _tool_descriptors() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "mesh_append",
+            "description": (
+                "Write one paragraph into the mesh with YOUR reading of it — the "
+                "concepts it names, the relations among them, its epistemic stance — "
+                "in the schema the reader uses for a language model's reply. The "
+                "paragraph becomes a chunk, each concept an entity (merged with an "
+                "existing one when the resolver recognises it), each relation a typed "
+                "edge, the stance a frame; the write persists in the workspace and the "
+                "next `mesh_ask` reaches it. No server-side language model runs: you "
+                "are the reader. Nothing judges the claims — the schema is checked, "
+                "the content is not; provenance is `mcp_agent`. Bounded by the same "
+                "caps as `pantheon_chronicle_append`."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "One paragraph of text, the source of the reading.",
+                        "minLength": MIN_PARAGRAPH_CHARS,
+                        "maxLength": 8000,
+                    },
+                    "reading": {
+                        "type": "object",
+                        "description": (
+                            "Your reading of the paragraph: {concepts: [{label, entity_type "
+                            "(person|place|org|disease|event|concept|date), tags: [str], "
+                            "description}], relations: [{source, target (labels from "
+                            "concepts), relation_descriptor (short verb, e.g. 'father_of'), "
+                            "relation_kind (causal|hierarchy|attribute|semantic|contradicts|"
+                            "supersedes), stance (current_claim|definition|historical_claim|"
+                            "refuted_claim|hypothesis|observation|direct_quote|disputed|"
+                            "superseded), rationale}], paragraph_concept: {label, "
+                            "description, tags} | null, stance: the paragraph's stance}."
+                        ),
+                        "properties": {
+                            "concepts": {"type": "array"},
+                            "relations": {"type": "array"},
+                            "paragraph_concept": {"type": ["object", "null"]},
+                            "stance": {"type": "string"},
+                        },
+                        "required": ["concepts"],
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Source anchor name (default: first words of the text).",
+                        "maxLength": 240,
+                    },
+                    "anchor": {
+                        "type": "string",
+                        "description": (
+                            "Where the paragraph comes from — a URL or citation; it is what "
+                            "every node written here will say about its provenance."
+                        ),
+                        "maxLength": 500,
+                    },
+                },
+                "required": ["text", "reading"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -1083,6 +1253,15 @@ def build_server(res: McpResources) -> Any:
             )
         elif name == "mesh_status":
             payload = tool_mesh_status(res)
+        elif name == "mesh_append":
+            raw_reading = arguments.get("reading")
+            payload = await tool_mesh_append(
+                res,
+                text=str(arguments.get("text", "")),
+                reading=raw_reading if isinstance(raw_reading, dict) else {},
+                title=arguments.get("title"),
+                anchor=arguments.get("anchor"),
+            )
         else:
             raise ValueError(f"unknown tool: {name}")
         return payload
@@ -1419,6 +1598,7 @@ __all__ = [
     "serve_sse",
     "serve_stdio",
     "tool_ask",
+    "tool_mesh_append",
     "tool_mesh_ask",
     "tool_mesh_status",
     "tool_node",

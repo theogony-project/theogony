@@ -13,7 +13,8 @@ While the version is `0.x.y`, the API is considered unstable and may change betw
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+- **An agent can write into the mesh over MCP.** `mesh_append` takes one paragraph and the caller's own reading of it — concepts, relations, stance, in the schema the reader uses for a language model's reply — validates it as the reader would and replays it through `MeshParagraphReader`, so the write is the write a live read produces (one chunk, entities merged by the identity resolver, typed edges, a frame), persisted in the workspace, provenance `mcp_agent`, an `IngestRunReport` per call. No server-side language model, no content gate at insertion. Bounded by the same caps as `pantheon_chronicle_append`. The fresh-clone probe writes one paragraph into the demo mesh and requires the mesh to grow.
 
 ---
 

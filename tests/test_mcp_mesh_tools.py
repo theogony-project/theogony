@@ -14,13 +14,18 @@ import importlib.util
 import json
 import zlib
 from collections.abc import Sequence
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pytest
 
+from theogony.config.settings import (
+    EmbeddingSettings,
+    LLMSettings,
+    McpAppendSettings,
+    Settings,
+)
 from theogony.mesh.eval.qa_mesh import ingest_cached_readings, reading_key
 from theogony.mesh.eval.qa_retrieval import QAPassage
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime, mesh_workspace_exists
@@ -97,18 +102,17 @@ class _HashEmbedder:
         return out
 
 
-@dataclass
-class _Settings:
-    data_dir: Path
-    run_reports_dir: Path
-    llm: Any
-    embedding: Any
-
-
-class _Bag:
-    def __init__(self, **kwargs: Any) -> None:
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+def _settings(tmp_path: Path, **overrides: Any) -> Settings:
+    """Real settings, rooted in tmp_path: the reader behind mesh_append reads
+    more of them than a stub would care to fake."""
+    kwargs: dict[str, Any] = {
+        "data_dir": tmp_path / "data",
+        "llm": LLMSettings(provider="stub", model_id="stub-llm", fallback_provider=None),
+        "embedding": EmbeddingSettings(model_id="hash", dim=DIM),
+        "mcp_append": McpAppendSettings(enabled=True),
+    }
+    kwargs.update(overrides)
+    return Settings(_env_file=None, **kwargs)  # type: ignore[call-arg]
 
 
 class _FakeStore:
@@ -129,14 +133,9 @@ def _mesh(tmp_path: Path) -> MeshRuntime:
 def _resources(tmp_path: Path, *, mesh: MeshRuntime | None, embedder: Any = None) -> Any:
     from theogony.mcp.server import McpResources
 
-    settings = _Settings(
-        data_dir=tmp_path / "data",
-        run_reports_dir=tmp_path / "data" / "run_reports",
-        llm=_Bag(provider="stub", model_id="stub-llm"),
-        embedding=_Bag(model_id="hash", dim=DIM),
-    )
+    settings = _settings(tmp_path)
     return McpResources(
-        settings=settings,  # type: ignore[arg-type]
+        settings=settings,
         audit=None,  # type: ignore[arg-type]
         wd_cache=None,
         embedder=embedder or _HashEmbedder(),
@@ -413,3 +412,146 @@ async def test_open_resources_refuses_a_mesh_root_that_holds_no_workspace(
     with pytest.raises(RuntimeError, match="dimensional vectors"):
         async with open_resources(seed_path=None, mesh_root=odd.root):
             pass  # pragma: no cover - the context must not open
+
+
+READING_LAKE = {
+    "concepts": [
+        {
+            "label": "Lake Traunsee",
+            "entity_type": "place",
+            "tags": ["lake"],
+            "description": "A lake in Upper Austria beside the town of Gmunden.",
+        },
+        {
+            "label": "Gmunden",
+            "entity_type": "place",
+            "tags": [],
+            "description": "A town in Austria.",
+        },
+    ],
+    "relations": [
+        {
+            "source": "Lake Traunsee",
+            "target": "Gmunden",
+            "relation_descriptor": "lies_beside",
+            "relation_kind": "semantic",
+            "stance": "current_claim",
+            "rationale": "the paragraph says so",
+        }
+    ],
+    "paragraph_concept": None,
+    "stance": "current_claim",
+}
+LAKE_TEXT = "Lake Traunsee lies beside the town of Gmunden in Austria."
+
+
+def test_mesh_append_writes_the_callers_reading_through_the_shipped_reader(tmp_path: Path) -> None:
+    """The agent is the reader: its reading replays through MeshParagraphReader,
+    lands in the workspace, and the next mesh_ask can reach it."""
+    from theogony.mcp.server import tool_mesh_append, tool_mesh_ask, tool_mesh_status
+
+    runtime = _mesh(tmp_path)
+    res = _resources(tmp_path, mesh=runtime)
+    before = tool_mesh_status(res)
+    payload = asyncio.run(
+        tool_mesh_append(
+            res,
+            text=LAKE_TEXT,
+            reading=READING_LAKE,
+            title="A note on the Traunsee",
+            anchor="https://example.org/traunsee",
+        )
+    )
+    assert "error" not in payload, payload
+    assert payload["written"]["paragraphs"] == 1
+    assert payload["written"]["concepts"] == 2 and payload["written"]["relations"] == 1
+    assert payload["source_identifier"].startswith("mcp_agent:")
+    assert payload["run_id"] and payload["verdict"]
+    assert "no server-side" in payload["note"].lower() or "Nothing judged" in payload["note"]
+    after = tool_mesh_status(res)
+    assert after["consolidated_nodes"] > before["consolidated_nodes"]
+    assert after["mesh_edges"] > before["mesh_edges"]
+    # provenance: the source anchor says who wrote it and where it came from
+    anchors = [n for n in runtime.nodes.iter_consolidated() if n.is_source_anchor]
+    assert any(
+        "mcp_agent" in (a.description or "") and "example.org/traunsee" in (a.description or "")
+        for a in anchors
+    )
+    # the write persisted: a fresh runtime over the same directory sees it, and
+    # retrieval reaches the new entity by name
+    reopened = MeshRuntime.open(runtime.root)
+    names = {
+        n.tags[0] for n in reopened.nodes.iter_consolidated() if n.tags and not n.is_source_anchor
+    }
+    assert "Lake Traunsee" in names
+    asked = asyncio.run(tool_mesh_ask(res, q="What lies beside Gmunden? Lake Traunsee"))
+    assert "error" not in asked
+    assert any("Traunsee" in n["name"] for n in asked["constellation"]["nodes"])
+    assert "lies_beside" in asked["material"]
+    # a run report was written for the ingest, as for any read (contract 2)
+    assert list((tmp_path / "data" / "run_reports" / "ingest").glob("*.json"))
+
+
+def test_mesh_append_refuses_what_the_reader_would_refuse(tmp_path: Path) -> None:
+    from theogony.mcp.server import tool_mesh_append
+
+    runtime = _mesh(tmp_path)
+    res = _resources(tmp_path, mesh=runtime)
+    before = runtime.nodes.consolidated_count()
+    short = asyncio.run(tool_mesh_append(res, text="Hi.", reading=READING_LAKE))
+    assert "error" in short and "at least" in short["error"]
+    two = asyncio.run(
+        tool_mesh_append(res, text=LAKE_TEXT + "\n\nAnother one.", reading=READING_LAKE)
+    )
+    assert "error" in two and "one paragraph" in two["error"]
+    bad = asyncio.run(
+        tool_mesh_append(res, text=LAKE_TEXT, reading={"concepts": [{"label": "A", "tags": "x"}]})
+    )
+    assert "error" in bad and "schema" in bad["error"]
+    not_a_list = asyncio.run(tool_mesh_append(res, text=LAKE_TEXT, reading={"concepts": "x"}))
+    assert "error" in not_a_list and "no concept" in not_a_list["error"]
+    empty = asyncio.run(tool_mesh_append(res, text=LAKE_TEXT, reading={"concepts": []}))
+    assert "error" in empty and "no concept" in empty["error"]
+    assert runtime.nodes.consolidated_count() == before, "nothing refused was written"
+    res = _resources(tmp_path, mesh=runtime)
+    res.settings = _settings(tmp_path, mcp_append=McpAppendSettings(enabled=False))
+    off = asyncio.run(tool_mesh_append(res, text=LAKE_TEXT, reading=READING_LAKE))
+    assert "error" in off and "disabled" in off["error"]
+    none = asyncio.run(
+        tool_mesh_append(_resources(tmp_path, mesh=None), text=LAKE_TEXT, reading=READING_LAKE)
+    )
+    assert "error" in none and "--mesh-root" in none["error"]
+
+
+@pytest.mark.asyncio
+async def test_mesh_append_answers_a_protocol_round_trip(tmp_path: Path) -> None:
+    import anyio
+    from mcp.client.session import ClientSession
+    from mcp.shared.memory import create_client_server_memory_streams
+
+    from theogony.mcp.server import build_server
+
+    runtime = await _mesh_async(tmp_path)
+    server = build_server(_resources(tmp_path, mesh=runtime))
+    async with create_client_server_memory_streams() as (client_streams, server_streams):
+        client_read, client_write = client_streams
+        server_read, server_write = server_streams
+        async with anyio.create_task_group() as tg:
+
+            async def _run_server() -> None:
+                await server.run(server_read, server_write, server.create_initialization_options())
+
+            tg.start_soon(_run_server)
+            async with ClientSession(client_read, client_write) as session:
+                await session.initialize()
+                names = {tool.name for tool in (await session.list_tools()).tools}
+                assert "mesh_append" in names
+                written = await session.call_tool(
+                    "mesh_append", {"text": LAKE_TEXT, "reading": READING_LAKE}
+                )
+                assert written.is_error is not True
+                payload = json.loads(written.content[0].text)  # type: ignore[union-attr]
+                assert payload["written"]["concepts"] == 2
+                refused = await session.call_tool("mesh_append", {"text": "x", "reading": {}})
+                assert refused.is_error is True
+            tg.cancel_scope.cancel()
