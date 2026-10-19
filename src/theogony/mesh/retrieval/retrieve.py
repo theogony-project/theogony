@@ -479,7 +479,7 @@ def retrieve(
         activation,
         csr,
         top_k=top_k,
-        seed_indices=set(seeds),
+        seed_indices=list(seeds),  # ranked: MMR seed first, then name anchors
         operator=operator,
         query=query,
         frame_routed=frame_routed,

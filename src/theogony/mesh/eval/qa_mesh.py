@@ -46,7 +46,7 @@ from typing import Any
 
 import numpy as np
 
-from theogony.mesh.eval.corpus_answers import _constellation_context, _vector_context
+from theogony.mesh.eval.corpus_answers import _vector_context
 from theogony.mesh.eval.qa_answers import (
     QAAnswerResult,
     _normalise,
@@ -63,7 +63,8 @@ from theogony.mesh.ingestion.replay import (
 )
 from theogony.mesh.retrieval.constellation import render_constellation
 from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
-from theogony.mesh.retrieval.retrieve import retrieve
+from theogony.mesh.retrieval.retrieve import RetrievalResult, retrieve
+from theogony.mesh.runtime.contradiction import MENTION_CONTEXTS
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 
 QA_ARMS = ("closed_book", "passages", "vector_only", "constellation", "constellation_typed")
@@ -214,13 +215,16 @@ class SourceIndex:
 
     The mesh holds no paragraph text, only a reference on each chunk
     (`raw_text_ref`, ``<source>#p<N>`` with N counted from one, as the reader
-    numbers paragraphs) and a ``mentions`` edge from the chunk to every entity
-    the reader found in it. The benchmark holds the passage texts, so the two
-    together put the paragraph an entity was read from back beside it.
+    numbers paragraphs) and a witness edge from the chunk to every entity the
+    reader found in it — the two creation contexts the substrate itself counts
+    as a mention (`MENTION_CONTEXTS`). The benchmark holds the passage texts,
+    so the two together put the paragraph an entity was read from back beside
+    it.
     """
 
     entity_chunks: dict[str, list[str]]
     chunk_passage: dict[str, int]
+    chunk_entities: dict[str, set[str]]
 
     @classmethod
     def from_runtime(cls, runtime: MeshRuntime) -> SourceIndex:
@@ -230,39 +234,85 @@ class SourceIndex:
             if match:
                 chunk_passage[str(chunk.id)] = int(match.group(1)) - 1
         entity_chunks: dict[str, list[str]] = {}
+        chunk_entities: dict[str, set[str]] = {}
         # One scan of the edge table, once per run — 650k edges in about ten
         # seconds on the 2Wiki mesh; a per-question read would be the
         # one-transaction-per-item defect this substrate keeps having.
         for edge in runtime.edges.load_all_edges():
-            if edge.relation_descriptor != "mentions":
+            if edge.creation_context not in MENTION_CONTEXTS:
                 continue
-            source = str(edge.source_id)
+            source, target = str(edge.source_id), str(edge.target_id)
             if source in chunk_passage:
-                entity_chunks.setdefault(str(edge.target_id), []).append(source)
-        return cls(entity_chunks=entity_chunks, chunk_passage=chunk_passage)
+                entity_chunks.setdefault(target, []).append(source)
+                chunk_entities.setdefault(source, set()).add(target)
+        if not entity_chunks:
+            # Silently the sources arm would then be the typed arm under another name.
+            raise ValueError(
+                "SourceIndex is empty: no chunk with a '<source>#p<N>' raw_text_ref is "
+                "reached by a mention edge; this mesh was not read by the shipped reader "
+                "from a passage list"
+            )
+        return cls(
+            entity_chunks=entity_chunks, chunk_passage=chunk_passage, chunk_entities=chunk_entities
+        )
+
+    def check_passages(self, passages: Sequence[QAPassage]) -> None:
+        """The passage list must be the one the mesh was read from."""
+        highest = max(self.chunk_passage.values())
+        if highest >= len(passages):
+            raise ValueError(
+                f"the mesh refers to paragraph #{highest + 1} but the passage list holds "
+                f"{len(passages)}; these are not the same corpus"
+            )
 
     def passages_for(self, entity_ids: Sequence[str], *, limit: int) -> list[int]:
-        """Passage indices for the entities, in entity order, each passage once."""
+        """Up to ``limit`` passages for the entities, the ones that join them first.
+
+        A paragraph that mentions several of the entities is where their
+        relation was read from — the second hop of a comparison question, where
+        PHX-1114's dates stand — so candidates are ranked by how many of the
+        listed entities they mention, then by the position of the first entity
+        that brought them, then in the order the reader appended them. Without
+        the ranking a seed read from ``limit`` or more paragraphs fills the
+        budget alone with its first paragraphs in corpus order, and no
+        neighbour's paragraph is reached (found by review before this shipped).
+        """
+        listed = {e: pos for pos, e in enumerate(entity_ids)}
+        first_seen: dict[str, tuple[int, int]] = {}
+        order = 0
+        for pos, entity_id in enumerate(entity_ids):
+            for chunk_id in self.entity_chunks.get(entity_id, ()):
+                if chunk_id not in first_seen:
+                    first_seen[chunk_id] = (pos, order)
+                    order += 1
+        ranked = sorted(
+            first_seen,
+            key=lambda c: (
+                -len(self.chunk_entities.get(c, set()) & listed.keys()),
+                first_seen[c],
+            ),
+        )
         seen: set[int] = set()
         out: list[int] = []
-        for entity_id in entity_ids:
-            for chunk_id in self.entity_chunks.get(entity_id, ()):
-                index = self.chunk_passage.get(chunk_id)
-                if index is None or index in seen:
-                    continue
-                seen.add(index)
-                out.append(index)
-                if len(out) >= limit:
-                    return out
+        for chunk_id in ranked:
+            index = self.chunk_passage.get(chunk_id)
+            if index is None or index in seen:
+                continue
+            seen.add(index)
+            out.append(index)
+            if len(out) >= limit:
+                break
         return out
 
 
 def seed_touching_entities(constellation: Any) -> list[str]:
-    """The seeds, then the other endpoints of the edges that touch a seed.
+    """The seeds in the order retrieval ranked them, then the other endpoints
+    of the edges that touch a seed, in the Constellation's edge order.
 
-    The same slice `render_constellation` shows as relations: where the query
-    entered the graph and what it is joined to. Order is the Constellation's,
-    which ranks seed-touching edges first and by activation.
+    Wider than the relations `render_constellation(typed_only=True)` shows:
+    every seed-touching edge counts, structural descriptors included, so a
+    neighbour reached only over `co_mentions_in_paragraph` or a source anchor
+    can appear here. Ids without chunks contribute no passage.
     """
     seeds = list(constellation.seed_node_ids)
     seed_set = set(seeds)
@@ -276,26 +326,19 @@ def seed_touching_entities(constellation: Any) -> list[str]:
     return ordered
 
 
-def _sources_context(
-    runtime: MeshRuntime,
-    question: str,
-    vector: Any,
-    top_k: int,
+def sources_text(
+    constellation: Any,
     passages: Sequence[QAPassage],
     index: SourceIndex,
     passage_k: int,
-    **retrieve_kwargs: Any,
-) -> str:
-    """The typed Constellation, then the paragraphs its seed-touching entities were read from."""
-    result = retrieve(
-        runtime, vector, query=question, top_k=top_k, record_firing=False, **retrieve_kwargs
-    )
-    constellation = result.constellation
+) -> tuple[str, int]:
+    """The typed Constellation, then the paragraphs its seed-touching entities
+    were read from; returns the text and how many paragraphs it attached."""
     text = render_constellation(constellation, typed_only=True)
     hits = index.passages_for(seed_touching_entities(constellation), limit=passage_k)
     if hits:
         text += "\n\nSource passages:\n" + build_context(list(passages), hits, top_k=passage_k)
-    return text
+    return text, len(hits)
 
 
 @dataclass
@@ -332,13 +375,34 @@ def build_qa_jobs(
     unknown = [a for a in arms if a not in ALL_ARMS]
     if unknown:
         raise ValueError(f"unknown arm(s) {unknown!r}; choose from {ALL_ARMS}")
-    if any(a.startswith("constellation_sources") for a in arms) and source_index is None:
-        raise ValueError("the sources arms need a SourceIndex (SourceIndex.from_runtime)")
+    if any(a.startswith("constellation_sources") for a in arms):
+        if source_index is None:
+            raise ValueError("the sources arms need a SourceIndex (SourceIndex.from_runtime)")
+        source_index.check_passages(passages)
     jobs: list[QAJob] = []
     for q in questions:
         vector = list(embed(q.question))
         golds = q.acceptable
+        # One retrieval per question for the whole constellation family: the
+        # arms differ in how the Constellation is rendered and asked about, not
+        # in what was retrieved, and sharing the object says so (contract 7).
+        retrieved: RetrievalResult | None = None
+
+        def once(question: str = q.question, vec: list[float] = vector) -> RetrievalResult:
+            nonlocal retrieved
+            if retrieved is None:
+                retrieved = retrieve(
+                    runtime,
+                    vec,
+                    query=question,
+                    top_k=top_k,
+                    record_firing=False,
+                    **retrieve_kwargs,
+                )
+            return retrieved
+
         for arm in arms:
+            attached: int | None = None
             yes_no = arm.endswith("_yn")
             base = arm.removesuffix("_yn")
             if base == "closed_book":
@@ -357,25 +421,13 @@ def build_qa_jobs(
                     # the structural descriptors — the shipped list is 60% of
                     # those, and whether they cost the reader anything is a
                     # question this run can answer for free.
-                    context = _constellation_context(
-                        runtime,
-                        q.question,
-                        vector,
-                        top_k,
-                        typed_only=base == "constellation_typed",
-                        **retrieve_kwargs,
+                    context = render_constellation(
+                        once().constellation, typed_only=base == "constellation_typed"
                     )
                 elif base == "constellation_sources":
                     assert source_index is not None  # checked above
-                    context = _sources_context(
-                        runtime,
-                        q.question,
-                        vector,
-                        top_k,
-                        passages,
-                        source_index,
-                        passage_k,
-                        **retrieve_kwargs,
+                    context, attached = sources_text(
+                        once().constellation, passages, source_index, passage_k
                     )
                 else:  # pragma: no cover - ALL_ARMS is checked above
                     raise ValueError(f"unknown arm {arm!r}")
@@ -390,6 +442,7 @@ def build_qa_jobs(
                         gold=q.answer,
                         answer="",
                         gold_in_context=bool(context) and _contains_any(context, golds),
+                        attached_passages=attached,
                     ),
                     system=system,
                     prompt=prompt,
@@ -591,6 +644,7 @@ __all__ = [
     "readings_by_paragraph",
     "seed_touching_entities",
     "sign_test_p",
+    "sources_text",
     "summarise_by_kind",
     "unit_rows",
 ]

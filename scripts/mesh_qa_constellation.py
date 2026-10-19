@@ -4,7 +4,7 @@
     scripts/mesh_qa_constellation.py --root data/mesh-2wiki --dataset 2wikimultihopqa \
         [--limit 300] [--arms closed_book,passages,vector_only,constellation] [--out report.json]
 
-Four arms, one model, one scorer (SQuAD EM / F1, PHX-1089's):
+Five arms, one model, one scorer (SQuAD EM / F1, PHX-1089's):
 
     closed_book          no material — the prior; 24.8% EM on 2Wiki
     passages             top-k passages by cosine — plain RAG, the published bridge
@@ -178,6 +178,7 @@ def main() -> None:
                 print(f"{kind + f' (n={n})':28s} {cells}")
 
     paired: dict[str, dict[str, float]] = {}
+    paired_by_kind_tables: dict[str, dict[str, dict[str, float]]] = {}
     for arm, base in (
         ("constellation", "vector_only"),
         ("constellation", "passages"),
@@ -211,7 +212,7 @@ def main() -> None:
             # questions and what the variant costs on the rest).
             if arm in EXTRA_ARMS:
                 by_kind_pairs = paired_by_kind(results, arm=arm, baseline=base)
-                paired[f"{arm}_vs_{base}_by_kind"] = by_kind_pairs  # type: ignore[assignment]
+                paired_by_kind_tables[f"{arm}_vs_{base}"] = by_kind_pairs
                 for kind, pk in by_kind_pairs.items():
                     sub = _subset(results, kind)
                     em_a = _mean_em(sub, arm)
@@ -239,6 +240,7 @@ def main() -> None:
                     "summary": summary,
                     "by_kind": by_kind,
                     "paired": paired,
+                    "paired_by_kind": paired_by_kind_tables,
                     "answers": [
                         {
                             "qid": r.qid,
@@ -249,6 +251,7 @@ def main() -> None:
                             "em": r.em,
                             "f1": r.f1,
                             "gold_in_context": r.gold_in_context,
+                            "attached_passages": r.attached_passages,
                         }
                         for r in results
                     ],
