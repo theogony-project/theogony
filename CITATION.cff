@@ -10,8 +10,8 @@ title: >-
 authors:
   - family-names: Reinehr
     given-names: Jakob
-version: 0.1.0
-date-released: "2026-04-16"
+version: 0.2.0
+date-released: "2026-10-19"
 repository-code: https://github.com/theogony-project/theogony
 url: https://github.com/theogony-project/theogony
 license: Apache-2.0
