@@ -1,0 +1,32 @@
+{
+  "title": "Theogony: an open vector-graph knowledge substrate beneath AI, queried by Spreading Activation",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "Apache-2.0",
+  "creators": [
+    {
+      "name": "Reinehr, Jakob"
+    }
+  ],
+  "keywords": [
+    "knowledge substrate",
+    "knowledge graph",
+    "spreading activation",
+    "retrieval",
+    "graph RAG",
+    "language model memory",
+    "model context protocol",
+    "provenance",
+    "contradiction",
+    "open commons"
+  ],
+  "description": "<p>Theogony builds a knowledge layer beneath AI systems as an open commons: knowledge kept as vectors and typed, weighted edges in a LanceDB and PyTorch mesh that a model activates by Spreading Activation instead of reading text, with provenance, time and contradiction as first-class fields. The repository ships the substrate, a reader (Kadmos) that turns text into mesh, a maintenance tick with decay that spares what fired, an MCP server with no language model on the retrieval path, and the complete measurement record, negative results included. On 1,000 questions of 2WikiMultihopQA the edges of the mesh were worth 3.6 points of exact match over the same entities without them.</p><p>Every figure the project publishes is in docs/etappes/ with its limits.</p>",
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/theogony-project/theogony",
+      "relation": "isSupplementTo",
+      "resource_type": "software",
+      "scheme": "url"
+    }
+  ]
+}

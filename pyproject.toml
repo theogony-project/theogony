@@ -207,7 +207,10 @@ include = [
     "CODE_OF_CONDUCT.md",
     "PHILOSOPHY.md",
     "README.md",
+    "llms.txt",
     "LICENSE",
+    "NOTICE",
+    "CITATION.cff",
     "pyproject.toml",
     ".env.example",
 ]

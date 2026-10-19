@@ -13,6 +13,14 @@ While the version is `0.x.y`, the API is considered unstable and may change betw
 
 ## [Unreleased]
 
+Nothing yet.
+
+---
+
+## [0.2.0] — 2026-10-19
+
+The first release since the MESH substrate replaced the Generation-1 store as the place where the work happens. Between 0.1.0 and this release: the substrate itself (LanceDB nodes and edges, a PyTorch CSR for Spreading Activation, personalised PageRank as the default operator, a reader that turns text into mesh, a maintenance tick with decay that spares what fired, reinforcement and renormalisation, a contradiction pass over epistemic frames), the measurements that say what it does and does not do — all of them in [`docs/etappes/`](docs/etappes/README.md), the negative results kept — and the entrance for an agent without an API key: a keyless demo mesh, the mesh over MCP, a self-description that carries the measurement record. The entries below are the ones since the entrance work began in September; the etappes index is the record for everything before.
+
 ### Added
 - **The self-description is current and carries the measurement record** (PHX-1112, piece 3). The bundled `pantheon_self` dump, written on 2026-04-20 before the mesh existed, is regenerated from the current documents with the measurement record in scope — `docs/etappes/*.md` minus the sprint briefs, the Neo4j retirement note and the Week-4 demo log — 735 nodes and 3,010 edges against 278 and 1,168. Asked what the project has measured, it cites the etappes where the April dump cited the Gen-1 implementation plan; a test pins it.
 - **A real mesh without an API key** (PHX-1112, piece 2). `theogony mesh demo` replays the bundled Kadmos readings of Hesiod's Theogony (95 paragraphs, Evelyn-White's public-domain translation; readings recorded once with deepseek-chat for EUR 0.03, shipped as 50 KB) through the shipped reader into the default workspace — about 720 nodes, 17,500 edges and 1,000 typed relations in about a minute — where `theogony mesh ask` and `theogony mcp` (`mesh_ask`) find it. The replay path moved from the evaluation module to `mesh/ingestion/replay.py`; `scripts/record_demo_readings.py` records a corpus with the reader's own prompt; `scripts/fresh_clone_probe.sh` builds the demo and asks it over MCP.
@@ -42,14 +50,6 @@ While the version is `0.x.y`, the API is considered unstable and may change betw
   Replaced with the unmodified canonical text (SHA-256 `cfc7749b…3d30`); the project's copyright
   line moved to a new `NOTICE` file; package metadata now carries the SPDX expression
   (`License-Expression: Apache-2.0`, PEP 639) and ships both files.
-
-### Planned for 0.2.0
-- Neo4j KnowledgeStore implementation
-- GutenbergAdapter (acquisition from Project Gutenberg)
-- Extraction pipeline: NER + Wikidata entity alignment
-- Embedding generation (sentence-transformers, local)
-- Multi-hop retrieval: vector + graph, recursive, deduplicated
-- Minimal CLI: `theogony ingest` and `theogony ask`
 
 ---
 

@@ -87,7 +87,7 @@ Once both gates are configured, the workflow will pause at the publish job after
 
 1. **Bump the version** in `src/theogony/__init__.py`. Follow [SemVer](https://semver.org/): patch (`0.1.0 → 0.1.1`), minor (`0.1.0 → 0.2.0`), major (`0.1.0 → 1.0.0`). Theogony stays on `0.x` until the substrate contracts (Pantheon Vision §"Non-Negotiable Principles") stabilise.
 2. **Run the local verification** above. If it does not pass, do not proceed.
-3. **Open a PR** with the version bump alone. Title: `chore(release): vX.Y.Z`. Body: list of user-visible changes since the last release (or "first release" if this is `v0.1.0`). Get it merged.
+3. **Open a PR** with the version bump, the `CHANGELOG.md` section and the `CITATION.cff` bump, nothing else. Title: `chore(release): vX.Y.Z`. Body: list of user-visible changes since the last release. Get it merged.
 4. **Tag from `main`** after the PR merges:
    ```bash
    git checkout main && git pull origin main
@@ -103,13 +103,33 @@ Once both gates are configured, the workflow will pause at the publish job after
    /tmp/theogony_release_check/bin/theogony --help
    ```
 
+## Archiving on Zenodo (DOI)
+
+A release that is only a git tag and a PyPI upload can be cited by URL and
+nothing else. Zenodo archives each GitHub Release and mints a DOI for it, plus
+one *concept DOI* that always resolves to the latest version — the identifier a
+paper, a dataset card or a corpus builder can carry.
+
+One-time setup, by the repository owner (it needs the owner's accounts, so no
+agent can do it): sign in at https://zenodo.org with GitHub, open *GitHub* in
+the account menu, and switch `theogony-project/theogony` on. From then on
+every GitHub Release is archived automatically. The metadata Zenodo uses is
+[`.zenodo.json`](../.zenodo.json) (title, creators, licence, keywords,
+description), kept in step with [`CITATION.cff`](../CITATION.cff) by
+`tests/test_citation.py`.
+
+After the first archived release: put the concept DOI into `CITATION.cff` as
+`doi:` and `identifiers:`, and the badge Zenodo offers into `README.md`. A
+release made *before* the switch is on is not archived retroactively; make the
+switch first, then tag.
+
 ## Yanking a Bad Release
 
 If a release is broken in a way local verification missed, **yank it on PyPI** (do not delete — yanked releases stay resolvable for pinned installers, just disappear from `pip install theogony` defaults). Then bump the patch version and release a fix.
 
 ## Changelog
 
-Until a `CHANGELOG.md` is established, the GitHub Releases page (`https://github.com/theogony-project/theogony/releases`) is the canonical changelog. Use the body of each release tag to summarise user-visible changes.
+[`CHANGELOG.md`](../CHANGELOG.md) is the canonical changelog: the release PR turns its *Unreleased* section into the version's section with the date. The GitHub Release body repeats the user-visible changes in short, and `CITATION.cff` (`version`, `date-released`) is bumped in the same PR.
 
 ## Related Files
 
