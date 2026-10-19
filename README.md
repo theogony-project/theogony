@@ -212,6 +212,10 @@ The full document map with recommended reading paths by audience is in [docs/IND
 
 ---
 
+## Cite
+
+[`CITATION.cff`](CITATION.cff) carries the citation GitHub shows under *Cite this repository*; a DOI for each release follows once the repository is archived on Zenodo ([`docs/RELEASING.md`](docs/RELEASING.md)). The figures are cited by their etappe: every number this project publishes is in [`docs/etappes/`](docs/etappes/) with its limits.
+
 ## Contributing
 
 The project is open source (Apache 2.0). Contributions are welcome. You do not have to adopt any of it to take something from it: [`docs/TAKE_THIS.md`](docs/TAKE_THIS.md) lists the pieces that stand on their own — tests, scorers, methods, components — each with what was measured about it and what it does not do.
