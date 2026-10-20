@@ -12,6 +12,7 @@ synthesis and no LLM — assembly is pure substrate bookkeeping over an activati
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import Literal
 
 import torch
@@ -88,14 +89,23 @@ def assemble_constellation(
     csr: EdgeCSR,
     *,
     top_k: int = DEFAULT_TOP_K,
-    seed_indices: set[int] | None = None,
+    seed_indices: Collection[int] | None = None,
     operator: str = "ppr",
     query: str | None = None,
     frame_routed: bool = False,
     max_edges: int = 200,
 ) -> Constellation:
-    """Turn an activation vector into a structured Constellation."""
-    seed_indices = seed_indices or set()
+    """Turn an activation vector into a structured Constellation.
+
+    ``seed_indices`` is taken in the order given: `retrieve()` ranks its seeds
+    (the MMR-selected ANN seed first, then the name anchors, narrowest span
+    first) and ``seed_node_ids`` keeps that order. Until PHX-1114 the seeds
+    arrived as a set and left in hash order, which made every consumer that
+    read the list front to back — the source-paragraph arm of the answer
+    benchmark first of all — spend its budget on whichever seed hashed first.
+    """
+    seed_order = list(seed_indices or ())
+    seed_set = set(seed_order)
     n = len(csr.node_ids)
     if n == 0 or activation.numel() == 0:
         return Constellation(
@@ -148,7 +158,7 @@ def assemble_constellation(
             query=query,
             operator=operator,
             frame_routed=frame_routed,
-            seed_node_ids=[csr.node_ids[i] for i in seed_indices if 0 <= i < n],
+            seed_node_ids=[csr.node_ids[i] for i in seed_order if 0 <= i < n],
             gaps=["no activation — seeds did not reach any connected node"],
         )
 
@@ -165,7 +175,7 @@ def assemble_constellation(
         if cn is None:
             nodes.append(
                 ConstellationNode(
-                    node_id=node_id, name=node_id, activation=act, is_seed=idx in seed_indices
+                    node_id=node_id, name=node_id, activation=act, is_seed=idx in seed_set
                 )
             )
             continue
@@ -183,7 +193,7 @@ def assemble_constellation(
                 activation=act,
                 is_source_anchor=cn.is_source_anchor,
                 is_candidate=cn.is_candidate,
-                is_seed=idx in seed_indices,
+                is_seed=idx in seed_set,
             )
         )
 
@@ -266,7 +276,7 @@ def assemble_constellation(
     def _edge_key(edge: tuple[int, int, float]) -> tuple[bool, float, int, float]:
         src, tgt, weight = edge
         return (
-            src in seed_indices or tgt in seed_indices,
+            src in seed_set or tgt in seed_set,
             min(activation_by_index.get(src, 0.0), activation_by_index.get(tgt, 0.0)),
             _claim(src, tgt),
             weight,
@@ -304,7 +314,7 @@ def assemble_constellation(
         query=query,
         operator=operator,
         frame_routed=frame_routed,
-        seed_node_ids=[csr.node_ids[i] for i in seed_indices if 0 <= i < n],
+        seed_node_ids=[csr.node_ids[i] for i in seed_order if 0 <= i < n],
         nodes=nodes,
         edges=edges,
         source_anchor_ids=source_anchor_ids,

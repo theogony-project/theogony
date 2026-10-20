@@ -15,6 +15,10 @@ While the version is `0.x.y`, the API is considered unstable and may change betw
 
 ### Added
 - **An agent can write into the mesh over MCP.** `mesh_append` takes one paragraph and the caller's own reading of it — concepts, relations, stance, in the schema the reader uses for a language model's reply — validates it as the reader would and replays it through `MeshParagraphReader`, so the write is the write a live read produces (one chunk, entities merged by the identity resolver, typed edges, a frame), persisted in the workspace, provenance `mcp_agent`, an `IngestRunReport` per call. No server-side language model, no content gate at insertion. Bounded by the same caps as `pantheon_chronicle_append`. The fresh-clone probe writes one paragraph into the demo mesh and requires the mesh to grow.
+- **Two repairs for the Constellation's reader, measured** (PHX-1113, PHX-1114; `docs/etappes/yes_no_and_sources.md`). One sentence in the prompt lets a yes/no question be answered yes or no: 55.5% → 67.3% on the 110 yes/no questions of 2WikiMultihopQA, nothing changed on the other 890. The source paragraphs of the seed-touching entities laid beneath the typed Constellation: dates 13.0% → 42.6%, overall +3.7 over the typed Constellation. The Constellation with its sources beats five retrieved passages by 6.8 points of exact match on 1,000 questions (p = 0.0001), by 8.9 with the sentence, which the passages arm did not get. The arms live in the answer harness (`constellation_typed_yn`, `constellation_sources`, `constellation_sources_yn`), which now reports exact match, F1 and the ceiling by answer kind and the paired comparison by kind.
+
+### Fixed
+- The Constellation listed its seeds in a set's hash order; it keeps the order retrieval ranked them (the MMR seed first, then the name anchors, narrowest span first) — found by review when the first version of the sources arm spent its paragraph budget on whichever hub hashed first.
 
 ---
 
