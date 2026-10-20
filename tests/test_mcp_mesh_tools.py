@@ -499,11 +499,48 @@ def test_mesh_append_refuses_what_the_reader_would_refuse(tmp_path: Path) -> Non
     res = _resources(tmp_path, mesh=runtime)
     before = runtime.nodes.consolidated_count()
     short = asyncio.run(tool_mesh_append(res, text="Hi.", reading=READING_LAKE))
-    assert "error" in short and "at least" in short["error"]
-    two = asyncio.run(
-        tool_mesh_append(res, text=LAKE_TEXT + "\n\nAnother one.", reading=READING_LAKE)
+    assert "error" in short and "one paragraph" in short["error"]
+    # what the reader would split, the tool refuses — a literal blank line, one
+    # that holds a space or a tab, CRLF, and pieces too short for the reader
+    for text in (
+        LAKE_TEXT + "\n\nAnother paragraph follows here.",
+        LAKE_TEXT + "\n \nAnother paragraph follows here.",
+        LAKE_TEXT + "\n\t\nAnother paragraph follows here.",
+        LAKE_TEXT + "\r\n\r\nAnother paragraph follows here.",
+        LAKE_TEXT + "\n \nOk.",
+        "Hi there.\n \nBye now.",
+    ):
+        two = asyncio.run(tool_mesh_append(res, text=text, reading=READING_LAKE))
+        assert "error" in two and "one paragraph" in two["error"], text
+    # the caps the descriptor promises are kept here as well
+    long_title = asyncio.run(
+        tool_mesh_append(res, text=LAKE_TEXT, reading=READING_LAKE, title="t" * 241)
     )
-    assert "error" in two and "one paragraph" in two["error"]
+    assert "error" in long_title and "title" in long_title["error"]
+    long_anchor = asyncio.run(
+        tool_mesh_append(res, text=LAKE_TEXT, reading=READING_LAKE, anchor="a" * 501)
+    )
+    assert "error" in long_anchor and "anchor" in long_anchor["error"]
+    many = {
+        "concepts": [{"label": f"c{i}", "description": "x"} for i in range(101)],
+        "relations": [],
+    }
+    too_many = asyncio.run(tool_mesh_append(res, text=LAKE_TEXT, reading=many))
+    assert "error" in too_many and "101 concepts" in too_many["error"]
+    # a relation that names an endpoint the reading does not declare is refused,
+    # not dropped on the floor by the reader
+    dangling = {
+        "concepts": READING_LAKE["concepts"],
+        "relations": [
+            {
+                "source": "Lake Traunsee",
+                "target": "Salzkammergut",
+                "relation_descriptor": "lies_in",
+            }
+        ],
+    }
+    loose = asyncio.run(tool_mesh_append(res, text=LAKE_TEXT, reading=dangling))
+    assert "error" in loose and "Salzkammergut" in loose["error"]
     bad = asyncio.run(
         tool_mesh_append(res, text=LAKE_TEXT, reading={"concepts": [{"label": "A", "tags": "x"}]})
     )
@@ -555,3 +592,95 @@ async def test_mesh_append_answers_a_protocol_round_trip(tmp_path: Path) -> None
                 refused = await session.call_tool("mesh_append", {"text": "x", "reading": {}})
                 assert refused.is_error is True
             tg.cancel_scope.cancel()
+
+
+def test_a_read_that_applies_nothing_is_an_error_not_a_quiet_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If the reader cannot use the reading — here forced by a provider that
+    answers nothing — the call fails, names what did land, and the run report
+    is there to read."""
+    from theogony.agents.llm import LLMResult
+    from theogony.mcp.server import tool_mesh_append
+    from theogony.mesh.ingestion.replay import ReplayReadingProvider
+
+    runtime = _mesh(tmp_path)
+    res = _resources(tmp_path, mesh=runtime)
+
+    async def nothing(self, prompt, *, system=None, **_):  # type: ignore[no-untyped-def]
+        self.misses.append(prompt[:40])
+        return LLMResult(text="", model_id="mcp-agent")
+
+    monkeypatch.setattr(ReplayReadingProvider, "complete", nothing)
+    payload = asyncio.run(tool_mesh_append(res, text=LAKE_TEXT, reading=READING_LAKE))
+    assert "error" in payload and "applied none" in payload["error"]
+    assert payload["written"]["concepts"] == 0 and payload["run_id"]
+    assert payload["verdict"] == "failed"
+
+
+def test_appends_compact_the_workspace_every_fifty_and_skip_the_corpus_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from theogony.mcp import server as mcp_server
+    from theogony.mcp.server import tool_mesh_append
+    from theogony.mesh.ingestion import kadmos_v2
+
+    runtime = _mesh(tmp_path)
+    res = _resources(tmp_path, mesh=runtime)
+    compactions: list[int] = []
+    monkeypatch.setattr(runtime, "compact", lambda **_: compactions.append(1) or {})
+    walked: list[int] = []
+    original = kadmos_v2.MeshParagraphReader._compute_connectivity_metrics
+
+    def spy(self, units):  # type: ignore[no-untyped-def]
+        walked.append(1)
+        return original(self, units)
+
+    monkeypatch.setattr(kadmos_v2.MeshParagraphReader, "_compute_connectivity_metrics", spy)
+    res.mesh_appends = mcp_server._MESH_APPEND_COMPACT_EVERY - 1
+    payload = asyncio.run(tool_mesh_append(res, text=LAKE_TEXT, reading=READING_LAKE))
+    assert "error" not in payload
+    assert compactions == [1], "the fiftieth append compacts"
+    assert walked == [], "one paragraph does not walk the whole graph"
+    assert res.mesh_appends == mcp_server._MESH_APPEND_COMPACT_EVERY
+
+
+def test_a_second_mention_merges_with_the_entity_already_there(tmp_path: Path) -> None:
+    """Identity resolution is the reader's, so a second paragraph about the same
+    lake does not mint a second lake."""
+    from theogony.mcp.server import tool_mesh_append
+
+    runtime = _mesh(tmp_path)
+    res = _resources(tmp_path, mesh=runtime)
+    first = asyncio.run(tool_mesh_append(res, text=LAKE_TEXT, reading=READING_LAKE))
+    assert "error" not in first
+    second = asyncio.run(
+        tool_mesh_append(
+            res,
+            text="Lake Traunsee is the deepest lake of Upper Austria.",
+            reading={
+                "concepts": [
+                    {
+                        "label": "Lake Traunsee",
+                        "entity_type": "place",
+                        "description": "The deepest lake of Upper Austria.",
+                    },
+                    {"label": "Upper Austria", "entity_type": "place", "description": "A state."},
+                ],
+                "relations": [
+                    {
+                        "source": "Lake Traunsee",
+                        "target": "Upper Austria",
+                        "relation_descriptor": "located_in",
+                    }
+                ],
+            },
+        )
+    )
+    assert "error" not in second, second
+    lakes = [
+        n
+        for n in runtime.nodes.iter_consolidated()
+        if n.tags and n.tags[0] == "Lake Traunsee" and not n.is_source_anchor
+    ]
+    assert len(lakes) == 1, "one lake, two paragraphs"

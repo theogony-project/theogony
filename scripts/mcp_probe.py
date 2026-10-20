@@ -16,7 +16,10 @@ checks what no unit test can see from inside a configured environment:
         both say so as a tool error that names the way to get a workspace
     with --expect-mesh, a workspace with content must be open — the state the
         fresh-clone probe is in after `theogony mesh demo` — and `mesh_append`
-        must write one paragraph with the caller's reading and grow the mesh
+        must write one paragraph with the caller's reading and grow the mesh.
+        Every such run appends one more paragraph to the served workspace; the
+        fresh-clone probe serves a throwaway clone's demo mesh, so nothing of
+        yours is written to.
 
 Exit code 0 only if all of that holds.
 """

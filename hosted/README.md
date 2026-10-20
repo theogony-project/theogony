@@ -2,7 +2,7 @@
 
 This directory packages a **single-instance** MCP server over **HTTP/SSE**. The default image pre-seeds the bundled `pantheon_self` chronicle (the project’s own vision, doctrine, architecture, glossary, prompts and, since PHX-1112, the measurement record in `docs/etappes/`) into **memory** for a frictionless demo.
 
-**Bounded writes:** the MCP tool `pantheon_chronicle_append` lets agents add short text fragments as new `KnowledgeNode` rows (embedded, `mcp_agent` provenance, `hypothesized` status) under strict size caps. There is still **no full Gutenberg ingest** over MCP (that remains the long-running API/CLI path).
+**Bounded writes:** the MCP tool `pantheon_chronicle_append` lets agents add short text fragments as new `KnowledgeNode` rows (embedded, `mcp_agent` provenance, `hypothesized` status) under strict size caps. When the server is started with a mesh workspace (`theogony mcp --mesh-root`, or `data/mesh` when one is there), `mesh_append` writes one paragraph with the caller's own reading into that workspace **on disk**, under the same caps, with no authentication beyond the rate limits — on a public instance set `THEOGONY_MCP_APPEND__ENABLED=false` or serve no workspace. There is still **no full Gutenberg ingest** over MCP (that remains the long-running API/CLI path).
 
 **Persistence:** in the default container, appended nodes live in RAM with the seed and are lost on restart. For a Chronik that **keeps growing across deploys**, point the server at **Neo4j** and set `THEOGONY_MCP_SEED=0` (see *Persistent Neo4j on Fly* below).
 

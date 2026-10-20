@@ -167,9 +167,15 @@ class MeshParagraphReader:
         max_structural_neighbours: int = _MAX_STRUCTURAL_NEIGHBOURS,
         compact_every: int = _COMPACT_EVERY,
         embedder: EmbeddingProvider | None = None,
+        connectivity_metrics: bool = True,
     ) -> None:
         self.mesh = mesh
         self.llm = llm
+        # The connectivity pass loads every edge and every consolidated node and
+        # walks the graph once per read — right for a corpus, wrong for a path
+        # that reads one paragraph per call (mesh_append over MCP), where it
+        # would be the one-transaction-per-item cost this substrate keeps paying.
+        self.connectivity_metrics = connectivity_metrics
         self.settings = settings or Settings()
         self.max_paragraphs = max_paragraphs
         # Compact the workspace every N paragraphs (0 = never). Every node is
@@ -789,11 +795,15 @@ class MeshParagraphReader:
         self._flush_edges()
         self.mesh.audit.flush()
 
-        metrics = self._compute_connectivity_metrics(paragraph_units)
-        anomalies, recommendations = self._build_connectivity_observations(
-            metrics,
-            cross_pass_link_count,
-        )
+        metrics: dict[str, float | int] = {}
+        anomalies: list[str] = []
+        recommendations: list[str] = []
+        if self.connectivity_metrics:
+            metrics = self._compute_connectivity_metrics(paragraph_units)
+            anomalies, recommendations = self._build_connectivity_observations(
+                metrics,
+                cross_pass_link_count,
+            )
         status: Literal["completed", "partial", "failed", "aborted"] = (
             "completed" if llm_failure_count == 0 else "partial"
         )
