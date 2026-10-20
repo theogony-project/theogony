@@ -153,9 +153,10 @@ def test_tool_descriptors_match_registered_tool_names() -> None:
         "pantheon_reports_list",
         "pantheon_reports_show",
         "pantheon_chronicle_append",
-        # the MESH substrate, PHX-1112
+        # the MESH substrate, PHX-1112; mesh_append is the agent's own reading, replayed
         "mesh_ask",
         "mesh_status",
+        "mesh_append",
     }
     assert names == expected
     for d in descriptors:

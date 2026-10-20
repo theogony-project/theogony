@@ -1,0 +1,32 @@
+id: PHX-1116
+category: substrate-ingestion
+priority: low
+status: open
+generation_target: MESH — the reader's failure report (BUILD_DOCTRINE honest failure)
+title: "A read that raises mid-paragraph writes no report and leaves its buffered edges unwritten"
+filed_by: Claude Code (2026-10-20, from the review of mesh_append)
+created_at: 2026-10-20
+description: >
+  MeshParagraphReader.read_text has no try/except around its body. After the
+  source anchor and possibly entities have been appended, a Lance failure in
+  append_edges, _flush_edges or the audit flush propagates out of the call:
+  the buffered _pending_edges die with the reader instance, and no
+  IngestRunReport with verdict "failed" is written. Every caller — the CLI
+  ingest, the demo replay, the benchmark scripts and, since mesh_append, a
+  remote MCP client — gets the exception string and nothing else. Contract 3
+  (AGENTS.md) asks for a structured failure report from a failed run; the
+  tick got this in PHX-1082 and the reader did not. Found by the review of
+  mesh_append, which is the first path where the caller has nothing but that
+  string and cannot read the audit log.
+acceptance: >
+  read_text writes an IngestRunReport with status "failed" and the exception
+  in its reasoning when the body raises after the source anchor was written,
+  flushes what it safely can, and re-raises; a test forces the failure (a
+  monkeypatched append_edges) and reads the report. mesh_append then returns
+  the report's run_id in its error payload.
+relates_to:
+  - PHX-1082   # the tick's version of the same repair
+  - PHX-1112   # the MCP path this was found on
+linked_scripts:
+  - src/theogony/mesh/ingestion/kadmos_v2.py
+  - src/theogony/mcp/server.py

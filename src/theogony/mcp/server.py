@@ -28,6 +28,13 @@ Tools (MESH substrate, read-side; PHX-1112)
   model anywhere on this path.
 - ``mesh_status`` — node, edge and tick counts of the open workspace, its
   vector dimensions, and whether this server's embedder matches them.
+- ``mesh_append`` — write one paragraph into the workspace with the reading
+  the caller supplies (concepts, relations, stance in the reader's own
+  schema), replayed through the shipped reader: the same linker, identity
+  resolution, typed edges and frames a live read produces, with the agent
+  as the language model. Persists in the workspace. No content gate — the
+  schema is checked, the claims are not (IMMUNE_SYSTEM.md); provenance
+  ``mcp_agent``.
 
 The workspace is opened once per session (``theogony mcp --mesh-root``, or
 ``{data_dir}/mesh`` when a workspace is there) and never created: a server
@@ -82,7 +89,7 @@ from theogony.agents.llm import LLMProvider, OfflineLLMProvider
 from theogony.agents.mnemosyne_classifier import build_mnemosyne_classifier
 from theogony.chronicle.append_fragments import append_text_fragments
 from theogony.config.logging import get_logger, setup_logging
-from theogony.config.settings import Settings
+from theogony.config.settings import McpAppendSettings, Settings
 from theogony.core.store import KnowledgeStore
 from theogony.curiosity.stub_detector import StubDetector
 from theogony.extraction.audit import ExtractionAuditLog
@@ -91,6 +98,16 @@ from theogony.extraction.wikidata_cache import WikidataCache
 from theogony.memory.edge_pheromone import EdgePheromoneTracker
 from theogony.memory.relevance import RelevanceTracker
 from theogony.mesh import frames
+from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
+from theogony.mesh.ingestion.reading_schemas import (
+    ParagraphReadingOutput,
+    normalize_reading_payload,
+)
+from theogony.mesh.ingestion.replay import (
+    MIN_PARAGRAPH_CHARS,
+    ReplayReadingProvider,
+    paragraphs_of,
+)
 from theogony.mesh.retrieval.constellation import constellation_verdict, render_constellation
 from theogony.mesh.retrieval.defaults import DEFAULT_TOP_K
 from theogony.mesh.retrieval.retrieve import retrieve
@@ -154,6 +171,10 @@ class McpResources:
     #: The MESH workspace behind ``mesh_ask`` / ``mesh_status``, or ``None``
     #: when the session was started without one (PHX-1112).
     mesh: MeshRuntime | None = None
+    #: Paragraphs ``mesh_append`` has written this session; every
+    #: ``_MESH_APPEND_COMPACT_EVERY`` of them the workspace is compacted, as a
+    #: corpus read compacts itself every two hundred paragraphs.
+    mesh_appends: int = 0
 
 
 @contextlib.asynccontextmanager
@@ -709,6 +730,189 @@ async def tool_mesh_ask(
     }
 
 
+# The bounds the descriptor promises. mcp 2.x validates the request envelope,
+# not a tool's inputSchema, so each is also kept here. Text, title and the
+# reading's total size take the Gen-1 append's settings; the rest are the
+# budgets of one paragraph's reading — a hundred concepts is more than Kadmos
+# has ever found in one.
+_MESH_APPEND_MAX_TEXT_CHARS = McpAppendSettings().max_body_chars_per_fragment
+_MESH_APPEND_MAX_ANCHOR_CHARS = 500
+_MESH_APPEND_MAX_CONCEPTS = 100
+_MESH_APPEND_MAX_RELATIONS = 300
+_MESH_APPEND_COMPACT_EVERY = 50
+
+_MESH_APPEND_NOTE = (
+    "Written through the shipped reader with your reading in place of a language "
+    "model's: the paragraph is one chunk, each concept an entity (merged with an "
+    "existing one when the identity resolver recognises it), each relation a typed "
+    "edge, the stance a frame. Nothing judged the claims — the schema was checked, "
+    "the content was not (docs/IMMUNE_SYSTEM.md: verification is post-hoc). "
+    "Provenance is `mcp_agent`; the write persists in the workspace and the next "
+    "`mesh_ask` can reach it."
+)
+
+
+async def tool_mesh_append(
+    res: McpResources,
+    *,
+    text: str,
+    reading: dict[str, Any],
+    title: str | None = None,
+    anchor: str | None = None,
+) -> dict[str, Any]:
+    """Run :func:`mesh_append` and return the JSON-serialisable payload.
+
+    The caller is the language model: it hands over the paragraph and the
+    reading Kadmos would have produced for it, in the reader's schema. The
+    reading is validated the way the reader validates a model's reply and
+    replayed through `MeshParagraphReader` (PHX-1110's replay, PHX-1112's
+    demo path), so what lands in the mesh is what a live read would have
+    written — the agent's reading, not a server-side model's. Bounded: the
+    text by the Gen-1 append's fragment cap, the title by its title cap, the
+    reading by its total-body cap and by a hundred concepts and three hundred
+    relations per paragraph.
+    """
+    problem = _mesh_problem(res)
+    if problem is not None:
+        return {"error": problem}
+    caps = res.settings.mcp_append
+    if not caps.enabled:
+        return {"error": "appending is disabled (THEOGONY_MCP_APPEND__ENABLED=false)"}
+    paragraph = (text or "").strip()
+    # The reader's own split decides what one paragraph is — a blank line that
+    # holds a space or a tab, or CRLF, splits for the reader but not for a
+    # substring test, and the replay key must be the string the reader sends.
+    if paragraphs_of(paragraph) != [paragraph]:
+        return {
+            "error": (
+                f"text must be one paragraph of at least {MIN_PARAGRAPH_CHARS} characters, "
+                "as the reader splits them (a blank line, whitespace or CRLF included, starts "
+                "a new paragraph); call once per paragraph"
+            )
+        }
+    if len(paragraph) > caps.max_body_chars_per_fragment:
+        return {
+            "error": (
+                f"text is {len(paragraph)} characters; the cap is "
+                f"{caps.max_body_chars_per_fragment}"
+            )
+        }
+    source_identifier = f"mcp_agent:{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}"
+    title_s = (title or paragraph[:60]).strip()
+    anchor_s = (anchor or source_identifier).strip()
+    if len(title_s) > caps.max_title_chars:
+        return {"error": f"title is {len(title_s)} characters; the cap is {caps.max_title_chars}"}
+    if len(anchor_s) > _MESH_APPEND_MAX_ANCHOR_CHARS:
+        return {
+            "error": (
+                f"anchor is {len(anchor_s)} characters; the cap is {_MESH_APPEND_MAX_ANCHOR_CHARS}"
+            )
+        }
+    if not isinstance(reading, dict):
+        return {
+            "error": "reading must be an object with concepts, relations, paragraph_concept, stance"
+        }
+    reading_chars = len(json.dumps(reading))
+    if reading_chars > caps.max_total_body_chars:
+        return {
+            "error": (
+                f"reading is {reading_chars} characters of JSON; the cap is "
+                f"{caps.max_total_body_chars}"
+            )
+        }
+    try:
+        validated = ParagraphReadingOutput.model_validate(normalize_reading_payload(reading))
+    except Exception as exc:  # noqa: BLE001 - the schema error is the answer
+        return {"error": f"reading does not fit the reader's schema: {exc}"}
+    if not validated.concepts:
+        return {"error": "reading names no concept; a paragraph with no concept writes nothing"}
+    if len(validated.concepts) > _MESH_APPEND_MAX_CONCEPTS:
+        return {
+            "error": (
+                f"reading names {len(validated.concepts)} concepts; the cap is "
+                f"{_MESH_APPEND_MAX_CONCEPTS} per paragraph"
+            )
+        }
+    if len(validated.relations) > _MESH_APPEND_MAX_RELATIONS:
+        return {
+            "error": (
+                f"reading has {len(validated.relations)} relations; the cap is "
+                f"{_MESH_APPEND_MAX_RELATIONS} per paragraph"
+            )
+        }
+    # The reader drops a relation whose endpoint is not one of the paragraph's
+    # concepts, silently; refusing here puts the labels in front of the caller
+    # before anything is written.
+    labels = {c.label for c in validated.concepts}
+    dangling = sorted(
+        {end for r in validated.relations for end in (r.source, r.target) if end not in labels}
+    )
+    if dangling:
+        return {
+            "error": (
+                "every relation's source and target must be one of the reading's concept "
+                f"labels; not among them: {dangling}"
+            )
+        }
+    mesh = res.mesh
+    assert mesh is not None  # _mesh_problem checked
+    provider = ReplayReadingProvider({paragraph: validated.model_dump()}, model_id="mcp-agent")
+    reader = MeshParagraphReader(
+        mesh,
+        llm=provider,
+        settings=res.settings,
+        compact_every=0,
+        embedder=res.embedder,
+        connectivity_metrics=False,
+    )
+    # The reader embeds through a worker thread of its own and writes Lance
+    # synchronously in between; one paragraph is well under a second.
+    report = await reader.read_text(
+        text=paragraph,
+        source_type="mcp_agent",
+        source_identifier=source_identifier,
+        title=title_s,
+        anchor=anchor_s,
+    )
+    mesh.invalidate_csr_cache()
+    res.mesh_appends += 1
+    if res.mesh_appends % _MESH_APPEND_COMPACT_EVERY == 0:
+        mesh.compact()
+    written = {
+        "paragraphs": report.get("paragraphs"),
+        "concepts": report.get("concepts"),
+        "relations": report.get("relations"),
+        "paragraph_concept_nodes": report.get("paragraph_concept_nodes"),
+        "stances": report.get("stances"),
+        "contradiction_edges": report.get("contradiction_edges"),
+    }
+    if provider.misses or report.get("verdict") == "failed" or not report.get("concepts"):
+        # A failed read is a failed call. What did land — the source anchor, a
+        # chunk — is named, not hidden, and the report says the same.
+        return {
+            "error": (
+                "the reader applied none of the reading: the paragraph the reader split "
+                "out did not match the one given, or the read failed; see run_id"
+            ),
+            "run_id": report.get("report_run_id"),
+            "verdict": report.get("verdict"),
+            "source_identifier": source_identifier,
+            "written": written,
+        }
+    return {
+        "source_identifier": source_identifier,
+        "source_anchor_id": report.get("source_anchor_id"),
+        "run_id": report.get("report_run_id"),
+        "verdict": report.get("verdict"),
+        "written": written,
+        "mesh": {
+            "consolidated_nodes": mesh.nodes.consolidated_count(),
+            "mesh_edges": mesh.edges.count_rows(),
+        },
+        "note": _MESH_APPEND_NOTE,
+    }
+
+
 # --------------------------------------------------------------------------
 # Tool descriptors — single source of truth for ``tools/list``
 # --------------------------------------------------------------------------
@@ -1002,6 +1206,77 @@ def _tool_descriptors() -> list[dict[str, Any]]:
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "mesh_append",
+            "description": (
+                "Write one paragraph into the mesh with YOUR reading of it — the "
+                "concepts it names, the relations among them, its epistemic stance — "
+                "in the schema the reader uses for a language model's reply. The "
+                "paragraph becomes a chunk, each concept an entity (merged with an "
+                "existing one when the resolver recognises it), each relation a typed "
+                "edge, the stance a frame; the write persists in the workspace and the "
+                "next `mesh_ask` reaches it. No server-side language model runs: you "
+                "are the reader. Nothing judges the claims — the schema is checked, "
+                "the content is not; provenance is `mcp_agent`. Bounded: the text and "
+                "title by the caps of `pantheon_chronicle_append`, the reading by its "
+                "total-body cap and by 100 concepts and 300 relations per paragraph. "
+                "Every relation's source and target must be one of the reading's concept "
+                "labels, or the call is refused before anything is written."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": (
+                            "One paragraph of text, the source of the reading. A blank line "
+                            "(whitespace or CRLF included) starts a new paragraph and is refused; "
+                            "call once per paragraph."
+                        ),
+                        "minLength": MIN_PARAGRAPH_CHARS,
+                        "maxLength": _MESH_APPEND_MAX_TEXT_CHARS,
+                    },
+                    "reading": {
+                        "type": "object",
+                        "description": (
+                            "Your reading of the paragraph: {concepts: [{label, entity_type "
+                            "(person|place|org|disease|event|concept|date), tags: [str], "
+                            "description}], relations: [{source, target (labels from "
+                            "concepts), relation_descriptor (short verb, e.g. 'father_of'), "
+                            "relation_kind (causal|hierarchy|attribute|semantic|contradicts|"
+                            "supersedes), stance (current_claim|definition|historical_claim|"
+                            "refuted_claim|hypothesis|observation|direct_quote|disputed|"
+                            "superseded), rationale}], paragraph_concept: {label, "
+                            "description, tags} | null, stance: the paragraph's stance}."
+                        ),
+                        "properties": {
+                            "concepts": {"type": "array"},
+                            "relations": {"type": "array"},
+                            "paragraph_concept": {"type": ["object", "null"]},
+                            "stance": {"type": "string"},
+                        },
+                        "required": ["concepts"],
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Source anchor name (default: first words of the text).",
+                        "maxLength": 240,
+                    },
+                    "anchor": {
+                        "type": "string",
+                        "description": (
+                            "Where the paragraph comes from — a URL or citation. It is written "
+                            "on the source anchor node this call creates (`source_anchor_id` in "
+                            "the result), which every entity written here is one edge away from; "
+                            "the chunk carries the call's `source_identifier`."
+                        ),
+                        "maxLength": _MESH_APPEND_MAX_ANCHOR_CHARS,
+                    },
+                },
+                "required": ["text", "reading"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
 
@@ -1083,6 +1358,15 @@ def build_server(res: McpResources) -> Any:
             )
         elif name == "mesh_status":
             payload = tool_mesh_status(res)
+        elif name == "mesh_append":
+            raw_reading = arguments.get("reading")
+            payload = await tool_mesh_append(
+                res,
+                text=str(arguments.get("text", "")),
+                reading=raw_reading if isinstance(raw_reading, dict) else {},
+                title=arguments.get("title"),
+                anchor=arguments.get("anchor"),
+            )
         else:
             raise ValueError(f"unknown tool: {name}")
         return payload
@@ -1419,6 +1703,7 @@ __all__ = [
     "serve_sse",
     "serve_stdio",
     "tool_ask",
+    "tool_mesh_append",
     "tool_mesh_ask",
     "tool_mesh_status",
     "tool_node",
