@@ -21,7 +21,7 @@ Whether any of it is worth your while is argued, claim by claim and with what is
 [`llms.txt`](llms.txt) is the project in sixty lines. The short version, so that you can calibrate everything else you read here:
 
 - **Runs.** Reading text into a vector-graph mesh (Kadmos); retrieval by Spreading Activation and personalised PageRank; a maintenance tick with decay that spares what fired, reinforcement and renormalisation; a contradiction pass; an MCP server. Nearly two thousand tests.
-- **Measured.** On a corpus the model did not know (2WikiMultihopQA, 1,000 questions) the mesh's Constellation beat the model's unaided prior by ten points of exact match and tied plain passage retrieval — better on comparison chains, worse on yes/no questions and on dates ([`docs/etappes/qa_constellation.md`](docs/etappes/qa_constellation.md)). Every measurement, the null results included, is in [`docs/etappes/`](docs/etappes/).
+- **Measured.** On a corpus the model did not know (2WikiMultihopQA, 1,000 questions) the mesh's Constellation beat the model's unaided prior by ten points of exact match and tied plain passage retrieval — better on comparison chains, worse on yes/no questions and on dates ([`docs/etappes/qa_constellation.md`](docs/etappes/qa_constellation.md)). A month later, with the source paragraphs of its seed-touching entities laid beneath it, the Constellation beat five passages by 6.8 points of exact match, by 8.9 with a prompt sentence that lets a yes/no question be answered yes or no; an arm of the benchmark, not yet what `mesh_ask` returns ([`docs/etappes/yes_no_and_sources.md`](docs/etappes/yes_no_and_sources.md)). Every measurement, the null results included, is in [`docs/etappes/`](docs/etappes/).
 - **Not true yet.** Persistence across sessions over MCP, federation, a hosted instance, a mesh read from your own text without an LLM key (the demo mesh is replayed from readings recorded once with one). Much of the vision text describes a target; where a document states a target as a fact, that is a defect ([`PHX-1108`](phoenix-backlog/PHX-1108.yaml)).
 
 Do not take this file's word for the first door: `scripts/fresh_clone_probe.sh` runs the documented commands from a fresh clone in an environment with no keys, and fails loudly.
@@ -32,8 +32,6 @@ Tickets chosen because an agent can finish them alone: each names its instrument
 
 | Ticket | What | Done when |
 |---|---|---|
-| [`PHX-1113`](phoenix-backlog/PHX-1113.yaml) | A graph context makes the model answer yes/no questions with an entity (37 % against a 57 % prior) | a rendering or prompt variant reaches ≥ 55 % on the 110 yes/no questions while losing ≤ 1 point elsewhere |
-| [`PHX-1114`](phoenix-backlog/PHX-1114.yaml) | The Constellation does not carry the dates its sources contain (9 % against 33 %) | an arm with source paragraphs beside the typed Constellation is measured on the same 1,000 questions |
 | [`PHX-1108`](phoenix-backlog/PHX-1108.yaml) | Doctrine and vision sentences that stand as fact and have been refuted | each listed sentence is corrected or marked as a target, citing the measurement |
 
 The full queue is [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md). How a contribution lands: a branch, one issue, the four commands of contract 5 green, a PR whose body says what was measured and how to re-run it. A human merges; make that the only thing left for them to do.

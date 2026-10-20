@@ -18,6 +18,7 @@ decision — and the German originals remain in the git history.
 
 | Etappe | Ticket | What was measured, in one line |
 |---|---|---|
+| [`yes_no_and_sources.md`](yes_no_and_sources.md) | PHX-1113, PHX-1114 | One sentence in the prompt takes the yes/no questions from 55% to 67% and changes nothing else; the source paragraphs of the seed-touching entities take dates from 13% to 43%; the Constellation with its sources +6.8 exact match over five passages, +8.9 with the sentence (p = 4e-7), the strongest arm measured on this benchmark. |
 | [`mesh_over_mcp.md`](mesh_over_mcp.md) | PHX-1112 | The mesh gets an MCP surface (`mesh_ask`: the measured Constellation, no LLM on the path), a workspace an agent can build without a key (Hesiod's Theogony from recorded Kadmos readings, about 720 nodes and 17,500 edges in about a minute), and a self-description that cites the measurement record instead of an April plan. |
 | [`arriving_agent.md`](arriving_agent.md) | PHX-1111, PHX-1115 | From a fresh clone with no API key, no documented path returned an answer or a constellation; seven defects no test could see. Fixed, and the entrance rewritten. |
 | [`qa_constellation.md`](qa_constellation.md) | PHX-1110 | On a corpus the model does not know, the graph's edges are worth +3.6 exact match over the same entities — only without structural edges; a tie with plain passages; worse on yes/no and dates. |

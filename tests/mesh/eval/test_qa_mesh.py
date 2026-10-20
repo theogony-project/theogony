@@ -18,6 +18,7 @@ import pytest
 from theogony.agents.llm import StubLLMProvider
 from theogony.mesh.eval.qa_answers import summarise_qa_answers
 from theogony.mesh.eval.qa_mesh import (
+    ALL_ARMS,
     QA_ARMS,
     ReplayReadingProvider,
     answer_qa_set,
@@ -44,7 +45,10 @@ PASSAGES = [
     QAPassage(
         idx=1,
         title="George V of Hanover",
-        text="George V of Hanover was the last King of Hanover and the son of Ernest Augustus.",
+        text=(
+            "George V of Hanover was the last King of Hanover and the son of Ernest Augustus, "
+            "who died in 1851."
+        ),
     ),
     QAPassage(
         idx=2,
@@ -199,10 +203,22 @@ def test_the_four_arms_are_built_on_one_question_and_scored_alike(tmp_path) -> N
     llm = StubLLMProvider(default="George V of Hanover")
     results = asyncio.run(
         answer_qa_set(
-            runtime, _embed, llm, questions, PASSAGES, vectors, top_k=10, passage_k=2, concurrency=2
+            runtime,
+            _embed,
+            llm,
+            questions,
+            PASSAGES,
+            vectors,
+            arms=ALL_ARMS,
+            top_k=10,
+            passage_k=2,
+            concurrency=2,
         )
     )
-    assert len(results) == len(QA_ARMS) * 2
+    assert len(results) == len(ALL_ARMS) * 2, "the SourceIndex is built by the run when needed"
+    attached = [r.attached_passages for r in results if r.arm == "constellation_sources"]
+    assert all(a is not None and a >= 1 for a in attached), attached
+    assert all(r.attached_passages is None for r in results if r.arm == "constellation_typed")
     by = {(r.qid, r.arm): r for r in results}
     # scored against the answer key, same scorer for every arm
     assert by[("q1", "closed_book")].em == 1.0 and by[("q1", "constellation")].em == 1.0
@@ -217,9 +233,10 @@ def test_the_four_arms_are_built_on_one_question_and_scored_alike(tmp_path) -> N
     assert any("daughter of" in p for p in typed), "and keeps the read relations"
     assert any("Entities:" in p and "Relations" not in p for p in prompts), "vector arm shows none"
     assert any(p.startswith("Material:\n[1] ") for p in prompts), "passages arm shows passages"
+    assert any("Source passages:" in p for p in prompts), "the sources arms lay paragraphs beside"
     assert by[("q1", "closed_book")].gold_in_context is False
     summary = summarise_qa_answers(results)
-    assert set(summary) == set(QA_ARMS)
+    assert set(summary) == set(ALL_ARMS)
     assert summary["closed_book"]["exact_match"] == 0.5
 
 
@@ -256,7 +273,12 @@ def test_answers_are_broken_down_by_the_shape_of_the_gold() -> None:
         QAAnswerResult(qid="c", arm="x", question="", gold="Gmunden", answer="", em=1.0),
     ]
     table = summarise_by_kind(rows)
-    assert table["yes_no"]["x"] == {"questions": 2.0, "exact_match": 0.5}
+    assert table["yes_no"]["x"] == {
+        "questions": 2.0,
+        "exact_match": 0.5,
+        "f1": 0.0,
+        "gold_in_context": 0.0,
+    }
     assert table["entity"]["x"]["exact_match"] == 1.0
 
 
@@ -285,3 +307,138 @@ def test_paired_comparison_and_sign_test() -> None:
     assert sign_test_p(0, 0) == 1.0
     assert sign_test_p(5, 5) == pytest.approx(1.0)
     assert sign_test_p(10, 0) == pytest.approx(2 / 1024)
+
+
+def test_the_sources_arm_lays_the_paragraphs_beside_the_constellation(tmp_path) -> None:
+    """PHX-1114: the mesh keeps a reference to the paragraph, the benchmark
+    keeps the text; the arm puts them back together for the seed-touching
+    entities, and the yes/no sentence is one prompt line (PHX-1113)."""
+    from theogony.mesh.eval.qa_mesh import (
+        ALL_ARMS,
+        EXTRA_ARMS,
+        SourceIndex,
+        seed_touching_entities,
+    )
+
+    runtime, _ = _ingest(tmp_path)
+    index = SourceIndex.from_runtime(runtime)
+    assert len(index.chunk_passage) == 3, "one chunk per passage, #p1..#p3 -> 0..2"
+    assert set(index.chunk_passage.values()) == {0, 1, 2}
+    by_name = {
+        n.tags[0]: str(n.id)
+        for n in runtime.nodes.iter_consolidated()
+        if n.tags and not n.is_source_anchor
+    }
+    marie, george, ernest = (
+        by_name["Marie of Hanover"],
+        by_name["George V of Hanover"],
+        by_name["Ernest Augustus"],
+    )
+    assert index.passages_for([marie], limit=5) == [0], "read from the first passage"
+    assert index.passages_for(["nobody"], limit=5) == []
+    # the paragraph that mentions several of the entities comes first: George is
+    # read from both passages, and the one he shares with Ernest wins the budget
+    assert index.passages_for([george, ernest], limit=1) == [1]
+    assert index.passages_for([george, marie], limit=1) == [0]
+    assert index.passages_for([marie, george, ernest], limit=5) == [0, 1], "each passage once"
+    index.check_passages(PASSAGES)
+    with pytest.raises(ValueError, match="not the same corpus"):
+        index.check_passages(PASSAGES[:1])
+    from theogony.mesh.runtime.oneiros_tick import MeshRuntime as _Runtime
+
+    with pytest.raises(ValueError, match="SourceIndex is empty"):
+        SourceIndex.from_runtime(_Runtime(tmp_path / "unread", semantic_dim=8, frame_dim=8))
+
+    q = QAQuestion(
+        qid="q1",
+        question="Who was the father of Marie of Hanover?",
+        answer="George V",
+        gold_idxs={0},
+    )
+    vectors = unit_rows(np.asarray([_embed(paragraph_of(p)) for p in PASSAGES], dtype=np.float32))
+    jobs = build_qa_jobs(
+        runtime,
+        _embed,
+        [q],
+        PASSAGES,
+        vectors,
+        arms=EXTRA_ARMS,
+        top_k=10,
+        passage_k=2,
+        source_index=index,
+    )
+    by_arm = {j.result.arm: j for j in jobs}
+    typed_yn = by_arm["constellation_typed_yn"]
+    assert typed_yn.system.endswith("answer yes or no.")
+    assert (
+        "Relations between them:" in typed_yn.prompt and "Source passages:" not in typed_yn.prompt
+    )
+    sources = by_arm["constellation_sources"]
+    assert not sources.system.endswith("answer yes or no.")
+    assert "Relations between them:" in sources.prompt
+    assert "Source passages:\n[1] Marie of Hanover\n" in sources.prompt
+    assert PASSAGES[0].text in sources.prompt, "the paragraph the seed was read from"
+    assert sources.result.gold_in_context, "the ceiling is measured on the combined text"
+    assert sources.result.attached_passages == 2
+
+    # a gold that stands only in a source paragraph separates the two ceilings
+    # (the question names a two-token entity, which the name anchor finds; a
+    # four-token name like "George V of Hanover" is beyond its three-token span)
+    died = QAQuestion(
+        qid="q3", question="When did Ernest Augustus die?", answer="1851", gold_idxs={1}
+    )
+    ceilings = {
+        j.result.arm: j.result.gold_in_context
+        for j in build_qa_jobs(
+            runtime,
+            _embed,
+            [died],
+            PASSAGES,
+            vectors,
+            arms=("constellation_typed", "constellation_sources"),
+            top_k=10,
+            passage_k=2,
+            source_index=index,
+        )
+    }
+    assert ceilings == {"constellation_typed": False, "constellation_sources": True}
+    both = by_arm["constellation_sources_yn"]
+    assert both.system.endswith("answer yes or no.") and "Source passages:" in both.prompt
+
+    # the seeds come first, then what the seed-touching edges join them to
+    from theogony.mesh.retrieval.retrieve import retrieve
+
+    c = retrieve(runtime, _embed(q.question), query=q.question, top_k=10, record_firing=False)
+    assert c.constellation.seed_node_ids == c.seed_node_ids, (
+        "the Constellation keeps the seeds in the order retrieval ranked them, not a set's"
+    )
+    ordered = seed_touching_entities(c.constellation)
+    assert ordered[: len(c.constellation.seed_node_ids)] == c.constellation.seed_node_ids
+    assert len(ordered) == len(set(ordered))
+
+    with pytest.raises(ValueError, match="unknown arm"):
+        build_qa_jobs(runtime, _embed, [q], PASSAGES, vectors, arms=("vibes",))
+    with pytest.raises(ValueError, match="SourceIndex"):
+        build_qa_jobs(runtime, _embed, [q], PASSAGES, vectors, arms=("constellation_sources",))
+    assert set(QA_ARMS) < set(ALL_ARMS)
+
+
+def test_the_pairing_is_read_by_answer_kind() -> None:
+    """PHX-1113's finish line: the yes/no questions, and the cost on the rest."""
+    from theogony.mesh.eval.qa_answers import QAAnswerResult
+    from theogony.mesh.eval.qa_mesh import paired_by_kind
+
+    rows = []
+    for qid, gold, a_em, b_em in (
+        ("y1", "yes", 1.0, 0.0),
+        ("y2", "no", 1.0, 0.0),
+        ("e1", "Gmunden", 0.0, 1.0),
+        ("d1", "1961", 1.0, 1.0),
+    ):
+        rows.append(QAAnswerResult(qid=qid, arm="a", question="", gold=gold, answer="", em=a_em))
+        rows.append(QAAnswerResult(qid=qid, arm="b", question="", gold=gold, answer="", em=b_em))
+    table = paired_by_kind(rows, arm="a", baseline="b")
+    assert set(table) == {"entity", "yes_no", "date", "not_yes_no"}
+    assert (table["yes_no"]["em_better"], table["yes_no"]["em_worse"]) == (2.0, 0.0)
+    assert (table["not_yes_no"]["questions"], table["not_yes_no"]["em_worse"]) == (2.0, 1.0)
+    assert table["date"]["em_equal"] == 1.0

@@ -1,7 +1,7 @@
 id: PHX-1113
 category: substrate-retrieval
 priority: medium
-status: open
+status: done
 generation_target: MESH — consumption (MESH_RETRIEVAL step 5), the rendering a model reads
 title: "A graph context makes the model answer yes/no questions with an entity"
 filed_by: Claude Code (2026-09-17, from the PHX-1110 measurement)
@@ -29,10 +29,29 @@ acceptance: >
   API key by scripts/mesh_qa_mesh_ingest.py (about 80 minutes); the answer
   run needs an LLM key and costs about one euro on deepseek-chat. A variant
   that does not get there is also a result — record it and close.
+resolution: >
+  Reached, 2026-10-19; full text docs/etappes/yes_no_and_sources.md. One
+  sentence appended to the system prompt of the constellation arm — "If the
+  question is a yes/no question — it begins with Are, Is, Do, Does, Did,
+  Was, Were or Has — answer yes or no." — and nothing else changed. On the
+  same 1,000 questions in one run with the unchanged arm: yes/no 55.5% ->
+  67.3% exact match (16 better, 3 worse, p = 0.004), the other 890 questions
+  +0.1 (27 / 26). The 13 answers that were neither yes nor no became 0. The
+  first run, before the review's fix to the sources arm, gave +6.4 on yes/no
+  (12 / 5, p = 0.14) and -0.1 on the rest. The collapse the ticket was filed
+  on (37.3% in September) had shrunk to 55.5-57.3% in the unchanged arm by
+  October, the model behind the alias having moved; the sentence repairs what
+  remained and lifts the arm above the prior. The arm is
+  `constellation_typed_yn` in scripts/mesh_qa_constellation.py; combined with
+  the source paragraphs of PHX-1114 it is the strongest arm measured (+8.9
+  over five passages, p = 4e-7). Limit: one model; the sentence names the
+  English question form.
 relates_to:
   - PHX-1110   # where it was measured
+  - PHX-1114   # the other repair, measured in the same runs
 linked_docs:
   - docs/etappes/qa_constellation.md
+  - docs/etappes/yes_no_and_sources.md
 linked_scripts:
   - scripts/mesh_qa_constellation.py
   - src/theogony/mesh/eval/qa_mesh.py

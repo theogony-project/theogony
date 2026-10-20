@@ -98,6 +98,8 @@ class QAAnswerResult:
     em: float = 0.0
     f1: float = 0.0
     gold_in_context: bool = False
+    #: Source paragraphs laid beside the material (the sources arms, PHX-1114).
+    attached_passages: int | None = None
 
 
 def build_context(passages: list[QAPassage], indices: list[int], *, top_k: int) -> str:
