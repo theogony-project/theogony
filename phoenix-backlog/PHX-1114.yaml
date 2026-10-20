@@ -38,8 +38,8 @@ resolution: >
   p = 0.0004; ceiling 14.8% -> 55.6%, above the passages arm's 46.3%),
   entity questions +2.5 (p = 0.046), overall +3.7 over the typed
   Constellation (p = 0.002) and +6.8 over five passages (p = 0.0001). With the
-  yes/no sentence of PHX-1113: +5.8 over typed and +8.9 over passages (197 /
-  108, p = 4e-7). The review caught, before the result was read, that the
+  yes/no sentence of PHX-1113, which the passages arm did not get: +5.8 over
+  typed and +8.9 over passages (197 / 108, p = 4e-7). The review caught, before the result was read, that the
   Constellation listed its seeds in a set's hash order; it keeps retrieval's
   rank now, and the arm ranks paragraphs that mention several seed-touching
   entities first — measured again, the ranking moved the score by under a

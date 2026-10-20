@@ -13,14 +13,17 @@
 > *Result.* The sentence takes the yes/no questions from 55.5% to 67.3% (16
 > better, 3 worse, p = 0.004) and changes nothing on the other 890 (27 / 26).
 > The paragraphs take the date questions from 13.0% to 42.6% (18 / 2,
-> p = 0.0004) and the entity questions up 2.5 points; together the two repairs
-> beat the typed Constellation by 5.8 points of exact match (p = 9 × 10⁻⁷)
-> and five retrieved passages by 8.9 (197 / 108, p = 4 × 10⁻⁷). *Limits.* One
-> model; the gain over passages on dates alone is not significant on 54
-> questions; the ranking of the paragraphs, which the review showed to be
-> wrong in principle, moved the score by less than a point. *Decision.* Both
-> tickets closed; `constellation_sources_yn` is the strongest arm this project
-> has measured, and the README says so.
+> p = 0.0004) and the entity questions up 2.5 points; the Constellation with
+> its sources beats five retrieved passages by 6.8 points of exact match
+> (p = 0.0001), and by 8.9 (197 / 108, p = 4 × 10⁻⁷) once the sentence is
+> added to it — the passages arm did not get the sentence. *Limits.* One
+> model; the yes/no collapse of September (37%) had already shrunk by October
+> in the unchanged arm (55.5%), so the sentence repairs what remained and
+> lifts yes/no above the prior; the gain over passages on dates alone is not
+> significant on 54 questions; the ranking of the paragraphs, which the review
+> showed to be wrong in principle, moved the score by less than a point.
+> *Decision.* Both tickets closed; `constellation_sources_yn` is the strongest
+> arm measured on this benchmark, and the README says so with the limits.
 
 **Status:** 2026-10-19, measured twice; both tickets closed.
 **Instrument:** `scripts/mesh_qa_constellation.py` with the arms below on
@@ -36,10 +39,11 @@ two together cost under two euros.
 
 **Yes/no (PHX-1113).** The system prompt of every material arm said: answer
 with the shortest span, a name, a date, a phrase. Shown fifty entities and the
-relations among them, the model took that literally on 13 to 16 of 110 yes/no
-questions and answered with an entity — "Iran" where the question asked whether
-two villages are in the same country — and leaned to "No" where the material
-did not show the fact for both sides. Passages do not have this effect. The
+relations among them, the model took that literally on 31 of 110 yes/no
+questions in September and on 13 to 16 in October, and answered with an entity
+— "Iran" where the question asked whether two villages are in the same country
+— and leaned to "No" where the material did not show the fact for both sides.
+Passages have less of this effect (11 to 12 of 110), not none. The
 variant, `constellation_typed_yn`, adds one sentence to the system prompt and
 changes nothing else:
 
@@ -65,9 +69,11 @@ the Constellation threw the ranking away. With up to eight name-anchor seeds per
 question and the paragraph budget filled greedily seed by seed, a hub that
 hashed first — "Nile", read from eleven paragraphs, on a question about two
 films — took all five slots with its earliest paragraphs in corpus order. The
-review's replication over the 1,000 questions: at least one gold passage among
-the five attached for 615 questions in the shipped order against 791 in the
-order retrieval had already computed, with a ceiling of 815 over any order.
+review's replication over the 1,000 questions (a read-only script in the
+review's own session, not an artefact this repository keeps): at least one gold
+passage among the five attached for 615 questions in the shipped order against
+791 in the order retrieval had already computed, with a ceiling of 815 over any
+order.
 
 Two changes followed, and the arm was measured again. The Constellation keeps
 its seeds in rank order now, for every consumer. And within the budget the
@@ -104,13 +110,38 @@ received all five paragraphs, the rest between one and four.
 The last three columns are exact match on the subset. The totals of the two
 reference arms sit above PHX-1110's (42.7% and 44.1% there): the model behind
 the alias moved between September and October, which is why only the pairs
-within one run are read.
+within one run are read. The move is largest on the very question kind
+PHX-1113 was filed on: in September the unchanged typed Constellation scored
+37.3% on the 110 yes/no questions and gave 31 entity answers; in October, with
+nothing changed in that arm, it scored 57.3% and 55.5% — the prior's level —
+and gave 16 and 13 entity answers. The collapse the ticket named did not
+reproduce in full; what the sentence repairs is what remained of it, and it
+lifts the arm above the prior (57–58%) and above the passages arm (58–61%)
+rather than back to it.
+
+The passages arm is not immune to the entity answer either — 12 and 11 of its
+110 yes/no answers were neither yes nor no in the two runs — so PHX-1110's
+"passages do not have this effect" was true of degree, not of kind.
+
+F1 and the ceiling by kind, run 2 (PHX-1114 asked for all three by kind):
+
+| arm | F1 entity | F1 yes/no | F1 date | in material entity | yes/no | date |
+|---|---|---|---|---|---|---|
+| passages | 50.1% | 58.2% | 40.4% | 62.8% | 3.6% | 46.3% |
+| constellation_typed | 56.2% | 55.5% | 20.7% | 71.7% | 2.7% | 14.8% |
+| constellation_typed_yn | 55.9% | 67.3% | 20.7% | 71.7% | 2.7% | 14.8% |
+| constellation_sources | 58.5% | 55.5% | 51.4% | 77.0% | 5.5% | 55.6% |
+| constellation_sources_yn | 59.4% | 67.3% | 50.4% | 77.0% | 5.5% | 55.6% |
+
+The yes/no ceiling is near zero for every arm because a yes or a no never
+stands in any material; the column says only that the scorer cannot see the
+fact the model inferred.
 
 Paired, run 2, exact match: better / worse and the sign test.
 
 | comparison | overall | entity (836) | yes/no (110) | date (54) | not yes/no (890) |
 |---|---|---|---|---|---|
-| typed_yn vs typed | +1.4 (43/29, p=0.13) | +0.1 (27/26, p=1) | **+11.8** (16/3, p=0.004) | 0 (0/0) | +0.1 (27/26, p=1) |
+| typed_yn vs typed | +1.4 (43/29, p=0.12) | +0.1 (27/26, p=1) | **+11.8** (16/3, p=0.004) | 0 (0/0) | +0.1 (27/26, p=1) |
 | sources vs typed | +3.7 (87/50, p=0.002) | +2.5 (61/40, p=0.046) | 0 (8/8) | **+29.6** (18/2, p=0.0004) | +4.2 (79/42, p=0.001) |
 | sources vs passages | +6.8 (188/120, p=0.0001) | +7.9 (160/94, p=4e-5) | −2.7 (17/20, p=0.74) | +9.3 (11/6, p=0.33) | +8.0 (171/100, p=2e-5) |
 | sources_yn vs typed | +5.8 (98/40, p=9e-7) | +3.6 (64/34, p=0.003) | +11.8 (17/4, p=0.007) | +27.8 (17/2, p=0.0007) | +5.1 (81/36, p=4e-5) |
@@ -153,6 +184,13 @@ is right, not because it is worth a point.
   is significant is the gain over the typed Constellation (18/2) and the
   ceiling (55.6% against 46.3%). The claim is "the paragraphs restore the
   dates", not "the mesh beats passages on dates".
+- **The headline pairs a prompt-patched arm against an unpatched one.** The
+  passages arm did not get the yes/no sentence; against it the fair figure is
+  the sources arm without the sentence, +6.8 (188 / 120, p = 0.0001). The +8.9
+  is the arm as a whole against plain retrieval as it was measured in PHX-1110.
+- **Not what `mesh_ask` returns.** The sources arm needs the passage texts,
+  which the benchmark holds and the mesh does not; `mesh_ask` ships the typed
+  rendering and nothing else changed there.
 - **The sources arm is a hybrid**, and so is the claim: the Constellation plus
   the paragraphs beats the paragraphs alone by 8.9 points at the same
   paragraph budget, which says the graph adds to retrieval, not that it
@@ -169,10 +207,11 @@ PHX-1113 reached its finish line: 67.3% on the yes/no questions against the
 55% asked for, +0.1 on the other 890 against the 1.0 point allowed, in one run
 with both arms. PHX-1114's hypothesis held: the arm with the source paragraphs
 takes the passages' result on dates and the graph's on comparison chains. Both
-closed. `constellation_sources_yn` is the strongest arm this project has
-measured — +8.9 points of exact match over five retrieved passages on 1,000
-questions of a corpus the model does not know — and the README and `llms.txt`
-quote it beside the figure of PHX-1110, with both limits. The arms stay in
+closed. `constellation_sources_yn` is the strongest arm measured on this benchmark
+— +6.8 points of exact match over five retrieved passages without the
+sentence, +8.9 with it, on 1,000 questions of a corpus the model does not know
+— and the README and `llms.txt` quote it beside the figure of PHX-1110, with
+the limits. The arms stay in
 the harness; nothing in the shipped `mesh_ask` changes, since the MCP tool
 returns the Constellation and its typed rendering and the caller holds no
 passage list.
