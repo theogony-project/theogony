@@ -214,7 +214,7 @@ The full document map with recommended reading paths by audience is in [docs/IND
 
 ## Cite
 
-[`CITATION.cff`](CITATION.cff) carries the citation GitHub shows under *Cite this repository*; a DOI for each release follows once the repository is archived on Zenodo ([`docs/RELEASING.md`](docs/RELEASING.md)). The figures are cited by their etappe: every number this project publishes is in [`docs/etappes/`](docs/etappes/) with its limits.
+[`CITATION.cff`](CITATION.cff) carries the citation GitHub shows under *Cite this repository*. Nothing is on PyPI and there is no DOI: cite the repository and the commit. The figures are cited by their etappe: every number this project publishes is in [`docs/etappes/`](docs/etappes/) with its limits.
 
 ## Contributing
 
