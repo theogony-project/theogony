@@ -177,8 +177,20 @@ def test_a_read_compacts_its_own_workspace_as_it_goes(tmp_path) -> None:
 
 
 def _embed(text: str) -> list[float]:
-    """Deterministic, and keeps an entity's name close to a question that says it."""
-    rng = np.random.default_rng(abs(hash(text.lower().split()[0])) % 2**32)
+    """One fixed vector per first word, the same in every process.
+
+    `hash()` is salted per process, so a vector drawn from it changes with
+    PYTHONHASHSEED, and with it the nearest node, the first seed and the order
+    of the attached paragraphs: before this used sha256, the sources test below
+    failed under PYTHONHASHSEED 3, 4, 8, 10, 11 and 12 among 0-15, and twice in CI. The
+    nodes carry the vectorizer's own sha256 projection, not this one, so which
+    node the kNN seeds is an accident of the two functions, fixed across
+    processes; for the Marie question it is Marie herself, whom the name anchor
+    would seed regardless.
+    """
+    word = text.lower().split()[0]
+    seed = int.from_bytes(hashlib.sha256(word.encode("utf-8")).digest()[:4], "little")
+    rng = np.random.default_rng(seed)
     return list(rng.standard_normal(8).astype(np.float32))
 
 
@@ -376,10 +388,31 @@ def test_the_sources_arm_lays_the_paragraphs_beside_the_constellation(tmp_path) 
     sources = by_arm["constellation_sources"]
     assert not sources.system.endswith("answer yes or no.")
     assert "Relations between them:" in sources.prompt
+    # Marie's paragraph first, then the one her edge joins her to; the ranking
+    # is pinned on its own above, this pins that the arm follows it
+    from theogony.mesh.retrieval.retrieve import retrieve
+
+    c = retrieve(runtime, _embed(q.question), query=q.question, top_k=10, record_firing=False)
+    assert index.passages_for(seed_touching_entities(c.constellation), limit=2) == [0, 1]
     assert "Source passages:\n[1] Marie of Hanover\n" in sources.prompt
-    assert PASSAGES[0].text in sources.prompt, "the paragraph the seed was read from"
+    assert "\n[2] George V of Hanover\n" in sources.prompt
+    assert PASSAGES[0].text in sources.prompt, "the paragraph the question's entity was read from"
+    assert "appears_in_source" not in sources.prompt, "typed rendering, no structural descriptors"
     assert sources.result.gold_in_context, "the ceiling is measured on the combined text"
     assert sources.result.attached_passages == 2
+    one = build_qa_jobs(
+        runtime,
+        _embed,
+        [q],
+        PASSAGES,
+        vectors,
+        arms=("constellation_sources",),
+        top_k=10,
+        passage_k=1,
+        source_index=index,
+    )[0]
+    assert one.result.attached_passages == 1, "passage_k is the budget"
+    assert "[1] Marie of Hanover" in one.prompt and "[2]" not in one.prompt
 
     # a gold that stands only in a source paragraph separates the two ceilings
     # (the question names a two-token entity, which the name anchor finds; a
@@ -387,28 +420,28 @@ def test_the_sources_arm_lays_the_paragraphs_beside_the_constellation(tmp_path) 
     died = QAQuestion(
         qid="q3", question="When did Ernest Augustus die?", answer="1851", gold_idxs={1}
     )
-    ceilings = {
-        j.result.arm: j.result.gold_in_context
-        for j in build_qa_jobs(
-            runtime,
-            _embed,
-            [died],
-            PASSAGES,
-            vectors,
-            arms=("constellation_typed", "constellation_sources"),
-            top_k=10,
-            passage_k=2,
-            source_index=index,
-        )
-    }
+    died_jobs = build_qa_jobs(
+        runtime,
+        _embed,
+        [died],
+        PASSAGES,
+        vectors,
+        arms=("constellation_typed", "constellation_sources"),
+        top_k=10,
+        passage_k=2,
+        source_index=index,
+    )
+    ceilings = {j.result.arm: j.result.gold_in_context for j in died_jobs}
     assert ceilings == {"constellation_typed": False, "constellation_sources": True}
+    # Ernest is the seed, and the paragraph that joins him to George outranks
+    # corpus order: the one place in this fixture where the ranking is visible
+    died_sources = next(j for j in died_jobs if j.result.arm == "constellation_sources")
+    assert "Source passages:\n[1] George V of Hanover\n" in died_sources.prompt
+    assert "\n[2] Marie of Hanover\n" in died_sources.prompt
     both = by_arm["constellation_sources_yn"]
     assert both.system.endswith("answer yes or no.") and "Source passages:" in both.prompt
 
     # the seeds come first, then what the seed-touching edges join them to
-    from theogony.mesh.retrieval.retrieve import retrieve
-
-    c = retrieve(runtime, _embed(q.question), query=q.question, top_k=10, record_firing=False)
     assert c.constellation.seed_node_ids == c.seed_node_ids, (
         "the Constellation keeps the seeds in the order retrieval ranked them, not a set's"
     )
