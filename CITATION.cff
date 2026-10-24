@@ -1,8 +1,9 @@
 cff-version: 1.2.0
 message: >-
   If you use this software, build on one of its measurements, or take one of
-  its pieces, please cite it. Every figure the project publishes is in
-  docs/etappes/ with its limits; cite the etappe for the figure.
+  its pieces, please cite it — the repository and the commit, since nothing is
+  on PyPI and there is no DOI yet. Every figure the project publishes is
+  in docs/etappes/ with its limits; cite the etappe for the figure.
 type: software
 title: >-
   Theogony: an open vector-graph knowledge substrate beneath AI, queried by
@@ -11,7 +12,6 @@ authors:
   - family-names: Reinehr
     given-names: Jakob
 version: 0.2.0
-date-released: "2026-10-19"
 repository-code: https://github.com/theogony-project/theogony
 url: https://github.com/theogony-project/theogony
 license: Apache-2.0

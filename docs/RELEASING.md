@@ -1,5 +1,7 @@
 # Releasing Theogony
 
+> **Status, 2026-10-24: nothing is published.** No tag beyond `v0.1.0`, nothing on PyPI, no GitHub Release, no DOI; `__version__` is 0.2.0 on `main`, untagged. The maintainer considers publication premature. What follows is the path for when that changes, not a description of anything that has happened.
+
 This file is the single source of truth for how Theogony is released to PyPI. It documents both the **local verification path** (you do this every time before any release) and the **publication path** (gated, so accidents are hard).
 
 ## Versioning

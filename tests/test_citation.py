@@ -25,7 +25,10 @@ def test_the_citation_file_matches_the_package() -> None:
     assert cff["cff-version"] == "1.2.0"
     assert cff["type"] == "software"
     assert cff["version"] == __version__, "bump CITATION.cff with __version__ (docs/RELEASING.md)"
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(cff["date-released"]))
+    # No release has been published; the date comes with the first tag, if ever.
+    assert "date-released" not in cff or re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}", str(cff["date-released"])
+    )
     assert cff["license"] == "Apache-2.0"
     assert cff["repository-code"] == "https://github.com/theogony-project/theogony"
     assert cff["authors"][0]["family-names"] == "Reinehr"
