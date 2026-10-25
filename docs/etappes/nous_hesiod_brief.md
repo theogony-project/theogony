@@ -1,5 +1,7 @@
 # Hesiod Brief — Nous: The Cognitive Synthesis Agent
 
+> **Status 2026-10-25: historical.** The agent specified here reads text, which makes it Kadmos v2 work — [`kadmos_v2_brief.md`](kadmos_v2_brief.md) supersedes this brief and says why. Nous names the first MNLM role and never receives text ([`../../ROADMAP.md`](../../ROADMAP.md) §"On the name"). Kept as the record of the cognitive model; the mesh reader shipped today is one call per paragraph.
+
 **Filed by:** Chaos (vision role)  
 **For:** Hesiod (architect), then Talos (implementer)  
 **Date:** 2026-05-07  

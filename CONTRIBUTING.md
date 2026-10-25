@@ -12,7 +12,7 @@ Before contributing, please read [docs/VISION.md](docs/VISION.md) and [PHILOSOPH
 
 ### High Priority
 
-- **Nous (Reading Agent)** — the cognitive synthesis agent that reads text temporally rather than parsing it in chunks; see [`notes/architecture/reading_agent_vision.md`](notes/architecture/reading_agent_vision.md) for the design
+- **Kadmos v2 (the reader)** — the layer meant to read text temporally rather than parse it in chunks (a target: the shipped mesh reader is one call per paragraph); **Nous** is the first MNLM role and works inside the mesh, never on text ([`ROADMAP.md`](ROADMAP.md) §"On the name", settled 2026-10-25); see [`notes/architecture/reading_agent_vision.md`](notes/architecture/reading_agent_vision.md) for the design
 - **Tensor-Manifold** — LanceDB persistence layer + PyTorch CSR runtime for GPU-resident Spreading Activation; see [`notes/architecture/vector_native_spreading_activation.md`](notes/architecture/vector_native_spreading_activation.md)
 - **Data models** — refinements to the Pydantic models in `src/theogony/core/model.py`
 - **Extraction pipeline** — NER, relation extraction, Wikidata alignment, embedding generation

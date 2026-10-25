@@ -13,7 +13,7 @@ The documents were written for different depths and different kinds of readers.
 
 **Start here if you want to know what of that actually runs:** [`etappes/doctrine_inventory.md`](etappes/doctrine_inventory.md) — every mechanism the MESH triplet specifies, with its state (live / inert / blocked / absent) and the evidence; and [`etappes/what_gen1_promises.md`](etappes/what_gen1_promises.md) — the vision held against that inventory, and what Gen 1 honestly promises. Both dated 2026-08-31. Read these *after* the triplet, not instead of it: the triplet is the target, these are the distance to it.
 
-**Start here if you want the current plan:** [`etappes/plan_from_the_vision_2026-09.md`](etappes/plan_from_the_vision_2026-09.md) — the vision documents read as a ledger of 620 claims ([`etappes/vision_claims_ledger.json`](etappes/vision_claims_ledger.json)), held against the measurements, and the four tracks that follow from it in order: renormalisation (PHX-1106), memory of contradiction (PHX-1107), the instrument, Nous. Dated 2026-09-07. This is the operative plan until it is replaced.
+**Start here if you want the current plan:** [`etappes/plan_from_the_vision_2026-09.md`](etappes/plan_from_the_vision_2026-09.md) — the vision documents read as a ledger of 620 claims ([`etappes/vision_claims_ledger.json`](etappes/vision_claims_ledger.json)), held against the measurements, and the four tracks that follow from it in order: renormalisation (PHX-1106), memory of contradiction (PHX-1107), the instrument, Kadmos v2 reading with state (track D — named Nous in the plan, renamed 2026-10-25, first step PHX-1118). Dated 2026-09-07. This is the operative plan until it is replaced.
 
 **Start here if you want everything that was measured, in one table:** [`etappes/README.md`](etappes/README.md) — the lab notebook's index, newest first, one line per result, the negative ones included.
 
@@ -183,7 +183,7 @@ This path is about open problems, future directions, and the long-horizon princi
 These live in `notes/architecture/` and represent the most detailed technical thinking on the core substrate. They are working documents — not yet elevated to canonical docs — but they are the authoritative source on the topics they cover.
 
 - [`../notes/architecture/vector_native_spreading_activation.md`](../notes/architecture/vector_native_spreading_activation.md): Tensor-Manifold design — LanceDB persistence, PyTorch CSR runtime, edge-as-vector, Spreading Activation algorithm, Constellation injection
-- [`../notes/architecture/reading_agent_vision.md`](../notes/architecture/reading_agent_vision.md): **Nous** (Reading Agent) — cognitive synthesis model, temporal reading, working memory, parallel Chronicle activation, hierarchy, repair, provenance
+- [`../notes/architecture/reading_agent_vision.md`](../notes/architecture/reading_agent_vision.md): the reading agent's cognitive model — temporal reading, working memory, parallel Chronicle activation, hierarchy, repair, provenance — written when the reader was called Nous; that work is **Kadmos v2**'s, and Nous names the MNLM role ([`../ROADMAP.md`](../ROADMAP.md) §"On the name", 2026-10-25)
 - [`../notes/architecture/oss_adjacent_landscape.md`](../notes/architecture/oss_adjacent_landscape.md): adjacent OSS and research landscape — what to borrow and what not to replace the core with
 
 ### Evolution Documents

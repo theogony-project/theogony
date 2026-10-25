@@ -135,7 +135,7 @@ async def fetch_article_structured(
     parses it into :class:`WikiSection` objects.
 
     Raises ``httpx.HTTPError`` or ``ValueError`` on fetch/parse failure —
-    callers (NousReader) catch and convert to ``verdict="failed"``.
+    callers (KadmosReader) catch and convert to ``verdict="failed"``.
     """
     title = _extract_title(title_or_url)
 
