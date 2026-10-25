@@ -500,7 +500,7 @@ The Argonauts are a dynamic, extensible team of specialized agents — domain ex
 - **Poseidon** — synthesizes long-form articles from crystallized knowledge
 - **Hermes** — translates and bridges knowledge across languages and domains
 - **Kadmos** — text-translation layer: reads raw text, produces first structured vector representation (portioned, embedded, sporadically connected); precursor to Nous. The current "Nous v1" implementation is Kadmos.
-- **Nous** — cognitive synthesis layer: receives Kadmos output, folds it into a genuine knowledge network through LLM-driven understanding, revision, and emergent hierarchy
+- **Nous** — cognitive synthesis layer: receives Kadmos output, folds it into a genuine knowledge network through LLM-driven understanding, revision, and emergent hierarchy. *Naming settled 2026-10-25: Nous is the first MNLM role and never receives text ([`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) §"Do not build Nous as an LLM that reads text"; [`../ROADMAP.md`](../ROADMAP.md) §"On the name"); reading with working memory, revision and synthesis nodes is **Kadmos v2** work ([`etappes/kadmos_v2_brief.md`](etappes/kadmos_v2_brief.md)), not yet built on the mesh path.*
 
 ## Multi-Tenancy: Lethe Vaults and Personal Twins
 
@@ -552,7 +552,7 @@ This is specifically about the **Chronik's knowledge organization** — not abou
 | Embeddings | sentence-transformers (local) | Nomic Embed v2 or similar | Fast, local, high-dimensional vector generation |
 | NER / Pre-processing | spaCy + GLiNER | spaCy + GLiNER | Fast, local, deterministic Text-to-Topology Blueprinting |
 | Relation Extraction | LLM-based (configurable) | LLM-based (configurable) | Translates blueprint into typed edges |
-| Synthesis Agent | Chunked LLM pipeline | **Nous** (cognitive reading agent) | Temporal synthesis replaces stateless chunk parsing |
+| Synthesis Agent | Chunked LLM pipeline | **Kadmos v2** reading with working memory; **Nous** as the MNLM role synthesising in vector space (naming settled 2026-10-25) | Temporal synthesis replaces stateless chunk parsing — a target; the shipped mesh reader is one call per paragraph |
 | Entity Resolution | Post-Hoc Agents (Athene) | Post-Hoc Agents (Athene) | Asynchronous, never blocks ingestion |
 | Data Models | Pydantic v2 | Pydantic v2 | Validation, serialization, documentation |
 | Agent Orchestration | asyncio + taskgroups | asyncio + taskgroups | Lightweight, no heavy framework |

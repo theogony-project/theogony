@@ -323,6 +323,9 @@ A future bridging role for translation, mediation, and cross-domain or cross-lan
 **Kadmos**  
 The text-translation layer — named after the mythological inventor of the alphabet. Kadmos reads raw text and produces a first structured representation: portioned, embedded, sporadically connected. Not yet understood, but translated into a form that Nous can process. Kadmos is the precursor to Nous: what DNA is to RNA before transcription. The current implementation (formerly called "Nous v1") lives here. Nous proper is the cognitive synthesis layer that folds Kadmos output into a genuine knowledge network.
 
+**Nous**  
+The first role of the **Mesh-Native Language Model**: cognitive synthesis inside the mesh, in vector space, never on text ([`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md); [`../ROADMAP.md`](../ROADMAP.md) §"On the name"). Older texts used the name for the reading agent with working memory; since 2026-10-25 that work is named **Kadmos v2** throughout, and the reader shipped today is one call per paragraph with no state between them ([`etappes/kadmos_v2_brief.md`](etappes/kadmos_v2_brief.md) is the design).
+
 ## Builder Agents
 
 Builder agents are not **Pantheon agents** and are not the **Pantheon** substrate. They are mortal craftsmen — they build the software the Pantheon agents will run on, but do not live inside the runtime mythology. Their prompts live in [`prompts/`](../prompts/) and are versioned like constitutional text.

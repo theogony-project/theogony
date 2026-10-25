@@ -12,7 +12,7 @@ It is not a sprint plan. It is the horizon.
 
 **Operative migration plan:** [`docs/MESH_MIGRATION_PLAN.md`](docs/MESH_MIGRATION_PLAN.md) — the binding strangler-fig plan for replacing the current Generation-1 codebase with the MESH-triplet substrate. The roadmap below describes the *what* (five long-horizon phases); the migration plan describes the *how* (six PR-sized strangler steps for the substrate replacement, parallel Phoenix-backlog migration). Both are binding; they address different questions.
 
-**Current operative plan (September 2026):** [`docs/etappes/plan_from_the_vision_2026-09.md`](docs/etappes/plan_from_the_vision_2026-09.md) — the vision below, held claim by claim against what the substrate has been measured to do, and the order of work that follows: learn safely (renormalisation, PHX-1106), then give the substrate a memory of contradiction (PHX-1107), then Nous. Where this roadmap states a status the plan contradicts, the plan is current.
+**Current operative plan (September 2026):** [`docs/etappes/plan_from_the_vision_2026-09.md`](docs/etappes/plan_from_the_vision_2026-09.md) — the vision below, held claim by claim against what the substrate has been measured to do, and the order of work that follows: learn safely (renormalisation, PHX-1106), then give the substrate a memory of contradiction (PHX-1107), then Kadmos v2 reading with state (track D, called Nous until 2026-10-25; first step PHX-1118). Where this roadmap states a status the plan contradicts, the plan is current.
 
 ---
 
@@ -251,7 +251,7 @@ improving themselves.
 
 | Agent | Role |
 |---|---|
-| **Nous** | Reads the world into the Chronik — cognitive synthesis, temporal reading |
+| **Nous** | First MNLM role: cognitive synthesis inside the Chronik, in vector space. Reading the world in — temporal reading, working memory — is **Kadmos v2** (naming settled 2026-10-25, §"On the name") |
 | **Morpheus** | Finds associations, creates inference edges |
 | **Athene** | Verifies, samples, adjusts confidence |
 | **Chronos** | Lifecycle: decay, archive, delete |
@@ -303,6 +303,8 @@ architecture never accidentally forecloses it.
 
 ## Name: Nous
 
+> **Status 2026-10-25.** This section was written when the reading agent carried the name. The current naming (§"On the name" above) keeps **Nous** for the first MNLM role, which synthesises inside the mesh and never receives text, and puts reading with working memory under **Kadmos v2** ([`docs/etappes/kadmos_v2_brief.md`](docs/etappes/kadmos_v2_brief.md)). The etymology below stands; the faculty it names is the synthesising one.
+
 The Reading Agent is named **Nous** (Greek: νοῦς — the active intellect;
 Aristotle's principle of the mind that actualises knowledge rather than
 merely storing it).
@@ -320,7 +322,7 @@ That is exactly what this agent does.
 ## Summary Sequence
 
 ```
-Phase 1: Nous (Cognitive Synthesis Agent) + Agent Initialisation Space
+Phase 1: Kadmos v2 (Cognitive Reading Layer) + Agent Initialisation Space
 Phase 2: Chronik Tensor-Manifold (LanceDB + PyTorch CSR)
 Phase 3: Wikipedia + Books corpus
 Phase 4: Chronik as Cross-Attention Layer (Proof of Concept)

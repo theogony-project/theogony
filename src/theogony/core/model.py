@@ -339,12 +339,13 @@ class KnowledgeNode(BaseModel):
 
     nous_session_id: str | None = Field(
         default=None,
-        description="Reading session that produced this node (Nous only).",
+        description="Reading session of the Generation-1 reader (historical; no current "
+        "writer sets it).",
     )
     synthesis_level: Literal["sentence", "paragraph", "chapter", "article"] | None = Field(
         default=None,
-        description="Hierarchy level at which this node was synthesised (Nous only). "
-        "None for parser-extracted nodes.",
+        description="Hierarchy level at which the Generation-1 reader synthesised this "
+        "node (historical). None for parser-extracted nodes.",
     )
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -476,7 +477,8 @@ class KnowledgeEdge(BaseModel):
     relation_codebook: str | None = Field(
         default=None,
         description="Internal codebook entry (BINDS_TO, REINFORCES, etc.) when no Wikidata "
-        "P-ID applies. Populated by Nous; left None by the topology_parser.",
+        "P-ID applies. Specified for the Generation-1 reader (historical; no current "
+        "writer sets it); left None by the topology_parser.",
     )
 
     properties: dict[str, Any] = Field(default_factory=dict)

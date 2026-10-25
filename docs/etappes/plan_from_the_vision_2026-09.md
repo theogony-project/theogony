@@ -18,7 +18,7 @@
 > both sides of a known contradiction retrieved in 6 of 7 cases. C, the
 > instrument: gold set repaired (PHX-1098), contradiction gold set, the answer
 > arm on an unknown corpus (PHX-1110: +3.6 EM from the edges). D, Nous — reading
-> with working memory — is next. *Deliberately not next:* the MNLM (H100-class
+> with working memory — is next (renamed 2026-10-25: Kadmos v2 work, see §D). *Deliberately not next:* the MNLM (H100-class
 > compute), the curiosity loop, federation, porting the agent roster, S4/S6,
 > scale. An appendix lists the load-bearing claims that can no longer stand as
 > written, each with its source line and its evidence.
@@ -211,6 +211,8 @@ Lance fragment per node), fixed by compaction every 200 paragraphs. Track C
 is thereby complete; next, track D.
 
 ### D. Nous — reading with working memory (Monkey 1)
+
+*Renamed 2026-10-25: this track is **Kadmos v2** work — reading with state, migration step S2 — and "Nous" stays the name of the first MNLM role ([`../../ROADMAP.md`](../../ROADMAP.md) §"On the name"; [`kadmos_v2_brief.md`](kadmos_v2_brief.md)). The survey of the same day found that 2WikiMultihopQA has no documents (6,119 passages, one per title, one paragraph per article), so document-local working memory cannot be measured on the answer arm there; the mechanisms that transfer to a flat corpus are revision at re-mention, Chronicle hints inside the read, and post-hoc synthesis. The first step is revision at re-mention, PHX-1118.*
 
 The vision's first verb, and its phase 1. It stands here at the back, not
 because it matters less, but because the measurement says where it pays

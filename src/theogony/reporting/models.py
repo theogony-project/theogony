@@ -555,12 +555,17 @@ class MnemosyneObservationCluster(RunReportBase):
 
 
 # ---------------------------------------------------------------------------
-# Nous cognitive-synthesis report (nous_hesiod_brief §8 / nous_implementation_brief §3.3)
+# NousRunReport: the reading-session report the May 2026 Nous brief specified
+# (nous_hesiod_brief §8 / nous_implementation_brief §3.3; both historical since
+# 2026-10-25). The reader became KadmosReader, which emits KadmosRunReport below;
+# Nous names the MNLM role. Kept for the report_type registry.
 # ---------------------------------------------------------------------------
 
 
 class NousRunReport(RunReportBase):
-    """Run report emitted by NousReader at the end of each reading session."""
+    """Reading-session report of the Generation-1 reader as the May 2026 brief
+    specified it (historical). No current emitter: KadmosReader emits KadmosRunReport.
+    """
 
     report_type: Literal["nous"] = "nous"
     session_id: str

@@ -1,0 +1,102 @@
+id: PHX-1118
+category: substrate-ingestion
+priority: medium
+status: open
+generation_target: MESH — Kadmos v2 write path (migration step S2); track D, reading with state
+title: "Kadmos v2: a node's description accrues when the entity is read again (track D, step 1)"
+filed_by: Claude Code (2026-10-25, from the track-D survey)
+created_at: 2026-10-25
+description: >
+  Track D of the operative plan (docs/etappes/plan_from_the_vision_2026-09.md
+  §D) was "Nous — reading with working memory". The survey of 2026-10-25
+  settled two things first. The name: reading with state is Kadmos v2 work
+  (ROADMAP §"On the name"; TARGET_ARCHITECTURE forbids a Nous that reads
+  text), so this ticket and its successors say Kadmos v2. The instrument:
+  2WikiMultihopQA, the only corpus with an answer arm the model does not
+  know, has no documents — 6,119 passages, one per title (the benchmark loader's
+  case-folding counts 6,118), one paragraph per article — so document-local working memory has nothing to hold there,
+  and the founding corpus (prior 86%) cannot measure an answer. Of the
+  reader's specified mechanics, three transfer to a flat corpus: revision at
+  re-mention (kadmos_v2_brief §5 "Revision — the centerpiece"; §4.6 of the May
+  brief), Chronicle hints inside the read (kadmos_v2_brief §3.2 step A — its §7
+  defers Chronicle-wide search to v3; §4.7 of the May brief),
+  and post-hoc synthesis from co-firing (MESH_SUBSTRATE operation B). This
+  ticket is the first.
+
+  Today, when the EagerLinker recognises an entity a second time
+  (src/theogony/mesh/ingestion/linker.py link_reference: description-vector
+  match, tag match, or Q-ID), the node gains a reference edge and a firing and
+  nothing else: merge_identity_evidence writes Q-IDs only, and no path in
+  read_text rewrites description, description_vector or
+  description_source_chunks (schemas.py has the fields; MESH_SUBSTRATE
+  §"Field discipline" rule 4 makes the description the regenerable,
+  authoritative summary). On data/mesh-2wiki, 5,725 of the 28,464 nodes a
+  passage mentions (29,786 entity nodes in all; the rest are relation endpoints
+  no passage mentions) are mentioned from two or more distinct passages (2,347
+  from three or more; 45% of the 43,118 kadmos_mentions edges land on them),
+  and every one keeps the description of its first mention — median 78
+  characters, mean 83, against the doctrine's 200-500 (counted 2026-10-25 on
+  the Lance tables, read-only). The typed Constellation's date ceiling is 14.8% against 55.6% for
+  the arm that lays source paragraphs beneath it (PHX-1114), because the
+  description holds what the reader wrote once, not what later paragraphs
+  said. This is the mesh-native lever on that gap: better descriptions are
+  also the linking surface (PHX-1051) and the input of any later synthesis.
+
+  Design, smallest form: when link_reference returns an existing node, fold
+  the paragraph's LLM-written description of the concept into it —
+  deterministic merge (keep what stands, append the sentences not already
+  present, bounded to the 200-500-character band), re-embed
+  description_vector, append the chunk id to description_source_chunks, set
+  description_generated_at, one audit row per revision, node rows rewritten
+  once per flush (replace_all_consolidated precedent). The prompt and the
+  reading schema do not change, so the replay cache, `theogony mesh demo` and
+  mesh_append are untouched and the whole measurement runs without a reading
+  key. Variant D1b: a small cached LLM call regenerates the description
+  instead of concatenating (MESH_SUBSTRATE licenses regeneration); keep it as
+  the fallback arm if concatenation reads worse to the model.
+
+  Instrument: replay the 6,119 cached readings through the write path twice
+  — accrual off (today's mesh) and on — then run scripts/mesh_qa_constellation.py
+  with the arms passages, constellation_typed, constellation_typed_yn,
+  constellation_sources, constellation_sources_yn on both meshes in one
+  sitting (same model, same day; the alias has drifted across months), paired
+  sign test; gold_in_context on the 54 date questions; entity node count and
+  is_candidate count (29,786 today) and the number of distinct nodes carrying
+  each gold answer entity's name as the identity control.
+
+  After this: D2, Chronicle hints inside the read (snapshot-pinned retrieval
+  per batch; a fresh stateless baseline read in the same week); D3, operation
+  B as a post-hoc pass (unbuilt from S5's deliverable list and outside
+  PHX-1097, which is entity-candidate consolidation only; only after D1, since
+  today's firings are mostly re-mentions); D4, the literal Monkey 1 on the
+  founding corpus, whose instruments cannot close the track and which must be
+  titled Kadmos v2.
+acceptance: >
+  Either constellation_typed with accrual on is at least +2.0 exact match over
+  accrual off in the same run (p < 0.05; the noise floor at n = 1,000 is
+  0.2-0.6 points), or the typed date ceiling rises from 14.8% to at least 25%
+  with the 836 entity questions not losing (paired), with the entity node
+  count within ±2% of the baseline and no new generic-hub absorption; or a
+  recorded null with the per-kind table. In every case: description_source_chunks
+  is non-empty on every revised node, audit rows equal revisions,
+  IngestRunReport gains a descriptions_revised counter, and the PR body states
+  the batched form of the rewrite (AGENTS.md contract 7) and whether it is
+  in-read or tick-folded. Cost: two replays of about 81 minutes, two answer
+  runs of about 25 minutes and about two euros on deepseek-chat; the reading
+  itself needs no key.
+relates_to:
+  - PHX-1108   # the doctrine corrections of the same day; the track-D survey fed it three sentences
+  - PHX-1114   # the date ceiling this attacks by the mesh-native route
+  - PHX-1051   # the identity attractor the entity-count control guards against
+  - PHX-1097   # entity-candidate consolidation; D3 (operation B) is outside it and comes after this
+  - PHX-1117   # the self-description should carry corrections before more are made
+  - PHX-1110   # the answer harness this is measured on
+linked_docs:
+  - docs/etappes/plan_from_the_vision_2026-09.md
+  - docs/etappes/yes_no_and_sources.md
+  - docs/etappes/kadmos_v2_brief.md
+linked_scripts:
+  - src/theogony/mesh/ingestion/linker.py
+  - src/theogony/mesh/ingestion/kadmos_v2.py
+  - src/theogony/mesh/eval/qa_mesh.py
+  - scripts/mesh_qa_constellation.py

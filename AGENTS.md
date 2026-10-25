@@ -33,6 +33,8 @@ Tickets chosen because an agent can finish them alone: each names its instrument
 | Ticket | What | Done when |
 |---|---|---|
 | [`PHX-1116`](phoenix-backlog/PHX-1116.yaml) | A read that raises mid-paragraph writes no report and leaves its buffered edges unwritten | `read_text` writes an `IngestRunReport` with status `failed` and re-raises; a test forces the failure and reads the report; `mesh_append` returns the report's `run_id` in its error payload |
+| [`PHX-1117`](phoenix-backlog/PHX-1117.yaml) | The self-description keeps 240 characters per section, so a dated status note never reaches `pantheon_ask` | the regenerated dump answers a question about one corrected sentence with its status note; the count of nodes carrying a note, before and after, is recorded |
+| [`PHX-1118`](phoenix-backlog/PHX-1118.yaml) | Kadmos v2: a node's description accrues when the entity is read again (track D, step 1) | typed arm +2 EM over the same mesh without accrual, or the date ceiling from 14.8% to 25% without loss on entity questions, with the entity count as identity control; or a recorded null. Needs an LLM key for the two answer runs, about two euros |
 
 The full queue is [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md). How a contribution lands: a branch, one issue, the four commands of contract 5 green, a PR whose body says what was measured and how to re-run it. A human merges; make that the only thing left for them to do.
 
