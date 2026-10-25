@@ -237,6 +237,7 @@ def main() -> None:
                     "top_k": args.top_k,
                     "passage_k": args.passage_k,
                     "k_seeds": k_seeds,
+                    "seed": args.seed,
                     "summary": summary,
                     "by_kind": by_kind,
                     "paired": paired,

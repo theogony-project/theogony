@@ -21,7 +21,8 @@ description: >
 acceptance: >
   read_text writes an IngestRunReport with status "failed" and the exception
   in its reasoning when the body raises after the source anchor was written,
-  flushes what it safely can, and re-raises; a test forces the failure (a
+  flushes what it safely can -- the buffered edges, the staged audit rows and,
+  since PHX-1118, the pending description revisions -- and re-raises; a test forces the failure (a
   monkeypatched append_edges) and reads the report. mesh_append then returns
   the report's run_id in its error payload.
 relates_to:

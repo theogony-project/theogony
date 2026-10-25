@@ -182,6 +182,16 @@ class StoreSummary(BaseModel):
     nodes_upserted: int = Field(ge=0)
     edges_upserted: int = Field(ge=0)
     idempotent_skips: int = Field(default=0, ge=0)
+    descriptions_revised: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Revisions of existing descriptions written in-read (PHX-1118): one per "
+            "mention that added text, so a node read three times can count twice; equals "
+            "the mesh_ingest_description_revised audit rows the run staged. 0 when accrual "
+            "is off."
+        ),
+    )
 
 
 class QualityFlags(BaseModel):

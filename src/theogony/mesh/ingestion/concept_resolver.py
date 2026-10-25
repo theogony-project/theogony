@@ -72,6 +72,21 @@ class ConceptResolver:
             cached.qids.add(qid_tag.qid)
             self._qid_to_id.setdefault(qid_tag.qid, node_id)
 
+    def refresh(self, node: ConsolidatedNode) -> None:
+        """Replace the cached copy of ``node`` without registering a new alias.
+
+        ``remember`` adds the node's description and tags as aliases; a revised
+        description (PHX-1118) is not a name and must not become one, but the
+        cached copy must follow the row just written, or the Q-ID path — which
+        answers from the cache without a store read — hands back the text the
+        revision replaced.
+        """
+        cached = self._nodes_by_id.get(str(node.id))
+        if cached is None:
+            self.remember(node)
+        else:
+            cached.node = node
+
     def get_by_id(self, node_id: str) -> ConsolidatedNode | None:
         cached = self._nodes_by_id.get(node_id)
         if cached is not None:

@@ -475,3 +475,24 @@ def test_the_pairing_is_read_by_answer_kind() -> None:
     assert (table["yes_no"]["em_better"], table["yes_no"]["em_worse"]) == (2.0, 0.0)
     assert (table["not_yes_no"]["questions"], table["not_yes_no"]["em_worse"]) == (2.0, 1.0)
     assert table["date"]["em_equal"] == 1.0
+
+
+def test_the_harness_passes_the_accrual_switch_to_the_reader(tmp_path) -> None:
+    """PHX-1118: both arms of the measurement are built through this helper."""
+    off = MeshRuntime(tmp_path / "off", semantic_dim=8, frame_dim=8)
+    off_report = asyncio.run(ingest_cached_readings(off, PASSAGES, READINGS))
+    assert off_report.report["descriptions_revised"] == 0
+    on = MeshRuntime(tmp_path / "on", semantic_dim=8, frame_dim=8)
+    on_report = asyncio.run(
+        ingest_cached_readings(on, PASSAGES, READINGS, accrue_descriptions=True)
+    )
+    assert on_report.report["descriptions_revised"] >= 1
+    george = next(
+        n
+        for n in on.nodes.load_all_consolidated()
+        if (n.description or "").startswith("George V of Hanover")
+    )
+    assert (
+        "father of Marie" in george.description and "son of Ernest Augustus" in george.description
+    )
+    assert len(george.description_source_chunks) == 1

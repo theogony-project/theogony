@@ -117,6 +117,7 @@ async def ingest_cached_readings(
     max_paragraphs: int = 0,
     compact_every: int = 200,
     on_call: Callable[[int], None] | None = None,
+    accrue_descriptions: bool = False,
 ) -> ReplayIngestReport:
     """Write a corpus into a mesh through the shipped reader, readings replayed.
 
@@ -145,6 +146,7 @@ async def ingest_cached_readings(
         max_paragraphs=max_paragraphs,
         compact_every=compact_every,
         on_call=on_call,
+        accrue_descriptions=accrue_descriptions,
     )
     return ReplayIngestReport(
         paragraphs=len(passages) if not max_paragraphs else min(len(passages), max_paragraphs),
