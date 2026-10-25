@@ -963,8 +963,13 @@ class MeshParagraphReader:
         # An entity holds no stance — 'Zeus' is neither asserted nor denied.
         # The claims about it live on the chunks that reference it, and those
         # carry the frames. `MESH_RETRIEVAL` has consolidated nodes inherit the
-        # dominant frame of their chunks; that is a consolidation pass and is
-        # not built, so entities stay neutral rather than carrying a guess.
+        # dominant frame of their chunks; that pass is built —
+        # `runtime.frame_promotion.run_frame_promotion` (PHX-1107), run after a
+        # read — but as of 2026-10-25 no read, tick, CLI or MCP path calls it,
+        # so entities leave the reader neutral rather than carrying a guess and
+        # take a stance only when an operator runs it. Frame routing sees them
+        # only from then on (docs/etappes/contradiction.md, "The Routing Only
+        # Works Once Entities Carry a Stance").
         frame_vectors = [frames.neutral_frame(self.frame_dim) for _ in labels]
         description_vectors = await self.vectorizer.description_many(descriptions)
         return list(zip(semantic_vectors, frame_vectors, description_vectors, strict=False))

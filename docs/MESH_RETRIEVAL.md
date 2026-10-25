@@ -35,8 +35,8 @@ A query has the following lifecycle:
 
 1. **Construction.** The querying agent assembles a query — minimally a single vector, ideally a small sub-mesh with structure (see §"Sub-mesh injection" below).
 2. **Diversified seeding.** The substrate selects a diverse set of seed nodes from which propagation will start (see §"Diversified injection").
-3. **Propagation.** Spreading Activation runs as batched SpMV across the mesh. Frame routing filters which edges propagate at each hop (see §"Frame-sensitive resonance"). Damping and threshold determine convergence.
-4. **Constellation extraction.** The activated subgraph above the threshold is the Constellation — a structured working set, not a list of text chunks ([`GLOSSARY.md`](GLOSSARY.md)).
+3. **Propagation.** Spreading Activation runs as batched SpMV across the mesh. Frame routing filters which edges propagate at each hop (see §"Frame-sensitive resonance"). Damping and threshold determine convergence (as specified; the shipped operator converges otherwise — measured 2026-08-26, PHX-1095, noted under [`MESH_IMPLEMENTATION.md`](MESH_IMPLEMENTATION.md) §"Damping and stop conditions").
+4. **Constellation extraction.** The activated subgraph above the threshold (in the shipped operator: inside the budget) is the Constellation — a structured working set, not a list of text chunks ([`GLOSSARY.md`](GLOSSARY.md)).
 5. **Consumption.** The Constellation is injected into the consuming agent's reasoning context. For the MNLM this is Latent Space Injection per [`etappes/mesh_native_lm_brief.md`](etappes/mesh_native_lm_brief.md). For text-output agents (Iris) this becomes the basis for natural-language synthesis.
 6. **Feedback.** The consuming agent rates the Constellation; the rating modulates Hebbian updates along the activation trace (see §"Three-factor reinforcement learning").
 
@@ -382,7 +382,7 @@ The mental model: retrieval is a conversation between the agent and the substrat
 
 - **MMR `λ` and weight-class boundaries.** Both are tuning parameters; both should be A/B-tested via Mnemosyne once the substrate has enough query volume.
 
-- **Sub-mesh injection cost at scale.** WL-hashing is O(edges) per pass; per-node ANN is fast on Lance HNSW; combined region scoring is a small extra pass. The combination should hit single-digit-millisecond latency per sub-mesh query at Tier 1 substrate sizes. Empirical confirmation is open.
+- **Sub-mesh injection cost at scale.** WL-hashing is O(edges) per pass; per-node ANN is fast on Lance HNSW (as built: IVF-PQ, exact only after re-ranking — PHX-1085); combined region scoring is a small extra pass. The combination should hit single-digit-millisecond latency per sub-mesh query at Tier 1 substrate sizes. Empirical confirmation is open.
 
 - **Three-factor learning convergence.** With many concurrent queries and noisy feedback, edge weights should converge to a stable equilibrium representing relative usefulness. The convergence rate, the equilibrium variance, and the right `α / λ` ratio are empirical questions for early Tier-1 deployment.
 

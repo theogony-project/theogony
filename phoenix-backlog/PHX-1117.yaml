@@ -1,0 +1,39 @@
+id: PHX-1117
+category: documentation
+priority: low
+status: open
+generation_target: Self-description — the bundled pantheon_self dump (docs_ingest)
+title: "The self-description keeps the first 240 characters of a section, so a dated status note never reaches pantheon_ask"
+filed_by: Claude Code (2026-10-25, from the review of PHX-1108)
+created_at: 2026-10-25
+description: >
+  The docs walker that builds the bundled self-description keeps, for each
+  document and each H1/H2 section, the body text truncated to
+  SNIPPET_MAX_CHARS = 240 (src/theogony/docs_ingest/extractors.py). PHX-1108
+  corrected refuted doctrine sentences by leaving the sentence as the target
+  and appending a dated status note beneath it, citing the measurement — the
+  repository's convention since 2026-09-07. Every such note sits deeper in its
+  section than 240 characters. After regenerating the dump on 2026-10-25, of
+  745 nodes exactly two carry any of the new text (the CHRONESE banner, which
+  stands at the head of its document); for every other corrected section
+  pantheon_ask still serves the uncorrected sentence. The self-description
+  therefore states as fact what the documents themselves now mark as a
+  target — the very defect PHX-1108 removed from the documents, reproduced
+  in the layer an arriving agent is told to ask first (AGENTS.md, "You can
+  ask Theogony about Theogony").
+acceptance: >
+  A correction made in the documents' convention reaches the self-description:
+  either the extractor carries a section's dated status notes (paragraphs
+  opening with *Measured, *Status, *Built, *Verified, *Corrected) alongside
+  the snippet, or the snippet budget is raised and measured against the dump's
+  size and the demo's start time (PHX-1112 budget: a fresh clone must still
+  answer in about two minutes). A test asks the regenerated self-description
+  about one corrected sentence (for example the Oneiros cadence in VISION.md)
+  and finds the status note in the constellation it returns. The number of
+  nodes carrying a note, before and after, is recorded.
+relates_to:
+  - PHX-1108   # the corrections the dump does not carry
+  - PHX-1112   # the self-description's scope and the demo's time budget
+linked_scripts:
+  - src/theogony/docs_ingest/extractors.py
+  - src/theogony/docs_ingest/regenerate.py

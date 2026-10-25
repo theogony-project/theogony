@@ -1,7 +1,7 @@
 id: PHX-1108
 category: documentation
 priority: medium
-status: open
+status: done
 generation_target: Doctrine and vision — sentences that no longer hold once measured
 title: "Doctrine and vision: the sentences that stand as fact and are refuted"
 filed_by: Claude Code (2026-09-07, from the plan from the vision)
@@ -69,9 +69,67 @@ description: >
   Done when: every line above is either corrected or marked as deliberately
   left standing with date and reason; `tests/test_docs_links.py` green; the
   ledger entries followed up with `status: corrected`.
+resolution: >
+  Done, 2026-10-25 (one PR). Every line listed above is either corrected or
+  carries a dated italic status note beneath the sentence it qualifies, in the
+  form the 2026-09-07 corrections used (TARGET_ARCHITECTURE sections Density
+  and Monkey 2): the sentence stays as the target, the note says what was
+  built and measured, with the etappe or ticket. Each sentence was
+  re-verified against the code of 2026-10-25 before it was touched, by one
+  agent proposing and two trying to refute; three proposals were rejected and
+  rewritten before they landed.
+
+  What re-verification changed against the ticket text: (1) "Fixed with
+  PHX-1106; pull the doctrine text after it" was wrong -- PHX-1106 kept
+  w_max = 1.0 on purpose, so the tier ladder is still a target and the note
+  says so (MESH_SUBSTRATE section 2, ROADMAP). (2) The 0.05 threshold is not
+  in MESH_SUBSTRATE and never was; it stands in MESH_IMPLEMENTATION (damping
+  and stop conditions), ROADMAP and MESH_RETRIEVAL, and no operator -- not
+  PPR, not raw, not degnorm -- has a minimum-activation threshold; the budget
+  cuts the Constellation. (3) The 10-30% descriptor share is in
+  MESH_IMPLEMENTATION and CHRONIK_SCALE, not in MESH_SUBSTRATE; it presumes
+  descriptor-less Hebbian edges that no writer produces yet (100% named on
+  every mesh built so far, the demo mesh included). (4) Q-IDs: the same
+  sentence stands a third time in MESH_SUBSTRATE (identity rule 3) with no
+  ledger entry; corrected too. (5) HNSW stands verbatim in eight places and
+  the nodes.py module docstring; each carries the as-built note (IVF-PQ on
+  the consolidated table only, re-ranked), none loses the design decision.
+
+  Three more sentences of the same class and two code comments, found by the
+  track-D survey on the same day and handled the same way: TARGET_ARCHITECTURE "what Kadmos v2
+  implements" (the mesh reader is one call per paragraph with no reading
+  state; the working-memory reader lives in the Gen-1 package, unmeasured),
+  the Monkey-1 status line, MESH_MIGRATION_PLAN S5 "promotion blocked"
+  (the counters have had a writer since PHX-1101; promotion is unbuilt), and
+  two code comments (consolidation.py on fired_total, kadmos_v2.py on frame
+  inheritance, which PHX-1107 built with no caller outside the tests).
+
+  Left standing, with date and reason: MESH_SUBSTRATE section 6 "relative
+  ordering is preserved" (literally true -- too much is preserved -- and
+  already followed by the 2026-09-12 note, which now also says that
+  renormalisation without saturation holds the mass and no share, and that
+  the set point must sit below the entry mass); CHRONESE.md's text, preserved
+  verbatim under a historical banner; the vision sentences themselves
+  everywhere (the target is the goal).
+
+  Ledger: 19 entries set to status corrected with the date in their evidence
+  (BUILD_DOCTRINE 62, found in passing; CHRONESE 3 and 304-313; CHRONIK_SCALE 146; DEEP_TECH_VISION 45-66;
+  PHILOSOPHY 100 and 102; ROADMAP 67, 132, 135, 148, 158; VISION 34 and
+  84-86; BUILD_DOCTRINE 65 and 67; CHRONICLE_PRINCIPLES 36;
+  TARGET_ARCHITECTURE 158-159; MESH_MIGRATION_PLAN 315), and the
+  what_gen1_promises 183-186 entry -- a measurement, not a doctrine sentence --
+  stays confirmed with a follow-up note. The 45 entries still marked
+  refuted lie outside the ticket's list (PANTHEON_VISION non-negotiables, CURIOSITY, HESTIA, the
+  Gen-1 legacy plan, the measurement etappes themselves) and keep their
+  status. The bundled self-description was regenerated after the edits; it carries
+  the CHRONESE banner, but not the notes themselves -- the docs walker keeps
+  the first 240 characters of each H1/H2 section (SNIPPET_MAX_CHARS), and
+  every note sits below that line, so pantheon_ask still serves the
+  uncorrected sentences for those sections (PHX-1117). tests/test_docs_links.py
+  green.
 relates_to:
   - PHX-1100   # the inventory that counted the mechanisms
-  - PHX-1106   # fixes the tier ladder
+  - PHX-1106   # renormalisation; left the tier ladder untouched (see resolution)
   - PHX-1107   # the load-bearing finding
 linked_docs:
   - docs/etappes/plan_from_the_vision_2026-09.md

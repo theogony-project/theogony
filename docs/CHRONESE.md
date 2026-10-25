@@ -1,5 +1,20 @@
 # Chronese
 
+> **Status: historical (marked 2026-10-25, PHX-1108).** This document proposes
+> Chronese as the chronicle's native semantic tongue, with graph, vector and
+> text as projections of it. The binding target says the opposite:
+> [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) makes vectors and weighted
+> edges the native medium — "Language enters at Kadmos. Language exits at Iris.
+> Everything in between is vector space." — and nothing in `src/theogony/mesh/`
+> stores or projects from an assertion frame. Where this document's problems
+> were met, they were met in that medium: free-text relation descriptors got a
+> curated P-ID table, not a grammar (PHX-1072); epistemic posture arrived as
+> factored axes of a frame vector (PHX-1107,
+> [`etappes/contradiction.md`](etappes/contradiction.md)). Refutation recorded in
+> [`etappes/plan_from_the_vision_2026-09.md`](etappes/plan_from_the_vision_2026-09.md).
+> The text below is preserved as it stood; its open questions remain open, and
+> PHX-1002 is where to reopen them with evidence.
+
 `Chronese` is the proposed canonical semantic language of the **Chronik** — the operational semantic layer of Theogony *today*. In the **Pantheon** framing, Chronese is also the strongest candidate for the chronicle's **native semantic tongue** over time: language-neutral, event-centric, provenance-bound assertions from which graph, vector, and text are *projections*, not the deepest truth.
 
 It is not a human language.

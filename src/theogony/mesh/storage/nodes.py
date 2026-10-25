@@ -2,7 +2,11 @@
 
 Per MESH_IMPLEMENTATION.md §"Nodes — LanceDB": two tables, one per node tier,
 with per-vector HNSW indices on ``semantic_vector`` (default) and on populated
-``frame_vector`` / ``structural_vector`` / ``description_vector`` columns.
+``frame_vector`` / ``structural_vector`` / ``description_vector`` columns. As
+built (2026-08): IVF-PQ on ``semantic_vector`` and ``description_vector`` of
+``consolidated_nodes`` only (``ensure_indices``, PHX-1059), re-ranked against the
+stored vectors because the raw index returned a median of 22% of the true
+neighbours (``_VECTOR_REFINE_FACTOR``, PHX-1085).
 """
 
 from __future__ import annotations
@@ -861,7 +865,7 @@ def merge_node_firings(
             # decay, `round(1 * 0.9)` is 1, so a node that fired once would sit at
             # `fired_recent = 1` for ever and the field would never forget
             # anything — the exact failure it exists to avoid. Flooring makes the
-            # decay terminate: 45 reaches 0 in about forty ticks, 1 in one.
+            # decay terminate: 45 reaches 0 in 21 ticks, 1 in one.
             "fired_recent": int(node.fired_recent * recent_decay) + fired,
         }
         if fired:

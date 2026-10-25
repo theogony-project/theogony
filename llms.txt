@@ -49,7 +49,7 @@ Apache-2.0 open source for software and protocols (the point, not a strategy). F
 - Proven: the end-to-end runtime — ingest -> embed -> sparse-CSR adjacency -> Spreading Activation -> constellation -> Cockpit UI + MCP server; sub-second activation on a 100k-node / ~984k-edge Wikidata-seeded subnet.
 - Measured: the section "What has been shown, with its limits" above, every figure with its document in docs/etappes/.
 - Not yet proven: the central bet — that the vector-graph yields inference exceeding what any individual source text contains (the test that distinguishes it from a strong RAG).
-- Known limitations (filed openly): 9 of 119 doctrine mechanisms live, 34 inert, 42 absent (PHX-1100); one-factor Hebbian with no rater; the pantheon_* MCP tools speak to the Generation-1 layer (its self-description was regenerated from the current documents, the measurement record included, on 2026-10-17); mesh_ask reaches the mesh, and the keyless workspace is the replayed demo corpus — reading your own text needs an LLM key (PHX-1112); MNLM weight-training blocked on H100-class compute (PHX-1035).
+- Known limitations (filed openly): 9 of 119 doctrine mechanisms live, 34 inert, 42 absent (PHX-1100); one-factor Hebbian with no rater; the pantheon_* MCP tools speak to the Generation-1 layer (its self-description was regenerated from the current documents, the measurement record included, on 2026-10-25); mesh_ask reaches the mesh, and the keyless workspace is the replayed demo corpus — reading your own text needs an LLM key (PHX-1112); MNLM weight-training blocked on H100-class compute (PHX-1035).
 
 ## What it needs most now
 Compute (GPU), research collaborators, and funding to test the central bet — not broad publicity.
