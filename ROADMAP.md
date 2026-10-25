@@ -66,7 +66,7 @@ The Reading Agent implements exactly this:
 | **Repair events** | Triggered by detected contradiction; backward revision of earlier synthesis |
 | **Trust-and-skim** | Chapter can be skimmed if its core concept is well-validated in Chronik |
 | **Fuzzy hierarchy** | Sentence → Paragraph → Chapter → Article → Theme, fuzzy membership, diagonal edges allowed |
-| **Stable identity anchors** | Wikidata Q-IDs for entities where they exist; AKA-IDs otherwise |
+| **Stable identity anchors** | Wikidata Q-IDs for entities where they exist; AKA-IDs otherwise. *Status 2026-10-25: Q-IDs anchor only what the Wikidata5m seed imports (PHX-1030); a Q-ID the reader asserts is looked up and never written, since 127 of 130 on the founding mesh were wrong (PHX-1063, measured 2026-08-19), and today no mesh the reader has produced carries one. The mesh's node identity is a ULID, not an AKA-ID (`src/theogony/mesh/schemas.py`); the empty `qids` field is in [`docs/etappes/doctrine_inventory.md`](docs/etappes/doctrine_inventory.md) §2.* |
 | **Multi-resolution models** | Optional: sentence with small model, chapter with large model |
 
 The Reading Agent produces an **AnnotatedReading** — a machine-readable,
@@ -131,10 +131,10 @@ Summary:
 
 | Layer | Technology | Role |
 |---|---|---|
-| **Persistent node store** | LanceDB (Parquet/Arrow, columnar) | Two-tier nodes (Tier 0 Chunks, Tier 1+ Consolidated); per-vector HNSW indices on semantic / frame / structural / temporal / description embeddings; versioned snapshots |
+| **Persistent node store** | LanceDB (Parquet/Arrow, columnar) | Two-tier nodes (Tier 0 Chunks, Tier 1+ Consolidated); per-vector HNSW indices on semantic / frame / structural / temporal / description embeddings (as built, 2026-08: IVF-PQ, on the semantic and description vectors of the consolidated table only — PHX-1059, PHX-1085); versioned snapshots |
 | **Edge runtime (SpMV path)** | PyTorch sparse CSR tensor | Quantitative fields only: `(source, target, weight, decay_tier, frame_consistency)`. Built by Oneiros; loaded into RAM / GPU. SpMV / SpMM for batched Spreading Activation |
 | **Edge delta buffer (write path)** | Append-only COO | Hebbian updates accumulate lock-free; merged into CSR at every Oneiros tick |
-| **Edge metadata** | Parallel Lance table | Optional semantic descriptors: `relation_descriptor`, `relation_kind`, `description`, `pids` (Wikidata P-IDs), `creation_context`. Read only when an agent inspects an edge — never on the SpMV hot path |
+| **Edge metadata** | Parallel Lance table | Optional semantic descriptors: `relation_descriptor`, `relation_kind`, `description`, `pids` (Wikidata P-IDs), `creation_context`. Read only when an agent inspects an edge — never on the SpMV hot path. *Measured 2026-08-31 (PHX-1100, [`docs/etappes/what_gen1_promises.md`](docs/etappes/what_gen1_promises.md)), unchanged 2026-10-25: the SpMV reads the CSR alone, but every edge carries a descriptor (100%, not the 10–30% the implementation doc assumed), so the table is as large as the tensor and the Constellation indexes it once per process and again after each write — 352 ms cold on the founding mesh in the 2026-08-31 measurement.* |
 | **Anchor index** | Lance + inverted index | Temporal, geographic, language, and genome-position anchor nodes obey different rules (immutable, very-high-cap, no decay); range queries use index lookups, not graph traversal |
 | **Audit ledger** | Append-only Lance | Every consolidation, split, therapy action, pruning, agent-driven cleanup writes a structured record |
 | **Query interface** | Activation injection (single vector or sub-mesh with structure) → Constellation | No Cypher, no SQL, no "fast path" around Spreading Activation |
@@ -147,7 +147,7 @@ Summary:
 
 - **Diversified seeding (always on).** Maximum Marginal Relevance + weight-class stratification (micro / medium / large / hub); optional sub-mesh signature search using Weisfeiler-Lehman hashing. Plain top-K-by-cosine retrieval is forbidden in production.
 - **Frame-routed propagation.** Edges contribute only when their `frame_consistency` with the query's active frame profile exceeds a threshold. Implemented as a masked SpMV / SpMM fused into the GPU kernel.
-- **Damped propagation.** Activation decays per hop; propagation halts at `min_activation` (~0.05) or `max_hops` (default 3, ≤ 5 in production).
+- **Damped propagation.** Activation decays per hop; propagation halts at `min_activation` (~0.05) or `max_hops` (default 3, ≤ 5 in production). *Measured 2026-08-26 (PHX-1095, [`docs/etappes/doctrine_inventory.md`](docs/etappes/doctrine_inventory.md) §"Wired, but without discriminating power"): the shipped operator is personalised PageRank (restart 0.15, 12 iterations), which reads neither `damping` nor `max_hops`, and `min_activation` exists in no operator — the budget (`top_k`) bounds the Constellation, and on PPR's scale 0.05 would keep a median of 9 of 50 nodes. `damping` and `max_hops` belong to the accumulating operators (`raw`, `degnorm`), built but not the default.*
 - **Constellation result.** The activated subgraph is returned as a structured working set: nodes, edges (with descriptors), source anchors, gaps. Directly injectable into the consuming agent's latent space.
 - **Three-factor learning.** Consumer feedback (LLM self-rating, downstream task success) modulates Hebbian update along the activation trace; eligibility traces back-propagate sparse rewards across multi-hop paths.
 
@@ -157,7 +157,7 @@ Binding spec: [`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md).
 Summary:
 
 - **Two-tier nodes** with eager identity when Q-ID / description / structural signals are clear, emergent identity otherwise.
-- **Super-linear decay** (default `k = 2`, tier-modulated) — strong unused edges decay faster than weak ones; high edge weight signifies *currently relevant*, not *historically important*.
+- **Super-linear decay** (default `k = 2`; tier modulation is a target, not a state — the documented ladder inverts for weights below 1, see the dated note under [`docs/MESH_SUBSTRATE.md`](docs/MESH_SUBSTRATE.md) §2) — strong unused edges decay faster than weak ones; high edge weight signifies *currently relevant*, not *historically important*.
 - **Saturation caps** in both count and weight, indexed by tier (Tier 0: 10K / S; Tier 1: 50K / 5S; Tier 2: 200K / 20S; Tier 3: 1M / 100S).
 - **Atrophy decoupled from death** — nodes stay until the pruner runs under resource pressure. The mesh loses memory only under genuine resource constraints.
 - **Global homeostatic renormalisation** keeps the substrate's total-edge-weight / node-count ratio near a target `R_ideal`.

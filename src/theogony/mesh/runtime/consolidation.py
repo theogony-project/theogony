@@ -29,9 +29,14 @@ and Rhea" showed `her father`, `Host of Many`, `dear mother` and `Vesta`
 renormalisation, the pruner, pathology surveillance, therapy and three-factor RL.
 This is consolidation only. Tier promotion (Tier 1 -> 2 -> 3) is specified as
 earned through "number of distinct activation contexts, age, breadth of incoming
-references" — and `fired_total` is **0 on every node in the substrate**, because
-nothing on the read path increments it. Promotion would therefore be promotion by
-age alone, so it is not implemented here; see PHX-1097 for the finding.
+references". When this was built `fired_total` was **0 on every node in the
+substrate**, because nothing on the read path incremented it, so promotion would
+have been promotion by age alone (PHX-1097). Since PHX-1101 (2026-08-31) the
+counter has a writer: the query path and ingestion record firings to a sidecar
+and the Oneiros tick folds them in (`storage/nodes.py`, `merge_node_firings`;
+measured 1 -> 32 distinct values on a copy of the founding mesh,
+`docs/etappes/doctrine_inventory.md`, "Addendum, the same day"). Promotion itself
+is still not built: nothing in `src/` reads the counters to move a tier.
 
 **Why an LLM decides the merges.** Tag evidence alone over-merges, and the
 substrate itself shows how: the node `Daughter of Cronos — A goddess, daughter of
@@ -586,8 +591,9 @@ def fuse_nodes(anchor: ConsolidatedNode, members: Sequence[ConsolidatedNode]) ->
             "qids": qids,
             # The node's own record of when it consolidated. Doctrine describes
             # this field as tier-promotion history; the substrate has no tier
-            # promotion to record (nothing increments the counters it would be
-            # earned on), and a merge is the consolidation event that did happen.
+            # promotion to record (the counters it would be earned on have had a
+            # writer since PHX-1101, but nothing reads them to move a tier), and
+            # a merge is the consolidation event that did happen.
             "consolidation_history": [*anchor.consolidation_history, datetime.now(UTC)],
             # Both are caches over a topology this merge just changed.
             "node_potential_cache": None,

@@ -804,7 +804,7 @@
   "source": "what_gen1_promises.md:183-186",
   "kind": "empirical-question",
   "load_bearing": false,
-  "evidence": "Doctrine gap; PHX-1101 YAML lines 66-69 and 86-90 (\u03b3=0.9 has no measurement behind it).",
+  "evidence": "Doctrine gap; PHX-1101 YAML lines 66-69 and 86-90 (\u03b3=0.9 has no measurement behind it). Followed up 2026-10-25 (PHX-1108): MESH_SUBSTRATE's ChunkNode schema and the dated note beneath it now state the built window (exponential forgetting, \u03b3 = 0.9 per fold, floored, consolidated nodes only; still unmeasured).",
   "status": "confirmed"
  },
  {
@@ -1284,16 +1284,16 @@
   "source": "PHILOSOPHY.md:100",
   "kind": "mechanism",
   "load_bearing": true,
-  "evidence": "Refuted on the mesh: run_minimal_tick has one non-test caller, the CLI; no scheduler, daemon or interval exists (doctrine_inventory.md:450; what_gen1_promises.md:97-100). The OneirosWorker with tick_interval_s (src/theogony/memory/oneiros.py:98) drives the legacy Gen-1 store and never imports theogony.mesh. 14 ticks in 11 days, by hand.",
-  "status": "refuted"
+  "evidence": "Refuted on the mesh: run_minimal_tick has one non-test caller, the CLI; no scheduler, daemon or interval exists (doctrine_inventory.md:450; what_gen1_promises.md:97-100). The OneirosWorker with tick_interval_s (src/theogony/memory/oneiros.py:98) drives the legacy Gen-1 store and never imports theogony.mesh. 14 ticks in 11 days, by hand. Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement.",
+  "status": "corrected"
  },
  {
   "claim": "Oneiros simulates observation and memory: runs activation over existing knowledge, treats constellations as new observations, writes back denser connections; never-connected nodes become connected through dreaming.",
   "source": "PHILOSOPHY.md:102",
   "kind": "mechanism",
   "load_bearing": true,
-  "evidence": "Refuted for Gen 1: the Hebbian edge-create branch is unreachable from the query path and all 94,490 edges come from ingestion (what_gen1_promises.md:101-103; heartbeat_2wiki.md:111-113); the +34.8% MRR 'dream pass' is an in-memory simulation that never writes to the workspace (what_gen1_promises.md:104-108). Gen-1 legacy Morpheus is an opt-in tick phase on the old store (docs/MORPHEUS.md); no Morpheus in src/theogony/mesh.",
-  "status": "refuted"
+  "evidence": "Refuted for Gen 1: the Hebbian edge-create branch is unreachable from the query path and all 94,490 edges come from ingestion (what_gen1_promises.md:101-103; heartbeat_2wiki.md:111-113); the +34.8% MRR 'dream pass' is an in-memory simulation that never writes to the workspace (what_gen1_promises.md:104-108). Gen-1 legacy Morpheus is an opt-in tick phase on the old store (docs/MORPHEUS.md); no Morpheus in src/theogony/mesh. Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement.",
+  "status": "corrected"
  },
  {
   "claim": "The Chronik grows wiser without reading new texts; the Learn layer works continuously on what is already there.",
@@ -1692,8 +1692,8 @@
   "source": "docs/CHRONICLE_PRINCIPLES.md:36",
   "kind": "mechanism",
   "load_bearing": true,
-  "evidence": "Q-IDs were the strongest corruption vector: 127 of 130 wrong (PHX-1063), accepted at score 1.0 uncorroborated (PHX-1054). Description-cosine merges absorbed Venus, Dione, Zeus into a poem node (PHX-1051). Structural-context score does not predict identity \u2014 highest scores sit on false pairs (consolidation.md:79-84). The consolidation half was first built 2026-08-31 (PHX-1097); until then all 3,783 entities were candidates.",
-  "status": "refuted"
+  "evidence": "Q-IDs were the strongest corruption vector: 127 of 130 wrong (PHX-1063), accepted at score 1.0 uncorroborated (PHX-1054). Description-cosine merges absorbed Venus, Dione, Zeus into a poem node (PHX-1051). Structural-context score does not predict identity \u2014 highest scores sit on false pairs (consolidation.md:79-84). The consolidation half was first built 2026-08-31 (PHX-1097); until then all 3,783 entities were candidates. Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement.",
+  "status": "corrected"
  },
  {
   "claim": "Privacy as operational necessity: governed visibility and data sovereignty are required now for adoption and law.",
@@ -1964,8 +1964,8 @@
   "source": "DEEP_TECH_VISION.md:45-66",
   "kind": "mechanism",
   "load_bearing": true,
-  "evidence": "TARGET_ARCHITECTURE.md:96-97 forbids raw text storage after Kadmos; the substrate keeps only a raw_text_ref pointer, which has no reader (doctrine_inventory.md:303) and points to a deleted scratchpad on all 1,206 chunks (PHX-1103, doctrine_inventory.md:198-214). Re-derivation from source is impossible on the demo mesh. The two documents contradict each other; the built system follows TARGET_ARCHITECTURE.",
-  "status": "refuted"
+  "evidence": "TARGET_ARCHITECTURE.md:96-97 forbids raw text storage after Kadmos; the substrate keeps only a raw_text_ref pointer, which has no reader (doctrine_inventory.md:303) and points to a deleted scratchpad on all 1,206 chunks (PHX-1103, doctrine_inventory.md:198-214). Re-derivation from source is impossible on the demo mesh. The two documents contradict each other; the built system follows TARGET_ARCHITECTURE. Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement.",
+  "status": "corrected"
  },
  {
   "claim": "A Canonical Semantic Language (Chronese) \u2014 not English, not any natural language \u2014 should represent entities, events, roles, time, place, qualifiers, uncertainty and provenance.",
@@ -2236,8 +2236,8 @@
   "source": "CHRONESE.md:3",
   "kind": "thesis",
   "load_bearing": true,
-  "evidence": "Directly contradicted by the binding TARGET_ARCHITECTURE.md:13-15, where vectors and weighted edges are the native medium and text is forbidden as internal medium. Nothing in src/theogony/mesh/ projects from an assertion frame; PHX-1002 open. Gen-1 core/model.py:234 keeps the sentence 'in the long view' only.",
-  "status": "refuted"
+  "evidence": "Directly contradicted by the binding TARGET_ARCHITECTURE.md:13-15, where vectors and weighted edges are the native medium and text is forbidden as internal medium. Nothing in src/theogony/mesh/ projects from an assertion frame; PHX-1002 open. Gen-1 core/model.py:234 keeps the sentence 'in the long view' only. Corrected 2026-10-25 (PHX-1108): the document carries a historical banner at its head pointing at TARGET_ARCHITECTURE; the text is preserved as it stood.",
+  "status": "corrected"
  },
  {
   "claim": "Natural language is ambiguous and hard to reason over at scale; flat triples are too narrow; ad hoc extraction JSON is unstable \u2014 a middle language is needed.",
@@ -2284,8 +2284,8 @@
   "source": "CHRONESE.md:304-313",
   "kind": "milestone",
   "load_bearing": false,
-  "evidence": "Pydantic models exist for ChunkNode/ConsolidatedNode/Edge, not for assertion frames; the Neo4j adapter is deleted (RETIREMENT_NEO4J_MULTIHOP.md); the ledger holds ingest and tick actions only (doctrine_inventory.md:409).",
-  "status": "refuted"
+  "evidence": "Pydantic models exist for ChunkNode/ConsolidatedNode/Edge, not for assertion frames; the Neo4j adapter is deleted (RETIREMENT_NEO4J_MULTIHOP.md); the ledger holds ingest and tick actions only (doctrine_inventory.md:409). Corrected 2026-10-25 (PHX-1108): the document carries a historical banner at its head pointing at TARGET_ARCHITECTURE; the text is preserved as it stood.",
+  "status": "corrected"
  },
  {
   "claim": "Open question: how much source text should be preserved inline versus by reference?",
@@ -2508,8 +2508,8 @@
   "source": "TARGET_ARCHITECTURE.md:158-159",
   "kind": "mechanism",
   "load_bearing": true,
-  "evidence": "Refuted for the production path: src/theogony/mesh/ingestion/kadmos_v2.py has no cross-paragraph state (grep previous|working memory|revis returns nothing); its schema is 'one LLM paragraph reading step' (reading_schemas.py:88-95). The cognitive reader with ReadingState (src/theogony/kadmos/reader.py) is not what read the founding mesh (what_gen1_promises.md:118-126). Protagonist blindness (PHX-1052) is a symptom.",
-  "status": "refuted"
+  "evidence": "Refuted for the production path: src/theogony/mesh/ingestion/kadmos_v2.py has no cross-paragraph state (grep previous|working memory|revis returns nothing); its schema is 'one LLM paragraph reading step' (reading_schemas.py:88-95). The cognitive reader with ReadingState (src/theogony/kadmos/reader.py) is not what read the founding mesh (what_gen1_promises.md:118-126). Protagonist blindness (PHX-1052) is a symptom. Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement.",
+  "status": "corrected"
  },
  {
   "claim": "Labels are transitional inside Kadmos; vectors are the retrieval primitives; Tier-1+ nodes carry an authoritative regenerable description.",
@@ -2604,8 +2604,8 @@
   "source": "CHRONIK_SCALE.md:146",
   "kind": "mechanism",
   "load_bearing": true,
-  "evidence": "No scheduler; the tick's only caller is the CLI (doctrine_inventory.md:450). Decay runs at k=2 only \u2014 the tier ladder would invert (:129-150). Renormalisation missing (PHX-1106 open). Consolidation is a script. Saturation never cut anything (cap 10,000 vs max degree 1,093, :169-171). 'Bounded' in practice means weights monotone toward zero: mode 0.4 \u2192 0.31 in 14 ticks (what_gen1_promises.md:80-85); on 2Wiki 56.8% of edges sit at w_max (heartbeat_2wiki.md:28-33).",
-  "status": "refuted"
+  "evidence": "No scheduler; the tick's only caller is the CLI (doctrine_inventory.md:450). Decay runs at k=2 only \u2014 the tier ladder would invert (:129-150). Renormalisation missing (PHX-1106 open). Consolidation is a script. Saturation never cut anything (cap 10,000 vs max degree 1,093, :169-171). 'Bounded' in practice means weights monotone toward zero: mode 0.4 \u2192 0.31 in 14 ticks (what_gen1_promises.md:80-85); on 2Wiki 56.8% of edges sit at w_max (heartbeat_2wiki.md:28-33). Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement.",
+  "status": "corrected"
  },
  {
   "claim": "The pruner fires only on resource pressure, removes atrophied nodes first, and is the only operation that destroys information.",
@@ -2732,8 +2732,8 @@
   "source": "VISION.md:34",
   "kind": "mechanism",
   "load_bearing": true,
-  "status": "refuted",
-  "evidence": "Mesh: consolidation_tier = 1 on 5,002/5,002 nodes, no promotion code anywhere in src/ (doctrine_inventory.md:320; consolidation.md:313-319 'promotion would be promotion by age alone'). Gen-1: demo_log.md:230-241 nodes_promoted 0 in both measured ticks. PHX-1101 (2026-08-31) gives promotion its first input (fired_total 1\u219232 distinct values); nothing reads it yet."
+  "status": "corrected",
+  "evidence": "Mesh: consolidation_tier = 1 on 5,002/5,002 nodes, no promotion code anywhere in src/ (doctrine_inventory.md:320; consolidation.md:313-319 'promotion would be promotion by age alone'). Gen-1: demo_log.md:230-241 nodes_promoted 0 in both measured ticks. PHX-1101 (2026-08-31) gives promotion its first input (fired_total 1\u219232 distinct values); nothing reads it yet. Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement."
  },
  {
   "claim": "Old, contradicted, redundant or unused knowledge is gracefully degraded; the system forgets what no longer serves truth.",
@@ -2844,8 +2844,8 @@
   "source": "VISION.md:84-86",
   "kind": "mechanism",
   "load_bearing": true,
-  "status": "refuted",
-  "evidence": "what_gen1_promises.md:97-100: the mesh tick has no schedule, one caller (CLI); OneirosWorker with tick_interval_s drives the Gen-1 store and never imports theogony.mesh (src/theogony/memory/oneiros.py:98-124). Fourteen ticks in eleven days, by hand (what_gen1_promises.md:83-84). 'Der Traum ist als Messung real und als Prozess Fiktion' (:110)."
+  "status": "corrected",
+  "evidence": "what_gen1_promises.md:97-100: the mesh tick has no schedule, one caller (CLI); OneirosWorker with tick_interval_s drives the Gen-1 store and never imports theogony.mesh (src/theogony/memory/oneiros.py:98-124). Fourteen ticks in eleven days, by hand (what_gen1_promises.md:83-84). The dream is real as a measurement and fiction as a process (what_gen1_promises.md, the permanent-dream section). Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement."
  },
  {
   "claim": "Morpheus (associator/inferencer), Athene (verifier), Chronos (recycler) work on the boundary between Ephemera and Mneme; this is the heart of the system.",
@@ -3732,8 +3732,8 @@
   "source": "ROADMAP.md:67",
   "kind": "mechanism",
   "load_bearing": true,
-  "status": "refuted",
-  "evidence": "PHX-1063: 127 of 130 reading-path Q-IDs wrong; unverified Q-IDs are no longer persisted; qids empty on the founding mesh (doctrine_inventory.md L114, L122-127). AKA-IDs dropped for ULIDs (src/theogony/mesh/schemas.py L8, L46). Seeded Wikidata5m Q-IDs work in hand-off tests only."
+  "status": "corrected",
+  "evidence": "PHX-1063: 127 of 130 reading-path Q-IDs wrong; unverified Q-IDs are no longer persisted; qids empty on the founding mesh (doctrine_inventory.md L114, L122-127). AKA-IDs dropped for ULIDs (src/theogony/mesh/schemas.py L8, L46). Seeded Wikidata5m Q-IDs work in hand-off tests only. Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement."
  },
  {
   "claim": "Optional multi-resolution models: sentence with a small model, chapter with a large model.",
@@ -3804,8 +3804,8 @@
   "source": "ROADMAP.md:132",
   "kind": "mechanism",
   "load_bearing": true,
-  "status": "partly-confirmed",
-  "evidence": "Indices are IVF_PQ not HNSW (src/theogony/mesh/storage/nodes.py:548; PHX-1085 median 22% overlap until refine_factor); consolidated table only (doctrine_inventory.md L417); versions pruned every tick, retention 0 (L411)."
+  "status": "corrected",
+  "evidence": "Indices are IVF_PQ not HNSW (src/theogony/mesh/storage/nodes.py:548; PHX-1085 median 22% overlap until refine_factor); consolidated table only (doctrine_inventory.md L417); versions pruned every tick, retention 0 (L411). Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement."
  },
  {
   "claim": "Edge runtime: PyTorch sparse CSR built by Oneiros, loaded to RAM/GPU, SpMV/SpMM for batched activation.",
@@ -3828,8 +3828,8 @@
   "source": "ROADMAP.md:135",
   "kind": "mechanism",
   "load_bearing": false,
-  "status": "refuted",
-  "evidence": "100% of edges carry a descriptor and sit in the metadata table (94,490/94,490; what_gen1_promises.md L177-182); a cold `mesh ask` pays 352 ms building it; doctrine_inventory.md L415."
+  "status": "corrected",
+  "evidence": "100% of edges carry a descriptor and sit in the metadata table (94,490/94,490; what_gen1_promises.md L177-182); a cold `mesh ask` pays 352 ms building it; doctrine_inventory.md L415. Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement."
  },
  {
   "claim": "Anchor index: temporal/geographic/language/genome anchor nodes obey different rules (immutable, no decay) with range queries via index lookups.",
@@ -3884,8 +3884,8 @@
   "source": "ROADMAP.md:148",
   "kind": "mechanism",
   "load_bearing": false,
-  "status": "refuted",
-  "evidence": "No threshold exists; adding it would leave a median of 9 of 50 nodes under PPR; the shipped operator runs 12 PPR iterations and reads neither damping nor hops (PHX-1095; doctrine_inventory.md L163-175; what_gen1_promises.md L172-176)."
+  "status": "corrected",
+  "evidence": "No threshold exists; adding it would leave a median of 9 of 50 nodes under PPR; the shipped operator runs 12 PPR iterations and reads neither damping nor hops (PHX-1095; doctrine_inventory.md L163-175; what_gen1_promises.md L172-176). Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement."
  },
  {
   "claim": "The Constellation is a structured working set directly injectable into the consuming agent's latent space.",
@@ -3916,8 +3916,8 @@
   "source": "ROADMAP.md:158",
   "kind": "mechanism",
   "load_bearing": true,
-  "status": "partly-confirmed",
-  "evidence": "k=2 runs every tick (doctrine_inventory.md L67-73). Tier modulation is inverted for w<1 (L129-150). Decay was unconditional ('unused' unmeasured) until the PHX-1102 gate (docs/etappes/hebbian_calibration.md L65-73)."
+  "status": "corrected",
+  "evidence": "k=2 runs every tick (doctrine_inventory.md L67-73). Tier modulation is inverted for w<1 (L129-150). Decay was unconditional ('unused' unmeasured) until the PHX-1102 gate (docs/etappes/hebbian_calibration.md L65-73). Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement."
  },
  {
   "claim": "Saturation caps in both count and weight, indexed by tier (Tier 0: 10K / S ... Tier 3: 1M / 100S).",
@@ -4316,8 +4316,8 @@
   "source": "docs/MESH_MIGRATION_PLAN.md:315",
   "kind": "mechanism",
   "load_bearing": true,
-  "status": "partly-confirmed",
-  "evidence": "Blocker removed 2026-08-31: PHX-1101 writes fired_total/fired_recent on read and ingest (1 -> 32 distinct values); promotion itself still unbuilt (doctrine_inventory.md L248-261). Plan text is stale."
+  "status": "corrected",
+  "evidence": "Blocker removed 2026-08-31: PHX-1101 writes fired_total/fired_recent on read and ingest (1 -> 32 distinct values); promotion itself still unbuilt (doctrine_inventory.md L248-261). Plan text is stale. Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement."
  },
  {
   "claim": "S5 deliverables splits.py (effective-resistance preserving, n\u22658) and pruner.py (resource-pressure triggered).",
@@ -4876,8 +4876,8 @@
   "source": "docs/BUILD_DOCTRINE.md:62",
   "kind": "mechanism",
   "load_bearing": false,
-  "status": "refuted",
-  "evidence": "The mesh uses ULID ids and a qids list (schemas.py L8, L46); AKA-IDs did not survive the pivot; reading-path Q-IDs are no longer trusted as identity (PHX-1063)."
+  "status": "corrected",
+  "evidence": "The mesh uses ULID ids and a qids list (schemas.py L8, L46); AKA-IDs did not survive the pivot; reading-path Q-IDs are no longer trusted as identity (PHX-1063). Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement."
  },
  {
   "claim": "RunReports remain mandatory for every pipeline; honest failure is a report verdict, not a pre-validation step.",
@@ -4900,16 +4900,16 @@
   "source": "docs/BUILD_DOCTRINE.md:65",
   "kind": "mechanism",
   "load_bearing": true,
-  "status": "refuted",
-  "evidence": "On the mesh, node and edge tables are rewritten with mode='overwrite' and prune_history runs every tick with retention 0 (doctrine_inventory.md L411, L420, L424; PHX-1082, PHX-1093); only the audit log is append-only."
+  "status": "corrected",
+  "evidence": "On the mesh, node and edge tables are rewritten with mode='overwrite' and prune_history runs every tick with retention 0 (doctrine_inventory.md L411, L420, L424; PHX-1082, PHX-1093); only the audit log is append-only. Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement."
  },
  {
   "claim": "These structural properties cost nothing now and make growth-with-imperfection recoverable by design.",
   "source": "docs/BUILD_DOCTRINE.md:67",
   "kind": "assumption",
   "load_bearing": true,
-  "status": "refuted",
-  "evidence": "Recovery required a full re-read after the name was dropped at write time (PHX-1065: 6,816 -> 5,002 nodes); chunks cannot be re-derived because raw_text_ref points at deleted files (PHX-1103); per-concept audit rows cost 84% of the resolution stage (PHX-1061)."
+  "status": "corrected",
+  "evidence": "Recovery required a full re-read after the name was dropped at write time (PHX-1065: 6,816 -> 5,002 nodes); chunks cannot be re-derived because raw_text_ref points at deleted files (PHX-1103); per-concept audit rows cost 84% of the resolution stage (PHX-1061). Corrected 2026-10-25 (PHX-1108): the sentence now carries a dated status note citing the measurement."
  },
  {
   "claim": "In the Function-First Phase Athene-Light samples well below 2%, Chronos-Light demotes only accumulated cases, Nemesis-Light scans periodically, Eris is paused, Mnemosyne observes growth metrics.",

@@ -31,7 +31,7 @@ When new content enters the system — a book like *Trans-Himalaya*, a scientifi
 - Each knowledge atom receives an embedding, a short label, a source reference (for exact citation), and multiple scores (confidence, relevance, connectivity, freshness)
 - New atoms land in **Ephemera** — raw, high-detail, low-confidence
 - A continuous background process called **Oneiros** ("the permanent dream") works on this fresh knowledge. Agents associate, verify, infer, deduplicate, and strengthen or weaken connections.
-- High-quality, well-connected knowledge is promoted to **Mneme** — the permanent, trusted layer of the Chronik.
+- High-quality, well-connected knowledge is promoted to **Mneme** — the permanent, trusted layer of the Chronik. *A target, not yet a state (2026-10-25). On the mesh nothing promotes: `consolidation_tier` is still 1 on every node, and the activation counters the tier would be earned on have had a writer only since PHX-1101 ([`etappes/consolidation.md`](etappes/consolidation.md), [`etappes/doctrine_inventory.md`](etappes/doctrine_inventory.md)). The Generation-1 store has the mechanism and promoted nothing in its measured ticks ([`etappes/demo_log.md`](etappes/demo_log.md)).*
 
 Old, contradicted, redundant or unused knowledge is gracefully degraded. The system forgets what no longer serves truth.
 
@@ -83,7 +83,7 @@ On top of these two pillars sits a future advisory intelligence: **Metis**. Meti
 
 There is no nightly batch job. Instead, a continuous, low-priority "dreaming" process runs at all times. Specialized agents — Morpheus (associator and inferencer), Athene (verifier), Chronos (recycler) and others — work on the boundary between Ephemera and Mneme.
 
-This is the heart of the system. It is where new knowledge is woven into the existing fabric, where contradictions are surfaced, where the network becomes wiser over time. Oneiros never sleeps.
+This is the heart of the system. It is where new knowledge is woven into the existing fabric, where contradictions are surfaced, where the network becomes wiser over time. Oneiros never sleeps. *Status 2026-10-25: the process above is the target. What runs is one Oneiros tick — `theogony mesh tick`: decay that spares what fired, reinforcement folded in, global renormalisation under a cap — and it is invoked by hand; nothing schedules it. The founding mesh has had 14 ticks, the demo mesh none ([`etappes/what_gen1_promises.md`](etappes/what_gen1_promises.md), [`etappes/mesh_over_mcp.md`](etappes/mesh_over_mcp.md); PHX-1108).*
 
 ## The Immune System
 

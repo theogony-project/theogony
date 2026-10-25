@@ -65,6 +65,8 @@ It exists for:
 Without this layer, there is no real provenance.
 Without provenance, the Chronik eventually becomes mythology instead of knowledge.
 
+*Status 2026-10-25: a target, not a layer the Chronik has. [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) decision 1 keeps raw source text out of the substrate; each chunk carries a pointer to its source paragraph (`raw_text_ref`, an identifier like `gutenberg_348#p17`), never the text, and the mesh holds nothing to resolve it against. When this layer is built it stands beside the mesh, not in it. Its purpose has one measurement so far, taken off the substrate: the benchmark's own passage store resolved the pointers, and the source paragraphs laid beneath the Constellation took date questions from 13.0% to 42.6% and beat five retrieved passages by 6.8 points of exact match ([`etappes/yes_no_and_sources.md`](etappes/yes_no_and_sources.md), PHX-1114).*
+
 ### 2. Canonical Semantic Language
 
 This is the internal machine-readable language of distilled knowledge.

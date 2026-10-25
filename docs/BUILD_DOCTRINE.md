@@ -55,16 +55,16 @@ Do **not** fix this doctrine to numeric targets (edges per euro, percentile late
 
 ## What stays non-negotiable, even now
 
-The Function-First Phase **does not** waive the structural disciplines below. They cost nothing at build time and make later hardening trivial:
+The Function-First Phase **does not** waive the structural disciplines below. They cost nothing at build time once they are written in batches — written one transaction per item, the audit row alone took 84 % of the resolution stage (PHX-1061, PHX-1060, measured 2026-08-18) — and make later hardening trivial:
 
 - **Schemas remain Pydantic v2 with `extra="forbid"`.** Every node, every edge, every assertion still has a fixed shape. Schema enforcement is a *write-time* property, not a *truth-time* gate.
 - **Provenance fields remain populated.** Every node still carries `source_anchor`, `revision_id`, `extracted_at`, `extractor_id`. The pipeline writes them automatically; no human has to verify them. This is not validation, it is bookkeeping.
-- **AKA-IDs remain primary.** External IDs (Wikidata QIDs) attach as `external_ids`. The identity model does not bend.
+- **AKA-IDs remain primary.** External IDs (Wikidata QIDs) attach as `external_ids`. The identity model does not bend. *On the mesh (2026-10-25): node identity is a ULID and Q-IDs attach as `qids` ([`MESH_SUBSTRATE.md`](MESH_SUBSTRATE.md) §"Field discipline"); the AKA-ID vocabulary belongs to the Generation-1 store.*
 - **RunReports remain mandatory.** Every pipeline still emits an `IngestRunReport` / `QueryRunReport` / `OneirosTickReport`. Honest failure is a *report verdict*, not a pre-validation step.
 - **Pre-gates on content remain forbidden.** No "validate before insert" anywhere. Find a pre-gate, delete it.
-- **The Chronicle Ledger remains append-only.** Mistakes get superseded, not overwritten.
+- **The Chronicle Ledger remains append-only.** Mistakes get superseded, not overwritten. *On the mesh this is the target, not the state (checked 2026-10-25): only the audit table is append-only in rows. The edge tables are rewritten with `mode="overwrite"` on every tick; the node tables by the tick whenever anything fired since the last one — a query's working set or a read's references to nodes already held —, by consolidation, by the contradiction pass and by frame promotion; and the Lance version history of all of them is pruned to a default retention of zero by the same tick, and during a read as well since PHX-1110 (PHX-1082, PHX-1060; [`etappes/doctrine_inventory.md`](etappes/doctrine_inventory.md), "Cold tier"). The mistakes repaired so far were re-read or rewritten in place, not superseded (PHX-1065, PHX-1103).*
 
-These are *structural* properties, not *quality* properties. They exist so that the immune system has something to work on later. Without them, the substrate is unrecoverable; with them, growth-with-imperfection is recoverable by design.
+These are *structural* properties, not *quality* properties. They exist so that the immune system has something to work on later. Without them, the substrate is unrecoverable; with them, growth-with-imperfection is recoverable by design. *So far, recoverable has meant re-read or rewritten (2026-10-25): when the write path dropped the entity's name, the corpus was read again in full (PHX-1065, 6,816 → 5,002 nodes); when every chunk's `raw_text_ref` pointed at a deleted directory, a script rewrote the 1,206 rows in place (PHX-1103). Both were found because the fields were there to inspect; neither was superseded.*
 
 ## What the immune system does about the imperfection
 
