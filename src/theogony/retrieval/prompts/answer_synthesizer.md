@@ -43,8 +43,10 @@ synthesizer's downstream parser is a single regex over your output:
 
 Anything that does not match that pattern is treated as prose. Keep
 sentences short and citation-dense. Each cited claim should be
-verifiable by looking at the cited node's `label`, `node_type`, and
-`source_ref` in the supplied Constellation.
+verifiable by looking at the cited node's `label`, `description`,
+`node_type`, and `source_ref` in the supplied Constellation. A
+`description` that carries a `Status note:` states what is built and
+measured today; prefer it over the sentence before it.
 
 ## Edges as evidence
 

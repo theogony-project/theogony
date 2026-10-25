@@ -1,7 +1,7 @@
 id: PHX-1117
 category: documentation
 priority: low
-status: open
+status: done
 generation_target: Self-description — the bundled pantheon_self dump (docs_ingest)
 title: "The self-description keeps the first 240 characters of a section, so a dated status note never reaches pantheon_ask"
 filed_by: Claude Code (2026-10-25, from the review of PHX-1108)
@@ -31,8 +31,64 @@ acceptance: >
   about one corrected sentence (for example the Oneiros cadence in VISION.md)
   and finds the status note in the constellation it returns. The number of
   nodes carrying a note, before and after, is recorded.
+resolution: >
+  Done, 2026-10-25. Two changes, both in the path an arriving agent uses.
+  (1) The docs extractor (src/theogony/docs_ingest/extractors.py) carries a
+  section's status notes into the node description after the 240-character
+  snippet. Three shapes count: a single-star emphasis span of at least 40
+  characters that carries a date, the documents' convention since 2026-09-07
+  (not one that opens with the date -- that is an etappe's dateline); a
+  "> **Status" blockquote at the head of a document, in use since 2026-05-13
+  (carried once, as the first note in place of the snippet it would fill,
+  and cut at 600 characters like any note -- the CHRONESE banner itself is
+  1,011 characters and travels cut); and the etappes' bold "**Status:**
+  <date> ..." line. Nothing inside code counts; undated emphasis is prose
+  and stays out. The notes stand on their own lines after the snippet. Each note is cut at 600
+  characters, a section contributes at most four. Regenerated: 42 of 746
+  nodes carry a note (52 notes; before this ticket, of the 746 nodes at HEAD
+  two carried one of PHX-1108's notes -- the CHRONESE banner, on the document
+  node and its first section -- and two more an in-place edit of the same
+  commit inside their first 240 characters; 745 nodes when the ticket was
+  filed, before the Nous glossary entry); the dump grew by
+  11.4 KB; the description length's median is unchanged at 240, the 90th
+  percentile 325, the maximum 1,477. The notes travel in the description,
+  not in the vector: embedded, their shared dated boilerplate pulled the
+  noted nodes together and HDBSCAN on the bundled dump fell from 21 clusters
+  to 3 with one holding 98% of the nodes (tests/test_pantheon_self_clustering.py
+  caught it); the embedding text stops at the first note, so the geometry
+  is the section head's, as before, and the clustering is unchanged.
+  (2) The slim ConstellationNode (core/model.py) gained the node's
+  description, so pantheon_ask's constellation, POST /query and GET /node
+  carry it; the offline citation list prints it under each cited source
+  (verbatim, still nothing generated); pantheon_node returns it; and the
+  keyed synthesizer sees it too -- the Constellation reaches the model as
+  JSON, so the prompt now carries each node's description (about 2.5 KB more
+  per call at k = 10 on the self-description; tokens before and after are
+  not measured here), and the packaged prompt names the field and says a
+  Status note states what is built today. Without (2) the note reached the
+  dump and stopped: the Gen-1 answer path projected a node to id, label,
+  type and source.
+
+  Tests: the extractor rule on fixtures (banner once, dated note with bold
+  inside, bullets, code spans, datelines and undated emphasis ignored, bold
+  status line, caps, linear scan); the slim form carries the description;
+  the offline list prints it; the API pins the node's wire shape; the
+  regenerated dump has at least 25 noted nodes and VISION's Oneiros section
+  carries "nothing schedules it"; asked "Does Oneiros run continuously, or
+  is the tick scheduled?" with no key, the constellation returns a node
+  whose description carries the note.
+
+  Limit: the 600-character cut is the cap that bites -- 20 of the 52 carried
+  notes end truncated, the longest MESH_SUBSTRATE "The dynamics" at 1,626
+  characters of which 600 travel; the cap of four per section drops nothing
+  on the current documents; an undated note still does not travel; the rule
+  follows the convention, not every sentence; and a question phrased in the
+  note's words rather than the section's topic finds the section by its
+  head, not by the note. Reviewed by three lenses and a skeptic per finding:
+  22 findings, all applied, among them the banner carried twice, the stars
+  in code, the datelines, the bold status lines, the quadratic scan.
 relates_to:
-  - PHX-1108   # the corrections the dump does not carry
+  - PHX-1108   # the corrections; the dump carries their notes since this ticket
   - PHX-1112   # the self-description's scope and the demo's time budget
 linked_scripts:
   - src/theogony/docs_ingest/extractors.py

@@ -56,6 +56,21 @@ def test_the_dump_covers_exactly_the_documents_the_walker_admits() -> None:
     assert in_dump == walked, {"only in dump": in_dump - walked, "only walked": walked - in_dump}
 
 
+def test_the_status_notes_reach_the_self_description() -> None:
+    """PHX-1117: the walker kept 240 characters per section, every dated status
+    note sat below that line, and `pantheon_ask` served the sentence a document
+    had marked as a target as if it were a state. The notes travel with the
+    description now."""
+    _, rows = _rows()
+    nodes = [r["data"] for r in rows if r.get("kind") == "node"]
+    with_notes = [n for n in nodes if "Status note:" in (n.get("description") or "")]
+    assert len(with_notes) >= 25, len(with_notes)
+    vision = [n for n in with_notes if _source_of({"data": n}) == "docs/VISION.md"]
+    assert any("nothing schedules it" in n["description"] for n in vision), [
+        n["label"] for n in vision
+    ]
+
+
 def _source_of(row: dict[str, Any]) -> str:
     """A dump row is ``{"kind": ..., "data": {...}}``; the document is in the SourceRef."""
     data = row.get("data", row)
@@ -72,12 +87,9 @@ def test_the_measurement_record_is_in_the_dump() -> None:
     assert not any("demo_log.md" in s for s in etappes)
 
 
-@pytest.mark.asyncio
-async def test_asked_what_was_measured_the_self_description_answers_from_the_record(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Through the Gen-1 read path an arriving agent uses — no key, the
-    bundled dump, the real embedder — the cited sources include an etappe."""
+async def _ask_offline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, question: str) -> Any:
+    """Ask the bundled self-description the way an arriving agent does: through
+    the Gen-1 read path, no key for anyone, the real embedder."""
     from theogony.agents.factory import build_llm_or_offline
     from theogony.config.settings import LLMSettings, Settings
     from theogony.core.model import KnowledgeEdge, KnowledgeNode
@@ -126,9 +138,34 @@ async def test_asked_what_was_measured_the_self_description_answers_from_the_rec
             report_writer=RunReportWriter(tmp_path / "reports"),
             llm_unavailable_reason=reason,
         )
-        payload = await tool_ask(res, q=ACCEPTANCE_QUESTION, k=8, hops=2, synthesize=False)
+        payload = await tool_ask(res, q=question, k=8, hops=2, synthesize=False)
     finally:
         audit.__exit__(None, None, None)
     assert "error" not in payload
+    return payload
+
+
+@pytest.mark.asyncio
+async def test_asked_what_was_measured_the_self_description_answers_from_the_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The cited sources include an etappe (PHX-1112, piece 3)."""
+    payload = await _ask_offline(tmp_path, monkeypatch, ACCEPTANCE_QUESTION)
     sources = [_source_of(n) for n in payload["constellation"]["nodes"]]
     assert any("docs/etappes/" in s for s in sources), sources
+
+
+@pytest.mark.asyncio
+async def test_asked_about_the_oneiros_schedule_the_answer_carries_the_status_note(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PHX-1117's acceptance: a sentence the documents corrected (VISION's
+    "Oneiros never sleeps", PHILOSOPHY's "runs at all times") comes back with
+    the dated note that says what runs — one tick, invoked by hand."""
+    payload = await _ask_offline(
+        tmp_path, monkeypatch, "Does Oneiros run continuously, or is the tick scheduled?"
+    )
+    descriptions = [n.get("description") or "" for n in payload["constellation"]["nodes"]]
+    assert any("nothing schedules it" in d or "invoked by hand" in d for d in descriptions), [
+        d[:80] for d in descriptions
+    ]

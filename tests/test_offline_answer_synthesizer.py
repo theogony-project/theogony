@@ -13,6 +13,7 @@ def _slim(
     label: str,
     *,
     confidence: float,
+    description: str | None = None,
 ) -> ConstellationNode:
     ref = SourceRef(source_type="test", identifier="id-1", location="p1")
     return ConstellationNode(
@@ -22,6 +23,7 @@ def _slim(
         layer=Layer.MNEME,
         confidence=confidence,
         source_ref=ref,
+        description=description,
     )
 
 
@@ -58,6 +60,26 @@ async def test_offline_synthesizer_records_zero_cost_and_zero_tokens() -> None:
     assert ans.synthesis.output_tokens == 0
     assert ans.synthesis.cost_eur == 0.0
     assert ans.synthesis.latency_ms == 0
+
+
+@pytest.mark.asyncio
+async def test_offline_synthesizer_prints_the_node_text_under_its_citation() -> None:
+    """PHX-1117: the citation list names the source and, when the node has one,
+    its own stored text — verbatim, so the answer is still nothing generated."""
+    noted = _slim(
+        "AKA-111111111111",
+        "The Permanent Dream (Oneiros)",
+        confidence=0.9,
+        description="Oneiros never sleeps. Status note: nothing schedules it.",
+    )
+    bare = _slim("AKA-222222222222", "Lethe", confidence=0.8)
+    c = Constellation(query="q", nodes=[noted, bare], edges=[])
+    ans = await OfflineAnswerSynthesizer(top_n=6).synthesize(c)
+    lines = ans.text.splitlines()
+    cited = lines.index(next(line for line in lines if "[AKA-111111111111]" in line))
+    assert lines[cited + 1] == "  Oneiros never sleeps. Status note: nothing schedules it."
+    bare_line = next(line for line in lines if "[AKA-222222222222]" in line)
+    assert lines.index(bare_line) == len(lines) - 1, "a node without text adds no line"
 
 
 @pytest.mark.asyncio

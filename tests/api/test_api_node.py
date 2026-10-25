@@ -84,7 +84,20 @@ async def test_node_response_excludes_embeddings(
     await api_store.upsert_node(hedin)
     body = api_client.get(f"/node/{hedin.id}").json()
     payload = str(body)
-    assert "embedding" not in payload.lower()
+    # Keys, not text: since PHX-1117 the node's description travels on the wire
+    # and may well mention the word "embedding".
+    assert "embedding" not in body["node"]
+    assert all("embedding" not in n for n in body["neighborhood"]["nodes"])
+    assert set(body["node"]) == {
+        "id",
+        "label",
+        "node_type",
+        "layer",
+        "confidence",
+        "source_ref",
+        "cluster_id",
+        "description",
+    }, "the wire shape of a node is a decision; change this set on purpose"
     # The fixture embedding is [1.0, 0.0, 0.0, 0.0]; its concatenated
     # presence is the canary.
     assert "0.0, 0.0, 0.0" not in payload

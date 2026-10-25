@@ -437,6 +437,7 @@ async def tool_node(res: McpResources, *, node_id: str) -> dict[str, Any]:
             "id": record.id,
             "label": record.label,
             "node_type": record.node_type.value,
+            "description": record.description,
             "external_ids": dict(record.external_ids),
             "resolution_tier": record.resolution_tier,
             "scores": {
