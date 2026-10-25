@@ -8,8 +8,8 @@ involvement, no synthesised answer, no gaps. 404 when the id is unknown.
 Why a small projection helper here rather than a public
 ``Constellation.from_node_neighborhood`` method on ``core/model.py``:
 the route's needs are exactly that one shape; promoting it to the
-domain vocabulary would be premature API design (Plan §9 deliberately
-keeps the slim DTOs minimal).
+domain vocabulary would be premature API design (the slim DTOs carry
+what a citation needs — since PHX-1117 that includes the node's text).
 """
 
 from __future__ import annotations

@@ -420,3 +420,198 @@ def test_bundled_pantheon_self_dump_advertises_embedding_model() -> None:
     md = dump_metadata(pantheon_self_dump_path())
     assert md["embedding_model_id"] == "BAAI/bge-small-en-v1.5@v1"
     assert md["embedding_dim"] == 384
+
+
+# --------------------------------------------------------------------------
+# PHX-1117: the status notes reach the description
+# --------------------------------------------------------------------------
+
+
+_NOTED_SECTION = (
+    "# Doctrine\n\n"
+    "> **Status: historical (marked 2026-10-25, PHX-1108).** This document proposes\n"
+    "> a tongue; the binding target says **otherwise**.\n\n"
+    "## The ladder\n\n"
+    + "The tier is earned through Oneiros, never assigned. "
+    * 8
+    + "\n\n*Measured 2026-08-31 (PHX-1100): `decay_tier` is 0 on every edge, so only k = 2 "
+    "runs — the gentler exponent removes **more** weight below 1.*\n\n"
+    "* a bullet that starts with a star\n"
+    "* another bullet with *plain emphasis* and no date\n\n"
+    "*An undated italic sentence long enough to pass the length floor and nothing else.*\n"
+    "*Short 2026-01-01.*\n"
+)
+
+
+def test_status_notes_are_the_dated_italics_and_the_status_banner() -> None:
+    from theogony.docs_ingest.extractors import NOTE_MAX_CHARS, NOTES_MAX, status_notes
+
+    notes = status_notes(_NOTED_SECTION)
+    assert len(notes) == 2, notes
+    banner, measured = notes
+    assert banner.startswith("**Status: historical (marked 2026-10-25, PHX-1108).**")
+    assert banner.endswith("the binding target says **otherwise**."), banner
+    assert measured.startswith("Measured 2026-08-31 (PHX-1100)")
+    assert measured.endswith("removes **more** weight below 1."), measured
+    # caps: a long note is cut, and a section contributes at most NOTES_MAX
+    many = "\n\n".join(f"*Status 2026-10-{i:02d}: " + "x" * 700 + "*" for i in range(1, 8))
+    capped = status_notes(many)
+    assert len(capped) == NOTES_MAX
+    assert all(len(n) <= NOTE_MAX_CHARS for n in capped)
+
+
+def test_the_section_description_carries_the_note_the_snippet_cuts_off() -> None:
+    from theogony.docs_ingest.extractors import SNIPPET_MAX_CHARS
+
+    doc = parse_markdown("docs/DOCTRINE.md", _NOTED_SECTION)
+    by_label = {n.label: n for n in extract_section_nodes([doc])}
+    ladder = by_label["The ladder"]
+    assert ladder.source_ref.snippet is not None
+    assert len(ladder.source_ref.snippet) <= SNIPPET_MAX_CHARS
+    assert "Measured 2026-08-31" not in ladder.source_ref.snippet, "the note sits below the cut"
+    assert ladder.description is not None
+    assert "Status note: Measured 2026-08-31 (PHX-1100)" in ladder.description
+    assert "An undated italic sentence" not in ladder.description
+    doctrine = extract_document_nodes([doc])[0]
+    assert doctrine.description is not None
+    assert "Status note: **Status: historical" in doctrine.description
+
+
+def test_the_embedding_text_stops_where_the_status_notes_begin() -> None:
+    """The notes travel with the description for a reader; the vector stays the
+    section head's, so the bundled dump's clustering does not collapse."""
+    from theogony.docs_ingest.pipeline import _embedding_text_for
+
+    doc = parse_markdown("docs/DOCTRINE.md", _NOTED_SECTION)
+    ladder = {n.label: n for n in extract_section_nodes([doc])}["The ladder"]
+    assert ladder.description is not None and "Status note:" in ladder.description
+    text = _embedding_text_for(ladder)
+    assert text.startswith("The ladder. The tier is earned through Oneiros")
+    assert "Status note" not in text and "Measured 2026" not in text
+
+
+def test_a_banner_longer_than_the_snippet_is_carried_once() -> None:
+    """The snippet is taken with the blockquote marks removed, and a banner that
+    fills it is carried whole as the first note, not as its head and then itself."""
+    from theogony.docs_ingest.extractors import STATUS_NOTE_PREFIX, describe
+    from theogony.docs_ingest.pipeline import _embedding_text_for
+
+    banner = "> **Status: superseded (2026-10-25).**\n" + "> This banner runs on and on.\n" * 12
+    body = banner + "\n\nThe prose of the section follows the banner.\n"
+    text = describe(body)
+    assert text is not None
+    assert text.startswith(STATUS_NOTE_PREFIX + "**Status: superseded (2026-10-25).**")
+    assert text.count("**Status: superseded") == 1, text
+    assert "> " not in text, "the blockquote marks do not travel"
+    short = (
+        "> **Status 2026-10-25: superseded.** See the other brief.\n\n"
+        "The brief specifies a reader.\n"
+    )
+    once = describe(short)
+    assert once is not None
+    assert (
+        once.count("**Status 2026-10-25: superseded.**") == 1
+        and "The brief specifies a reader." in once
+    )
+    doc = parse_markdown("docs/BANNER.md", "# Banner\n\n" + body)
+    node = extract_document_nodes([doc])[0]
+    embedded = _embedding_text_for(node)
+    assert embedded.startswith("Banner. **Status: superseded (2026-10-25).**")
+    assert STATUS_NOTE_PREFIX not in embedded and len(embedded) <= len("Banner. ") + 240
+
+
+def test_stars_in_code_datelines_and_bold_status_lines() -> None:
+    from theogony.docs_ingest.extractors import status_notes
+
+    code = (
+        "Use `x*y` here and `pantheon_*`. "
+        "*Measured 2026-10-25: forty characters at least here, yes.*"
+    )
+    assert status_notes(code) == ["Measured 2026-10-25: forty characters at least here, yes."]
+    fence = (
+        "```python\nx = f(*args)\n```\n"
+        "*Status 2026-10-25: a real note right after a fence, kept whole.*"
+    )
+    assert status_notes(fence) == [
+        "Status 2026-10-25: a real note right after a fence, kept whole."
+    ]
+    dateline = (
+        "*2026-09-01. `data/mesh-founding` (94,490 edges), the 47 gold questions; "
+        "no LLM, no money.*"
+    )
+    assert status_notes(dateline) == [], (
+        "an etappe's dateline opens with its date and is not a status"
+    )
+    bold = (
+        "> **Abstract.** Something.\n\n"
+        "**Status:** 2026-10-17, built and measured; the ticket is closed.\n\nText."
+    )
+    assert status_notes(bold) == [
+        "**Status:** 2026-10-17, built and measured; the ticket is closed."
+    ]
+    undated_bold = "**Status:** canonical doctrine for the storage layer.\n"
+    assert status_notes(undated_bold) == []
+
+
+def test_unclosed_stars_scan_in_one_pass() -> None:
+    import time
+
+    from theogony.docs_ingest.extractors import _emphasis_spans, status_notes
+
+    assert _emphasis_spans("*a *b *c") == []
+    assert _emphasis_spans("*a* and *b c* and * not em") == ["a", "b c"]
+    started = time.perf_counter()
+    assert status_notes("*a " * 4000) == []
+    assert time.perf_counter() - started < 0.5
+
+
+def test_a_note_the_cut_runs_through_is_carried_once_and_prose_cannot_forge_the_boundary() -> None:
+    from theogony.docs_ingest.extractors import STATUS_NOTE_PREFIX, describe, status_notes
+    from theogony.docs_ingest.pipeline import _embedding_text_for
+
+    # the note begins inside the first 240 characters and ends beyond them
+    body = "Prose sentence that fills the head. " * 5 + (
+        "*Measured 2026-10-25 (PHX-1100): the note begins before the cut and ends well "
+        "after it, carrying its tail along with it.*"
+    )
+    text = describe(body)
+    assert text is not None and text.count("Measured 2026-10-25") == 1, text
+    assert text.split("\n")[0].startswith("Prose sentence") and "…" not in text.split("\n")[0]
+    # a section that opens with a dated italic longer than the snippet
+    italic = "*Status 2026-10-25 (PHX-1108): " + "a target that was not measured; " * 9 + "end.*\n"
+    once = describe(italic + "\nProse follows.\n")
+    assert once is not None and once.count("Status 2026-10-25") == 1 and not once.startswith("*")
+    # banners and bold status lines quoted inside a fence are examples, not notes
+    assert (
+        status_notes("```\n**Status:** 2026-10-17, inside a fence; this must not be a note.\n```\n")
+        == []
+    )
+    assert (
+        status_notes(
+            "```markdown\n> **Status: historical (2026-10-25).** An example banner.\n```\n"
+        )
+        == []
+    )
+    # a status line that contains a dated italic is one note, not two
+    line = (
+        "**Status:** 2026-10-17, built; "
+        "*a trailing emphasis span dated 2026-10-18 and long enough.*"
+    )
+    assert len(status_notes(line)) == 1
+    # a blank line that carries spaces still ends an unclosed span
+    assert (
+        status_notes("*Measured 2026-10-25: an opener with no closer here\n \nNext para closes it*")
+        == []
+    )
+    # the newline is the boundary: prose that says "Status note: " does not cut the embedding
+    doc = parse_markdown(
+        "docs/CONVENTION.md",
+        "# Convention\n\n"
+        + "A description carries a Status note: part after its snippet, by convention. " * 4
+        + "\n\n"
+        "*Measured 2026-10-25 (PHX-1117): forty-plus characters of dated note to carry here.*\n",
+    )
+    node = extract_document_nodes([doc])[0]
+    assert node.description is not None and node.description.count("\n") == 1
+    embedded = _embedding_text_for(node)
+    assert "by convention." in embedded and STATUS_NOTE_PREFIX + "Measured" not in embedded

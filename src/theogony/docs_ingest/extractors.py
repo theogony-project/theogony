@@ -16,6 +16,15 @@ Five extractors, each with a single responsibility:
 All extractors are pure: same input → same output. The Chronicle dump
 is therefore byte-stable for a given snapshot of the docs (modulo the
 ``accessed_at`` timestamp, which the dump-writer fills last).
+
+A node's description is the first :data:`SNIPPET_MAX_CHARS` of its section
+followed by the section's **status notes** (:func:`status_notes`): the dated
+italic sentences the documents append beneath a sentence that was measured,
+the ``> **Status`` banners at the head of a document (historical, superseded,
+or a dated status line; in use since 2026-05-13) and the etappes' bold
+``**Status:** <date> ...`` lines.
+Without them the self-description served the sentence a document had marked as
+a target as if it were a state (PHX-1117).
 """
 
 from __future__ import annotations
@@ -53,6 +62,26 @@ DEFAULT_REPO_BASE_URL = "https://github.com/theogony-project/theogony/blob/main"
 #: chronicle dump readable when grep-inspected.
 SNIPPET_MAX_CHARS = 240
 
+#: A status note is carried into the description whole, up to this many
+#: characters, and a section contributes at most :data:`NOTES_MAX` of them.
+#: Each is introduced by :data:`STATUS_NOTE_PREFIX`, which is also where the
+#: embedding text stops (see ``pipeline._embedding_text_for``).
+NOTE_MAX_CHARS = 600
+NOTES_MAX = 4
+STATUS_NOTE_PREFIX = "Status note: "
+
+#: A note is recognised by its date. The dated italic sentence
+#: (``*Measured 2026-08-31 (...): ...*``, ``*Status 2026-10-25: ...*``) is the
+#: documents' convention since 2026-09-07; the ``> **Status ...**`` blockquote at
+#: the head of a document predates it; the bold ``**Status:** <date>`` line is
+#: the etappe template's. Undated emphasis is prose and stays out.
+_NOTE_DATE_RE = re.compile(r"\b20\d\d-\d\d(?:-\d\d)?\b")
+_NOTE_MIN_CHARS = 40
+_STATUS_BLOCKQUOTE_RE = re.compile(r"^>\s*\*\*Status[^\n]*(?:\n>[^\n]*)*", re.MULTILINE)
+_STATUS_LINE_RE = re.compile(r"^\*\*Status\b[^\n]*$", re.MULTILINE)
+_CODE_RE = re.compile(r"```.*?```|`[^`\n]*`", re.DOTALL)
+_BLANK_LINE_RE = re.compile(r"\n[ \t]*\n")
+
 
 # --------------------------------------------------------------------------
 # Extractor outputs are returned as plain lists; an aggregate dataclass
@@ -81,14 +110,15 @@ def extract_document_nodes(
     """One node per parsed Markdown file.
 
     The node's label is the document title (first H1, or filename if
-    none); the description is the body of the first section, truncated
-    to :data:`SNIPPET_MAX_CHARS`. The id is deterministic from
+    none); the description is the first section's snippet followed by its
+    status notes (:func:`describe`). The id is deterministic from
     (``SOURCE_TYPE``, rel_path, ``"document"``, title).
     """
     nodes: list[KnowledgeNode] = []
     for doc in parsed_docs:
         first_body = doc.sections[0].body_text if doc.sections else ""
         snippet = _truncate(_collapse_whitespace(first_body), SNIPPET_MAX_CHARS)
+        description = describe(first_body)
         source_ref = SourceRef(
             source_type=SOURCE_TYPE,
             url=f"{repo_base_url}/{doc.rel_path}",
@@ -103,7 +133,7 @@ def extract_document_nodes(
                 knowledge_form=KnowledgeForm.STRUCTURAL,
                 epistemic_status=EpistemicStatus.OBSERVED,
                 label=doc.title,
-                description=snippet or None,
+                description=description,
                 layer=Layer.MNEME,
                 source_ref=source_ref,
                 scores=NodeScores(confidence=0.95, relevance=0.5),
@@ -125,9 +155,10 @@ def extract_section_nodes(
 ) -> list[KnowledgeNode]:
     """One node per H1/H2 section.
 
-    The node's label is the heading text; the description is a
-    truncated snippet of the section body. The id is deterministic
-    from (``SOURCE_TYPE``, rel_path, ``L<start>-L<end>``, heading).
+    The node's label is the heading text; the description is a truncated
+    snippet of the section body followed by the section's status notes
+    (:func:`describe`). The id is deterministic from (``SOURCE_TYPE``,
+    rel_path, ``L<start>-L<end>``, heading).
     """
     nodes: list[KnowledgeNode] = []
     for doc in parsed_docs:
@@ -135,6 +166,7 @@ def extract_section_nodes(
             location = _section_location(section)
             url = f"{repo_base_url}/{doc.rel_path}#{section.anchor}" if section.anchor else None
             snippet = _truncate(_collapse_whitespace(section.body_text), SNIPPET_MAX_CHARS)
+            description = describe(section.body_text)
             source_ref = SourceRef(
                 source_type=SOURCE_TYPE,
                 url=url,
@@ -149,7 +181,7 @@ def extract_section_nodes(
                     knowledge_form=KnowledgeForm.STRUCTURAL,
                     epistemic_status=EpistemicStatus.OBSERVED,
                     label=section.heading,
-                    description=snippet or None,
+                    description=description,
                     layer=Layer.MNEME,
                     source_ref=source_ref,
                     scores=NodeScores(confidence=0.95, relevance=0.5),
@@ -522,6 +554,127 @@ def _truncate(text: str, limit: int) -> str:
     return text[: limit - 1].rstrip() + "…"
 
 
+def _emphasis_spans(text: str) -> list[str]:
+    """The single-star emphasis spans of a Markdown text, in order.
+
+    Bold-aware (a ``*`` next to another ``*`` is bold, not emphasis) and
+    flanking-aware (an opener is followed by a non-space, a closer preceded
+    by one), so a ``* bullet`` never opens a span and ``**bold**`` inside a
+    note never closes it. A nested single-star emphasis does close it: a
+    note is written with ``**bold**``, not ``*em*``, inside. A span does not
+    cross a blank line (spaces on it or not), and an opener that finds no
+    closer before one takes every later opener of that paragraph with it
+    (their closers would have been found), so a paragraph of stray stars
+    scans in one pass.
+    """
+    spans: list[str] = []
+    n = len(text)
+
+    def single(k: int) -> bool:
+        return (
+            text[k] == "*" and (k + 1 >= n or text[k + 1] != "*") and (k == 0 or text[k - 1] != "*")
+        )
+
+    i = 0
+    while i < n:
+        if single(i) and i + 1 < n and not text[i + 1].isspace():
+            j = i + 1
+            closed = False
+            while j < n:
+                if single(j) and not text[j - 1].isspace():
+                    spans.append(text[i + 1 : j])
+                    closed = True
+                    break
+                if text[j] == "\n" and _BLANK_LINE_RE.match(text, j):
+                    break
+                j += 1
+            i = j + 1 if closed else j
+            continue
+        i += 1
+    return spans
+
+
+def _plain_blockquotes(text: str) -> str:
+    """The text with the ``> `` marks of its status blockquotes removed."""
+    return _STATUS_BLOCKQUOTE_RE.sub(
+        lambda m: " ".join(line.lstrip("> ").strip() for line in m.group(0).split("\n")), text
+    )
+
+
+def _bare(text: str) -> str:
+    """A note or snippet without its emphasis marks and truncation mark, for comparison."""
+    return text.rstrip("…").lstrip("*")
+
+
+def status_notes(body_text: str) -> list[str]:
+    """The status notes of a section body, whitespace-collapsed and capped.
+
+    Three shapes count. A ``> **Status ...**`` blockquote is one note (the
+    banner at the head of a document: historical, superseded, or a dated
+    status line). A bold ``**Status:** ...`` line that carries a date is one
+    note (the etappes' status line beneath the abstract). Every single-star
+    emphasis span of at least :data:`_NOTE_MIN_CHARS` that carries a date is
+    one note — unless it opens with the date, which is an etappe's dateline
+    (``*2026-09-01. data/mesh-founding ...*``), not a status. Nothing inside
+    a code span or a fence counts. Each note is cut at :data:`NOTE_MAX_CHARS`;
+    a note contained in an earlier one is dropped; at most :data:`NOTES_MAX`
+    are kept, in order.
+    """
+    masked = _CODE_RE.sub(lambda m: m.group(0).replace("*", "\x00").replace(">", "\x01"), body_text)
+    found: list[str] = []
+    for match in _STATUS_BLOCKQUOTE_RE.finditer(masked):
+        found.append(" ".join(line.lstrip("> ").strip() for line in match.group(0).split("\n")))
+    rest = _STATUS_BLOCKQUOTE_RE.sub("", masked)
+    for match in _STATUS_LINE_RE.finditer(rest):
+        if _NOTE_DATE_RE.search(match.group(0)):
+            found.append(match.group(0))
+    for span in _emphasis_spans(rest):
+        if (
+            len(span) >= _NOTE_MIN_CHARS
+            and _NOTE_DATE_RE.search(span)
+            and not _NOTE_DATE_RE.match(span.lstrip())
+        ):
+            found.append(span)
+    notes: list[str] = []
+    for raw in found:
+        raw = raw.replace("\x00", "*").replace("\x01", ">")
+        note = _truncate(_collapse_whitespace(raw), NOTE_MAX_CHARS)
+        if note and not any(note in kept for kept in notes):
+            notes.append(note)
+        if len(notes) >= NOTES_MAX:
+            break
+    return notes
+
+
+def describe(body_text: str) -> str | None:
+    """A node's description: the snippet, then each status note on its own line.
+
+    The snippet is the first :data:`SNIPPET_MAX_CHARS` of the body with the
+    marks of its status blockquotes removed — what the dump carried before
+    PHX-1117, give or take the marks. A section that opens with a note longer
+    than the snippet carries the note once (cut at :data:`NOTE_MAX_CHARS` like
+    any note) in place of the snippet; a snippet whose cut runs through a note
+    stops before it; a note already inside the snippet is not repeated. The
+    parts are whitespace-collapsed, so the newline between them is the one
+    boundary the embedding text can rely on.
+    """
+    notes = status_notes(body_text)
+    snippet = _truncate(_collapse_whitespace(_plain_blockquotes(body_text)), SNIPPET_MAX_CHARS)
+    for note in notes:
+        if snippet and _bare(note).startswith(_bare(snippet)):
+            snippet = ""  # the section opens with this note; it is carried below
+            break
+        if snippet.endswith("…"):
+            head = snippet[:-1]
+            at = head.find(_bare(note)[:24])
+            if at > 0 and _bare(note).startswith(_bare(head[at:])):
+                snippet = head[:at].rstrip(" *")  # the cut ran through this note
+                break
+    parts = [snippet] if snippet else []
+    parts.extend(f"{STATUS_NOTE_PREFIX}{note}" for note in notes if note not in snippet)
+    return "\n".join(parts) or None
+
+
 _NON_ALNUM = re.compile(r"[^\w\- ]+")
 
 
@@ -534,11 +687,17 @@ def _slugify(text: str) -> str:
 __all__ = [
     "DEFAULT_REPO_BASE_URL",
     "ExtractedChronicle",
+    "NOTES_MAX",
+    "NOTE_MAX_CHARS",
+    "SNIPPET_MAX_CHARS",
     "SOURCE_TYPE",
+    "STATUS_NOTE_PREFIX",
+    "describe",
     "extract_document_nodes",
     "extract_glossary_concepts",
     "extract_link_edges",
     "extract_mention_edges",
     "extract_part_of_edges",
     "extract_section_nodes",
+    "status_notes",
 ]

@@ -507,6 +507,11 @@ class ConstellationNode(BaseModel):
     The synthesizer should only ever see the slim form. The full record
     is fetched separately via ``KnowledgeStore.get_node`` when the user
     drills into a citation (the Hover-Lupe).
+
+    The description travels with the slim form since PHX-1117: it is the
+    node's bounded text (for a document node, the section snippet and its
+    dated status notes), and without it a reader of the constellation saw
+    headings and sources but never what the document says today.
     """
 
     id: str
@@ -518,6 +523,13 @@ class ConstellationNode(BaseModel):
     cluster_id: str | None = Field(
         default=None,
         description="Technical cluster handle for blind-spot aggregation (PHX-0058 / W3).",
+    )
+    description: str | None = Field(
+        default=None,
+        description=(
+            "The node's stored text, verbatim; None when the node has none. No bound is "
+            "enforced here: the docs extractor caps what it writes, other writers set none."
+        ),
     )
 
     @classmethod
@@ -531,6 +543,7 @@ class ConstellationNode(BaseModel):
             confidence=node.scores.confidence,
             source_ref=node.source_ref,
             cluster_id=node.cluster_id,
+            description=node.description,
         )
 
 

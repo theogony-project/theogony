@@ -400,6 +400,9 @@ class OfflineAnswerSynthesizer:
             loc = f" ({sr.location})" if sr.location else ""
             ident = sr.identifier if sr.identifier else "unknown source"
             lines.append(f"- [{n.id}] {n.label} — {ident}{loc} (confidence {n.confidence:.2f})")
+            if n.description:
+                # The node's own stored text, verbatim — still nothing generated.
+                lines.append("  " + n.description.replace("\n", "\n  "))
 
         text = "\n".join(lines)
         return Answer(

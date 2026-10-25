@@ -124,9 +124,10 @@ resolution: >
   status. The bundled self-description was regenerated after the edits; it carries
   the CHRONESE banner, but not the notes themselves -- the docs walker keeps
   the first 240 characters of each H1/H2 section (SNIPPET_MAX_CHARS), and
-  every note sits below that line, so pantheon_ask still serves the
-  uncorrected sentences for those sections (PHX-1117). tests/test_docs_links.py
-  green.
+  every note sat below that line, so pantheon_ask still served the
+  uncorrected sentences for those sections -- fixed the same day by PHX-1117,
+  which carries the notes into the description and the constellation.
+  tests/test_docs_links.py green.
 relates_to:
   - PHX-1100   # the inventory that counted the mechanisms
   - PHX-1106   # renormalisation; left the tier ladder untouched (see resolution)

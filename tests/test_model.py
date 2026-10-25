@@ -392,6 +392,17 @@ class TestConstellationDTOs:
         assert slim.confidence == node.scores.confidence
         assert slim.source_ref.source_type == "gutenberg"
 
+    def test_constellation_node_carries_the_description(self) -> None:
+        """PHX-1117: the slim form kept headings and sources and dropped the text,
+        so a reader of the constellation never saw what a document says today."""
+        node = make_node("Oneiros")
+        node.description = "The tick is invoked by hand. Status note: nothing schedules it."
+        slim = ConstellationNode.from_knowledge_node(node)
+        assert slim.description == node.description
+        bare = make_node("Lethe")
+        bare.description = None
+        assert ConstellationNode.from_knowledge_node(bare).description is None
+
     def test_constellation_edge_strips_provenance(self) -> None:
         edge = KnowledgeEdge(
             source_id="AKA-a",

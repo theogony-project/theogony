@@ -27,6 +27,8 @@ from pathlib import Path
 from theogony.core.model import KnowledgeEdge, KnowledgeNode
 from theogony.docs_ingest.extractors import (
     DEFAULT_REPO_BASE_URL,
+    SNIPPET_MAX_CHARS,
+    STATUS_NOTE_PREFIX,
     ExtractedChronicle,
     extract_document_nodes,
     extract_glossary_concepts,
@@ -153,6 +155,25 @@ def _embedding_text_for(node: KnowledgeNode) -> str:
     """
     label = node.label
     desc = node.description or node.source_ref.snippet or ""
+    # The status notes a description carries after the snippet (PHX-1117) are
+    # for the reader of a constellation, not for the vector: embedded, their
+    # shared dated boilerplate pulled the noted nodes together (38 in the first
+    # version, 42 now) and HDBSCAN on the bundled dump fell from 21 clusters to
+    # 3, one holding 98% of the nodes. The embedding stops at the first note,
+    # so the geometry stays the section head's, as before. The notes stand on
+    # their own lines, and the parts are whitespace-collapsed, so the newline
+    # is a boundary prose cannot forge.
+    boundary = "\n" + STATUS_NOTE_PREFIX
+    cut = desc.find(boundary)
+    if cut > 0:
+        desc = desc[:cut].rstrip()
+    elif desc.startswith(STATUS_NOTE_PREFIX):
+        # The section is its own banner: embed the banner's head, as the
+        # snippet did before, not the prefix and the whole note.
+        desc = desc[len(STATUS_NOTE_PREFIX) :][:SNIPPET_MAX_CHARS]
+        later = desc.find(boundary)
+        if later > 0:
+            desc = desc[:later].rstrip()
     if desc:
         return f"{label}. {desc}"
     return label
