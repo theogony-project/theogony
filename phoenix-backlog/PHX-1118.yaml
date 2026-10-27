@@ -1,7 +1,7 @@
 id: PHX-1118
 category: substrate-ingestion
 priority: medium
-status: open
+status: done
 generation_target: MESH — Kadmos v2 write path (migration step S2); track D, reading with state
 title: "Kadmos v2: a node's description accrues when the entity is read again (track D, step 1)"
 filed_by: Claude Code (2026-10-25, from the track-D survey)
@@ -84,6 +84,33 @@ acceptance: >
   in-read or tick-folded. Cost: two replays of about 81 minutes, two answer
   runs of about 25 minutes and about two euros on deepseek-chat; the reading
   itself needs no key.
+resolution: >
+  Reached, 2026-10-26; full text docs/etappes/description_accrual.md. The
+  6,119 cached readings replayed twice by the same code (commit d2c4866):
+  accrual off, 149.7 min, and accrual on, 147.2 min, 12,154 revisions on
+  6,508 nodes; consolidated nodes 35,906 -> 35,901, entity nodes 29,786 ->
+  29,781 (0.02%), is_candidate follows, mention edges 43,118 both, nodes
+  mentioned from two or more passages 5,725 -> 5,791, description characters
+  median 79 -> 90 and mean 85 -> 112, descriptions inside the 200-500 band 236
+  -> 2,729; gold names on two or more nodes 10 -> 11; the largest hubs shrank (123 -> 113)
+  and no generic hub grew, but 961 of the 43,118 mentions changed node (768
+  labels), many from a generic name to a narrower neighbour (Spain 40 -> 13 as
+  Spanish Empire 3 -> 17) -- unjudged, the next identity instrument. Five arms on both meshes in one
+  sitting (deepseek-chat, 1,000 questions, seed 0): passages 45.0 -> 45.3
+  (7/4, the drift control); constellation_typed 48.0 -> 52.9 (+4.9, 104/55,
+  p = 0.0001), entity 49.3 -> 54.1 (85/45, p = 0.0006), date 13.0 -> 24.1
+  with the typed date ceiling 14.8% -> 31.5%; constellation_sources_yn 53.9 ->
+  57.4 (+3.5, 81/46, p = 0.002), now +12.1 over five passages (223/102). Both
+  finish lines hold: +4.9 >= +2.0 at p < 0.05, and the date ceiling >= 25%
+  with the entity questions not losing. Limits: one model; the typed arm's
+  material is longer with accrual and tokens are not counted, though its
+  ceiling moved too (61.0 -> 66.8); the sources arm without the yes/no
+  sentence lost on yes/no (4/13, p = 0.049); per-flush costs were not logged,
+  the wall-clock did not move. Review found and tests pin: the resolver's
+  cached copy on the Q-ID path went stale after a flush; the flush order keeps
+  edges and audit rows when the embedder fails; the sentence split cut
+  initials into letters the dedupe then dropped. Accrual stays off by default
+  here; switching it on for the shipped reader is PHX-1119.
 relates_to:
   - PHX-1108   # the doctrine corrections of the same day; the track-D survey fed it three sentences
   - PHX-1114   # the date ceiling this attacks by the mesh-native route
@@ -92,10 +119,14 @@ relates_to:
   - PHX-1117   # the self-description should carry corrections before more are made
   - PHX-1110   # the answer harness this is measured on
 linked_docs:
+  - docs/etappes/description_accrual.md
   - docs/etappes/plan_from_the_vision_2026-09.md
   - docs/etappes/yes_no_and_sources.md
   - docs/etappes/kadmos_v2_brief.md
 linked_scripts:
+  - scripts/mesh_qa_mesh_ingest.py
+  - scripts/mesh_identity_controls.py
+  - scripts/mesh_qa_pair_runs.py
   - src/theogony/mesh/ingestion/linker.py
   - src/theogony/mesh/ingestion/kadmos_v2.py
   - src/theogony/mesh/eval/qa_mesh.py

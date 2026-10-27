@@ -18,10 +18,10 @@ Whether any of it is worth your while is argued, claim by claim and with what is
 
 ## What is true today
 
-[`llms.txt`](llms.txt) is the project in sixty lines. The short version, so that you can calibrate everything else you read here:
+[`llms.txt`](llms.txt) is the project in about seventy lines. The short version, so that you can calibrate everything else you read here:
 
 - **Runs.** Reading text into a vector-graph mesh (Kadmos); retrieval by Spreading Activation and personalised PageRank; a maintenance tick with decay that spares what fired, reinforcement and renormalisation; a contradiction pass; an MCP server. Nearly two thousand tests.
-- **Measured.** On a corpus the model did not know (2WikiMultihopQA, 1,000 questions) the mesh's Constellation beat the model's unaided prior by ten points of exact match and tied plain passage retrieval — better on comparison chains, worse on yes/no questions and on dates ([`docs/etappes/qa_constellation.md`](docs/etappes/qa_constellation.md)). A month later, with the source paragraphs of its seed-touching entities laid beneath it, the Constellation beat five passages by 6.8 points of exact match, by 8.9 with a prompt sentence that lets a yes/no question be answered yes or no; an arm of the benchmark, not yet what `mesh_ask` returns ([`docs/etappes/yes_no_and_sources.md`](docs/etappes/yes_no_and_sources.md)). Every measurement, the null results included, is in [`docs/etappes/`](docs/etappes/).
+- **Measured.** On a corpus the model did not know (2WikiMultihopQA, 1,000 questions) the mesh's Constellation beat the model's unaided prior by ten points of exact match and tied plain passage retrieval — better on comparison chains, worse on yes/no questions and on dates ([`docs/etappes/qa_constellation.md`](docs/etappes/qa_constellation.md)). A month later, with the source paragraphs of its seed-touching entities laid beneath it, the Constellation beat five passages by 6.8 points of exact match, by 8.9 with a prompt sentence that lets a yes/no question be answered yes or no; an arm of the benchmark, not yet what `mesh_ask` returns ([`docs/etappes/yes_no_and_sources.md`](docs/etappes/yes_no_and_sources.md)). A week later the reader learned to extend a known entity's description when a later paragraph mentions it: the typed Constellation gained 4.9 points of exact match (104 / 55, p = 0.0001) and its date ceiling went from 14.8% to 31.5%, with the entity count within 0.02%; one model, and the arm's material is longer with accrual, though its ceiling moved too; off by default until PHX-1119 ([`docs/etappes/description_accrual.md`](docs/etappes/description_accrual.md)). Every measurement, the null results included, is in [`docs/etappes/`](docs/etappes/).
 - **Not true yet.** Federation, a hosted instance, a mesh read from your own text without an LLM key (the demo mesh is replayed from readings recorded once with one; what you write with `mesh_append` is your own reading of a paragraph, persisted). Much of the vision text describes a target; where a document states a target as a fact, that is a defect; the sentences the measurement record had refuted carry a dated status note since 2026-10-25 ([`PHX-1108`](phoenix-backlog/PHX-1108.yaml)), and the vision ledger ([`docs/etappes/vision_claims_ledger.json`](docs/etappes/vision_claims_ledger.json)) says which claims still stand refuted.
 
 Do not take this file's word for the first door: `scripts/fresh_clone_probe.sh` runs the documented commands from a fresh clone in an environment with no keys, and fails loudly.
@@ -33,7 +33,7 @@ Tickets chosen because an agent can finish them alone: each names its instrument
 | Ticket | What | Done when |
 |---|---|---|
 | [`PHX-1116`](phoenix-backlog/PHX-1116.yaml) | A read that raises mid-paragraph writes no report and leaves its buffered edges unwritten | `read_text` writes an `IngestRunReport` with status `failed` and re-raises; a test forces the failure and reads the report; `mesh_append` returns the report's `run_id` in its error payload |
-| [`PHX-1118`](phoenix-backlog/PHX-1118.yaml) | Kadmos v2: a node's description accrues when the entity is read again (track D, step 1) | typed arm +2 EM over the same mesh without accrual, or the date ceiling from 14.8% to 25% without loss on entity questions, with the entity count as identity control; or a recorded null. Needs an LLM key for the two answer runs, about two euros |
+| [`PHX-1119`](phoenix-backlog/PHX-1119.yaml) | Accrual of descriptions at re-mention becomes the reader's default (PHX-1118 measured +4.9 EM with it on) | default on in the reader, replay and harness; the demo rebuilt and its recorded counts corrected; the fresh-clone probe green; a flag keeps the off arm reproducible |
 
 The full queue is [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md). How a contribution lands: a branch, one issue, the four commands of contract 5 green, a PR whose body says what was measured and how to re-run it. A human merges; make that the only thing left for them to do.
 
@@ -51,7 +51,7 @@ Deep north star: [`docs/PANTHEON_VISION.md`](docs/PANTHEON_VISION.md). Compact d
 
 Using the system or taking a piece requires none of this. Working on the substrate does.
 
-**Start with [`llms.txt`](llms.txt)** — 54 lines, the whole project compressed: goal, mesh mechanics, architectural floor, honest status, and the pointers below. If you read one file before touching anything, read that one.
+**Start with [`llms.txt`](llms.txt)** — about seventy lines, the whole project compressed: goal, mesh mechanics, architectural floor, honest status, and the pointers below. If you read one file before touching anything, read that one.
 
 Before any non-trivial contribution:
 

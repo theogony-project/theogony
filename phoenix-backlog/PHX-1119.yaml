@@ -1,0 +1,38 @@
+id: PHX-1119
+category: substrate-ingestion
+priority: low
+status: open
+generation_target: MESH — Kadmos v2 write path (migration step S2); the shipped default
+title: "Accrual of descriptions at re-mention becomes the reader's default"
+filed_by: Claude Code (2026-10-26, from the PHX-1118 measurement)
+created_at: 2026-10-26
+description: >
+  PHX-1118 measured description accrual at re-mention on the 2Wiki mesh:
+  the typed Constellation +4.9 exact match (104/55, p = 0.0001), its date
+  ceiling 14.8% -> 31.5%, the strongest arm 53.9% -> 57.4%, entity count
+  moved 0.02%, no generic hub grew though 961 of 43,118 mentions changed node
+  (docs/etappes/description_accrual.md). The reader
+  still ships with accrue_descriptions=False, so `theogony mesh ingest`,
+  `theogony mesh demo` and `mesh_append` build the mesh of the off arm. The
+  default was left as it was so the measurement's two arms were the only
+  difference and the demo's recorded numbers (about 720 nodes, 17,500
+  edges) stayed true. Switching it on is one default and a re-recording of
+  what the documents say about the demo.
+acceptance: >
+  MeshParagraphReader, replay_text and ingest_cached_readings default to
+  accrue_descriptions=True; `theogony mesh demo` rebuilt from the bundled
+  readings and its node, edge and relation counts in AGENTS.md, README.md,
+  llms.txt and docs/etappes/mesh_over_mcp.md corrected to what it now builds,
+  with the number of revised descriptions beside them; scripts/fresh_clone_probe.sh
+  green; the demo workspace's gold-name control (scripts/mesh_identity_controls.py
+  with --dataset '') recorded before and after. A CLI flag keeps the off
+  arm reproducible (--no-accrue-descriptions on `mesh ingest` and the ingest
+  script), so the PHX-1118 comparison can be re-run.
+relates_to:
+  - PHX-1118   # the measurement this acts on
+  - PHX-1112   # the demo whose recorded numbers move
+linked_docs:
+  - docs/etappes/description_accrual.md
+linked_scripts:
+  - src/theogony/mesh/ingestion/kadmos_v2.py
+  - scripts/fresh_clone_probe.sh

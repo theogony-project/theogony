@@ -122,14 +122,71 @@ def controls(root: Path, dataset: str | None, cache_dir: Path) -> dict:
     return out
 
 
+def mention_diff(root_a: Path, root_b: Path, *, top: int = 12) -> dict:
+    """Where the mentions went: the same chunk's `kadmos_mentions` on two meshes
+    built from the same passages, joined by the chunk's `raw_text_ref` and the
+    target's label (node ids are not shared between builds).
+
+    The entity count and the top-20 in-degree cannot see a mention that moved
+    from one existing node to another; this can. It says how many of the
+    mentions changed node and which labels gained or lost most. Whether a move
+    is better or worse placed is not judged here.
+    """
+
+    def mentions_by_chunk(root: Path) -> dict[str, list[str]]:
+        runtime = MeshRuntime.open(root)
+        # Join on the label the reader stored first in `tags`: the description
+        # head grows on the accrual arm for a bare-name node, the tag does not.
+        label = {
+            str(n.id): (n.tags[0] if n.tags else _label(n))
+            for n in runtime.nodes.load_all_consolidated()
+        }
+        chunk_ref = {str(c.id): str(c.raw_text_ref) for c in runtime.nodes.iter_chunks()}
+        out: dict[str, list[str]] = defaultdict(list)
+        for e in runtime.edges.load_all_edges():
+            if e.creation_context == "kadmos_mentions":
+                out[chunk_ref.get(str(e.source_id), str(e.source_id))].append(
+                    label.get(str(e.target_id), str(e.target_id))
+                )
+        return out
+
+    a, b = mentions_by_chunk(root_a), mentions_by_chunk(root_b)
+    moved = 0
+    for ref in set(a) | set(b):
+        ca, cb = Counter(a.get(ref, [])), Counter(b.get(ref, []))
+        moved += sum((ca - cb).values())
+    in_a = Counter(x for labels in a.values() for x in labels)
+    in_b = Counter(x for labels in b.values() for x in labels)
+    delta = {lab: in_b[lab] - in_a[lab] for lab in set(in_a) | set(in_b)}
+    changed = sum(1 for d in delta.values() if d)
+    gainers = sorted(delta.items(), key=lambda kv: -kv[1])[:top]
+    losers = sorted(delta.items(), key=lambda kv: kv[1])[:top]
+    return {
+        "a": str(root_a),
+        "b": str(root_b),
+        "mentions": sum(in_a.values()),
+        "mentions_that_changed_node": moved,
+        "labels_whose_count_changed": changed,
+        "gainers": [{"label": lab, "a": in_a[lab], "b": in_b[lab]} for lab, _ in gainers],
+        "losers": [{"label": lab, "a": in_a[lab], "b": in_b[lab]} for lab, _ in losers],
+    }
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", type=Path, required=True)
+    ap.add_argument(
+        "--against",
+        type=Path,
+        help="a second mesh built from the same passages: report where the mentions moved",
+    )
     ap.add_argument("--dataset", default="2wikimultihopqa", help="'' to skip the gold-name control")
     ap.add_argument("--cache-dir", default=Path("data/raw/qa_bench"), type=Path)
     ap.add_argument("--json", type=Path, help="also write the controls here")
     args = ap.parse_args()
     out = controls(args.root, args.dataset or None, args.cache_dir)
+    if args.against:
+        out["against"] = mention_diff(args.root, args.against)
     print(json.dumps(out, indent=2, ensure_ascii=False))
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
