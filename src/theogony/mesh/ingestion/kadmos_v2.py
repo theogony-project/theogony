@@ -56,6 +56,29 @@ log = get_logger("mesh.ingestion")
 
 # Edges buffered before a Lance append (see MeshParagraphReader._append_edge).
 _EDGE_FLUSH_BATCH = 512
+#: Revisions of existing descriptions wait in memory, one per node, and land as
+#: one write per flush: at the compaction boundary, at the end of the read, or
+#: when this many nodes are pending (PHX-1118).
+_REVISION_FLUSH_BATCH = 512
+#: The doctrine's band for a Tier-1 description is 200-500 characters
+#: (MESH_SUBSTRATE §"Field discipline", rule 4); accrual stops at its upper edge.
+DESCRIPTION_MAX_CHARS = 500
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?][\"”’')\]])\s+|(?<=[.!?])\s+")
+#: A part that ends on one of these did not end a sentence: an initial
+#: ("William D."), a dotted acronym ("U.S.", "Ph.D.") or a common abbreviation.
+#: Without this "J. R. R. Tolkien" splits into four sentences and the merge
+#: dedupes the one-letter ones against the standing text — writing a wrong name
+#: into the identity surface (found by review). The single-letter rule also
+#: glues a regnal numeral to the next sentence ("Charles V. He ...", one unit);
+#: the merge then dedupes such a unit by its parts, so the trade-off costs a cap
+#: check on a pair, not a name.
+_ABBREVIATION_TAIL = re.compile(
+    r"(?:^|[\s(\[\"'])"
+    r"(?:[A-Za-z]|(?:[A-Za-z]{1,2}\.)+[A-Za-z]{1,2}|Dr|Mr|Mrs|Ms|Jr|Sr|St|Mt|Ft|No|Nos|Co|Ltd|Corp|Bros"
+    r"|Op|Vol|vol|pp|ed|eds|ca|fl|vs|e\.g|i\.e|approx"
+    r"|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec"
+    r"|Gen|Col|Capt|Lt|Sgt|Maj|Prof|Rev|Hon|Sen|Rep|Gov|Pres)\.$"
+)
 
 # Structural (`shares_entities_with`) neighbours kept per paragraph — PHX-1049.
 # Linking every entity-sharing pair is O(P^2): on the founding mesh the lattice
@@ -168,9 +191,15 @@ class MeshParagraphReader:
         compact_every: int = _COMPACT_EVERY,
         embedder: EmbeddingProvider | None = None,
         connectivity_metrics: bool = True,
+        accrue_descriptions: bool = False,
     ) -> None:
         self.mesh = mesh
         self.llm = llm
+        # When a paragraph mentions an entity the substrate already holds, fold
+        # the paragraph's description of it into the node (PHX-1118, track D
+        # step 1). Off by default: the two arms of the measurement are built
+        # from the same code, and the demo and mesh_append keep today's path.
+        self.accrue_descriptions = accrue_descriptions
         # The connectivity pass loads every edge and every consolidated node and
         # walks the graph once per read — right for a corpus, wrong for a path
         # that reads one paragraph per call (mesh_append over MCP), where it
@@ -205,6 +234,9 @@ class MeshParagraphReader:
         )
         self.report_writer = RunReportWriter(self.settings.run_reports_dir)
         self._pending_edges: list[Edge] = []
+        # Revised copies of existing nodes, by id, so a node mentioned twice in
+        # one flush window builds on its pending copy, not on the stored row.
+        self._pending_revisions: dict[str, ConsolidatedNode] = {}
         # Frames of the nodes this run has written, so `_append_edge` can fill
         # `frame_consistency` from the endpoints it just created. The doctrine
         # defines the field as 'how well the edge's endpoints share a frame'
@@ -273,6 +305,7 @@ class MeshParagraphReader:
 
         nodes_upserted = 0
         firing_passes = 0
+        descriptions_revised = 0
         edges_upserted = 0
         nodes_embedded = 0
         total_mentions = 0
@@ -341,9 +374,18 @@ class MeshParagraphReader:
                 and (paragraph_index - 1) % self.compact_every == 0
             ):
                 self._flush_edges()
+                try:
+                    revised_rows = await self._flush_revisions()
+                finally:
+                    # Same order as the end of the read: a failing embed must not
+                    # take the window's staged audit rows with it.
+                    self.mesh.audit.flush()
                 pruned = self.mesh.compact()
                 log.info(
-                    "compacted the workspace after %d paragraphs: %s", paragraph_index - 1, pruned
+                    "compacted the workspace after %d paragraphs: %s (descriptions revised: %d)",
+                    paragraph_index - 1,
+                    pruned,
+                    revised_rows,
                 )
 
             log.info(
@@ -508,6 +550,39 @@ class MeshParagraphReader:
                         nodes_upserted += 1
                     else:
                         referenced_existing.add(str(decision.node.id))
+                        if self.accrue_descriptions:
+                            standing = self._pending_revisions.get(
+                                str(decision.node.id), decision.node
+                            )
+                            chars_before = len(standing.description or "")
+                            revised = self._accrue_description(
+                                decision.node,
+                                concept.description,
+                                chunk_id=chunk.id,
+                                now=now,
+                            )
+                            if revised is not None:
+                                descriptions_revised += 1
+                                self._stage_audit(
+                                    "mesh_ingest_description_revised",
+                                    {
+                                        "node_id": str(revised.id),
+                                        "chunk_id": str(chunk.id),
+                                        "label": concept.label,
+                                        "signal": decision.signal,
+                                        "paragraph": paragraph_index,
+                                        "source_identifier": source_identifier,
+                                        "chars_before": chars_before,
+                                        "chars_after": len(revised.description or ""),
+                                        "sources": len(revised.description_source_chunks),
+                                    },
+                                )
+                                if len(self._pending_revisions) >= _REVISION_FLUSH_BATCH:
+                                    self._flush_edges()
+                                    try:
+                                        await self._flush_revisions()
+                                    finally:
+                                        self.mesh.audit.flush()
                     self._stage_audit(
                         "mesh_ingest_link_decision",
                         {
@@ -791,9 +866,16 @@ class MeshParagraphReader:
 
         relation_stage_duration_s += time.monotonic() - cross_started
 
-        # Connectivity metrics read the edge table — the buffer must land first.
+        # Connectivity metrics read the edge and node tables — the buffers must
+        # land first. Edges need no model and go first; the revisions may call
+        # the embedder, so the staged audit rows are flushed in `finally`, and an
+        # embed call failing at flush time cannot take them with it (PHX-1116 for
+        # the report that is still missing on that path).
         self._flush_edges()
-        self.mesh.audit.flush()
+        try:
+            await self._flush_revisions()
+        finally:
+            self.mesh.audit.flush()
 
         metrics: dict[str, float | int] = {}
         anomalies: list[str] = []
@@ -877,6 +959,9 @@ class MeshParagraphReader:
                 "relations_written": total_relations_written,
                 "cross_paragraph_links": cross_pass_link_count,
                 "metrics": metrics,
+                # A workspace does not say which arm built it; the run does.
+                "accrue_descriptions": self.accrue_descriptions,
+                "descriptions_revised": descriptions_revised,
             },
         )
 
@@ -917,6 +1002,7 @@ class MeshParagraphReader:
                 nodes_upserted=nodes_upserted,
                 edges_upserted=edges_upserted,
                 idempotent_skips=0,
+                descriptions_revised=descriptions_revised,
             ),
             quality_flags=quality_flags,
         )
@@ -933,6 +1019,10 @@ class MeshParagraphReader:
             # would mean every reference minted a fresh node — the fragmentation
             # PHX-1097 had to clean up after the fact (PHX-1101).
             "firing_passes": firing_passes,
+            # Revisions of existing descriptions, one per mention that added
+            # text, so a node read three times can count twice (PHX-1118);
+            # 0 when accrual is off.
+            "descriptions_revised": descriptions_revised,
             # What stances the read produced, and how many relations the text
             # itself framed as a disagreement. A histogram with one key would
             # mean the vocabulary reached the model and the model ignored it
@@ -1062,6 +1152,94 @@ class MeshParagraphReader:
         self.mesh.edges.append_edges(self._pending_edges)
         self._pending_edges = []
 
+    def _accrue_description(
+        self,
+        node: ConsolidatedNode,
+        body: str,
+        *,
+        chunk_id: ULID,
+        now: datetime,
+    ) -> ConsolidatedNode | None:
+        """Fold a later mention's description into ``node``; None when nothing new.
+
+        The revision is kept in memory (by node id, so a second mention in the
+        same window builds on it) and written by :meth:`_flush_revisions`. The
+        vector is not touched here: all pending descriptions are embedded in one
+        call at flush time.
+        """
+        # Nothing rewrites a consolidated row during a read except this flush:
+        # merge_identity_evidence writes only authoritative Q-IDs, and read_text
+        # offers none; firings go to the sidecar and are folded by the tick. The
+        # resolver's cached copy is not reliable inside a window — a candidate
+        # search for a later concept re-remembers the stored, pre-revision row —
+        # so the merge base always comes from `_pending_revisions`; the cache is
+        # brought back to the written row in `_flush_revisions`.
+        base = self._pending_revisions.get(str(node.id), node)
+        merged = merge_description(base.description or "", body)
+        if merged is None:
+            return None
+        sources = base.description_source_chunks
+        if chunk_id not in sources:
+            # Two concepts of one paragraph may resolve to one node; one chunk, once.
+            sources = [*sources, chunk_id]
+        revised = base.model_copy(
+            update={
+                "description": merged,
+                "description_source_chunks": sources,
+                "description_generated_at": now,
+            }
+        )
+        self._pending_revisions[str(revised.id)] = revised
+        return revised
+
+    async def _flush_revisions(self) -> int:
+        """Embed every pending revision in one call and rewrite the rows in one write.
+
+        Both vectors follow the text: the reader creates an entity node with
+        ``semantic_vector`` and ``description_vector`` from the same string, and
+        the consolidation pass sets both when it regenerates a description.
+        """
+        if not self._pending_revisions:
+            return 0
+        nodes = list(self._pending_revisions.values())
+        embed_started = time.monotonic()
+        try:
+            vectors = await self.vectorizer.description_many([n.description or "" for n in nodes])
+            embed_s = time.monotonic() - embed_started
+            revised = [
+                node.model_copy(update={"description_vector": vector, "semantic_vector": vector})
+                for node, vector in zip(nodes, vectors, strict=True)
+            ]
+            write_started = time.monotonic()
+            self.mesh.nodes.update_consolidated_many(revised)
+        except Exception as exc:
+            # The description_revised rows for these nodes are already staged and
+            # the caller's audit flush writes them; say that the rows they
+            # describe never reached the store, then let the failure surface
+            # (honest failure, AGENTS.md contract 3).
+            self._append_audit(
+                "mesh_ingest_description_flush_failed",
+                {
+                    "node_ids": [str(n.id) for n in nodes],
+                    "pending": len(nodes),
+                    "error": f"{type(exc).__name__}: {exc}",
+                },
+            )
+            raise
+        for node in revised:
+            # The resolver hands cached copies back on the Q-ID path without a
+            # store read; keep them at the row just written, or the next mention
+            # would build on the pre-revision text and overwrite this one.
+            self.registry.refresh(node)
+        log.info(
+            "revised %d descriptions: embedded in %.2f s, written in %.0f ms",
+            len(revised),
+            embed_s,
+            (time.monotonic() - write_started) * 1000,
+        )
+        self._pending_revisions = {}
+        return len(revised)
+
     def _append_audit(self, action: str, detail: dict[str, Any]) -> str:
         return self.mesh.audit.append(action=action, detail=detail)
 
@@ -1187,6 +1365,68 @@ def _entity_description(label: str, description: str) -> str:
     return f"{name} — {body}"
 
 
+def merge_description(standing: str, body: str) -> str | None:
+    """Fold a later mention's description into the standing one, deterministically.
+
+    ``standing`` is the node's description as stored (name at the head, see
+    :func:`_entity_description`); ``body`` is the new mention's bare
+    description from the reading model. The head never moves — the label index,
+    the resolver's aliases and the PHX-1051 naming guard all key on it — so the
+    standing text stays a byte-identical prefix of the result. Each sentence of
+    ``body`` not already present (compared case-folded, whitespace-collapsed and
+    without terminal punctuation; the body of the head counts as present) is
+    appended in order while the result stays within :data:`DESCRIPTION_MAX_CHARS`;
+    a sentence that would cross the cap stops the merge at the sentence
+    boundary. Returns None when nothing was added: a None is not a revision.
+    """
+    standing = (standing or "").strip()
+    if len(standing) >= DESCRIPTION_MAX_CHARS:
+        return None
+    result = standing
+    seen = _comparable(result)
+    for sentence in _split_sentences(body or ""):
+        parts = [p for p in (_comparable(x) for x in _SENTENCE_BREAK.split(sentence)) if p]
+        if not parts or all(_contains(seen, part) for part in parts):
+            continue
+        tail = result.rstrip("\"”’')]")
+        if not result:
+            candidate = sentence
+        elif tail and tail[-1] in ".!?…,;:":
+            candidate = f"{result} {sentence}"
+        else:
+            candidate = f"{result}. {sentence}"
+        if len(candidate) > DESCRIPTION_MAX_CHARS:
+            break
+        result = candidate
+        seen = _comparable(result)
+    return result if result != standing else None
+
+
+def _split_sentences(text: str) -> list[str]:
+    """The sentences of ``text``, whitespace-collapsed; an abbreviation never ends one."""
+    out: list[str] = []
+    for part in _SENTENCE_BREAK.split(text.strip()):
+        part = re.sub(r"\s+", " ", part).strip()
+        if not part:
+            continue
+        if out and _ABBREVIATION_TAIL.search(out[-1]):
+            out[-1] = f"{out[-1]} {part}"
+        else:
+            out.append(part)
+    return out
+
+
+def _comparable(text: str) -> str:
+    """Case-folded, whitespace-collapsed, without wrapping quotes or terminal punctuation."""
+    text = re.sub(r"\s+", " ", text.casefold()).strip()
+    return text.strip("\"“”‘’'").rstrip(".!?…").strip("\"“”‘’' ")
+
+
+def _contains(haystack: str, key: str) -> bool:
+    """Whether ``key`` occurs in ``haystack`` as whole words, not inside a word."""
+    return re.search(rf"(?<!\w){re.escape(key)}(?!\w)", haystack) is not None
+
+
 def _concept_tags(concept: LLMConcept) -> list[str]:
     """Tags for a concept, with its name first.
 
@@ -1276,5 +1516,4 @@ def _split_paragraphs(text: str) -> list[str]:
 
 
 def _count_sentences(text: str) -> int:
-    parts = [part.strip() for part in re.split(r"(?<=[.!?])\s+", text) if part.strip()]
-    return len(parts)
+    return len(_split_sentences(text))

@@ -453,6 +453,27 @@ class MeshNodeStore:
         if label_rows:
             self.consolidated_label_index.add(label_rows)
 
+    def update_consolidated_many(self, nodes: list[ConsolidatedNode]) -> None:
+        """Rewrite existing consolidated rows in place: one write for all of them.
+
+        The batched form of a per-node rewrite (PHX-1118). ``merge_identity_evidence``
+        rewrites one row as delete + add, two transactions per node — the shape
+        PHX-1060 measured; :meth:`replace_all_consolidated` overwrites the whole
+        table and drops every Lance index, right for a maintenance pass that
+        runs once, wrong for a read that flushes every few hundred paragraphs.
+        A merge-insert keyed on ``id`` updates N rows in one transaction, keeps
+        the row count and the indices (the updated rows sit in an unindexed
+        tail that a vector search still scans exactly, and the next optimize
+        folds them in). The Q-ID index is untouched because a revision changes
+        no Q-ID; the label index is not rewritten here — nothing queries it by
+        the whole description, and the next ``replace_all_consolidated``
+        rebuilds it from the nodes.
+        """
+        if not nodes:
+            return
+        rows = [self._consolidated_row(node) for node in nodes]
+        self.consolidated_table.merge_insert("id").when_matched_update_all().execute(rows)
+
     def replace_all_consolidated(self, nodes: list[ConsolidatedNode]) -> None:
         """Rewrite the consolidated table and both its indices from ``nodes``.
 

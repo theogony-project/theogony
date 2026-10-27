@@ -39,6 +39,12 @@ def main() -> None:
     ap.add_argument(
         "--compact-every", type=int, default=200, help="compact the workspace every N paragraphs"
     )
+    ap.add_argument(
+        "--accrue-descriptions",
+        action="store_true",
+        help="fold later mentions into existing descriptions (PHX-1118); default off = "
+        "today's write path",
+    )
     args = ap.parse_args()
 
     readings_path = args.readings or (args.cache_dir / f"kadmos_readings_{args.dataset}.jsonl")
@@ -77,6 +83,7 @@ def main() -> None:
             max_paragraphs=args.max_paragraphs,
             compact_every=args.compact_every,
             on_call=progress,
+            accrue_descriptions=args.accrue_descriptions,
         )
     )
     pruned = runtime.compact()
@@ -88,10 +95,13 @@ def main() -> None:
         f"{elapsed / 60:.1f} min ({elapsed / max(1, result.paragraphs):.3f} s/paragraph)"
     )
     keys = [
-        k for k in rep if any(t in k for t in ("nodes", "edges", "relations", "llm", "mentions"))
+        k
+        for k in rep
+        if any(t in k for t in ("nodes", "edges", "relations", "llm", "mentions", "descriptions"))
     ]
     for k in sorted(keys):
         print(f"  {k}: {rep[k]}")
+    print(f"  report_path: {rep['report_path']}")
     print(
         f"workspace {args.root}: chunks {runtime.nodes.chunk_count()} "
         f"consolidated {runtime.nodes.consolidated_count()}"
