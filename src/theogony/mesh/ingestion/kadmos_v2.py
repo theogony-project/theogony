@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from itertools import combinations
+from pathlib import Path
 from typing import Any, Literal
 
 from ulid import ULID
@@ -230,6 +232,26 @@ class _ReadTally:
     #: one value (PHX-1107).
     stance_counts: dict[str, int] = field(default_factory=dict)
     contradiction_edge_count: int = 0
+    #: Basis labels the paragraph concepts named; a basis label that resolves to
+    #: no concept is a drop, so it belongs in the drop rate's denominator too.
+    basis_attempted: int = 0
+    #: Rows the store held when the read began. A failure report counts what
+    #: landed from the store itself: a write that raises part-way (three tables
+    #: per edge batch, three per node) leaves the read's own counters short.
+    store_before: dict[str, int] | None = None
+    source_anchor_written: bool = False
+    #: The paragraph a compaction boundary follows, while its flush runs.
+    boundary: int | None = None
+    #: The success path's mesh_ingest_run row, once it is written.
+    run_row_id: str | None = None
+
+
+def _error_text(exc: BaseException) -> str:
+    """``Type: message``, even for an exception whose ``__str__`` raises."""
+    try:
+        return f"{type(exc).__name__}: {exc}"
+    except Exception:  # noqa: BLE001 - the type is still worth reporting
+        return type(exc).__name__
 
 
 #: What a buffer flush was writing when it raised, for the failure report.
@@ -298,14 +320,20 @@ class MeshParagraphReader:
             embedder=embedder,
         )
         self.report_writer = RunReportWriter(self.settings.run_reports_dir)
-        #: The IngestRunReport of the last read that raised, or None. The
-        #: exception carries a note naming it; this is for a caller that has to
-        #: hand the run id on — `mesh_append` puts it in its error (PHX-1116).
+        #: The IngestRunReport of the last read that raised, or None, and where
+        #: it was written — None with ``failure_report_error`` set when writing
+        #: it raised too. The exception carries a note saying which; these are
+        #: for a caller that hands the run id on, as `mesh_append` does
+        #: (PHX-1116).
         self.failure_report: IngestRunReport | None = None
-        # Which buffer's write raised, so the failure path does not write it a
-        # second time: `append_edges` writes three tables in turn, and a retry
-        # after a partial write would duplicate the rows that landed.
-        self._flush_raised: str | None = None
+        self.failure_report_path: Path | None = None
+        self.failure_report_error: str | None = None
+        # The buffers whose own write raised, with the first error each: the
+        # failure path does not write them a second time. `append_edges` writes
+        # three tables in turn, so a retry after a partial write would duplicate
+        # the rows that landed, and a retry of the revision flush would call the
+        # embedder again. First failure wins: a later one must not unmark it.
+        self._flush_failures: dict[str, str] = {}
         self._pending_edges: list[Edge] = []
         # Revised copies of existing nodes, by id, so a node mentioned twice in
         # one flush window builds on its pending copy, not on the stored row.
@@ -371,7 +399,9 @@ class MeshParagraphReader:
         """
         tally = _ReadTally(acquired_duration_s=acquired_duration_s)
         self.failure_report = None
-        self._flush_raised = None
+        self.failure_report_path = None
+        self.failure_report_error = None
+        self._flush_failures = {}
         try:
             return await self._read(
                 tally,
@@ -397,6 +427,7 @@ class MeshParagraphReader:
         title: str,
         anchor: str,
     ) -> dict[str, Any]:
+        tally.store_before = self._store_counts()
         source_anchor = anchor or source_identifier
 
         cleaned_started = time.monotonic()
@@ -434,6 +465,7 @@ class MeshParagraphReader:
         )
         tally.stage = "stored"
         self.mesh.nodes.append_consolidated(text_anchor_node)
+        tally.source_anchor_written = True
         self.registry.remember(text_anchor_node)
         tally.nodes_upserted += 1
         self._append_audit(
@@ -456,6 +488,7 @@ class MeshParagraphReader:
                 and (paragraph_index - 1) % self.compact_every == 0
             ):
                 tally.stage = "stored"
+                tally.boundary = paragraph_index - 1
                 self._flush_edges()
                 try:
                     revised_rows = await self._flush_revisions()
@@ -464,6 +497,7 @@ class MeshParagraphReader:
                     # take the window's staged audit rows with it.
                     self._flush_audit()
                 pruned = self.mesh.compact()
+                tally.boundary = None
                 log.info(
                     "compacted the workspace after %d paragraphs: %s (descriptions revised: %d)",
                     paragraph_index - 1,
@@ -843,6 +877,7 @@ class MeshParagraphReader:
                     tally.edges_upserted += 2
                     local_edge_count += 2
 
+                    tally.basis_attempted += len(paragraph_concept.basis_concepts)
                     for basis_label in paragraph_concept.basis_concepts:
                         basis_node = resolved_by_label.get(basis_label)
                         if basis_node is None:
@@ -1004,6 +1039,7 @@ class MeshParagraphReader:
                 "descriptions_revised": tally.descriptions_revised,
             },
         )
+        tally.run_row_id = audit_run_id
 
         report = self._ingest_report(
             tally,
@@ -1161,8 +1197,8 @@ class MeshParagraphReader:
             return
         try:
             self.mesh.edges.append_edges(self._pending_edges)
-        except Exception:
-            self._flush_raised = "edges"
+        except Exception as exc:
+            self._flush_failures.setdefault("edges", _error_text(exc))
             raise
         self._pending_edges = []
 
@@ -1170,9 +1206,17 @@ class MeshParagraphReader:
         """Write the staged audit rows; remember a failure for the report."""
         try:
             self.mesh.audit.flush()
-        except Exception:
-            self._flush_raised = "audit"
+        except Exception as exc:
+            self._flush_failures.setdefault("audit", _error_text(exc))
             raise
+
+    def _store_counts(self) -> dict[str, int]:
+        """Rows in the tables a read adds to — three metadata reads, no scan."""
+        return {
+            "consolidated": self.mesh.nodes.consolidated_count(),
+            "chunks": self.mesh.nodes.chunk_count(),
+            "edges": self.mesh.edges.count_rows(),
+        }
 
     def _accrue_description(
         self,
@@ -1235,7 +1279,7 @@ class MeshParagraphReader:
             write_started = time.monotonic()
             self.mesh.nodes.update_consolidated_many(revised)
         except Exception as exc:
-            self._flush_raised = "revisions"
+            self._flush_failures.setdefault("revisions", _error_text(exc))
             # The description_revised rows for these nodes are already staged and
             # the caller's audit flush writes them; say that the rows they
             # describe never reached the store, then let the failure surface
@@ -1277,10 +1321,28 @@ class MeshParagraphReader:
         source_identifier: str,
         failed_stage: IngestStageName | None = None,
         failure_note: str | None = None,
+        landed: dict[str, int] | None = None,
         edges_unwritten: int = 0,
+        tolerant: bool = False,
     ) -> IngestRunReport:
-        """The run's IngestRunReport from its tally — one builder for both paths."""
-        resolution, quality_flags = _resolution_and_quality(tally)
+        """The run's IngestRunReport from its tally — one builder for both paths.
+
+        ``landed`` is what the store gained, counted from its tables, and stands
+        in for the read's own node and edge counters when given; ``tolerant``
+        lets the failure path build a report even if a summary cannot be
+        computed from the tally.
+        """
+        try:
+            resolution, quality_flags = _resolution_and_quality(tally)
+        except Exception as quality_exc:
+            if not tolerant:
+                raise
+            resolution, quality_flags = ResolutionSummary(), QualityFlags()
+            anomalies = [
+                *anomalies,
+                "the resolution and quality summary could not be computed "
+                f"({_error_text(quality_exc)}); defaults stand in",
+            ]
         durations: list[tuple[IngestStageName, float]] = [
             ("acquired", tally.acquired_duration_s),
             ("cleaned", tally.cleaned_duration_s),
@@ -1335,10 +1397,18 @@ class MeshParagraphReader:
                 duration_s=max(0.0, tally.embed_stage_duration_s),
             ),
             store=StoreSummary(
-                nodes_upserted=tally.nodes_upserted,
-                # An edge counts once its batch was written; a buffer whose
-                # write raised is reported as an anomaly instead.
-                edges_upserted=max(0, tally.edges_upserted - edges_unwritten),
+                nodes_upserted=(
+                    landed["consolidated"] + landed["chunks"]
+                    if landed is not None
+                    else tally.nodes_upserted
+                ),
+                # An edge counts once it is in the store; without a count from
+                # the store, a buffer whose write raised is subtracted instead.
+                edges_upserted=(
+                    landed["edges"]
+                    if landed is not None
+                    else max(0, tally.edges_upserted - edges_unwritten)
+                ),
                 idempotent_skips=0,
                 descriptions_revised=tally.descriptions_revised,
             ),
@@ -1358,16 +1428,15 @@ class MeshParagraphReader:
         Never raises: the read's own exception is what the caller must see, so
         anything going wrong here is logged and noted on that exception instead.
         """
-        error = f"{type(exc).__name__}: {exc}"
         try:
-            raised_in = self._flush_raised
+            error = _error_text(exc)
+            failures = dict(self._flush_failures)
             anomalies: list[str] = []
             # Edges first: they need no model, and every buffered edge points at
             # nodes the read has already written, so landing them leaves no
             # dangling endpoint and gives the nodes of the paragraphs read so far
-            # their edges. Not retried when their own write raised (see
-            # `_flush_raised`).
-            if raised_in != "edges" and self._pending_edges:
+            # their edges. Not retried when their own write raised.
+            if "edges" not in failures and self._pending_edges:
                 pending = len(self._pending_edges)
                 try:
                     self._flush_edges()
@@ -1375,11 +1444,15 @@ class MeshParagraphReader:
                 except Exception as flush_exc:  # noqa: BLE001 - reported, not raised
                     anomalies.append(
                         f"{pending} buffered edges could not be written after the failure: "
-                        f"{type(flush_exc).__name__}: {flush_exc}"
+                        f"{_error_text(flush_exc)}"
                     )
+            # The staged audit rows next, before the revisions change any node:
+            # one table add, which keeps its rows when it raises, so trying it
+            # again cannot duplicate them — even when it was the write that raised.
+            self._try_flush_audit()
             # The revisions may call the embedder; a failing one records its own
             # mesh_ingest_description_flush_failed row.
-            if raised_in != "revisions" and self._pending_revisions:
+            if "revisions" not in failures and self._pending_revisions:
                 pending = len(self._pending_revisions)
                 try:
                     await self._flush_revisions()
@@ -1387,67 +1460,109 @@ class MeshParagraphReader:
                 except Exception as flush_exc:  # noqa: BLE001 - reported, not raised
                     anomalies.append(
                         f"{pending} revised descriptions could not be written after the "
-                        f"failure: {type(flush_exc).__name__}: {flush_exc}"
+                        f"failure: {_error_text(flush_exc)}"
                     )
-            if raised_in is not None:
-                left = {
-                    "edges": len(self._pending_edges),
-                    "revisions": len(self._pending_revisions),
-                    "audit": self.mesh.audit.pending(),
-                }[raised_in]
-                note = ""
-                if raised_in == "edges":
-                    note = (
-                        "; append_edges writes three tables in turn, so some of them may "
-                        "have landed in the first"
-                    )
-                elif raised_in == "revisions":
-                    note = "; mesh_ingest_description_flush_failed names the nodes"
-                elif raised_in == "audit":
-                    note = "; they stay staged, and the next write to the audit log takes them"
+            if "edges" in failures and self._pending_edges:
                 anomalies.append(
-                    f"{left} of {_BUFFER_NAMES[raised_in]} not written: their write raised{note}"
+                    f"{len(self._pending_edges)} buffered edges not written: their write "
+                    f"raised ({failures['edges']}); append_edges writes three tables in "
+                    "turn, and the edge count below is the store's, so any that landed in "
+                    "the first are counted"
+                )
+            if "revisions" in failures and self._pending_revisions:
+                anomalies.append(
+                    f"{len(self._pending_revisions)} revised descriptions not written: their "
+                    f"write raised ({failures['revisions']}); "
+                    "mesh_ingest_description_flush_failed names the nodes"
                 )
 
-            if tally.paragraph == 0:
+            if tally.boundary is not None:
+                where = (
+                    f"at the compaction boundary after paragraph {tally.boundary} "
+                    f"of {tally.paragraphs_total}"
+                )
+            elif tally.paragraph == 0:
                 where = "before the first paragraph"
             elif tally.paragraph > tally.paragraphs_total:
                 where = "after the last paragraph"
             else:
                 where = f"at paragraph {tally.paragraph} of {tally.paragraphs_total}"
-            writing = f", writing {_BUFFER_NAMES[raised_in]}" if raised_in else ""
+            first = next(iter(failures), None)
+            writing = f", writing {_BUFFER_NAMES[first]}" if first else ""
             reasoning = f"read raised {error} {where} ({tally.stage}{writing})"
 
-            audit_run_id: str | None = None
-            if raised_in != "audit":
-                try:
-                    self._flush_audit()
-                    audit_run_id = self._append_audit(
-                        "mesh_ingest_run",
-                        {
-                            "status": "failed",
-                            "error": error[:2000],
-                            "stage": tally.stage,
-                            "paragraph": tally.paragraph,
-                            "paragraphs": len(tally.paragraph_units),
-                            "mentions": tally.total_mentions,
-                            "relations_written": tally.total_relations_written,
-                            "accrue_descriptions": self.accrue_descriptions,
-                            "descriptions_revised": tally.descriptions_revised,
-                        },
-                    )
-                except Exception as audit_exc:  # noqa: BLE001 - reported, not raised
-                    anomalies.append(
-                        f"the audit log could not be written: {type(audit_exc).__name__}: "
-                        f"{audit_exc}; {self.mesh.audit.pending()} rows stay staged"
-                    )
+            # The run's own row: a failed run, or — when the success path had
+            # already written its completed row and only the report failed — a
+            # row that says so and points at it, so one read is one run.
+            if tally.run_row_id is None:
+                action, detail = (
+                    "mesh_ingest_run",
+                    {
+                        "status": "failed",
+                        "error": error[:2000],
+                        "stage": tally.stage,
+                        "paragraph": tally.paragraph,
+                        "paragraphs": len(tally.paragraph_units),
+                        "mentions": tally.total_mentions,
+                        "relations_buffered": tally.total_relations_written,
+                        "accrue_descriptions": self.accrue_descriptions,
+                        "descriptions_revised": tally.descriptions_revised,
+                    },
+                )
+            else:
+                action, detail = (
+                    "mesh_ingest_report_failed",
+                    {"run_row": tally.run_row_id, "error": error[:2000]},
+                )
+            row_id: str | None = None
+            # A `stage` that raises (its batch was full and the write failed)
+            # keeps the row staged; the flush below tries it again.
+            with contextlib.suppress(Exception):
+                row_id = self.mesh.audit.stage(action=action, detail=detail)
+            audit_error = self._try_flush_audit()
+            staged_left = self.mesh.audit.pending()
+            if staged_left:
+                anomalies.append(
+                    f"{staged_left} audit rows could not be written ({audit_error}); they are "
+                    "held only in this process's memory and are lost when it exits"
+                )
+            elif "audit" in failures:
+                anomalies.append(
+                    f"the staged audit rows' first write raised ({failures['audit']}); a "
+                    "second attempt wrote them"
+                )
+            audit_run_id = tally.run_row_id or (row_id if not staged_left else None)
 
-            recommendations = [
-                "The workspace holds this read up to the failure: the source anchor and "
-                f"{len(tally.paragraph_units)} paragraphs with their nodes. Reading the "
-                "same text again writes a second source anchor and a second chunk for "
-                "every paragraph that already landed."
-            ]
+            landed: dict[str, int] | None = None
+            if tally.store_before is not None:
+                try:
+                    after = self._store_counts()
+                    landed = {key: after[key] - tally.store_before[key] for key in after}
+                except Exception as count_exc:  # noqa: BLE001 - reported, not raised
+                    anomalies.append(
+                        "the store could not be counted after the failure "
+                        f"({_error_text(count_exc)}); the node and edge counts are the read's own"
+                    )
+            if landed is not None and not any(landed.values()):
+                recommendations = [
+                    "Nothing of this read reached the workspace; the text can be read again "
+                    "as it is."
+                ]
+            else:
+                nodes = (landed["consolidated"] + landed["chunks"]) if landed else None
+                held = (
+                    f"{nodes} node{'s' if nodes != 1 else ''} and {landed['edges']} "
+                    f"edge{'s' if landed['edges'] != 1 else ''}"
+                    if landed is not None and nodes is not None
+                    else "part"
+                )
+                parts = "the source anchor and " if tally.source_anchor_written else ""
+                recommendations = [
+                    f"At the failure the workspace held {held} of this read: {parts}"
+                    f"{tally.paragraph_anchor_count} paragraph anchors with their chunks. "
+                    "Reading the same text again writes a second source anchor and a second "
+                    "chunk for every paragraph that had landed."
+                ]
             report = self._ingest_report(
                 tally,
                 status="failed",
@@ -1460,28 +1575,38 @@ class MeshParagraphReader:
                 source_identifier=source_identifier,
                 failed_stage=tally.stage,
                 failure_note=error[:500],
+                landed=landed,
                 edges_unwritten=len(self._pending_edges),
+                tolerant=True,
             )
             self.failure_report = report
             try:
                 path = self.report_writer.write(report)
             except Exception as write_exc:  # noqa: BLE001 - reported, not raised
+                self.failure_report_error = _error_text(write_exc)
                 log.error("the failure report of a read could not be written: %s", write_exc)
                 exc.add_note(
                     f"IngestRunReport {report.run_id} (status failed) could not be written: "
-                    f"{type(write_exc).__name__}: {write_exc}"
+                    f"{self.failure_report_error}"
                 )
             else:
+                self.failure_report_path = path
                 exc.add_note(f"IngestRunReport {report.run_id} (status failed): {path}")
         except Exception:  # noqa: BLE001 - must not replace the read's own exception
             log.exception("the failure report of a read could not be built")
 
-    def _append_audit(self, action: str, detail: dict[str, Any]) -> str:
+    def _try_flush_audit(self) -> str | None:
+        """Flush the staged audit rows; the error text if it raised, else None."""
         try:
-            return self.mesh.audit.append(action=action, detail=detail)
-        except Exception:
-            self._flush_raised = "audit"
-            raise
+            self._flush_audit()
+        except Exception as audit_exc:  # noqa: BLE001 - the caller reports it
+            return _error_text(audit_exc)
+        return None
+
+    def _append_audit(self, action: str, detail: dict[str, Any]) -> str:
+        # A direct append that raises leaves its row staged (MeshAuditLog.append),
+        # so the failure path's flush takes it with the rest; it marks no buffer.
+        return self.mesh.audit.append(action=action, detail=detail)
 
     def _stage_audit(self, action: str, detail: dict[str, Any]) -> str:
         """Stamp a per-item audit row now, write it with the batch.
@@ -1493,9 +1618,9 @@ class MeshParagraphReader:
         """
         try:
             return self.mesh.audit.stage(action=action, detail=detail)
-        except Exception:
+        except Exception as exc:
             # `stage` writes the batch itself once it is full.
-            self._flush_raised = "audit"
+            self._flush_failures.setdefault("audit", _error_text(exc))
             raise
 
     def _compute_connectivity_metrics(
@@ -1589,9 +1714,12 @@ def _resolution_and_quality(tally: _ReadTally) -> tuple[ResolutionSummary, Quali
             if count > 0
         },
     )
+    # Drops are relations and basis labels that resolved to no concept; both
+    # belong in the denominator, or a reading with unresolved basis labels and
+    # few relations rates above 1 and the report cannot be built (PHX-1116).
     parse_error_rate = tally.relation_drop_count / max(
         1,
-        tally.total_relations_attempted + tally.llm_failure_count,
+        tally.total_relations_attempted + tally.basis_attempted + tally.llm_failure_count,
     )
     quality_flags = QualityFlags(
         low_tier_ratio=resolution.low_tier_ratio,

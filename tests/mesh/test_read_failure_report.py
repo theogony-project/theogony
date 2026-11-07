@@ -124,6 +124,17 @@ def test_a_read_whose_edge_write_raises_reports_failed_and_reraises(
     with pytest.raises(RuntimeError, match="disk full") as raised:
         _read(reader, tmp_path)
 
+    # the staged rows were written by the failure path, not by a later read of
+    # the log (list_recent flushes first, so it cannot tell)
+    assert mesh_runtime.audit.pending() == 0
+    reopened = MeshRuntime(mesh_runtime.root, semantic_dim=8, frame_dim=4)
+    persisted = [
+        r
+        for r in reopened.audit._table.search().select(["action"]).to_arrow().to_pylist()
+        if r["action"] == "mesh_ingest_link_decision"
+    ]
+    assert len(persisted) == 5
+
     [report] = _reports(tmp_path)
     assert report.status == "failed" and report.verdict == "failed"
     assert "RuntimeError: disk full" in report.verdict_reasoning
@@ -172,7 +183,11 @@ def test_a_failure_elsewhere_still_lands_the_edges_buffered_before_it(
     node_ids = {str(n.id) for n in mesh_runtime.nodes.iter_consolidated()}
     node_ids |= {str(c.id) for c in mesh_runtime.nodes.iter_chunks()}
     assert all(str(e.source_id) in node_ids and str(e.target_id) in node_ids for e in edges)
-    assert "2 paragraphs" in report.recommendations[0]
+    assert (
+        f"held {_nodes_in_store(mesh_runtime)} nodes and {len(edges)} edges"
+        in report.recommendations[0]
+    )
+    assert "the source anchor and 2 paragraph anchors" in report.recommendations[0]
 
 
 def test_a_failure_elsewhere_still_writes_the_pending_description_revisions(
@@ -270,3 +285,221 @@ def test_an_audit_write_that_raises_keeps_its_rows_staged(
     assert audit.pending() == 2, "the rows are not lost with the exception"
     assert audit.flush() == 2
     assert len(_audit_rows(mesh_runtime, "probe")) == 2
+
+
+def _reading_with(
+    *concepts: dict, basis: list[str] | None = None, relations: list | None = None
+) -> str:
+    return json.dumps(
+        {
+            "concepts": [{"qids": [], **c} for c in concepts],
+            "relations": relations or [],
+            "paragraph_concept": (
+                None
+                if basis is None
+                else {
+                    "label": "Hedin's crossing",
+                    "description": "An expedition across the plateau",
+                    "tags": ["expedition"],
+                    "basis_concepts": basis,
+                }
+            ),
+        }
+    )
+
+
+def test_unresolved_basis_labels_do_not_break_the_report(
+    mesh_runtime: MeshRuntime, tmp_path: Path
+) -> None:
+    """Two basis labels that name no concept, no relation: the drop rate came out
+    at 2.0, QualityFlags refused it after every write had landed, and the failure
+    path could not build a report either (found by review)."""
+    settings = Settings(_env_file=None, data_dir=tmp_path / "data")  # type: ignore[call-arg]
+    reader = MeshParagraphReader(
+        mesh_runtime,
+        llm=StubLLMProvider(
+            responses={
+                f"PARAGRAPH:\n{_P1}": _reading_with(
+                    {**_HEDIN, "description": "Swedish explorer"},
+                    basis=["Hedin", "the Plateau"],
+                )
+            }
+        ),
+        settings=settings,
+        compact_every=0,
+    )
+    result = asyncio.run(
+        reader.read_text(text=_P1, source_type="test", source_identifier="basis", title="T")
+    )
+    [report] = _reports(tmp_path)
+    assert result["verdict"] == report.verdict != "failed"
+    assert report.quality_flags.parse_error_rate == 1.0
+
+
+def test_a_summary_that_cannot_be_computed_does_not_cost_the_failure_report(
+    mesh_runtime: MeshRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from theogony.mesh.ingestion import kadmos_v2
+
+    _fail_on_chunk_of(_P3, monkeypatch)
+
+    def broken(tally):  # type: ignore[no-untyped-def]
+        raise ValueError("rate out of range")
+
+    monkeypatch.setattr(kadmos_v2, "_resolution_and_quality", broken)
+    reader = _reader(mesh_runtime, tmp_path)
+    with pytest.raises(RuntimeError, match="embedder down"):
+        _read(reader, tmp_path)
+    [report] = _reports(tmp_path)
+    assert report.status == "failed" and reader.failure_report_path is not None
+    assert any("could not be computed" in a for a in report.anomalies)
+
+
+def test_a_failed_revision_write_is_not_retried_when_its_audit_row_fails_too(
+    mesh_runtime: MeshRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The first failure marks its buffer; a second one must not unmark it, or the
+    failure path calls the embedder and the store again (found by review)."""
+    revised_calls: list[int] = []
+    original_many = MeshTextVectorizer.description_many
+
+    async def counting(self, texts):  # type: ignore[no-untyped-def]
+        if any(" — " in t and ". " in t for t in texts):
+            revised_calls.append(len(texts))
+        return await original_many(self, texts)
+
+    def nodes_down(nodes):  # type: ignore[no-untyped-def]
+        raise RuntimeError("disk full")
+
+    original_add = mesh_runtime.audit._table.add
+    refused: list[int] = []
+
+    def add(rows):  # type: ignore[no-untyped-def]
+        # The audit write fails once, on the row that records the failed flush.
+        if not refused and any(r["action"] == "mesh_ingest_description_flush_failed" for r in rows):
+            refused.append(1)
+            raise RuntimeError("disk full")
+        return original_add(rows)
+
+    monkeypatch.setattr(MeshTextVectorizer, "description_many", counting)
+    monkeypatch.setattr(mesh_runtime.nodes, "update_consolidated_many", nodes_down)
+    monkeypatch.setattr(mesh_runtime.audit._table, "add", add)
+    reader = _reader(mesh_runtime, tmp_path, accrue_descriptions=True)
+    with pytest.raises(RuntimeError, match="disk full"):
+        _read(reader, tmp_path)
+    assert refused, "the audit write did fail"
+    assert len(revised_calls) == 1, "the revision flush ran once"
+    [report] = _reports(tmp_path)
+    assert "writing the pending description revisions" in report.verdict_reasoning
+    assert any("revised descriptions not written" in a for a in report.anomalies)
+    # the row whose own append raised was kept and written by the failure path
+    assert _audit_rows(mesh_runtime, "mesh_ingest_description_flush_failed")
+
+
+def test_a_failed_run_level_audit_row_is_kept_and_written_by_the_failure_path(
+    mesh_runtime: MeshRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_add = mesh_runtime.audit._table.add
+    calls: list[int] = []
+
+    def once_broken(rows):  # type: ignore[no-untyped-def]
+        calls.append(len(rows))
+        if len(calls) == 1:
+            raise RuntimeError("commit conflict")
+        return original_add(rows)
+
+    monkeypatch.setattr(mesh_runtime.audit._table, "add", once_broken)
+    reader = _reader(mesh_runtime, tmp_path)
+    with pytest.raises(RuntimeError, match="commit conflict"):
+        _read(reader, tmp_path)
+    [report] = _reports(tmp_path)
+    assert "before the first paragraph" in report.verdict_reasoning
+    assert _audit_rows(mesh_runtime, "mesh_ingest_source_anchor_created")
+    [run] = _audit_rows(mesh_runtime, "mesh_ingest_run")
+    assert run["status"] == "failed" and report.audit_log_run_id is not None
+    assert "held 1 node and 0 edges" in report.recommendations[0]
+
+
+def test_a_success_report_that_cannot_be_written_leaves_one_run_row(
+    mesh_runtime: MeshRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    reader = _reader(mesh_runtime, tmp_path)
+    original = reader.report_writer.write
+    calls: list[str] = []
+
+    def once_unwritable(report):  # type: ignore[no-untyped-def]
+        calls.append(report.status)
+        if len(calls) == 1:
+            raise OSError("read-only file system")
+        return original(report)
+
+    monkeypatch.setattr(reader.report_writer, "write", once_unwritable)
+    with pytest.raises(OSError, match="read-only"):
+        _read(reader, tmp_path)
+    assert calls == ["completed", "failed"]
+    [run] = _audit_rows(mesh_runtime, "mesh_ingest_run")
+    assert run["status"] == "completed"
+    [failed_row] = _audit_rows(mesh_runtime, "mesh_ingest_report_failed")
+    [report] = _reports(tmp_path)
+    assert report.audit_log_run_id is not None
+    assert failed_row["run_row"] == report.audit_log_run_id
+
+
+def test_a_read_that_wrote_nothing_says_so(
+    mesh_runtime: MeshRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def down(self, value):  # type: ignore[no-untyped-def]
+        raise RuntimeError("embedder down")
+
+    monkeypatch.setattr(MeshTextVectorizer, "semantic", down)
+    reader = _reader(mesh_runtime, tmp_path)
+    with pytest.raises(RuntimeError, match="embedder down"):
+        _read(reader, tmp_path)
+    [report] = _reports(tmp_path)
+    assert report.store.nodes_upserted == report.store.edges_upserted == 0
+    assert report.recommendations[0].startswith("Nothing of this read reached the workspace")
+
+
+def test_the_edge_count_is_the_stores_when_a_batch_boundary_flush_raises(
+    mesh_runtime: MeshRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The edge that fills a batch triggers its flush before the caller counts it;
+    a count from the store does not depend on that order (found by review)."""
+    from theogony.mesh.ingestion import kadmos_v2
+
+    monkeypatch.setattr(kadmos_v2, "_EDGE_FLUSH_BATCH", 3)
+    original = mesh_runtime.edges.append_edges
+    calls: list[int] = []
+
+    def second_broken(edges):  # type: ignore[no-untyped-def]
+        calls.append(len(edges))
+        if len(calls) == 2:
+            raise RuntimeError("disk full")
+        return original(edges)
+
+    monkeypatch.setattr(mesh_runtime.edges, "append_edges", second_broken)
+    with pytest.raises(RuntimeError, match="disk full"):
+        _read(_reader(mesh_runtime, tmp_path), tmp_path)
+    [report] = _reports(tmp_path)
+    assert report.store.edges_upserted == len(mesh_runtime.edges.load_all_edges()) == 3
+
+
+def test_an_audit_append_that_raises_keeps_its_row_staged(
+    mesh_runtime: MeshRuntime, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    audit = mesh_runtime.audit
+    original = audit._table.add
+    calls: list[int] = []
+
+    def once_broken(rows):  # type: ignore[no-untyped-def]
+        calls.append(len(rows))
+        if len(calls) == 1:
+            raise RuntimeError("commit conflict")
+        return original(rows)
+
+    monkeypatch.setattr(audit._table, "add", once_broken)
+    with pytest.raises(RuntimeError, match="commit conflict"):
+        audit.append(action="probe", detail={"n": 1})
+    assert audit.pending() == 1
+    assert audit.flush() == 1
+    assert len(_audit_rows(mesh_runtime, "probe")) == 1

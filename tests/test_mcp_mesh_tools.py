@@ -641,6 +641,31 @@ def test_a_read_that_raises_returns_the_run_id_of_its_failure_report(
     assert report["status"] == "failed" and "disk full" in report["verdict_reasoning"]
     assert payload["written"]["nodes_upserted"] == report["store"]["nodes_upserted"] > 0
     assert payload["written"]["edges_upserted"] == 0
+    # `written` vouches only for what the store holds; what the reading held is `read`
+    assert set(payload["written"]) == {"nodes_upserted", "edges_upserted"}
+    assert payload["read"] == {"concepts": 2, "relations": 1}
+    assert payload["report_written"] is True
+
+
+def test_a_failure_report_that_could_not_be_written_is_not_handed_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from theogony.mcp.server import tool_mesh_append
+
+    runtime = _mesh(tmp_path)
+    res = _resources(tmp_path, mesh=runtime)
+
+    def broken(edges):  # type: ignore[no-untyped-def]
+        raise RuntimeError("disk full")
+
+    def unwritable(self, report):  # type: ignore[no-untyped-def]
+        raise OSError("no space left on device")
+
+    monkeypatch.setattr(runtime.edges, "append_edges", broken)
+    monkeypatch.setattr(RunReportWriter, "write", unwritable)
+    payload = asyncio.run(tool_mesh_append(res, text=LAKE_TEXT, reading=READING_LAKE))
+    assert payload["run_id"] is None and payload["report_written"] is False
+    assert "could not be written" in payload["error"] and "no space left" in payload["error"]
 
 
 def test_appends_compact_the_workspace_every_fifty_and_skip_the_corpus_pass(

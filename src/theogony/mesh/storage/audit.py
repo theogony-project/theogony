@@ -54,9 +54,17 @@ class MeshAuditLog:
         }
 
     def append(self, *, action: str, detail: dict[str, Any]) -> str:
-        """Write one audit row; returns the row id (ULID string)."""
+        """Write one audit row; returns the row id (ULID string).
+
+        A write that raises stages the row before the exception leaves, as
+        :meth:`flush` keeps its batch, so the next flush takes it (PHX-1116).
+        """
         row_id, row = self._row(action, detail)
-        self._table.add([row])
+        try:
+            self._table.add([row])
+        except Exception:
+            self._staged.append(row)
+            raise
         return row_id
 
     def append_many(self, entries: list[tuple[str, dict[str, Any]]]) -> list[str]:

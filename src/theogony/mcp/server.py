@@ -883,18 +883,36 @@ async def tool_mesh_append(
         # its id is what the caller can hand on (PHX-1116).
         mesh.invalidate_csr_cache()
         failed = reader.failure_report
+        report_written = reader.failure_report_path is not None
+        raised = f"the read raised {type(exc).__name__}: {exc}"
+        if failed is not None and report_written:
+            message = f"{raised}; see run_id"
+        elif failed is not None:
+            message = (
+                f"{raised}; its failure report could not be written: {reader.failure_report_error}"
+            )
+        else:
+            message = f"{raised}; no failure report could be built"
         return {
-            "error": f"the read raised {type(exc).__name__}: {exc}; see run_id",
-            "run_id": failed.run_id if failed is not None else None,
+            "error": message,
+            # An id that leads to no report is not handed out.
+            "run_id": failed.run_id if failed is not None and report_written else None,
+            "report_written": report_written,
             "verdict": "failed",
             "source_identifier": source_identifier,
+            # What the store holds of this call, counted from its tables; what the
+            # reading held is under `read` — a relation in an unwritten buffer is
+            # read, not written.
             "written": (
                 {
-                    "concepts": failed.ner.total_mentions,
-                    "relations": failed.relations.parsed_ok,
                     "nodes_upserted": failed.store.nodes_upserted,
                     "edges_upserted": failed.store.edges_upserted,
                 }
+                if failed is not None
+                else None
+            ),
+            "read": (
+                {"concepts": failed.ner.total_mentions, "relations": failed.relations.parsed_ok}
                 if failed is not None
                 else None
             ),

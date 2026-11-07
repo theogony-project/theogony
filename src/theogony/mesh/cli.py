@@ -14,6 +14,7 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
@@ -195,8 +196,16 @@ def mesh_ingest(
         # (PHX-1116); point at it rather than end on a traceback. A book whose
         # download failed never reached the reader and has no report.
         failed = reader.failure_report
-        where = f"\nreport: {failed.run_id} (status failed)" if failed is not None else ""
-        _console.print(Panel.fit(f"read failed: {exc}{where}", title="mesh ingest", style="red"))
+        if failed is not None and reader.failure_report_path is not None:
+            where = f"\nreport: {failed.run_id} (status failed)"
+        elif failed is not None:
+            where = f"\nits failure report could not be written: {reader.failure_report_error}"
+        else:
+            where = ""
+        # Text, not markup: an exception's "[...]" would be read as a style tag.
+        _console.print(
+            Panel.fit(Text(f"read failed: {exc}{where}"), title="mesh ingest", style="red")
+        )
         raise typer.Exit(code=1) from exc
 
     _console.print(Panel.fit(json.dumps(result, indent=2), title="mesh ingest result"))

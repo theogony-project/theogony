@@ -29,29 +29,36 @@ resolution: >
   Done, 2026-11-07. MeshParagraphReader.read_text is now a wrapper around the
   read (`_read`): when the read raises, `_report_failure` writes what the
   failure left writable and an IngestRunReport with status and verdict
-  "failed", and the exception propagates unchanged. The read's counters live
-  on one object (`_ReadTally`), so the failure report carries the numbers a
-  completed one does -- nodes written, edges whose batch landed, mentions,
-  relations, revisions -- plus the stage and the paragraph where the read
-  raised, and both reports come from one builder. The buffers the failure did
-  not come from are written: the edges first (each points only at nodes the
-  read has already written, so none dangles), then the pending description
-  revisions, then the staged audit rows and a `mesh_ingest_run` row with
-  status "failed". The buffer whose own write raised is not written a second
-  time: `append_edges` writes three tables in turn, so a retry after a partial
-  write could duplicate the rows that landed, and a retry of the revision
-  flush would call the embedder again and record a second failure. The report
-  says what was left behind. `failure_report` holds the report and a note on
-  the exception names it; `mesh_append` returns its run_id, verdict "failed"
-  and the counts in its error payload; `theogony mesh ingest` names it and
-  exits 1. Found on the way: the audit store's flush dropped its staged rows
-  when the table write raised; they now stay staged for the next flush. Tests:
-  tests/mesh/test_read_failure_report.py (seven) and one in
-  tests/test_mcp_mesh_tools.py. Each fails on the code before this change
-  except the guard that the failed buffer is not retried, which passes there
-  trivially and turns red under a mutation that retries it. Out of scope: a
-  cancelled read (CancelledError and KeyboardInterrupt are BaseException, not
-  Exception) and a book whose download fails before the reader is reached.
+  "failed", and the exception propagates unchanged, with a note naming the
+  report. The read's counters live on one object (`_ReadTally`) and both
+  reports come from one builder; the failure report's node and edge counts
+  are taken from the store's tables against their row counts at the start of
+  the read (three metadata reads), because a write that raises part-way --
+  append_edges writes three tables in turn, a node write three more -- leaves
+  the read's own counters short. The buffers the failure did not come from are
+  written: the edges (each points only at nodes already written), the staged
+  audit rows, the pending description revisions, the run's row. A buffer
+  whose own write raised is not written again, and the first failure keeps
+  its mark when a second one follows. An audit write that raises keeps its
+  rows (`flush` its batch, `append` its row) and the failure path tries them
+  once more -- a single table add cannot duplicate them; rows it still cannot
+  write are reported as held only in memory. A read whose success report
+  cannot be written gets one run row, not two. `failure_report`,
+  `failure_report_path` and `failure_report_error` say what was built and
+  whether it was written; `mesh_append` hands out the run_id only for a
+  report that exists, keeps the store's counts under `written` and the
+  reading's under `read`; `theogony mesh ingest` names the report and exits 1.
+  Found by the review on the way: a reading whose paragraph concept names
+  basis labels no concept carries rated its drops above 1 (the denominator
+  left the basis labels out), QualityFlags refused the rate after every write
+  had landed, and no report could be built for that error either; the basis
+  labels are now in the denominator, and the failure builder falls back to
+  default summaries rather than lose the report. Tests:
+  tests/mesh/test_read_failure_report.py (fifteen) and two in
+  tests/test_mcp_mesh_tools.py; mutations that retry a failed buffer or drop
+  a failed audit row turn them red. Out of scope: a cancelled read
+  (CancelledError and KeyboardInterrupt are BaseException) and a book whose
+  download fails before the reader is reached.
 relates_to:
   - PHX-1082   # the tick's version of the same repair
   - PHX-1112   # the MCP path this was found on
