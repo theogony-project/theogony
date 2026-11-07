@@ -868,13 +868,37 @@ async def tool_mesh_append(
     )
     # The reader embeds through a worker thread of its own and writes Lance
     # synchronously in between; one paragraph is well under a second.
-    report = await reader.read_text(
-        text=paragraph,
-        source_type="mcp_agent",
-        source_identifier=source_identifier,
-        title=title_s,
-        anchor=anchor_s,
-    )
+    try:
+        report = await reader.read_text(
+            text=paragraph,
+            source_type="mcp_agent",
+            source_identifier=source_identifier,
+            title=title_s,
+            anchor=anchor_s,
+        )
+    except Exception as exc:  # noqa: BLE001 - the caller gets the run's report instead
+        # A raise used to reach the caller as one exception string, with no way
+        # to find what had already been written: the source anchor, the chunk,
+        # perhaps some nodes. The reader now writes a failure report for the run;
+        # its id is what the caller can hand on (PHX-1116).
+        mesh.invalidate_csr_cache()
+        failed = reader.failure_report
+        return {
+            "error": f"the read raised {type(exc).__name__}: {exc}; see run_id",
+            "run_id": failed.run_id if failed is not None else None,
+            "verdict": "failed",
+            "source_identifier": source_identifier,
+            "written": (
+                {
+                    "concepts": failed.ner.total_mentions,
+                    "relations": failed.relations.parsed_ok,
+                    "nodes_upserted": failed.store.nodes_upserted,
+                    "edges_upserted": failed.store.edges_upserted,
+                }
+                if failed is not None
+                else None
+            ),
+        }
     mesh.invalidate_csr_cache()
     res.mesh_appends += 1
     if res.mesh_appends % _MESH_APPEND_COMPACT_EVERY == 0:

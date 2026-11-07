@@ -177,17 +177,27 @@ def mesh_ingest(
                 f"{derived_anchor!r}. Pass --anchor with a URL or citation for "
                 f"provenance that survives moving the file."
             )
-        result = asyncio.run(
-            reader.read_text(
-                text=raw_text,
-                source_type=source_type,
-                source_identifier=str(path),
-                title=title or path.stem,
-                anchor=derived_anchor,
+    try:
+        if text_file:
+            result = asyncio.run(
+                reader.read_text(
+                    text=raw_text,
+                    source_type=source_type,
+                    source_identifier=str(path),
+                    title=title or path.stem,
+                    anchor=derived_anchor,
+                )
             )
-        )
-    else:
-        result = asyncio.run(reader.read_book(source))
+        else:
+            result = asyncio.run(reader.read_book(source))
+    except Exception as exc:
+        # The reader has written what it could and a report that says so
+        # (PHX-1116); point at it rather than end on a traceback. A book whose
+        # download failed never reached the reader and has no report.
+        failed = reader.failure_report
+        where = f"\nreport: {failed.run_id} (status failed)" if failed is not None else ""
+        _console.print(Panel.fit(f"read failed: {exc}{where}", title="mesh ingest", style="red"))
+        raise typer.Exit(code=1) from exc
 
     _console.print(Panel.fit(json.dumps(result, indent=2), title="mesh ingest result"))
 

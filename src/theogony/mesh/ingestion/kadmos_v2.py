@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from itertools import combinations
 from typing import Any, Literal
@@ -42,6 +42,7 @@ from theogony.mesh.schemas import (
 from theogony.reporting.models import (
     EmbeddingSummary,
     IngestRunReport,
+    IngestStageName,
     IngestStageReport,
     NerSummary,
     QualityFlags,
@@ -175,6 +176,70 @@ class _ParagraphUnit:
     local_edge_count: int
 
 
+@dataclass
+class _ReadTally:
+    """What one read has done so far: the numbers its IngestRunReport carries.
+
+    One object rather than thirty locals so that a read which raises can still
+    say what it wrote (PHX-1116). The success path and the failure path build
+    the report from the same counts.
+    """
+
+    acquired_duration_s: float = 0.0
+    started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    started_monotonic: float = field(default_factory=time.monotonic)
+    #: Where the read is, for a failure report: the paragraph being read
+    #: (1-based; 0 before the first, ``paragraphs_total + 1`` once the
+    #: cross-paragraph pass runs) and the stage it is in.
+    paragraph: int = 0
+    paragraphs_total: int = 0
+    stage: IngestStageName = "cleaned"
+    word_count: int = 0
+    sentence_count: int = 0
+    cleaned_duration_s: float = 0.0
+    sentencized_duration_s: float = 0.0
+    nodes_upserted: int = 0
+    firing_passes: int = 0
+    descriptions_revised: int = 0
+    edges_upserted: int = 0
+    nodes_embedded: int = 0
+    total_mentions: int = 0
+    total_relations_attempted: int = 0
+    total_relations_written: int = 0
+    relation_drop_count: int = 0
+    total_llm_calls: int = 0
+    total_llm_cost_eur: float = 0.0
+    llm_failure_count: int = 0
+    llm_schema_failures: int = 0
+    signal_counts: dict[str, int] = field(
+        default_factory=lambda: {key: 0 for key in _SIGNAL_TO_TIER}
+    )
+    qid_claims_dropped: int = 0
+    paragraph_units: list[_ParagraphUnit] = field(default_factory=list)
+    paragraph_anchor_count: int = 0
+    paragraph_concept_count: int = 0
+    paragraph_concept_node_ids: set[str] = field(default_factory=set)
+    llm_duration_s: float = 0.0
+    relation_stage_duration_s: float = 0.0
+    resolve_stage_duration_s: float = 0.0
+    embed_stage_duration_s: float = 0.0
+    store_stage_duration_s: float = 0.0
+    cross_pass_link_count: int = 0
+    #: What stances the read actually produced — the histogram is the only way
+    #: to see whether the model used the vocabulary or defaulted everything to
+    #: one value (PHX-1107).
+    stance_counts: dict[str, int] = field(default_factory=dict)
+    contradiction_edge_count: int = 0
+
+
+#: What a buffer flush was writing when it raised, for the failure report.
+_BUFFER_NAMES = {
+    "edges": "the buffered edges",
+    "revisions": "the pending description revisions",
+    "audit": "the staged audit rows",
+}
+
+
 class MeshParagraphReader:
     """Paragraph reader that writes a dense, auditable local mesh per paragraph."""
 
@@ -233,6 +298,14 @@ class MeshParagraphReader:
             embedder=embedder,
         )
         self.report_writer = RunReportWriter(self.settings.run_reports_dir)
+        #: The IngestRunReport of the last read that raised, or None. The
+        #: exception carries a note naming it; this is for a caller that has to
+        #: hand the run id on — `mesh_append` puts it in its error (PHX-1116).
+        self.failure_report: IngestRunReport | None = None
+        # Which buffer's write raised, so the failure path does not write it a
+        # second time: `append_edges` writes three tables in turn, and a retry
+        # after a partial write would duplicate the rows that landed.
+        self._flush_raised: str | None = None
         self._pending_edges: list[Edge] = []
         # Revised copies of existing nodes, by id, so a node mentioned twice in
         # one flush window builds on its pending copy, not on the stored row.
@@ -288,53 +361,60 @@ class MeshParagraphReader:
         anchor: str = "",
         acquired_duration_s: float = 0.0,
     ) -> dict[str, Any]:
-        started_at = datetime.now(UTC)
-        started_monotonic = time.monotonic()
+        """Read ``text`` into the mesh and write the run's IngestRunReport.
+
+        A read that raises reports too (AGENTS.md contract 3, PHX-1116): the
+        buffers the failure did not come from are written, an IngestRunReport
+        with status and verdict ``failed`` says what landed and what did not,
+        :attr:`failure_report` holds it, a note on the exception names it, and
+        the exception propagates unchanged.
+        """
+        tally = _ReadTally(acquired_duration_s=acquired_duration_s)
+        self.failure_report = None
+        self._flush_raised = None
+        try:
+            return await self._read(
+                tally,
+                text=text,
+                source_type=source_type,
+                source_identifier=source_identifier,
+                title=title,
+                anchor=anchor,
+            )
+        except Exception as exc:
+            await self._report_failure(
+                tally, exc, source_type=source_type, source_identifier=source_identifier
+            )
+            raise
+
+    async def _read(
+        self,
+        tally: _ReadTally,
+        *,
+        text: str,
+        source_type: str,
+        source_identifier: str,
+        title: str,
+        anchor: str,
+    ) -> dict[str, Any]:
         source_anchor = anchor or source_identifier
 
         cleaned_started = time.monotonic()
         paragraphs = _split_paragraphs(text)
         if self.max_paragraphs > 0:
             paragraphs = paragraphs[: self.max_paragraphs]
-        cleaned_duration_s = time.monotonic() - cleaned_started
+        tally.paragraphs_total = len(paragraphs)
+        tally.cleaned_duration_s = time.monotonic() - cleaned_started
 
+        tally.stage = "sentencized"
         sentencized_started = time.monotonic()
-        sentence_count = _count_sentences(" ".join(paragraphs))
-        sentencized_duration_s = time.monotonic() - sentencized_started
-        word_count = len(re.findall(r"\w+", " ".join(paragraphs)))
+        tally.sentence_count = _count_sentences(" ".join(paragraphs))
+        tally.sentencized_duration_s = time.monotonic() - sentencized_started
+        tally.word_count = len(re.findall(r"\w+", " ".join(paragraphs)))
 
-        nodes_upserted = 0
-        firing_passes = 0
-        descriptions_revised = 0
-        edges_upserted = 0
-        nodes_embedded = 0
-        total_mentions = 0
-        total_relations_attempted = 0
-        total_relations_written = 0
-        relation_drop_count = 0
-        total_llm_calls = 0
-        total_llm_cost_eur = 0.0
-        llm_failure_count = 0
-        llm_schema_failures = 0
-        signal_counts: dict[str, int] = {key: 0 for key in _SIGNAL_TO_TIER}
-        qid_claims_dropped = 0
-        paragraph_units: list[_ParagraphUnit] = []
         entity_source_links: set[tuple[str, str]] = set()
-        paragraph_anchor_count = 0
-        paragraph_concept_count = 0
-        paragraph_concept_node_ids: set[str] = set()
-        llm_duration_s = 0.0
-        relation_stage_duration_s = 0.0
-        resolve_stage_duration_s = 0.0
-        embed_stage_duration_s = 0.0
-        store_stage_duration_s = 0.0
-        cross_pass_link_count = 0
-        # What stances the read actually produced — the histogram is the
-        # only way to see whether the model used the vocabulary or defaulted
-        # everything to one value (PHX-1107).
-        stance_counts: dict[str, int] = {}
-        contradiction_edge_count = 0
 
+        tally.stage = "embedded"
         text_anchor_description = f"{source_type}: {title} ({source_anchor})"
         text_anchor_semantic = await self.vectorizer.semantic(text_anchor_description)
         # A source anchor asserts nothing; it is where claims came from. The
@@ -342,7 +422,7 @@ class MeshParagraphReader:
         # routing, which is what a container should be (PHX-1107).
         text_anchor_frame = frames.neutral_frame(self.frame_dim)
         text_anchor_description_vector = await self.vectorizer.description(text_anchor_description)
-        nodes_embedded += 1
+        tally.nodes_embedded += 1
         text_anchor_node = build_source_anchor_node(
             source_type=source_type,
             title=title,
@@ -352,9 +432,10 @@ class MeshParagraphReader:
             description_vector=text_anchor_description_vector,
             tags=[source_type.lower(), "source_anchor", "text"],
         )
+        tally.stage = "stored"
         self.mesh.nodes.append_consolidated(text_anchor_node)
         self.registry.remember(text_anchor_node)
-        nodes_upserted += 1
+        tally.nodes_upserted += 1
         self._append_audit(
             "mesh_ingest_source_anchor_created",
             {
@@ -368,18 +449,20 @@ class MeshParagraphReader:
             paragraph_text = paragraph_text.strip()
             if len(paragraph_text) < 10:
                 continue
+            tally.paragraph = paragraph_index
             if (
                 self.compact_every > 0
                 and paragraph_index > 1
                 and (paragraph_index - 1) % self.compact_every == 0
             ):
+                tally.stage = "stored"
                 self._flush_edges()
                 try:
                     revised_rows = await self._flush_revisions()
                 finally:
                     # Same order as the end of the read: a failing embed must not
                     # take the window's staged audit rows with it.
-                    self.mesh.audit.flush()
+                    self._flush_audit()
                 pruned = self.mesh.compact()
                 log.info(
                     "compacted the workspace after %d paragraphs: %s (descriptions revised: %d)",
@@ -395,19 +478,21 @@ class MeshParagraphReader:
                 len(paragraph_text),
             )
 
+            tally.stage = "mentions_extracted"
             paragraph_result, llm_meta = await self._read_paragraph(paragraph_text)
             # The stance this paragraph makes its claim in. A failed reading
             # leaves the paragraph without one, and the default claims least.
             paragraph_stance = frames.normalise_stance(
                 paragraph_result.stance if paragraph_result is not None else None
             )
-            stance_counts[paragraph_stance] = stance_counts.get(paragraph_stance, 0) + 1
-            total_llm_calls += 1
-            total_llm_cost_eur += llm_meta["cost_eur"]
-            llm_duration_s += llm_meta["duration_s"]
-            llm_failure_count += int(llm_meta["failed"])
-            llm_schema_failures += int(llm_meta["schema_failed"])
+            tally.stance_counts[paragraph_stance] = tally.stance_counts.get(paragraph_stance, 0) + 1
+            tally.total_llm_calls += 1
+            tally.total_llm_cost_eur += llm_meta["cost_eur"]
+            tally.llm_duration_s += llm_meta["duration_s"]
+            tally.llm_failure_count += int(llm_meta["failed"])
+            tally.llm_schema_failures += int(llm_meta["schema_failed"])
 
+            tally.stage = "embedded"
             embed_started = time.monotonic()
             paragraph_anchor_title = build_paragraph_anchor_title(
                 title=title,
@@ -426,9 +511,10 @@ class MeshParagraphReader:
             # frame routing could only mask by (PHX-1095). The reading's own
             # stance is the reading's own, which has already arrived above.
             chunk_frame = frames.frame_vector(paragraph_stance, dim=self.frame_dim)
-            nodes_embedded += 2
-            embed_stage_duration_s += time.monotonic() - embed_started
+            tally.nodes_embedded += 2
+            tally.embed_stage_duration_s += time.monotonic() - embed_started
 
+            tally.stage = "stored"
             store_started = time.monotonic()
             paragraph_anchor = build_source_anchor_node(
                 source_type=f"{source_type} paragraph",
@@ -441,8 +527,8 @@ class MeshParagraphReader:
             )
             self.mesh.nodes.append_consolidated(paragraph_anchor)
             self.registry.remember(paragraph_anchor)
-            nodes_upserted += 1
-            paragraph_anchor_count += 1
+            tally.nodes_upserted += 1
+            tally.paragraph_anchor_count += 1
 
             now = datetime.now(UTC)
             chunk = ChunkNode(
@@ -460,7 +546,7 @@ class MeshParagraphReader:
             )
             self.mesh.nodes.append_chunk(chunk)
             self._remember_frame(str(chunk.id), chunk_frame)
-            nodes_upserted += 1
+            tally.nodes_upserted += 1
             self._append_edge(
                 Edge(
                     source_id=chunk.id,
@@ -473,7 +559,7 @@ class MeshParagraphReader:
                     creation_context="kadmos_extraction",
                 )
             )
-            edges_upserted += 1
+            tally.edges_upserted += 1
             self._append_edge(
                 Edge(
                     source_id=paragraph_anchor.id,
@@ -486,8 +572,8 @@ class MeshParagraphReader:
                     creation_context="kadmos_source_hierarchy",
                 )
             )
-            edges_upserted += 1
-            store_stage_duration_s += time.monotonic() - store_started
+            tally.edges_upserted += 1
+            tally.store_stage_duration_s += time.monotonic() - store_started
 
             resolved_by_label: dict[str, ConsolidatedNode] = {}
             resolved_entity_ids: set[str] = set()
@@ -508,11 +594,12 @@ class MeshParagraphReader:
             local_edge_count = 2
 
             if paragraph_result is not None:
-                total_mentions += len(paragraph_result.concepts)
+                tally.total_mentions += len(paragraph_result.concepts)
 
+                tally.stage = "mentions_resolved"
                 resolve_started = time.monotonic()
                 concept_vectors = await self._vectorize_concepts(paragraph_result.concepts)
-                nodes_embedded += len(paragraph_result.concepts)
+                tally.nodes_embedded += len(paragraph_result.concepts)
 
                 for concept, (semantic_vector, frame_vector, description_vector) in zip(
                     paragraph_result.concepts,
@@ -541,13 +628,13 @@ class MeshParagraphReader:
                         # put there, but they must not be written (PHX-1063).
                         qids_are_authoritative=False,
                     )
-                    qid_claims_dropped += len(qids)
-                    signal_counts[decision.signal] += 1
+                    tally.qid_claims_dropped += len(qids)
+                    tally.signal_counts[decision.signal] += 1
                     resolved_by_label[concept.label] = decision.node
                     resolved_entity_ids.add(str(decision.node.id))
                     local_node_ids.add(str(decision.node.id))
                     if decision.is_new:
-                        nodes_upserted += 1
+                        tally.nodes_upserted += 1
                     else:
                         referenced_existing.add(str(decision.node.id))
                         if self.accrue_descriptions:
@@ -562,7 +649,7 @@ class MeshParagraphReader:
                                 now=now,
                             )
                             if revised is not None:
-                                descriptions_revised += 1
+                                tally.descriptions_revised += 1
                                 self._stage_audit(
                                     "mesh_ingest_description_revised",
                                     {
@@ -582,7 +669,7 @@ class MeshParagraphReader:
                                     try:
                                         await self._flush_revisions()
                                     finally:
-                                        self.mesh.audit.flush()
+                                        self._flush_audit()
                     self._stage_audit(
                         "mesh_ingest_link_decision",
                         {
@@ -609,7 +696,7 @@ class MeshParagraphReader:
                             creation_context="kadmos_mentions",
                         )
                     )
-                    edges_upserted += 1
+                    tally.edges_upserted += 1
                     local_edge_count += 1
 
                     source_key = (str(decision.node.id), str(text_anchor_node.id))
@@ -627,18 +714,19 @@ class MeshParagraphReader:
                             )
                         )
                         entity_source_links.add(source_key)
-                        edges_upserted += 1
+                        tally.edges_upserted += 1
                         local_edge_count += 1
 
-                resolve_stage_duration_s += time.monotonic() - resolve_started
+                tally.resolve_stage_duration_s += time.monotonic() - resolve_started
 
+                tally.stage = "relations_extracted"
                 relation_started = time.monotonic()
-                total_relations_attempted += len(paragraph_result.relations)
+                tally.total_relations_attempted += len(paragraph_result.relations)
                 for relation in paragraph_result.relations:
                     source_node = resolved_by_label.get(relation.source)
                     target_node = resolved_by_label.get(relation.target)
                     if source_node is None or target_node is None:
-                        relation_drop_count += 1
+                        tally.relation_drop_count += 1
                         continue
                     self._append_edge(
                         Edge(
@@ -662,10 +750,10 @@ class MeshParagraphReader:
                             creation_context="kadmos_relation",
                         )
                     )
-                    edges_upserted += 1
-                    total_relations_written += 1
+                    tally.edges_upserted += 1
+                    tally.total_relations_written += 1
                     if frames.is_contradiction_kind(relation.relation_kind):
-                        contradiction_edge_count += 1
+                        tally.contradiction_edge_count += 1
                     local_edge_count += 1
 
                 for left_id, right_id in combinations(sorted(resolved_entity_ids), 2):
@@ -690,7 +778,7 @@ class MeshParagraphReader:
                                 creation_context="kadmos_paragraph_density",
                             )
                         )
-                        edges_upserted += 1
+                        tally.edges_upserted += 1
                         local_edge_count += 1
 
                 paragraph_concept_id: str | None = None
@@ -702,7 +790,7 @@ class MeshParagraphReader:
                     # so it carries the paragraph's stance.
                     frame_vector = frames.frame_vector(paragraph_stance, dim=self.frame_dim)
                     description_vector = await self.vectorizer.description(concept_description)
-                    nodes_embedded += 1
+                    tally.nodes_embedded += 1
                     decision = self.linker.link_reference(
                         label=paragraph_concept.label,
                         description=concept_description,
@@ -721,12 +809,12 @@ class MeshParagraphReader:
                         # vector the substrate does not hold.
                         self._remember_frame(paragraph_concept_id, frame_vector)
                     local_node_ids.add(paragraph_concept_id)
-                    paragraph_concept_node_ids.add(paragraph_concept_id)
+                    tally.paragraph_concept_node_ids.add(paragraph_concept_id)
                     if decision.is_new:
-                        nodes_upserted += 1
+                        tally.nodes_upserted += 1
                     else:
                         referenced_existing.add(str(decision.node.id))
-                    paragraph_concept_count += 1
+                    tally.paragraph_concept_count += 1
 
                     self._append_edge(
                         Edge(
@@ -752,13 +840,13 @@ class MeshParagraphReader:
                             creation_context="kadmos_paragraph_concept",
                         )
                     )
-                    edges_upserted += 2
+                    tally.edges_upserted += 2
                     local_edge_count += 2
 
                     for basis_label in paragraph_concept.basis_concepts:
                         basis_node = resolved_by_label.get(basis_label)
                         if basis_node is None:
-                            relation_drop_count += 1
+                            tally.relation_drop_count += 1
                             continue
                         self._append_edge(
                             Edge(
@@ -772,9 +860,9 @@ class MeshParagraphReader:
                                 creation_context="kadmos_paragraph_concept",
                             )
                         )
-                        edges_upserted += 1
+                        tally.edges_upserted += 1
                         local_edge_count += 1
-                relation_stage_duration_s += time.monotonic() - relation_started
+                tally.relation_stage_duration_s += time.monotonic() - relation_started
             else:
                 paragraph_concept_id = None
 
@@ -784,10 +872,10 @@ class MeshParagraphReader:
             # folded in by the tick; ingestion writes nodes directly but this is
             # a counter update on rows it is not otherwise rewriting.
             if referenced_existing:
-                firing_passes += 1
+                tally.firing_passes += 1
                 self.mesh.firings.append_firing(referenced_existing)
 
-            paragraph_units.append(
+            tally.paragraph_units.append(
                 _ParagraphUnit(
                     paragraph_number=paragraph_index,
                     paragraph_anchor_id=str(paragraph_anchor.id),
@@ -799,9 +887,11 @@ class MeshParagraphReader:
                 )
             )
 
+        tally.paragraph = tally.paragraphs_total + 1
+        tally.stage = "relations_extracted"
         cross_started = time.monotonic()
         structural_pairs, structural_dropped = _select_structural_pairs(
-            paragraph_units, max_neighbours=self.max_structural_neighbours
+            tally.paragraph_units, max_neighbours=self.max_structural_neighbours
         )
         if structural_dropped:
             # Doctrine: destruction is permitted under audit, never silently. The
@@ -833,8 +923,8 @@ class MeshParagraphReader:
                         creation_context="kadmos_cross_paragraph",
                     )
                 )
-                edges_upserted += 1
-            cross_pass_link_count += 2
+                tally.edges_upserted += 1
+            tally.cross_pass_link_count += 2
             self._append_audit(
                 "mesh_ingest_cross_paragraph_link",
                 {
@@ -861,52 +951,37 @@ class MeshParagraphReader:
                         creation_context="kadmos_cross_paragraph",
                     )
                 )
-                edges_upserted += 1
-                cross_pass_link_count += 1
+                tally.edges_upserted += 1
+                tally.cross_pass_link_count += 1
 
-        relation_stage_duration_s += time.monotonic() - cross_started
+        tally.relation_stage_duration_s += time.monotonic() - cross_started
 
         # Connectivity metrics read the edge and node tables — the buffers must
         # land first. Edges need no model and go first; the revisions may call
         # the embedder, so the staged audit rows are flushed in `finally`, and an
-        # embed call failing at flush time cannot take them with it (PHX-1116 for
-        # the report that is still missing on that path).
+        # embed call failing at flush time cannot take them with it. If one does
+        # fail, `read_text` writes the run's failure report (PHX-1116).
+        tally.stage = "stored"
         self._flush_edges()
         try:
             await self._flush_revisions()
         finally:
-            self.mesh.audit.flush()
+            self._flush_audit()
 
         metrics: dict[str, float | int] = {}
         anomalies: list[str] = []
         recommendations: list[str] = []
         if self.connectivity_metrics:
-            metrics = self._compute_connectivity_metrics(paragraph_units)
+            metrics = self._compute_connectivity_metrics(tally.paragraph_units)
             anomalies, recommendations = self._build_connectivity_observations(
                 metrics,
-                cross_pass_link_count,
+                tally.cross_pass_link_count,
             )
         status: Literal["completed", "partial", "failed", "aborted"] = (
-            "completed" if llm_failure_count == 0 else "partial"
+            "completed" if tally.llm_failure_count == 0 else "partial"
         )
 
-        resolution_summary = ResolutionSummary(
-            qid_claims_dropped=qid_claims_dropped,
-            tier_counts={
-                _SIGNAL_TO_TIER[signal]: count
-                for signal, count in signal_counts.items()
-                if count > 0
-            },
-        )
-        parse_error_rate = relation_drop_count / max(
-            1,
-            total_relations_attempted + llm_failure_count,
-        )
-        quality_flags = QualityFlags(
-            low_tier_ratio=resolution_summary.low_tier_ratio,
-            schema_violation_rate=llm_schema_failures / max(1, total_llm_calls),
-            parse_error_rate=parse_error_rate,
-        )
+        _, quality_flags = _resolution_and_quality(tally)
         verdict, reasoning = ingest_verdict(
             status=status,
             parse_error_rate=quality_flags.parse_error_rate,
@@ -915,126 +990,61 @@ class MeshParagraphReader:
             thresholds=self.settings.report.thresholds.ingest,
         )
 
-        finished_at = datetime.now(UTC)
-        stages = [
-            IngestStageReport(name="acquired", duration_s=acquired_duration_s, status="ok"),
-            IngestStageReport(name="cleaned", duration_s=cleaned_duration_s, status="ok"),
-            IngestStageReport(
-                name="sentencized",
-                duration_s=sentencized_duration_s,
-                status="ok",
-            ),
-            IngestStageReport(
-                name="mentions_extracted",
-                duration_s=llm_duration_s,
-                status="ok",
-            ),
-            IngestStageReport(
-                name="mentions_resolved",
-                duration_s=resolve_stage_duration_s,
-                status="ok",
-            ),
-            IngestStageReport(
-                name="relations_extracted",
-                duration_s=relation_stage_duration_s,
-                status="ok",
-            ),
-            IngestStageReport(
-                name="embedded",
-                duration_s=embed_stage_duration_s,
-                status="ok",
-            ),
-            IngestStageReport(
-                name="stored",
-                duration_s=store_stage_duration_s,
-                status="ok",
-            ),
-        ]
-
         audit_run_id = self._append_audit(
             "mesh_ingest_run",
             {
-                "paragraphs": len(paragraph_units),
-                "mentions": total_mentions,
-                "relations_written": total_relations_written,
-                "cross_paragraph_links": cross_pass_link_count,
+                "status": status,
+                "paragraphs": len(tally.paragraph_units),
+                "mentions": tally.total_mentions,
+                "relations_written": tally.total_relations_written,
+                "cross_paragraph_links": tally.cross_pass_link_count,
                 "metrics": metrics,
                 # A workspace does not say which arm built it; the run does.
                 "accrue_descriptions": self.accrue_descriptions,
-                "descriptions_revised": descriptions_revised,
+                "descriptions_revised": tally.descriptions_revised,
             },
         )
 
-        report = IngestRunReport(
-            started_at=started_at,
-            finished_at=finished_at,
-            duration_s=finished_at.timestamp() - started_at.timestamp(),
+        report = self._ingest_report(
+            tally,
             status=status,
             verdict=verdict,
-            verdict_reasoning=reasoning,
+            reasoning=reasoning,
             anomalies=anomalies,
             recommendations=recommendations,
-            audit_log_run_id=audit_run_id,
+            audit_run_id=audit_run_id,
             source_type=source_type,
             source_identifier=source_identifier,
-            word_count=word_count,
-            sentence_count=sentence_count,
-            chapter_count=None,
-            stages=stages,
-            ner=NerSummary(
-                total_mentions=total_mentions,
-                by_type={},
-            ),
-            resolution=resolution_summary,
-            relations=RelationSummary(
-                attempted=total_relations_attempted,
-                parsed_ok=total_relations_written,
-                dropped_schema_violation=llm_schema_failures,
-                dropped_evidence_span_violation=relation_drop_count,
-                llm_cost_eur=round(total_llm_cost_eur, 6),
-            ),
-            embedding=EmbeddingSummary(
-                nodes_embedded=nodes_embedded,
-                embedding_model_id=self.vectorizer.semantic_model_id,
-                duration_s=embed_stage_duration_s,
-            ),
-            store=StoreSummary(
-                nodes_upserted=nodes_upserted,
-                edges_upserted=edges_upserted,
-                idempotent_skips=0,
-                descriptions_revised=descriptions_revised,
-            ),
-            quality_flags=quality_flags,
         )
         report_path = self.report_writer.write(report)
 
-        elapsed = time.monotonic() - started_monotonic
+        elapsed = time.monotonic() - tally.started_monotonic
         return {
-            "paragraphs": len(paragraph_units),
-            "concepts": total_mentions,
-            "relations": total_relations_written,
-            "paragraph_concepts": paragraph_concept_count,
-            "paragraph_concept_nodes": len(paragraph_concept_node_ids),
+            "paragraphs": len(tally.paragraph_units),
+            "concepts": tally.total_mentions,
+            "relations": tally.total_relations_written,
+            "paragraph_concepts": tally.paragraph_concept_count,
+            "paragraph_concept_nodes": len(tally.paragraph_concept_node_ids),
             # Paragraphs that referenced a node the substrate already had. Zero
             # would mean every reference minted a fresh node — the fragmentation
             # PHX-1097 had to clean up after the fact (PHX-1101).
-            "firing_passes": firing_passes,
+            "firing_passes": tally.firing_passes,
             # Revisions of existing descriptions, one per mention that added
             # text, so a node read three times can count twice (PHX-1118);
             # 0 when accrual is off.
-            "descriptions_revised": descriptions_revised,
+            "descriptions_revised": tally.descriptions_revised,
             # What stances the read produced, and how many relations the text
             # itself framed as a disagreement. A histogram with one key would
             # mean the vocabulary reached the model and the model ignored it
             # (PHX-1107).
-            "stances": dict(sorted(stance_counts.items(), key=lambda kv: (-kv[1], kv[0]))),
-            "contradiction_edges": contradiction_edge_count,
-            "llm_calls": total_llm_calls,
-            "llm_cost_eur": round(total_llm_cost_eur, 6),
+            "stances": dict(sorted(tally.stance_counts.items(), key=lambda kv: (-kv[1], kv[0]))),
+            "contradiction_edges": tally.contradiction_edge_count,
+            "llm_calls": tally.total_llm_calls,
+            "llm_cost_eur": round(tally.total_llm_cost_eur, 6),
             "elapsed_s": round(elapsed, 1),
             "source_anchor_id": str(text_anchor_node.id),
-            "paragraph_anchor_count": paragraph_anchor_count,
-            "cross_paragraph_links": cross_pass_link_count,
+            "paragraph_anchor_count": tally.paragraph_anchor_count,
+            "cross_paragraph_links": tally.cross_pass_link_count,
             "connectivity": metrics,
             "report_run_id": report.run_id,
             "report_path": str(report_path),
@@ -1149,8 +1159,20 @@ class MeshParagraphReader:
         """Write the buffered edges as one Lance append."""
         if not self._pending_edges:
             return
-        self.mesh.edges.append_edges(self._pending_edges)
+        try:
+            self.mesh.edges.append_edges(self._pending_edges)
+        except Exception:
+            self._flush_raised = "edges"
+            raise
         self._pending_edges = []
+
+    def _flush_audit(self) -> None:
+        """Write the staged audit rows; remember a failure for the report."""
+        try:
+            self.mesh.audit.flush()
+        except Exception:
+            self._flush_raised = "audit"
+            raise
 
     def _accrue_description(
         self,
@@ -1213,6 +1235,7 @@ class MeshParagraphReader:
             write_started = time.monotonic()
             self.mesh.nodes.update_consolidated_many(revised)
         except Exception as exc:
+            self._flush_raised = "revisions"
             # The description_revised rows for these nodes are already staged and
             # the caller's audit flush writes them; say that the rows they
             # describe never reached the store, then let the failure surface
@@ -1240,8 +1263,225 @@ class MeshParagraphReader:
         self._pending_revisions = {}
         return len(revised)
 
+    def _ingest_report(
+        self,
+        tally: _ReadTally,
+        *,
+        status: Literal["completed", "partial", "failed", "aborted"],
+        verdict: Literal["good", "partial", "poor", "failed", "completed"],
+        reasoning: str,
+        anomalies: list[str],
+        recommendations: list[str],
+        audit_run_id: str | None,
+        source_type: str,
+        source_identifier: str,
+        failed_stage: IngestStageName | None = None,
+        failure_note: str | None = None,
+        edges_unwritten: int = 0,
+    ) -> IngestRunReport:
+        """The run's IngestRunReport from its tally — one builder for both paths."""
+        resolution, quality_flags = _resolution_and_quality(tally)
+        durations: list[tuple[IngestStageName, float]] = [
+            ("acquired", tally.acquired_duration_s),
+            ("cleaned", tally.cleaned_duration_s),
+            ("sentencized", tally.sentencized_duration_s),
+            ("mentions_extracted", tally.llm_duration_s),
+            ("mentions_resolved", tally.resolve_stage_duration_s),
+            ("relations_extracted", tally.relation_stage_duration_s),
+            ("embedded", tally.embed_stage_duration_s),
+            ("stored", tally.store_stage_duration_s),
+        ]
+        stages = [
+            IngestStageReport(
+                name=name,
+                duration_s=max(0.0, duration),
+                status="failed" if name == failed_stage else "ok",
+                notes=failure_note if name == failed_stage else None,
+            )
+            for name, duration in durations
+        ]
+        finished_at = datetime.now(UTC)
+        return IngestRunReport(
+            started_at=tally.started_at,
+            finished_at=finished_at,
+            duration_s=max(0.0, finished_at.timestamp() - tally.started_at.timestamp()),
+            status=status,
+            verdict=verdict,
+            verdict_reasoning=reasoning,
+            anomalies=anomalies,
+            recommendations=recommendations,
+            audit_log_run_id=audit_run_id,
+            source_type=source_type,
+            source_identifier=source_identifier,
+            word_count=tally.word_count,
+            sentence_count=tally.sentence_count,
+            chapter_count=None,
+            stages=stages,
+            ner=NerSummary(
+                total_mentions=tally.total_mentions,
+                by_type={},
+            ),
+            resolution=resolution,
+            relations=RelationSummary(
+                attempted=tally.total_relations_attempted,
+                parsed_ok=tally.total_relations_written,
+                dropped_schema_violation=tally.llm_schema_failures,
+                dropped_evidence_span_violation=tally.relation_drop_count,
+                llm_cost_eur=round(tally.total_llm_cost_eur, 6),
+            ),
+            embedding=EmbeddingSummary(
+                nodes_embedded=tally.nodes_embedded,
+                embedding_model_id=self.vectorizer.semantic_model_id,
+                duration_s=max(0.0, tally.embed_stage_duration_s),
+            ),
+            store=StoreSummary(
+                nodes_upserted=tally.nodes_upserted,
+                # An edge counts once its batch was written; a buffer whose
+                # write raised is reported as an anomaly instead.
+                edges_upserted=max(0, tally.edges_upserted - edges_unwritten),
+                idempotent_skips=0,
+                descriptions_revised=tally.descriptions_revised,
+            ),
+            quality_flags=quality_flags,
+        )
+
+    async def _report_failure(
+        self,
+        tally: _ReadTally,
+        exc: Exception,
+        *,
+        source_type: str,
+        source_identifier: str,
+    ) -> None:
+        """Write what the failure left writable, then a report that says what landed.
+
+        Never raises: the read's own exception is what the caller must see, so
+        anything going wrong here is logged and noted on that exception instead.
+        """
+        error = f"{type(exc).__name__}: {exc}"
+        try:
+            raised_in = self._flush_raised
+            anomalies: list[str] = []
+            # Edges first: they need no model, and every buffered edge points at
+            # nodes the read has already written, so landing them leaves no
+            # dangling endpoint and gives the nodes of the paragraphs read so far
+            # their edges. Not retried when their own write raised (see
+            # `_flush_raised`).
+            if raised_in != "edges" and self._pending_edges:
+                pending = len(self._pending_edges)
+                try:
+                    self._flush_edges()
+                    anomalies.append(f"{pending} buffered edges written after the failure")
+                except Exception as flush_exc:  # noqa: BLE001 - reported, not raised
+                    anomalies.append(
+                        f"{pending} buffered edges could not be written after the failure: "
+                        f"{type(flush_exc).__name__}: {flush_exc}"
+                    )
+            # The revisions may call the embedder; a failing one records its own
+            # mesh_ingest_description_flush_failed row.
+            if raised_in != "revisions" and self._pending_revisions:
+                pending = len(self._pending_revisions)
+                try:
+                    await self._flush_revisions()
+                    anomalies.append(f"{pending} revised descriptions written after the failure")
+                except Exception as flush_exc:  # noqa: BLE001 - reported, not raised
+                    anomalies.append(
+                        f"{pending} revised descriptions could not be written after the "
+                        f"failure: {type(flush_exc).__name__}: {flush_exc}"
+                    )
+            if raised_in is not None:
+                left = {
+                    "edges": len(self._pending_edges),
+                    "revisions": len(self._pending_revisions),
+                    "audit": self.mesh.audit.pending(),
+                }[raised_in]
+                note = ""
+                if raised_in == "edges":
+                    note = (
+                        "; append_edges writes three tables in turn, so some of them may "
+                        "have landed in the first"
+                    )
+                elif raised_in == "revisions":
+                    note = "; mesh_ingest_description_flush_failed names the nodes"
+                elif raised_in == "audit":
+                    note = "; they stay staged, and the next write to the audit log takes them"
+                anomalies.append(
+                    f"{left} of {_BUFFER_NAMES[raised_in]} not written: their write raised{note}"
+                )
+
+            if tally.paragraph == 0:
+                where = "before the first paragraph"
+            elif tally.paragraph > tally.paragraphs_total:
+                where = "after the last paragraph"
+            else:
+                where = f"at paragraph {tally.paragraph} of {tally.paragraphs_total}"
+            writing = f", writing {_BUFFER_NAMES[raised_in]}" if raised_in else ""
+            reasoning = f"read raised {error} {where} ({tally.stage}{writing})"
+
+            audit_run_id: str | None = None
+            if raised_in != "audit":
+                try:
+                    self._flush_audit()
+                    audit_run_id = self._append_audit(
+                        "mesh_ingest_run",
+                        {
+                            "status": "failed",
+                            "error": error[:2000],
+                            "stage": tally.stage,
+                            "paragraph": tally.paragraph,
+                            "paragraphs": len(tally.paragraph_units),
+                            "mentions": tally.total_mentions,
+                            "relations_written": tally.total_relations_written,
+                            "accrue_descriptions": self.accrue_descriptions,
+                            "descriptions_revised": tally.descriptions_revised,
+                        },
+                    )
+                except Exception as audit_exc:  # noqa: BLE001 - reported, not raised
+                    anomalies.append(
+                        f"the audit log could not be written: {type(audit_exc).__name__}: "
+                        f"{audit_exc}; {self.mesh.audit.pending()} rows stay staged"
+                    )
+
+            recommendations = [
+                "The workspace holds this read up to the failure: the source anchor and "
+                f"{len(tally.paragraph_units)} paragraphs with their nodes. Reading the "
+                "same text again writes a second source anchor and a second chunk for "
+                "every paragraph that already landed."
+            ]
+            report = self._ingest_report(
+                tally,
+                status="failed",
+                verdict="failed",
+                reasoning=reasoning,
+                anomalies=anomalies,
+                recommendations=recommendations,
+                audit_run_id=audit_run_id,
+                source_type=source_type,
+                source_identifier=source_identifier,
+                failed_stage=tally.stage,
+                failure_note=error[:500],
+                edges_unwritten=len(self._pending_edges),
+            )
+            self.failure_report = report
+            try:
+                path = self.report_writer.write(report)
+            except Exception as write_exc:  # noqa: BLE001 - reported, not raised
+                log.error("the failure report of a read could not be written: %s", write_exc)
+                exc.add_note(
+                    f"IngestRunReport {report.run_id} (status failed) could not be written: "
+                    f"{type(write_exc).__name__}: {write_exc}"
+                )
+            else:
+                exc.add_note(f"IngestRunReport {report.run_id} (status failed): {path}")
+        except Exception:  # noqa: BLE001 - must not replace the read's own exception
+            log.exception("the failure report of a read could not be built")
+
     def _append_audit(self, action: str, detail: dict[str, Any]) -> str:
-        return self.mesh.audit.append(action=action, detail=detail)
+        try:
+            return self.mesh.audit.append(action=action, detail=detail)
+        except Exception:
+            self._flush_raised = "audit"
+            raise
 
     def _stage_audit(self, action: str, detail: dict[str, Any]) -> str:
         """Stamp a per-item audit row now, write it with the batch.
@@ -1251,7 +1491,12 @@ class MeshParagraphReader:
         was. Measured at 269.8 ms per unbatched write inside a real ingest —
         the largest single term in the resolution stage (PHX-1061).
         """
-        return self.mesh.audit.stage(action=action, detail=detail)
+        try:
+            return self.mesh.audit.stage(action=action, detail=detail)
+        except Exception:
+            # `stage` writes the batch itself once it is full.
+            self._flush_raised = "audit"
+            raise
 
     def _compute_connectivity_metrics(
         self,
@@ -1332,6 +1577,28 @@ class MeshParagraphReader:
                 "Use a longer source or lower cross-paragraph overlap thresholds for smoke checks."
             )
         return anomalies, recommendations
+
+
+def _resolution_and_quality(tally: _ReadTally) -> tuple[ResolutionSummary, QualityFlags]:
+    """The resolution summary and quality flags a read's tally implies."""
+    resolution = ResolutionSummary(
+        qid_claims_dropped=tally.qid_claims_dropped,
+        tier_counts={
+            _SIGNAL_TO_TIER[signal]: count
+            for signal, count in tally.signal_counts.items()
+            if count > 0
+        },
+    )
+    parse_error_rate = tally.relation_drop_count / max(
+        1,
+        tally.total_relations_attempted + tally.llm_failure_count,
+    )
+    quality_flags = QualityFlags(
+        low_tier_ratio=resolution.low_tier_ratio,
+        schema_violation_rate=tally.llm_schema_failures / max(1, tally.total_llm_calls),
+        parse_error_rate=parse_error_rate,
+    )
+    return resolution, quality_flags
 
 
 def _entity_description(label: str, description: str) -> str:

@@ -32,7 +32,6 @@ Tickets chosen because an agent can finish them alone: each names its instrument
 
 | Ticket | What | Done when |
 |---|---|---|
-| [`PHX-1116`](phoenix-backlog/PHX-1116.yaml) | A read that raises mid-paragraph writes no report and leaves its buffered edges unwritten | `read_text` writes an `IngestRunReport` with status `failed` and re-raises; a test forces the failure and reads the report; `mesh_append` returns the report's `run_id` in its error payload |
 | [`PHX-1119`](phoenix-backlog/PHX-1119.yaml) | Accrual of descriptions at re-mention becomes the reader's default (PHX-1118 measured +4.9 EM with it on) | default on in the reader, replay and harness; the demo rebuilt and its recorded counts corrected; the fresh-clone probe green; a flag keeps the off arm reproducible |
 
 The full queue is [`docs/PHOENIX_BACKLOG.md`](docs/PHOENIX_BACKLOG.md). How a contribution lands: a branch, one issue, the four commands of contract 5 green, a PR whose body says what was measured and how to re-run it. A human merges; make that the only thing left for them to do.

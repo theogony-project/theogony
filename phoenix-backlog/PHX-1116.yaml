@@ -1,7 +1,7 @@
 id: PHX-1116
 category: substrate-ingestion
 priority: low
-status: open
+status: done
 generation_target: MESH — the reader's failure report (BUILD_DOCTRINE honest failure)
 title: "A read that raises mid-paragraph writes no report and leaves its buffered edges unwritten"
 filed_by: Claude Code (2026-10-20, from the review of mesh_append)
@@ -25,9 +25,39 @@ acceptance: >
   since PHX-1118, the pending description revisions -- and re-raises; a test forces the failure (a
   monkeypatched append_edges) and reads the report. mesh_append then returns
   the report's run_id in its error payload.
+resolution: >
+  Done, 2026-11-07. MeshParagraphReader.read_text is now a wrapper around the
+  read (`_read`): when the read raises, `_report_failure` writes what the
+  failure left writable and an IngestRunReport with status and verdict
+  "failed", and the exception propagates unchanged. The read's counters live
+  on one object (`_ReadTally`), so the failure report carries the numbers a
+  completed one does -- nodes written, edges whose batch landed, mentions,
+  relations, revisions -- plus the stage and the paragraph where the read
+  raised, and both reports come from one builder. The buffers the failure did
+  not come from are written: the edges first (each points only at nodes the
+  read has already written, so none dangles), then the pending description
+  revisions, then the staged audit rows and a `mesh_ingest_run` row with
+  status "failed". The buffer whose own write raised is not written a second
+  time: `append_edges` writes three tables in turn, so a retry after a partial
+  write could duplicate the rows that landed, and a retry of the revision
+  flush would call the embedder again and record a second failure. The report
+  says what was left behind. `failure_report` holds the report and a note on
+  the exception names it; `mesh_append` returns its run_id, verdict "failed"
+  and the counts in its error payload; `theogony mesh ingest` names it and
+  exits 1. Found on the way: the audit store's flush dropped its staged rows
+  when the table write raised; they now stay staged for the next flush. Tests:
+  tests/mesh/test_read_failure_report.py (seven) and one in
+  tests/test_mcp_mesh_tools.py. Each fails on the code before this change
+  except the guard that the failed buffer is not retried, which passes there
+  trivially and turns red under a mutation that retries it. Out of scope: a
+  cancelled read (CancelledError and KeyboardInterrupt are BaseException, not
+  Exception) and a book whose download fails before the reader is reached.
 relates_to:
   - PHX-1082   # the tick's version of the same repair
   - PHX-1112   # the MCP path this was found on
 linked_scripts:
   - src/theogony/mesh/ingestion/kadmos_v2.py
+  - src/theogony/mesh/storage/audit.py
   - src/theogony/mcp/server.py
+  - src/theogony/mesh/cli.py
+  - tests/mesh/test_read_failure_report.py
