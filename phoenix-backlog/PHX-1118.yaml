@@ -95,7 +95,12 @@ resolution: >
   -> 2,729; gold names on two or more nodes 10 -> 11; the largest hubs shrank (123 -> 113)
   and no generic hub grew, but 961 of the 43,118 mentions changed node (768
   labels), many from a generic name to a narrower neighbour (Spain 40 -> 13 as
-  Spanish Empire 3 -> 17) -- unjudged, the next identity instrument. Five arms on both meshes in one
+  Spanish Empire 3 -> 17) -- unjudged, the next identity instrument.
+  Corrected 2026-11-07 (PHX-1120): a per-mention join found 962 moves to a
+  node of another name and at least 115 more to another node of the same
+  name; the 962 were judged net worse placed (334 off the right node, 129 onto
+  it, where two blind judges agree); and one generic hub did grow, University
+  of Parma 72 -> 81. Five arms on both meshes in one
   sitting (deepseek-chat, 1,000 questions, seed 0): passages 45.0 -> 45.3
   (7/4, the drift control); constellation_typed 48.0 -> 52.9 (+4.9, 104/55,
   p = 0.0001), entity 49.3 -> 54.1 (85/45, p = 0.0006), date 13.0 -> 24.1

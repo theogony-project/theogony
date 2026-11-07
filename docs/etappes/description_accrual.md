@@ -38,6 +38,17 @@
 > Accrual stays off by default in this change; switching it on for the shipped
 > reader is PHX-1119.
 
+*Judged 2026-11-07 (PHX-1120, [`mention_audit.md`](mention_audit.md)): the
+mentions that moved were not neutral. Two judges, blind to the build and
+shown each node as it was created, agree on 97% of their judgments (κ =
+0.95); where they agree on a move's outcome, 334 of the 962 moves took a
+mention off the right node and 129 onto it — per label 131 net worse against
+77 — mostly a mention leaving a node that bears its name. The answer figures
+above stand; the identity statement "whether they are better placed is not
+judged" is answered: net worse. And one generic hub did grow: University of
+Parma, 72 → 81 mentions, the 11 moved onto it all wrong. The guards are
+PHX-1121.*
+
 **Status:** 2026-10-26, measured once (two meshes, one sitting); PHX-1118 closed.
 **Instrument:** `scripts/mesh_qa_mesh_ingest.py` (with `--accrue-descriptions`
 for the on arm) built `data/mesh-2wiki-off` and `data/mesh-2wiki-on` from the
@@ -179,6 +190,14 @@ more nodes from a second passage and shifted 76 link decisions from the
 description signal to the tag signal. Whether the 961 moved mentions are better
 or worse placed was not judged.
 
+*Judged 2026-11-07 (PHX-1120): net worse — 334 off the right node, 129 onto
+it, where two judges agree; the losses are the description signal's (321 of
+the 334), and where the linker minted a node instead of linking, the old link
+had been wrong in 50 of the 54 agreed cases, the other 4 duplicates
+([`mention_audit.md`](mention_audit.md)). "No generic hub grew" is wrong:
+University of Parma rose from 72 to 81 mentions, 71 of the 72 under another
+name than its own, and Queens from 21 to 35.*
+
 ### The answers
 
 One sitting, 2026-10-26 03:25–04:13 UTC, deepseek-chat, 1,000 questions, seed
@@ -222,6 +241,9 @@ ceiling rose from 14.8% to 31.5% against a required 25%, and the 836 entity
 questions did not lose (85 better, 45 worse). The entity count stayed within
 0.02%, no generic hub grew — but 961 of 43,118 mentions changed node, unjudged; every revised node carries provenance, and the audit
 rows equal the counter (12,154).
+*Judged 2026-11-07 (PHX-1120): the moves are net worse placed (334 against 129
+where two blind judges agree), and one generic hub did grow — University of
+Parma, 72 → 81 ([`mention_audit.md`](mention_audit.md)).*
 
 ## What this does not show
 
@@ -251,6 +273,8 @@ rows equal the counter (12,154).
   for an adjacent or narrower name. No count above says whether the new
   placement is right; a per-mention audit of the movers is the next identity
   instrument (`scripts/mesh_identity_controls.py --against` lists them).
+  *Done 2026-11-07 (PHX-1120): net worse, 334 off the right node and 129 onto
+  it where two blind judges agree ([`mention_audit.md`](mention_audit.md)).*
 - **D1b** — a small cached model call regenerating the description instead of
   concatenating — was not run; the concatenation read well enough that the
   fallback arm was not needed.

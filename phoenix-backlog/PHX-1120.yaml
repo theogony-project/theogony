@@ -1,0 +1,59 @@
+id: PHX-1120
+category: evaluation
+priority: medium
+status: done
+generation_target: MESH — identity instrument (a judgment of reference, not a count)
+title: "Judge the mentions that moved node between the PHX-1118 builds"
+filed_by: Claude Code (2026-11-07, from the PHX-1118 identity controls)
+created_at: 2026-11-07
+description: >
+  PHX-1118 found that with description accrual on, 961 of the 43,118 mentions
+  of the 2Wiki mesh landed on a different node than without it. Every identity
+  control it ran was a count -- entity nodes, mentions per label, gold names
+  on one or more nodes -- and a mention that moves from one existing node to
+  another changes none of them. Whether the moves were right is a judgment
+  about reference: for each moved mention, is the old node or the new one the
+  entity the paragraph talks about.
+acceptance: >
+  An instrument that judges, per moved mention, the old and the new node
+  separately and blind to the build, with a second judge and their agreement;
+  a sample of mentions that did not move as the base rate; the outcome
+  (better, worse, two nodes of one entity, two wrong ones) with a sign test.
+  A null result, recorded, closes it.
+resolution: >
+  Done, 2026-11-07 (docs/etappes/mention_audit.md). scripts/mesh_mention_audit.py
+  joins the two builds' mesh_ingest_link_decision audit rows on the mention
+  (paragraph, label, occurrence): 962 moved to a node of another name -- the
+  label diff counted 961 and missed one swap inside a paragraph -- and at least
+  115 more to another node of the same name, not judged. Two judges,
+  deepseek-chat (EUR 0.13-0.14 per pass of 2,324 judgments) and Claude Opus 5.5 in
+  blind batches of a Claude Code workflow, judged each candidate node alone, as
+  it was created. They agree on 97.3% of the judgments (kappa 0.95). Where they
+  agree on a move's outcome, 334 moves took a mention off the right node and
+  129 onto it: per distinct move 191 against 99 (p = 7e-8), per label 131
+  against 77 (p = 2e-4). The losses are the description signal's (321 of the
+  334); 304 of them left a node bearing the mention's name. A first pass
+  showed the nodes with their final, accrued descriptions -- the mention's own
+  note word for word in the accrued text of 667 of the 962 new nodes -- and
+  agreed at kappa 0.82 on 252 losses against 139; the claim check of the
+  write-up found the flaw, and deepseek-chat's verdicts moved on 190 new nodes
+  (187 from same to different) when it was removed while Claude's moved on
+  19. Mechanisms, each traced in single cases: the right node drifts as it
+  accrues (France's accrued sentences sent mentions to Rhône; in 85 of the
+  losses only the right node had accrued -- where drift was possible, not
+  where it acted, since the condition holds in 65 of the 129 gains too), and a
+  node that took a wrong entity's text can attract it under the same name
+  (Paris the city on Paris the Trojan prince, 43 mentions); one generic hub grew (University of Parma, 72 -> 81). On the
+  control, a mention linked to an existing node it names is right 71 times in
+  77 decided cases, one linked to a node of another name wrong 45 times in 54.
+  Two follow-ups filed: PHX-1121 (two accrual guards) and PHX-1122 (the
+  linker's naming guard).
+relates_to:
+  - PHX-1118   # the builds whose moves this judges
+  - PHX-1051   # the identity attractor these moves extend
+  - PHX-1121   # the accrual guard
+  - PHX-1122   # the linker's guard
+linked_docs:
+  - docs/etappes/mention_audit.md
+linked_scripts:
+  - scripts/mesh_mention_audit.py

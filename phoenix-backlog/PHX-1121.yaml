@@ -1,0 +1,61 @@
+id: PHX-1121
+category: substrate-identity
+priority: high
+status: in_progress
+generation_target: MESH — Kadmos v2 write path (description accrual, PHX-1118)
+title: "A mention adds to a node's description only when it calls the node by its name"
+filed_by: Claude Code (2026-11-07, from the PHX-1120 audit)
+created_at: 2026-11-07
+description: >
+  PHX-1120 judged the 962 mentions that moved to a node of another name when
+  PHX-1118's accrual was on: net worse, 334 off the right node to 129 onto it
+  where two blind judges agree (kappa 0.95), and the direction is in the names
+  -- 304 of the losses left a node bearing the mention's name. Two mechanisms
+  feed it. A node that holds a wrong link takes the wrong entity's text: 5,403
+  of the 12,154 revisions (44%) came from a mention whose label is not the
+  node's name, on 3,056 nodes; Rhône's description came to describe France,
+  and Paris the Trojan prince, having taken the city's text, drew 43 of the
+  city's mentions under their shared name. And the right node's own identity
+  surface drifts as it accrues every context it is mentioned in: France's
+  accrued sentences sent its mentions to Rhône, and in 85 of the 334 losses
+  only the right node had accrued (where drift was possible, not a count of
+  where it acted). Accruing only from a mention
+  that names the node addresses the first where the names differ; it cannot
+  stop the drift, nor a same-name attractor. The linker matches on
+  description_vector and retrieval seeds on semantic_vector, so leaving the
+  first as the node was created would stop both.
+acceptance: >
+  Two guards, measured as two arms. (1) The reader accrues a description only
+  from a mention whose label is the node's name (case, accents and punctuation
+  set aside); the link itself is unchanged; a switch restores PHX-1118's arm.
+  (2) That, and a revision re-embeds semantic_vector only, leaving the
+  identity vector as the node was created; a switch keeps both vectors
+  following the text. Measured on the 2Wiki mesh rebuilt from the same
+  readings: the PHX-1120 audit of each arm's moves against the build without
+  accrual, the identity controls, and the five answer arms on the four builds
+  -- off, PHX-1118's accrual, guard 1, guards 1 and 2 -- in one sitting,
+  paired. Done when a guarded arm keeps an answer gain over off (typed
+  Constellation, paired sign test p < 0.05) and loses fewer mentions than
+  PHX-1118's arm in the PHX-1120 audit against off, counted the same way for
+  both: the losses both judges agree on (PHX-1118's arm: 334) or, if only
+  deepseek-chat judges, its losses (352); moves to another node of the same
+  name are counted for each arm by matching nodes on the link decision that
+  minted them. A null result, recorded, closes it too.
+remaining: >
+  The measurement. Both guards are built on branch
+  feat/phx-1121-accrual-names-the-node; the 2Wiki mesh is being rebuilt with
+  each from the same readings (data/mesh-2wiki-named, data/mesh-2wiki-named-kept).
+  Left: the identity controls, the four answer runs in one sitting, the
+  pairings, the PHX-1120 audit of both arms -- deepseek-chat and the second
+  judge's blind batches -- with their same-name moves counted; the guard-2
+  code comment restated on PHX-1120's second pass (it cites the first pass's
+  81 of 252); the etappe.
+relates_to:
+  - PHX-1118   # the accrual this guards
+  - PHX-1120   # the audit that found the need
+  - PHX-1119   # the default, which waits on this
+linked_docs:
+  - docs/etappes/mention_audit.md
+linked_scripts:
+  - src/theogony/mesh/ingestion/kadmos_v2.py
+  - scripts/mesh_mention_audit.py

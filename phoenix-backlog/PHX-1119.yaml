@@ -10,8 +10,11 @@ description: >
   PHX-1118 measured description accrual at re-mention on the 2Wiki mesh:
   the typed Constellation +4.9 exact match (104/55, p = 0.0001), its date
   ceiling 14.8% -> 31.5%, the strongest arm 53.9% -> 57.4%, entity count
-  moved 0.02%, no generic hub grew though 961 of 43,118 mentions changed node
-  (docs/etappes/description_accrual.md). The reader
+  moved 0.02%, though one generic hub grew and 961 of 43,118 mentions changed node
+  (docs/etappes/description_accrual.md). PHX-1120 then judged the moved
+  mentions net worse placed -- 334 off the right node, 129 onto it, where two
+  blind judges agree (docs/etappes/mention_audit.md) -- so the default waits
+  on the guards PHX-1121 measures. The reader
   still ships with accrue_descriptions=False, so `theogony mesh ingest`,
   `theogony mesh demo` and `mesh_append` build the mesh of the off arm. The
   default was left as it was so the measurement's two arms were the only
@@ -19,17 +22,21 @@ description: >
   edges) stayed true. Switching it on is one default and a re-recording of
   what the documents say about the demo.
 acceptance: >
-  MeshParagraphReader, replay_text and ingest_cached_readings default to
-  accrue_descriptions=True; `theogony mesh demo` rebuilt from the bundled
+  After PHX-1121: if a guarded arm passes, MeshParagraphReader, replay_text and
+  ingest_cached_readings default to accrue_descriptions=True with that guard; `theogony mesh demo` rebuilt from the bundled
   readings and its node, edge and relation counts in AGENTS.md, README.md,
   llms.txt and docs/etappes/mesh_over_mcp.md corrected to what it now builds,
   with the number of revised descriptions beside them; scripts/fresh_clone_probe.sh
   green; the demo workspace's gold-name control (scripts/mesh_identity_controls.py
   with --dataset '') recorded before and after. A CLI flag keeps the off
   arm reproducible (--no-accrue-descriptions on `mesh ingest` and the ingest
-  script), so the PHX-1118 comparison can be re-run.
+  script), so the PHX-1118 comparison can be re-run. If PHX-1121
+  closes on a null, accrual stays off and this ticket closes as not done, with
+  the reason.
 relates_to:
   - PHX-1118   # the measurement this acts on
+  - PHX-1120   # the audit that found the moves net worse
+  - PHX-1121   # the guards this waits on
   - PHX-1112   # the demo whose recorded numbers move
 linked_docs:
   - docs/etappes/description_accrual.md
