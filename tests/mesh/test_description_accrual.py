@@ -538,3 +538,27 @@ def test_a_mention_that_names_the_node_otherwise_links_but_does_not_accrue(
     [run] = _audit_rows(mesh_runtime, "mesh_ingest_run")
     assert run["accrue_unnamed"] is unnamed
     assert run["descriptions_declined_unnamed"] == result["descriptions_declined_unnamed"]
+
+
+def test_with_the_identity_vector_kept_only_the_semantic_vector_follows_the_text(
+    mesh_runtime: MeshRuntime, tmp_path: Path
+) -> None:
+    """PHX-1121: the linker matches on `description_vector`, retrieval seeds on
+    `semantic_vector`; kept, the first stays as the node was created."""
+    from theogony.mesh.ingestion.vectorizer import MeshTextVectorizer
+
+    _, reader = _read(
+        mesh_runtime, tmp_path, accrue_descriptions=True, revise_identity_vector=False
+    )
+    hedin = _hedin(mesh_runtime)
+    assert hedin.description == _EXPECTED
+    vectorizer = MeshTextVectorizer(semantic_dim=8, frame_dim=4)
+    created = asyncio.run(
+        vectorizer.description(
+            "Sven Hedin — Swedish explorer known for expeditions in Central Asia"
+        )
+    )
+    assert hedin.description_vector == pytest.approx(created)
+    assert hedin.semantic_vector == pytest.approx(asyncio.run(vectorizer.description(_EXPECTED)))
+    [run] = _audit_rows(mesh_runtime, "mesh_ingest_run")
+    assert run["revise_identity_vector"] is False

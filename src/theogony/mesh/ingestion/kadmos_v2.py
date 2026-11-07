@@ -284,6 +284,7 @@ class MeshParagraphReader:
         connectivity_metrics: bool = True,
         accrue_descriptions: bool = False,
         accrue_unnamed: bool = False,
+        revise_identity_vector: bool = True,
     ) -> None:
         self.mesh = mesh
         self.llm = llm
@@ -295,6 +296,16 @@ class MeshParagraphReader:
         # Accrual only from a mention that calls the node by its name (PHX-1121);
         # True restores PHX-1118's arm, where any re-mention accrued.
         self.accrue_unnamed = accrue_unnamed
+        # Whether a revision re-embeds the identity vector too. The linker matches
+        # a mention against `description_vector`; retrieval seeds on
+        # `semantic_vector`. False leaves the identity vector as the node was
+        # created — its text is the revised description's own prefix — so the
+        # linker never sees accrued text, while retrieval and the rendered
+        # description do. In 85 of the 334 losses the PHX-1120 judges agree on,
+        # only the right node had accrued text when the mention left it (drift;
+        # the condition held in 65 of the 129 gains too: where it was possible,
+        # not where it acted) (PHX-1121).
+        self.revise_identity_vector = revise_identity_vector
         # The connectivity pass loads every edge and every consolidated node and
         # walks the graph once per read — right for a corpus, wrong for a path
         # that reads one paragraph per call (mesh_append over MCP), where it
@@ -1057,6 +1068,7 @@ class MeshParagraphReader:
                 # A workspace does not say which arm built it; the run does.
                 "accrue_descriptions": self.accrue_descriptions,
                 "accrue_unnamed": self.accrue_unnamed,
+                "revise_identity_vector": self.revise_identity_vector,
                 "descriptions_revised": tally.descriptions_revised,
                 "descriptions_declined_unnamed": tally.descriptions_declined_unnamed,
             },
@@ -1298,7 +1310,13 @@ class MeshParagraphReader:
             vectors = await self.vectorizer.description_many([n.description or "" for n in nodes])
             embed_s = time.monotonic() - embed_started
             revised = [
-                node.model_copy(update={"description_vector": vector, "semantic_vector": vector})
+                node.model_copy(
+                    update=(
+                        {"description_vector": vector, "semantic_vector": vector}
+                        if self.revise_identity_vector
+                        else {"semantic_vector": vector}
+                    )
+                )
                 for node, vector in zip(nodes, vectors, strict=True)
             ]
             write_started = time.monotonic()

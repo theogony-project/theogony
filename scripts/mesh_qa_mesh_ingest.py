@@ -53,6 +53,13 @@ def main() -> None:
         "node by its name: PHX-1118's arm, before the PHX-1121 guard",
     )
     ap.add_argument(
+        "--keep-identity-vector",
+        action="store_true",
+        help="with --accrue-descriptions, leave each node's identity vector "
+        "(description_vector) as it was created; only the description and the semantic "
+        "vector follow the accrued text (PHX-1121)",
+    )
+    ap.add_argument(
         "--log-level",
         default="WARNING",
         help="level for the theogony loggers; INFO shows each flush and compaction with its cost",
@@ -99,6 +106,7 @@ def main() -> None:
             on_call=progress,
             accrue_descriptions=args.accrue_descriptions,
             accrue_unnamed=args.accrue_unnamed,
+            revise_identity_vector=not args.keep_identity_vector,
         )
     )
     pruned = runtime.compact()

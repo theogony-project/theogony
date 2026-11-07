@@ -197,6 +197,7 @@ async def replay_text(
     settings: Settings | None = None,
     accrue_descriptions: bool = False,
     accrue_unnamed: bool = False,
+    revise_identity_vector: bool = True,
 ) -> ReplayReport:
     """Write ``text`` into a mesh through the shipped reader, readings replayed.
 
@@ -217,6 +218,7 @@ async def replay_text(
         settings=settings,
         accrue_descriptions=accrue_descriptions,
         accrue_unnamed=accrue_unnamed,
+        revise_identity_vector=revise_identity_vector,
     )
     report = await reader.read_text(
         text=text,
