@@ -142,3 +142,72 @@ def test_a_blind_batch_never_holds_both_candidates_of_one_mention() -> None:
         assert len(mentions) == len(set(mentions))
         assert len({u["unit_id"].rsplit("|", 1)[1] for u in batch}) == 1, "one side per batch"
     assert audit.blind_batches(items, size=7, seed=1120) == batches, "seeded"
+
+
+def test_a_mention_that_moved_to_another_node_of_its_name_is_found_by_the_minting_mention() -> None:
+    """*Paris* the city on *Paris* the prince (PHX-1120): one name, two nodes, so a
+    join on names cannot see the move; the mention that minted each node can."""
+    dec_a = {
+        (173, "Paris", 0): {"node_id": "prince", "signal": "emergent"},
+        (293, "Paris", 0): {"node_id": "prince", "signal": "description"},
+        (511, "Paris", 0): {"node_id": "city", "signal": "emergent"},
+        (520, "Paris", 0): {"node_id": "city", "signal": "description"},
+        (600, "Hedin", 0): {"node_id": "pc-node", "signal": "description"},
+    }
+    dec_b = {
+        (173, "Paris", 0): {"node_id": "prince2", "signal": "emergent"},
+        (293, "Paris", 0): {"node_id": "prince2", "signal": "description"},
+        (511, "Paris", 0): {"node_id": "prince2", "signal": "description"},
+        (520, "Paris", 0): {"node_id": "city2", "signal": "emergent"},
+        (600, "Hedin", 0): {"node_id": "pc-node2", "signal": "description"},
+    }
+    assert audit.minted_by(dec_a) == {"prince": (173, "Paris", 0), "city": (511, "Paris", 0)}
+    moved, still, unknown = audit.split_same_name(sorted(dec_a), dec_a, dec_b)
+    # 511 left the city's node (minted by 511) for the prince's (minted by 173);
+    # 520 left it for a node it minted itself
+    assert moved == [(511, "Paris", 0), (520, "Paris", 0)]
+    assert still == [(173, "Paris", 0), (293, "Paris", 0), (600, "Hedin", 0)]
+    assert unknown == 1, "a node no link decision minted cannot be matched"
+
+
+def _judged(item_id: str, a: str, b: str | None = None) -> dict:
+    rows = {(item_id, "a"): {"verdict": a, "model": "m"}}
+    if b is not None:
+        rows[(item_id, "b")] = {"verdict": b, "model": "m"}
+    return rows
+
+
+def test_moves_by_name_and_to_a_namesake_are_reported_apart_and_together() -> None:
+    items = [
+        {
+            "id": "m1",
+            "group": "moved",
+            "a": {"signal": "tag"},
+            "b": {"signal": "description", "revised": False},
+        },
+        {
+            "id": "m2",
+            "group": "moved",
+            "a": {"signal": "tag"},
+            "b": {"signal": "description", "revised": False},
+        },
+        {
+            "id": "s1",
+            "group": "moved_same_name",
+            "a": {"signal": "emergent"},
+            "b": {"signal": "description", "revised": True},
+        },
+        {"id": "c1", "group": "control", "a": {"signal": "tag"}, "b": {"signal": "tag"}},
+    ]
+    assert audit.judged_sides(items[2]) == ("a", "b") and audit.judged_sides(items[3]) == ("a",)
+    verdicts = {
+        **_judged("m1", "same", "different"),
+        **_judged("m2", "different", "same"),
+        **_judged("s1", "same", "different"),
+        **_judged("c1", "same"),
+    }
+    one = audit.summarise_one(items, verdicts)
+    assert one["outcomes"] == {"worse": 1, "better": 1}, "the by-name moves as before"
+    assert one["same_name_outcomes"] == {"worse": 1}
+    assert one["all_moves_outcomes"] == {"worse": 2, "better": 1}
+    assert one["control_verdicts"] == {"same": 1}

@@ -16,7 +16,11 @@ Three steps, each writing a file the next one reads:
     builds, plus a seeded sample of mentions that did not move, as the base
     rate. Each item carries the paragraph, the mention as the reader extracted
     it, and the node each build linked it to (name, description, the linker's
-    signal and score).
+    signal and score). With ``--same-name`` it also keeps the mentions that
+    moved to another node of the same name — matched across the builds by the
+    mention that minted each node, since a name cannot tell *Paris* the prince
+    from *Paris* the city — as a group of their own, judged like the others and
+    left out of the control sample (PHX-1121).
 
 ``judge``
     Shows a judge model the paragraph, the mention and **one candidate node at
@@ -167,6 +171,60 @@ def _node_view(node: Any, created_chars: int | None = None) -> dict[str, Any]:
     }
 
 
+# A mention moved by name (its node's name differs between the builds), or to
+# another node of the same name (``collect --same-name``); both are judged on
+# both sides. A control mention is judged on its one node.
+MOVED_GROUPS = ("moved", "moved_same_name")
+
+
+def judged_sides(item: dict[str, Any]) -> tuple[str, ...]:
+    return ("a", "b") if item["group"] in MOVED_GROUPS else ("a",)
+
+
+def minted_by(
+    decisions: dict[tuple[int, str, int], dict[str, Any]],
+) -> dict[str, tuple[int, str, int]]:
+    """Each node's minting mention: the link decision that created it.
+
+    Node ids differ between two builds, so a node is matched across them by the
+    mention that minted it: two nodes minted by the same mention are the same
+    node, whatever their names; two nodes of one name minted by different
+    mentions are not (*Paris* the prince and *Paris* the city, PHX-1120).
+    """
+    minted: dict[str, tuple[int, str, int]] = {}
+    for key in sorted(decisions):
+        row = decisions[key]
+        if row.get("signal") == "emergent":
+            minted.setdefault(str(row["node_id"]), key)
+    return minted
+
+
+def split_same_name(
+    stayed: list[tuple[int, str, int]],
+    dec_a: dict[tuple[int, str, int], dict[str, Any]],
+    dec_b: dict[tuple[int, str, int], dict[str, Any]],
+) -> tuple[list[tuple[int, str, int]], list[tuple[int, str, int]], int]:
+    """Of the mentions whose node kept its name, those that moved to another node
+    of that name, those that did not, and how many could not be told: a node
+    no link decision minted (a paragraph concept's, or a seed's) has no mention
+    to be matched by, and its mentions count as not moved."""
+    minted_a, minted_b = minted_by(dec_a), minted_by(dec_b)
+    moved: list[tuple[int, str, int]] = []
+    still: list[tuple[int, str, int]] = []
+    unknown = 0
+    for key in stayed:
+        origin_a = minted_a.get(str(dec_a[key]["node_id"]))
+        origin_b = minted_b.get(str(dec_b[key]["node_id"]))
+        if origin_a is None or origin_b is None:
+            unknown += 1
+            still.append(key)
+        elif origin_a != origin_b:
+            moved.append(key)
+        else:
+            still.append(key)
+    return moved, still, unknown
+
+
 def split_moves(
     dec_a: dict[tuple[int, str, int], dict[str, Any]],
     dec_b: dict[tuple[int, str, int], dict[str, Any]],
@@ -229,13 +287,24 @@ def collect(args: argparse.Namespace) -> None:
         return {"label": label, "entity_type": None, "description": ""}
 
     moved, stayed = split_moves(dec_a, dec_b, nodes_a, nodes_b)
+    same_name: list[tuple[int, str, int]] = []
+    if args.same_name:
+        same_name, stayed, unknown = split_same_name(stayed, dec_a, dec_b)
+        print(
+            f"moved to another node of the same name: {len(same_name)} "
+            f"({unknown} on a node no link decision minted, counted as not moved)"
+        )
     rng = random.Random(args.seed)
     control = sorted(rng.sample(stayed, min(args.control, len(stayed))))
     print(f"moved: {len(moved)}; did not move: {len(stayed)}; control sample: {len(control)}")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8") as fh:
-        for group, keys in (("moved", moved), ("control", control)):
+        for group, keys in (
+            ("moved", moved),
+            ("moved_same_name", same_name),
+            ("control", control),
+        ):
             for paragraph, label, occurrence in keys:
                 passage = passages[paragraph - 1]
                 row_a, row_b = (
@@ -295,7 +364,7 @@ def judge(args: argparse.Namespace) -> None:
     todo = [
         (item, side)
         for item in items
-        for side in (("a", "b") if item["group"] == "moved" else ("a",))
+        for side in judged_sides(item)
         if (item["id"], side) not in done
     ]
     print(
@@ -363,7 +432,7 @@ def blind_batches(
     """
     units: dict[str, list[dict[str, Any]]] = {"a": [], "b": []}
     for item in items:
-        for side in ("a", "b") if item["group"] == "moved" else ("a",):
+        for side in judged_sides(item):
             if side not in sides:
                 continue
             node, mention = item[side], item["mention"]
@@ -476,8 +545,18 @@ def kappa(pairs: list[tuple[str, str]]) -> float:
     return (observed - expected) / (1 - expected) if expected < 1 else 1.0
 
 
+def _move_outcomes(moves: list[dict[str, Any]], verdicts: dict) -> Counter[str]:
+    outcomes: Counter[str] = Counter()
+    for item in moves:
+        va, vb = verdicts.get((item["id"], "a")), verdicts.get((item["id"], "b"))
+        if va is not None and vb is not None:
+            outcomes[outcome(va["verdict"], vb["verdict"])] += 1
+    return outcomes
+
+
 def summarise_one(items: list[dict[str, Any]], verdicts: dict) -> dict[str, Any]:
     moved = [i for i in items if i["group"] == "moved"]
+    same_name = [i for i in items if i["group"] == "moved_same_name"]
     control = [i for i in items if i["group"] == "control"]
     outcomes: Counter[str] = Counter()
     by_signal: dict[str, Counter[str]] = defaultdict(Counter)
@@ -499,7 +578,19 @@ def summarise_one(items: list[dict[str, Any]], verdicts: dict) -> dict[str, Any]
         if v is not None:
             base[v["verdict"]] += 1
     models = Counter(v.get("model") for v in verdicts.values())
+    by_name_and_same: dict[str, Any] = {}
+    if same_name:
+        same = _move_outcomes(same_name, verdicts)
+        every = outcomes + same
+        by_name_and_same = {
+            "same_name_total": len(same_name),
+            "same_name_outcomes": dict(same),
+            "same_name_better_vs_worse_p": sign_test_p(same["better"], same["worse"]),
+            "all_moves_outcomes": dict(every),
+            "all_moves_better_vs_worse_p": sign_test_p(every["better"], every["worse"]),
+        }
     return {
+        **by_name_and_same,
         "moved_judged": judged,
         "moved_total": len(moved),
         "outcomes": dict(outcomes),
@@ -538,10 +629,10 @@ def summarise(args: argparse.Namespace) -> None:
             "kappa": round(kappa(pairs), 4),
             "confusion_first_to_second": dict(sorted(confusion.items())),
         }
-        # Outcomes both judges agree on, item by item.
-        agreed: Counter[str] = Counter()
+        # Outcomes both judges agree on, item by item, per kind of move.
+        agreed: dict[str, Counter[str]] = {group: Counter() for group in MOVED_GROUPS}
         for item in items:
-            if item["group"] != "moved":
+            if item["group"] not in MOVED_GROUPS:
                 continue
             keys = [(item["id"], "a"), (item["id"], "b")]
             if not all(k in first and k in second for k in keys):
@@ -549,9 +640,16 @@ def summarise(args: argparse.Namespace) -> None:
             o1 = outcome(first[keys[0]]["verdict"], first[keys[1]]["verdict"])
             o2 = outcome(second[keys[0]]["verdict"], second[keys[1]]["verdict"])
             if o1 == o2:
-                agreed[o1] += 1
-        out["agreed_outcomes"] = dict(agreed)
-        out["agreed_better_vs_worse_p"] = sign_test_p(agreed["better"], agreed["worse"])
+                agreed[item["group"]][o1] += 1
+        by_name = agreed["moved"]
+        out["agreed_outcomes"] = dict(by_name)
+        out["agreed_better_vs_worse_p"] = sign_test_p(by_name["better"], by_name["worse"])
+        if any(i["group"] == "moved_same_name" for i in items):
+            same = agreed["moved_same_name"]
+            every = by_name + same
+            out["agreed_outcomes_same_name"] = dict(same)
+            out["agreed_outcomes_all_moves"] = dict(every)
+            out["agreed_all_moves_better_vs_worse_p"] = sign_test_p(every["better"], every["worse"])
     print(json.dumps(out, indent=2, ensure_ascii=False))
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
@@ -569,6 +667,12 @@ def main() -> None:
     c.add_argument("--cache-dir", default=Path("data/raw/qa_bench"), type=Path)
     c.add_argument(
         "--readings", type=Path, help="default: <cache-dir>/kadmos_readings_<dataset>.jsonl"
+    )
+    c.add_argument(
+        "--same-name",
+        action="store_true",
+        help="also collect mentions that moved to another node of the same name, matched "
+        "by the mention that minted each node; they are left out of the control sample",
     )
     c.add_argument("--control", type=int, default=400, help="mentions that did not move, sampled")
     c.add_argument("--seed", type=int, default=0)
