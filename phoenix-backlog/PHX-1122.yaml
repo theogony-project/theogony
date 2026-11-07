@@ -1,0 +1,52 @@
+id: PHX-1122
+category: substrate-ingestion
+priority: high
+status: open
+generation_target: MESH — EagerLinker identity resolution (PHX-1051 naming guard, v3)
+title: "The naming guard takes a tag that names a related entity, or a category noun inside the label, as naming the node"
+filed_by: Claude Code (2026-11-07, from the PHX-1120 audit)
+created_at: 2026-11-07
+description: >
+  The PHX-1120 audit judged 400 mentions of the 2Wiki mesh that did not move
+  between the PHX-1118 builds, as a base rate. 261 of them minted their own
+  node; of the 139 linked to an existing node, 60 (43%; 15% of all links, an
+  estimate from the sample) sit on a node that does not bear their name, and
+  where the two judges agree those are wrong 45 times in 54 -- against 6 in 77
+  for a re-mention that names its node, all six same-name confusions. The
+  wrong ones fall into three shapes, all of which pass the PHX-1051 v2
+  guard ("the shared tag must NAME the entity, i.e.
+  token-overlap the incoming label, or the label must already be a known
+  alias"). (1) A tag naming a related entity: the reader tags a book with its
+  author, a borough with its city, a festival section with its festival, so
+  "Jens Bjørneboe" lands on his novel "Drømmen og hjulet", "New York City" on
+  "Queens", "Cannes Film Festival" on "Un Certain Regard", "St. Maurice's
+  Abbey" on its lay-abbot "Hucbert" -- the shared tag equals the label. (2) A
+  category noun inside the label: "Seattle International Film Festival" shares
+  the tag "film festival" with "Newport International Film Festival", whose
+  tokens overlap the label's, so the tag path takes it (score 0.61 against a
+  0.55 threshold); the same for museums, awards, universities and titles
+  ("Richard I of England" on "Henry VIII" via the shared tag "King of
+  England"). This is how Newport International Film Festival came to hold 123
+  mentions, the largest hub of the mesh. (3) Siblings whose names differ in a
+  discriminator: "John I, Lord of Polanen" on "John II", "The Bat (1926 film)"
+  on "The Bat (1920 play)". The guard also reads the resolver's in-memory aliases, and every
+  link adds the mention's label to them (`registry.remember(..., aliases=[label,
+  description])`), so one wrong link makes the next one pass by label.
+acceptance: >
+  A guard that keeps shapes (1) to (3) out without fragmenting the entities
+  that are linked correctly today, measured on the 2Wiki mesh rebuilt from the
+  same readings: the PHX-1120 judge on the moved mentions and on a fresh
+  seeded control sample of 400 mentions that did not move, judged by both
+  PHX-1120 judges (agreed wrong placements on a differently named node below
+  PHX-1120's 45 of 400, and the wrong rate among named re-mentions no higher
+  than its 6 of 77 decided), the entity count
+  and the gold-name control of scripts/mesh_identity_controls.py, and the
+  answer arms of scripts/mesh_qa_constellation.py in one sitting against an
+  unchanged baseline. A null result, recorded, closes it.
+relates_to:
+  - PHX-1051   # the guard this tightens
+  - PHX-1120   # the audit that measured it
+linked_scripts:
+  - src/theogony/mesh/ingestion/linker.py
+  - src/theogony/mesh/ingestion/concept_resolver.py
+  - scripts/mesh_mention_audit.py
