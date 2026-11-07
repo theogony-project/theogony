@@ -14,6 +14,7 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
@@ -177,17 +178,35 @@ def mesh_ingest(
                 f"{derived_anchor!r}. Pass --anchor with a URL or citation for "
                 f"provenance that survives moving the file."
             )
-        result = asyncio.run(
-            reader.read_text(
-                text=raw_text,
-                source_type=source_type,
-                source_identifier=str(path),
-                title=title or path.stem,
-                anchor=derived_anchor,
+    try:
+        if text_file:
+            result = asyncio.run(
+                reader.read_text(
+                    text=raw_text,
+                    source_type=source_type,
+                    source_identifier=str(path),
+                    title=title or path.stem,
+                    anchor=derived_anchor,
+                )
             )
+        else:
+            result = asyncio.run(reader.read_book(source))
+    except Exception as exc:
+        # The reader has written what it could and a report that says so
+        # (PHX-1116); point at it rather than end on a traceback. A book whose
+        # download failed never reached the reader and has no report.
+        failed = reader.failure_report
+        if failed is not None and reader.failure_report_path is not None:
+            where = f"\nreport: {failed.run_id} (status failed)"
+        elif failed is not None:
+            where = f"\nits failure report could not be written: {reader.failure_report_error}"
+        else:
+            where = ""
+        # Text, not markup: an exception's "[...]" would be read as a style tag.
+        _console.print(
+            Panel.fit(Text(f"read failed: {exc}{where}"), title="mesh ingest", style="red")
         )
-    else:
-        result = asyncio.run(reader.read_book(source))
+        raise typer.Exit(code=1) from exc
 
     _console.print(Panel.fit(json.dumps(result, indent=2), title="mesh ingest result"))
 
