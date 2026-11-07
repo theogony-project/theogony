@@ -54,8 +54,8 @@ resolution: >
   had landed, and no report could be built for that error either; the basis
   labels are now in the denominator, and the failure builder falls back to
   default summaries rather than lose the report. Tests:
-  tests/mesh/test_read_failure_report.py (fifteen) and two in
-  tests/test_mcp_mesh_tools.py; mutations that retry a failed buffer or drop
+  tests/mesh/test_read_failure_report.py (seventeen), two in
+  tests/test_mcp_mesh_tools.py and tests/cli/test_cli_mesh_ingest_failure.py; mutations that retry a failed buffer or drop
   a failed audit row turn them red. Out of scope: a cancelled read
   (CancelledError and KeyboardInterrupt are BaseException) and a book whose
   download fails before the reader is reached.

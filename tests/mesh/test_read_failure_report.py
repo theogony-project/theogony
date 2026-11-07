@@ -503,3 +503,38 @@ def test_an_audit_append_that_raises_keeps_its_row_staged(
     assert audit.pending() == 1
     assert audit.flush() == 1
     assert len(_audit_rows(mesh_runtime, "probe")) == 1
+
+
+def test_a_failure_at_a_compaction_boundary_is_placed_there(
+    mesh_runtime: MeshRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(edges):  # type: ignore[no-untyped-def]
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(mesh_runtime.edges, "append_edges", broken)
+    settings = Settings(_env_file=None, data_dir=tmp_path / "data")  # type: ignore[call-arg]
+    reader = MeshParagraphReader(
+        mesh_runtime,
+        llm=StubLLMProvider(responses=_RESPONSES),
+        settings=settings,
+        compact_every=2,
+    )
+    with pytest.raises(RuntimeError, match="disk full"):
+        _read(reader, tmp_path)
+    [report] = _reports(tmp_path)
+    assert "at the compaction boundary after paragraph 2 of 3" in report.verdict_reasoning
+
+
+def test_audit_rows_that_cannot_be_written_are_reported_as_held_in_memory(
+    mesh_runtime: MeshRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(rows):  # type: ignore[no-untyped-def]
+        raise RuntimeError("audit table gone")
+
+    monkeypatch.setattr(mesh_runtime.audit._table, "add", broken)
+    reader = _reader(mesh_runtime, tmp_path)
+    with pytest.raises(RuntimeError, match="audit table gone"):
+        _read(reader, tmp_path)
+    [report] = _reports(tmp_path)
+    assert report.audit_log_run_id is None
+    assert any("held only in this process's memory" in a for a in report.anomalies)
