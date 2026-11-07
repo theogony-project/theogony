@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import shutil
 import time
 from pathlib import Path
@@ -45,7 +46,20 @@ def main() -> None:
         help="fold later mentions into existing descriptions (PHX-1118); default off = "
         "today's write path",
     )
+    ap.add_argument(
+        "--accrue-unnamed",
+        action="store_true",
+        help="with --accrue-descriptions, also accrue from a mention that does not call the "
+        "node by its name: PHX-1118's arm, before the PHX-1121 guard",
+    )
+    ap.add_argument(
+        "--log-level",
+        default="WARNING",
+        help="level for the theogony loggers; INFO shows each flush and compaction with its cost",
+    )
     args = ap.parse_args()
+    logging.basicConfig(format="%(asctime)s %(name)s %(message)s")
+    logging.getLogger("theogony").setLevel(args.log_level.upper())
 
     readings_path = args.readings or (args.cache_dir / f"kadmos_readings_{args.dataset}.jsonl")
     data = load_dataset(args.dataset, args.cache_dir, max_questions=1000, seed=0)
@@ -84,6 +98,7 @@ def main() -> None:
             compact_every=args.compact_every,
             on_call=progress,
             accrue_descriptions=args.accrue_descriptions,
+            accrue_unnamed=args.accrue_unnamed,
         )
     )
     pruned = runtime.compact()

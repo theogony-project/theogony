@@ -196,6 +196,7 @@ async def replay_text(
     on_call: Callable[[int], None] | None = None,
     settings: Settings | None = None,
     accrue_descriptions: bool = False,
+    accrue_unnamed: bool = False,
 ) -> ReplayReport:
     """Write ``text`` into a mesh through the shipped reader, readings replayed.
 
@@ -215,6 +216,7 @@ async def replay_text(
         compact_every=compact_every,
         settings=settings,
         accrue_descriptions=accrue_descriptions,
+        accrue_unnamed=accrue_unnamed,
     )
     report = await reader.read_text(
         text=text,

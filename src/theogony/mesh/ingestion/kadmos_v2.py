@@ -6,6 +6,7 @@ import contextlib
 import json
 import re
 import time
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from itertools import combinations
@@ -203,6 +204,9 @@ class _ReadTally:
     nodes_upserted: int = 0
     firing_passes: int = 0
     descriptions_revised: int = 0
+    #: Re-mentions whose description did not accrue because the mention did not
+    #: call the node by its name (PHX-1121).
+    descriptions_declined_unnamed: int = 0
     edges_upserted: int = 0
     nodes_embedded: int = 0
     total_mentions: int = 0
@@ -279,6 +283,7 @@ class MeshParagraphReader:
         embedder: EmbeddingProvider | None = None,
         connectivity_metrics: bool = True,
         accrue_descriptions: bool = False,
+        accrue_unnamed: bool = False,
     ) -> None:
         self.mesh = mesh
         self.llm = llm
@@ -287,6 +292,9 @@ class MeshParagraphReader:
         # step 1). Off by default: the two arms of the measurement are built
         # from the same code, and the demo and mesh_append keep today's path.
         self.accrue_descriptions = accrue_descriptions
+        # Accrual only from a mention that calls the node by its name (PHX-1121);
+        # True restores PHX-1118's arm, where any re-mention accrued.
+        self.accrue_unnamed = accrue_unnamed
         # The connectivity pass loads every edge and every consolidated node and
         # walks the graph once per read — right for a corpus, wrong for a path
         # that reads one paragraph per call (mesh_append over MCP), where it
@@ -671,7 +679,19 @@ class MeshParagraphReader:
                         tally.nodes_upserted += 1
                     else:
                         referenced_existing.add(str(decision.node.id))
-                        if self.accrue_descriptions:
+                        if self.accrue_descriptions and not (
+                            self.accrue_unnamed or names_node(concept.label, decision.node)
+                        ):
+                            # The link stands; its text does not reach the node. A
+                            # mention that calls a node by another name is the
+                            # linker's guess, and accruing on a wrong guess writes one
+                            # entity's description into another's, where a later
+                            # mention of the first finds it: that was possible in 180
+                            # of the 334 losses the PHX-1120 judges agree on, and 44%
+                            # of the PHX-1118 revisions came from such mentions
+                            # (PHX-1121).
+                            tally.descriptions_declined_unnamed += 1
+                        elif self.accrue_descriptions:
                             standing = self._pending_revisions.get(
                                 str(decision.node.id), decision.node
                             )
@@ -1036,7 +1056,9 @@ class MeshParagraphReader:
                 "metrics": metrics,
                 # A workspace does not say which arm built it; the run does.
                 "accrue_descriptions": self.accrue_descriptions,
+                "accrue_unnamed": self.accrue_unnamed,
                 "descriptions_revised": tally.descriptions_revised,
+                "descriptions_declined_unnamed": tally.descriptions_declined_unnamed,
             },
         )
         tally.run_row_id = audit_run_id
@@ -1069,6 +1091,9 @@ class MeshParagraphReader:
             # text, so a node read three times can count twice (PHX-1118);
             # 0 when accrual is off.
             "descriptions_revised": tally.descriptions_revised,
+            # Re-mentions whose text did not accrue: the mention named the node
+            # otherwise (PHX-1121); 0 when accrual is off or `accrue_unnamed`.
+            "descriptions_declined_unnamed": tally.descriptions_declined_unnamed,
             # What stances the read produced, and how many relations the text
             # itself framed as a disagreement. A histogram with one key would
             # mean the vocabulary reached the model and the model ignored it
@@ -1702,6 +1727,30 @@ class MeshParagraphReader:
                 "Use a longer source or lower cross-paragraph overlap thresholds for smoke checks."
             )
         return anomalies, recommendations
+
+
+def name_key(text: str) -> str:
+    """A name compared as a name: case, accents, punctuation and a possessive "'s"
+    do not count; letters of every script do."""
+    folded = unicodedata.normalize("NFKD", text.casefold())
+    kept = "".join(ch for ch in folded if not unicodedata.combining(ch))
+    kept = re.sub(r"['’]s\b", "", kept)
+    return " ".join(re.sub(r"[^\w\s]", " ", kept).split())
+
+
+def names_node(label: str, node: ConsolidatedNode) -> bool:
+    """Whether a mention calls ``node`` by its name — the condition for its text to accrue.
+
+    The name is the label the node was created with, which the reader puts first
+    in its tags; a node without tags is named by the head of its description.
+    Equal under :func:`name_key`, not overlapping: "Spain" does not name "Spanish
+    Empire", "France" does not name "Rhône" whose tags say it lies in France, and
+    "Hugh of Italy" does not name "Hugh, King of Italy" — the price of the rule,
+    paid in accrual a variant does not get, never in a link (PHX-1121).
+    """
+    name = node.tags[0] if node.tags else (node.description or "").split(" — ", 1)[0]
+    key = name_key(label)
+    return bool(key) and key == name_key(name)
 
 
 def _resolution_and_quality(tally: _ReadTally) -> tuple[ResolutionSummary, QualityFlags]:

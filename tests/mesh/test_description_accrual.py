@@ -466,3 +466,75 @@ def test_a_failing_flush_keeps_edges_and_audit_rows_and_records_the_failure(
     assert (
         hedin.description == "Sven Hedin — Swedish explorer known for expeditions in Central Asia"
     )
+
+
+# --------------------------------------------------------------------------
+# PHX-1121: only a mention that calls the node by its name accrues
+# --------------------------------------------------------------------------
+
+
+def test_name_key_compares_names_not_spellings() -> None:
+    from theogony.mesh.ingestion.kadmos_v2 import name_key
+
+    assert name_key("Rhône") == name_key("rhone")
+    assert name_key("St. Maurice's Abbey") == name_key("St Maurice Abbey")
+    assert name_key("Ζεύς") == name_key("ζεύς") != ""
+    assert name_key("Spain") != name_key("Spanish Empire")
+    assert name_key("Hugh of Italy") != name_key("Hugh, King of Italy")
+    assert name_key("...") == ""
+
+
+_P2_BY_SURNAME = {
+    "label": "Hedin",
+    "entity_type": "person",
+    "tags": ["Sven Hedin", "explorer"],
+    "description": "Born in Stockholm in 1865",
+}
+
+
+@pytest.mark.parametrize("unnamed", [False, True])
+def test_a_mention_that_names_the_node_otherwise_links_but_does_not_accrue(
+    mesh_runtime: MeshRuntime, tmp_path: Path, unnamed: bool
+) -> None:
+    """'Hedin' resolves onto 'Sven Hedin' by its tags, as before; with the guard
+    its text stays out of the node, and `accrue_unnamed` restores PHX-1118's
+    arm, where it went in."""
+    responses = {
+        f"PARAGRAPH:\n{_P1}": _RESPONSES[f"PARAGRAPH:\n{_P1}"],
+        f"PARAGRAPH:\n{_P2}": _reading(_P2_BY_SURNAME, _PLATEAU),
+        f"PARAGRAPH:\n{_P3}": _RESPONSES[f"PARAGRAPH:\n{_P3}"],
+    }
+    reader = MeshParagraphReader(
+        mesh_runtime,
+        llm=StubLLMProvider(responses=responses),
+        max_paragraphs=10,
+        accrue_descriptions=True,
+        accrue_unnamed=unnamed,
+    )
+    result = asyncio.run(
+        reader.read_text(
+            text=_TEXT,
+            source_type="test",
+            source_identifier="hedin",
+            title="Hedin",
+            anchor=str(tmp_path / "hedin.txt"),
+        )
+    )
+    hedin = _hedin(mesh_runtime)
+    decisions = _audit_rows(mesh_runtime, "mesh_ingest_link_decision")
+    by_surname = [d for d in decisions if d["label"] == "Hedin"]
+    assert [d["node_id"] for d in by_surname] == [str(hedin.id)], "the link itself stands"
+    if unnamed:
+        assert result["descriptions_revised"] == 2
+        assert result["descriptions_declined_unnamed"] == 0
+        assert "Born in Stockholm in 1865" in (hedin.description or "")
+    else:
+        assert result["descriptions_revised"] == 1
+        assert result["descriptions_declined_unnamed"] == 1
+        assert hedin.description == (
+            "Sven Hedin — Swedish explorer known for expeditions in Central Asia. "
+            "Mapped the course of the Brahmaputra River"
+        )
+    [run] = _audit_rows(mesh_runtime, "mesh_ingest_run")
+    assert run["accrue_unnamed"] is unnamed
+    assert run["descriptions_declined_unnamed"] == result["descriptions_declined_unnamed"]
