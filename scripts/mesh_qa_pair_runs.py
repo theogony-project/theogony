@@ -70,6 +70,12 @@ def main() -> None:
         }
         if others:
             sys.exit(f"{name} names {named} but was answered by {others}; not a run of {named}")
+        failed = (run.get("answered_by") or {}).get("none", 0)
+        if failed:
+            print(
+                f"warning: {failed} calls of {name} failed and score as empty answers",
+                file=sys.stderr,
+            )
     qids_a, qids_b = ({x["qid"] for x in run["answers"]} for run in (a, b))
     if qids_a != qids_b:
         sys.exit(

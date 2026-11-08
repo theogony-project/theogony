@@ -580,7 +580,7 @@ def _run_file(path, *, answered_by):  # type: ignore[no-untyped-def]
     return path
 
 
-def test_the_pairing_refuses_a_run_another_model_answered(tmp_path, monkeypatch) -> None:
+def test_the_pairing_refuses_a_run_another_model_answered(tmp_path, monkeypatch, capsys) -> None:
     import importlib.util
     import sys
     from pathlib import Path
@@ -596,5 +596,12 @@ def test_the_pairing_refuses_a_run_another_model_answered(tmp_path, monkeypatch)
     with pytest.raises(SystemExit, match="answered by .*claude-sonnet-4-6"):
         pairing.main()
     older = _run_file(tmp_path / "c.json", answered_by=None)
+    run = json.loads(older.read_text(encoding="utf-8"))
+    del run["answered_by"]  # a run written before the record has no such key at all
+    older.write_text(json.dumps(run), encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["pair", "--a", str(clean), "--b", str(older)])
     pairing.main()  # a run that predates the record cannot be checked, and is paired
+    failed = _run_file(tmp_path / "d.json", answered_by={"deepseek-chat": 1, "none": 4})
+    monkeypatch.setattr(sys, "argv", ["pair", "--a", str(clean), "--b", str(failed)])
+    pairing.main()
+    assert "4 calls of B failed" in capsys.readouterr().err

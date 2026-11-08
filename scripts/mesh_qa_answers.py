@@ -34,6 +34,7 @@ from theogony.config.settings import Settings
 from theogony.mesh.eval.qa_answers import (
     ARMS,
     answer_dataset,
+    models_that_answered,
     summarise_qa_answers,
 )
 from theogony.mesh.eval.qa_datasets import DATASETS, load_dataset
@@ -179,6 +180,8 @@ def main() -> None:
                     "seed_top_s": args.seed_top_s,
                     "seed_mode": args.seed_mode,
                     "timing_s": timing,
+                    # who actually answered, per model (PHX-1123)
+                    "answered_by": models_that_answered(results),
                     "summary": summary,
                     "answers": [
                         {
@@ -189,6 +192,7 @@ def main() -> None:
                             "em": r.em,
                             "f1": r.f1,
                             "gold_in_context": r.gold_in_context,
+                            "model": r.model,
                         }
                         for r in results
                     ],

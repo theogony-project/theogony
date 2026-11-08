@@ -163,6 +163,8 @@ def main() -> None:
     print(f"answered by: {answered}")
     if any(model not in (named, "none") for model in answered):
         print(f"WARNING: answers from a model other than {named!r}: {answered}")
+    if answered.get("none"):
+        print(f"WARNING: {answered['none']} calls failed and score as empty answers")
 
     print(f"\n{'arm':14s} {'EM':>7s} {'F1':>7s} {'gold in ctx':>12s} {'empty':>6s}")
     for arm in arms:

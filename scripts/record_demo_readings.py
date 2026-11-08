@@ -84,7 +84,9 @@ async def main() -> int:
     args = ap.parse_args()
 
     settings = Settings()
-    # the readings are recorded under the model that made them: no fallback (PHX-1123)
+    # Every row records the model that answered it; without the fallback, a
+    # failed paragraph is a miss on the record instead of another model's
+    # reading (PHX-1123).
     llm = build_named_llm(settings)
     text = args.corpus.read_text(encoding="utf-8")
     paragraphs = paragraphs_of(text)
