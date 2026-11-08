@@ -1,0 +1,47 @@
+id: PHX-1123
+category: evaluation-integrity
+priority: high
+status: done
+generation_target: QA harness and mention audit (scripts/mesh_qa_constellation.py, scripts/mesh_mention_audit.py)
+title: "A measurement answered with a model it did not name"
+filed_by: Claude Code (2026-11-08, from the PHX-1121 answer runs)
+created_at: 2026-11-08
+description: >
+  The four PHX-1121 answer runs (off, PHX-1118's accrual, and the two guarded
+  arms; deepseek-chat, five arms, 1,000 questions each) started at 21:16 UTC on
+  2026-11-08 into a DeepSeek account whose balance ran out. Every call that
+  failed with HTTP 402 Insufficient Balance was answered instead by the
+  project's default fallback provider, claude-sonnet-4-6: 10,522 of the 20,000
+  calls, the logs say, while each run's header and output file named
+  deepseek-chat. The answers do not record who gave them, so nothing in an
+  output file could tell the runs apart from clean ones; the pairing script
+  compares the runs' named models only. The runs were stopped and discarded
+  before any pairing. PHX-1118's two answer runs, the last ones on record, had
+  no fallback (0 such lines in their logs). The mention audit's judge records
+  the model per judgment, so a fallback there is visible, but it too would put
+  a second model's verdicts under the first one's file.
+acceptance: >
+  A measurement answers with the model it names or not at all: the QA harness
+  and the audit judge build their provider without the fallback, so a failed
+  call scores as an empty answer (or is retried by the judge's next run); every
+  answer records the model that gave it and the run file counts them
+  (`answered_by`); the pairing script refuses a run answered by a model other
+  than the one it names. Tests for each.
+resolution: >
+  Done on branch fix/qa-no-silent-fallback (2026-11-08). Both measurement
+  scripts build their provider with fallback_provider cleared; QAAnswerResult
+  carries `model`, taken from the provider's result; the run file gains
+  `answered_by` and each answer its `model`, and the harness warns when a model
+  other than the named one answered; mesh_qa_pair_runs.py exits when a run
+  names one model and was answered by another, and pairs older runs, which do
+  not record it, as before. The PHX-1121 and PHX-1122 answer runs are made
+  with it once the DeepSeek balance allows.
+relates_to:
+  - PHX-1121   # whose answer runs were contaminated
+  - PHX-1122   # whose answer runs wait on it
+linked_scripts:
+  - scripts/mesh_qa_constellation.py
+  - scripts/mesh_qa_pair_runs.py
+  - scripts/mesh_mention_audit.py
+  - src/theogony/mesh/eval/qa_answers.py
+  - src/theogony/mesh/eval/qa_mesh.py

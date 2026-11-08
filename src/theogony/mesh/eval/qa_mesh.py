@@ -50,6 +50,7 @@ from theogony.mesh.eval.corpus_answers import _vector_context
 from theogony.mesh.eval.qa_answers import (
     QAAnswerResult,
     _normalise,
+    answered_by,
     best_over_golds,
     build_context,
 )
@@ -456,19 +457,19 @@ def build_qa_jobs(
 
 async def _ask(
     llm: Any, system: str, prompt: str, semaphore: asyncio.Semaphore, max_output_tokens: int
-) -> str:
+) -> tuple[str, str | None]:
     async with semaphore:
         for attempt in range(3):
             try:
                 raw = await llm.complete(
                     prompt, system=system, max_output_tokens=max_output_tokens, temperature=0.0
                 )
-                return (getattr(raw, "text", None) or str(raw)).strip()
+                return (getattr(raw, "text", None) or str(raw)).strip(), answered_by(raw, llm)
             except Exception:  # noqa: BLE001 - a transient provider error is not a result
                 if attempt == 2:
-                    return ""
+                    return "", None
                 await asyncio.sleep(2.0 * (attempt + 1))
-        return ""
+        return "", None
 
 
 async def answer_qa_set(
@@ -511,8 +512,8 @@ async def answer_qa_set(
     answers = await asyncio.gather(
         *(_ask(llm, j.system, j.prompt, semaphore, max_output_tokens) for j in jobs)
     )
-    for job, answer in zip(jobs, answers, strict=True):
-        job.result.answer = answer
+    for job, (answer, model) in zip(jobs, answers, strict=True):
+        job.result.answer, job.result.model = answer, model
         job.result.em, job.result.f1 = best_over_golds(answer, job.golds)
     return [j.result for j in jobs]
 

@@ -42,7 +42,7 @@ import numpy as np
 
 from theogony.agents.factory import build_llm_from_settings
 from theogony.config.settings import Settings
-from theogony.mesh.eval.qa_answers import summarise_qa_answers
+from theogony.mesh.eval.qa_answers import models_that_answered, summarise_qa_answers
 from theogony.mesh.eval.qa_datasets import load_dataset
 from theogony.mesh.eval.qa_mesh import (
     ALL_ARMS,
@@ -126,7 +126,16 @@ def main() -> None:
     def embed(text: str) -> list[float]:
         return cache[text]
 
-    llm = build_llm_from_settings(settings)
+    # A measurement answers with the model it names or not at all: the project's
+    # default fallback (another provider when the primary call fails) once
+    # answered about half of four runs with claude-sonnet-4-6 while their
+    # headers said deepseek-chat, after the DeepSeek balance ran out (PHX-1123).
+    # A failed call scores as an empty answer, which the summary counts.
+    llm = build_llm_from_settings(
+        settings.model_copy(
+            update={"llm": settings.llm.model_copy(update={"fallback_provider": None})}
+        )
+    )
     k_seeds = args.seeds if args.seeds is not None else DEFAULT_K_SEEDS
     retrieve_kwargs = {"k_seeds": args.seeds} if args.seeds is not None else {}
     print(
@@ -153,6 +162,11 @@ def main() -> None:
     )
     elapsed = time.perf_counter() - t
     summary = summarise_qa_answers(results)
+    answered = models_that_answered(results)
+    named = settings.llm.model_id
+    print(f"answered by: {answered}")
+    if any(model not in (named, "none") for model in answered):
+        print(f"WARNING: answers from a model other than {named!r}: {answered}")
 
     print(f"\n{'arm':14s} {'EM':>7s} {'F1':>7s} {'gold in ctx':>12s} {'empty':>6s}")
     for arm in arms:
@@ -238,6 +252,8 @@ def main() -> None:
                     "passage_k": args.passage_k,
                     "k_seeds": k_seeds,
                     "seed": args.seed,
+                    # who actually answered, per model (PHX-1123)
+                    "answered_by": answered,
                     "summary": summary,
                     "by_kind": by_kind,
                     "paired": paired,
@@ -253,6 +269,7 @@ def main() -> None:
                             "f1": r.f1,
                             "gold_in_context": r.gold_in_context,
                             "attached_passages": r.attached_passages,
+                            "model": r.model,
                         }
                         for r in results
                     ],

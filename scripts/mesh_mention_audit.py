@@ -287,7 +287,13 @@ def judge(args: argparse.Namespace) -> None:
     from theogony.config.settings import Settings
 
     settings = Settings()
-    llm = build_llm_from_settings(settings)
+    # The judge is the model this run names, or none: a fallback provider would
+    # put a second judge's verdicts under the first one's file (PHX-1123).
+    llm = build_llm_from_settings(
+        settings.model_copy(
+            update={"llm": settings.llm.model_copy(update={"fallback_provider": None})}
+        )
+    )
     items = _read_jsonl(args.items)
     done = {(j["item_id"], j["side"]) for j in _read_jsonl(args.out)}
     todo = [

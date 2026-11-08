@@ -100,6 +100,10 @@ class QAAnswerResult:
     gold_in_context: bool = False
     #: Source paragraphs laid beside the material (the sources arms, PHX-1114).
     attached_passages: int | None = None
+    #: The model that actually answered, as the provider reports it; None when
+    #: no call succeeded. A run names one model, and an answer from another is
+    #: not a measurement of it (PHX-1123).
+    model: str | None = None
 
 
 def build_context(passages: list[QAPassage], indices: list[int], *, top_k: int) -> str:
@@ -110,19 +114,35 @@ def build_context(passages: list[QAPassage], indices: list[int], *, top_k: int) 
     )
 
 
-async def _ask(llm: Any, system: str, prompt: str, semaphore: asyncio.Semaphore) -> str:
+async def _ask(
+    llm: Any, system: str, prompt: str, semaphore: asyncio.Semaphore
+) -> tuple[str, str | None]:
     async with semaphore:
         for attempt in range(3):
             try:
                 raw = await llm.complete(
                     prompt, system=system, max_output_tokens=48, temperature=0.0
                 )
-                return (getattr(raw, "text", None) or str(raw)).strip()
+                return (getattr(raw, "text", None) or str(raw)).strip(), answered_by(raw, llm)
             except Exception:  # noqa: BLE001 - a transient provider error is not a result
                 if attempt == 2:
-                    return ""
+                    return "", None
                 await asyncio.sleep(2.0 * (attempt + 1))
-        return ""
+        return "", None
+
+
+def answered_by(raw: Any, llm: Any) -> str | None:
+    """The model the provider says produced ``raw``, or the provider's own id."""
+    return getattr(raw, "model_id", None) or getattr(llm, "model_id", None)
+
+
+def models_that_answered(results: list[QAAnswerResult]) -> dict[str, int]:
+    """How many answers each model gave, unanswered calls under ``"none"``."""
+    counts: dict[str, int] = {}
+    for r in results:
+        key = r.model or "none"
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 async def answer_dataset(
@@ -167,8 +187,8 @@ async def answer_dataset(
             jobs.append((result, _ask(llm, system, prompt, semaphore), question.acceptable))
 
     answers = await asyncio.gather(*(coro for _, coro, _ in jobs))
-    for (result, _, golds), answer in zip(jobs, answers, strict=True):
-        result.answer = answer
+    for (result, _, golds), (answer, model) in zip(jobs, answers, strict=True):
+        result.answer, result.model = answer, model
         result.em, result.f1 = best_over_golds(answer, golds)
     return [result for result, _, _ in jobs]
 
