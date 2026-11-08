@@ -40,7 +40,7 @@ import torch
 from pydantic import BaseModel, ConfigDict, Field
 from ulid import ULID
 
-from theogony.agents.factory import build_llm_from_settings
+from theogony.agents.factory import build_named_llm
 from theogony.agents.llm import LLMProvider
 from theogony.config.settings import Settings
 from theogony.mesh.eval.qa_datasets import DATASETS, load_dataset, subsample_corpus
@@ -333,7 +333,8 @@ def main() -> None:
 
     # --- Kadmos-grade extraction (the only paid step) ----------------------
     settings = Settings()
-    llm = build_llm_from_settings(settings)
+    # readings are cached under the model that made them: no fallback (PHX-1123)
+    llm = build_named_llm(settings)
     cache_path = args.cache_dir / f"kadmos_readings_{args.dataset}.jsonl"
     print(f"extracting with {getattr(llm, 'model_id', '?')} (cache: {cache_path})")
     readings, ex_stats = asyncio.run(

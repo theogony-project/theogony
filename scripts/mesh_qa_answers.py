@@ -29,7 +29,7 @@ import spacy
 import torch
 from sentence_transformers import SentenceTransformer
 
-from theogony.agents.factory import build_llm_from_settings
+from theogony.agents.factory import build_named_llm
 from theogony.config.settings import Settings
 from theogony.mesh.eval.qa_answers import (
     ARMS,
@@ -143,7 +143,8 @@ def main() -> None:
     t = time.perf_counter()
     results = asyncio.run(
         answer_dataset(
-            build_llm_from_settings(settings),
+            # the model the run names, without a fallback (PHX-1123)
+            build_named_llm(settings),
             questions,
             passages,
             rankings,

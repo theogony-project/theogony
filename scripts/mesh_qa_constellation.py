@@ -40,7 +40,7 @@ from typing import Any
 
 import numpy as np
 
-from theogony.agents.factory import build_llm_from_settings
+from theogony.agents.factory import build_named_llm
 from theogony.config.settings import Settings
 from theogony.mesh.eval.qa_answers import models_that_answered, summarise_qa_answers
 from theogony.mesh.eval.qa_datasets import load_dataset
@@ -131,11 +131,7 @@ def main() -> None:
     # answered about half of four runs with claude-sonnet-4-6 while their
     # headers said deepseek-chat, after the DeepSeek balance ran out (PHX-1123).
     # A failed call scores as an empty answer, which the summary counts.
-    llm = build_llm_from_settings(
-        settings.model_copy(
-            update={"llm": settings.llm.model_copy(update={"fallback_provider": None})}
-        )
-    )
+    llm = build_named_llm(settings)
     k_seeds = args.seeds if args.seeds is not None else DEFAULT_K_SEEDS
     retrieve_kwargs = {"k_seeds": args.seeds} if args.seeds is not None else {}
     print(

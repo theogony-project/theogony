@@ -28,8 +28,12 @@ acceptance: >
   (`answered_by`); the pairing script refuses a run answered by a model other
   than the one it names. Tests for each.
 resolution: >
-  Done on branch fix/qa-no-silent-fallback (2026-11-08). Both measurement
-  scripts build their provider with fallback_provider cleared; QAAnswerResult
+  Done on branch fix/qa-no-silent-fallback (2026-11-08).
+  agents.factory.build_named_llm builds the provider the settings name and
+  only that one; the four measurement scripts (mesh_qa_constellation,
+  mesh_qa_answers, mesh_corpus_answers, the mention audit's judge) and the two
+  that record readings under a model's name (mesh_qa_kadmos,
+  record_demo_readings) use it. QAAnswerResult
   carries `model`, taken from the provider's result; the run file gains
   `answered_by` and each answer its `model`, and the harness warns when a model
   other than the named one answered; mesh_qa_pair_runs.py exits when a run

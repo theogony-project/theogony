@@ -236,3 +236,18 @@ def test_openai_reasoning_model_default_temperature_only(model_id: str, expected
 )
 def test_openai_uses_max_completion_tokens(model_id: str, expected: bool) -> None:
     assert _openai_uses_max_completion_tokens(model_id) is expected
+
+
+class TestNamedProvider:
+    """PHX-1123: a measurement answers with the model it names, or not at all."""
+
+    def test_the_default_wraps_a_fallback_and_the_named_provider_does_not(self) -> None:
+        from theogony.agents.factory import _FallbackLLMProvider, build_named_llm
+
+        s = _settings(
+            provider="openai", openai_key="sk-x", anthropic_key="sk-ant-x", model_id="gpt-5.4-mini"
+        )
+        assert isinstance(build_llm_from_settings(s), _FallbackLLMProvider)
+        named = build_named_llm(s)
+        assert isinstance(named, OpenAILLMProvider) and named.model_id == "gpt-5.4-mini"
+        assert s.llm.fallback_provider == "anthropic", "the settings themselves are unchanged"
