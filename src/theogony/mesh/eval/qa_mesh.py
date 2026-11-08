@@ -55,6 +55,7 @@ from theogony.mesh.eval.qa_answers import (
     build_context,
 )
 from theogony.mesh.eval.qa_retrieval import QAPassage, QAQuestion
+from theogony.mesh.ingestion.linker import NamingGuard
 from theogony.mesh.ingestion.replay import (
     ReplayReadingProvider,
     ReplayReport,
@@ -121,6 +122,7 @@ async def ingest_cached_readings(
     accrue_descriptions: bool = False,
     accrue_unnamed: bool = False,
     revise_identity_vector: bool = True,
+    naming_guard: NamingGuard = "v2",
 ) -> ReplayIngestReport:
     """Write a corpus into a mesh through the shipped reader, readings replayed.
 
@@ -152,6 +154,7 @@ async def ingest_cached_readings(
         accrue_descriptions=accrue_descriptions,
         accrue_unnamed=accrue_unnamed,
         revise_identity_vector=revise_identity_vector,
+        naming_guard=naming_guard,
     )
     return ReplayIngestReport(
         paragraphs=len(passages) if not max_paragraphs else min(len(passages), max_paragraphs),

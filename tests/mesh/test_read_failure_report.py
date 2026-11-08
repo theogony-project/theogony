@@ -538,3 +538,18 @@ def test_audit_rows_that_cannot_be_written_are_reported_as_held_in_memory(
     [report] = _reports(tmp_path)
     assert report.audit_log_run_id is None
     assert any("held only in this process's memory" in a for a in report.anomalies)
+
+
+def test_a_failed_run_row_names_the_arm_that_built_the_workspace(
+    mesh_runtime: MeshRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failed read keeps what it wrote, so its run row is the only record of
+    which write path built that part of the workspace (PHX-1118, PHX-1122)."""
+    _fail_on_chunk_of(_P3, monkeypatch)
+    reader = _reader(mesh_runtime, tmp_path, accrue_descriptions=True, naming_guard="names")
+    with pytest.raises(RuntimeError, match="embedder down"):
+        _read(reader, tmp_path)
+    [run] = _audit_rows(mesh_runtime, "mesh_ingest_run")
+    assert run["status"] == "failed"
+    assert run["accrue_descriptions"] is True
+    assert run["naming_guard"] == "names"

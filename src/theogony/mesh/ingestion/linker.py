@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal
 
 from ulid import ULID
 
-from theogony.mesh.ingestion.concept_resolver import ConceptResolver, _normalize
+from theogony.mesh.ingestion.concept_resolver import ConceptResolver, _normalize, naming_rule
 from theogony.mesh.schemas import ConsolidatedNode, Edge, QIDTag
 from theogony.mesh.storage.edges import EdgeStore
 from theogony.mesh.storage.nodes import MeshNodeStore
@@ -22,6 +23,20 @@ def _cosine_similarity(a: list[float] | None, b: list[float] | None) -> float:
     if na == 0.0 or nb == 0.0:
         return 0.0
     return float(dot / (na * nb))
+
+
+#: Which naming guard admits a description or tag match onto a candidate.
+#: ``v2`` (PHX-1051): a shared tag that token-overlaps the label, or a label the
+#: resolver already knows for the candidate. ``names`` (PHX-1122): a mention
+#: links only onto a node its label names (`EagerLinker._names`).
+#: ``names_entities``: the same for an entity mention, while a paragraph concept
+#: keeps the v2 guard — the measurement's arm that tells the two layers apart.
+NamingGuard = Literal["v2", "names", "names_entities"]
+NAMING_GUARDS: tuple[NamingGuard, ...] = ("v2", "names", "names_entities")
+
+# The reader's marker on a paragraph-concept node (kadmos_v2), the one
+# consolidation reads too (runtime/consolidation.PARAGRAPH_CONCEPT_TAG).
+_PARAGRAPH_CONCEPT_TAG = "paragraph_concept"
 
 
 @dataclass(frozen=True)
@@ -53,7 +68,14 @@ class EagerLinker:
         semantic_dim: int,
         frame_dim: int,
         registry: ConceptResolver | None = None,
+        naming_guard: NamingGuard = "v2",
     ) -> None:
+        if naming_guard not in NAMING_GUARDS:
+            raise ValueError(f"naming_guard must be one of {NAMING_GUARDS}, not {naming_guard!r}")
+        # v2 stays the default until the PHX-1122 measurement and a review of what
+        # the names guard does to an epithet corpus (Hesiod's "Zeus the
+        # Thunderer", "Athene" beside "Athena") decide otherwise.
+        self.naming_guard: NamingGuard = naming_guard
         self._store = node_store
         self._edge_store = edge_store
         self._semantic_dim = semantic_dim
@@ -126,11 +148,17 @@ class EagerLinker:
             tag_score = tag_overlap / max(1, len(tag_set)) if tag_set else 0.0
             known_labels = self._registry.known_labels(str(candidate.id))
             label_score = 1.0 if norm_label in known_labels else 0.0
-            label_tokens = set(norm_label.split())
-            naming_tags = {
-                tag for tag in shared_tags if label_tokens & set(_normalize(tag).split())
-            }
-            if not naming_tags and label_score == 0.0:
+            if self._guards_by_name(tags):
+                if not self._names(label, tags, candidate):
+                    # PHX-1122: vector similarity is not evidence of identity, and
+                    # neither is a shared tag — a category ("film festival" took
+                    # Seattle's festival into Newport's) or a related entity (an
+                    # author's name on his book). The label must name the
+                    # candidate. No naming, no merge.
+                    continue
+            elif not label_score and not {
+                tag for tag in shared_tags if set(norm_label.split()) & set(_normalize(tag).split())
+            }:
                 # PHX-1051 doctrine guard (v2): pure vector similarity is not "clear
                 # evidence" of identity. Semantically generic, high-degree nodes
                 # (measured live: the work-node itself) sit close to *every*
@@ -176,14 +204,21 @@ class EagerLinker:
             overlap = len(shared)
             if overlap <= 0:
                 continue
-            # PHX-1051 v2: category tags ('Titaness', 'person') are not identity
-            # evidence — a shared tag corroborates only when it NAMES the
-            # entity, or the label itself is a known alias of the candidate.
-            names_entity = any(label_tokens & set(_normalize(tag).split()) for tag in shared)
-            if not names_entity and norm_label not in self._registry.known_labels(
-                str(candidate.id)
-            ):
-                continue
+            if self._guards_by_name(tags):
+                if not self._names(label, tags, candidate):
+                    # PHX-1122: a shared tag is a category ('Titaness', 'film
+                    # festival') or a related entity as often as a name; the label
+                    # must name the candidate (see _best_description_match).
+                    continue
+            else:
+                # PHX-1051 v2: category tags ('Titaness', 'person') are not identity
+                # evidence — a shared tag corroborates only when it NAMES the
+                # entity, or the label itself is a known alias of the candidate.
+                names_entity = any(label_tokens & set(_normalize(tag).split()) for tag in shared)
+                if not names_entity and norm_label not in self._registry.known_labels(
+                    str(candidate.id)
+                ):
+                    continue
             tag_score = overlap / max(len(tag_set), len(candidate_tags), 1)
             context_score = self._context_score(str(candidate.id), context_node_ids)
             token_score = self._registry.score_token_overlap(label, candidate)
@@ -193,6 +228,33 @@ class EagerLinker:
                 best_score = score
 
         return best_node, best_score
+
+    def _guards_by_name(self, tags: list[str]) -> bool:
+        """Whether the names guard decides this mention's links, or v2's does."""
+        if self.naming_guard == "names":
+            return True
+        return self.naming_guard == "names_entities" and _PARAGRAPH_CONCEPT_TAG not in tags
+
+    @staticmethod
+    def _names(label: str, tags: list[str], candidate: ConsolidatedNode) -> bool:
+        """Does the mention's label name the candidate?
+
+        Only the candidate's name, its first tag, says so, or a pair of tags the
+        reader set on both sides (`concept_resolver.naming_rule`); ``tags`` are
+        the mention's own. A label an earlier link attached to the candidate is
+        not consulted (``known_labels``): one wrong link would otherwise let the
+        next mention with that label through.
+
+        A paragraph-concept node bears no name: the reader creates it without
+        its label among its tags, so its first tag is a topic ("film",
+        "career"), and a topic shared is the category shape the guard refuses.
+        No mention links onto one. A paragraph concept as a mention is named
+        like any other: its label must name the node it would join.
+        """
+        if _PARAGRAPH_CONCEPT_TAG in candidate.tags:
+            return False
+        name = candidate.tags[0] if candidate.tags else ""
+        return naming_rule(label, name, mention_tags=tags, node_tags=candidate.tags) is not None
 
     def _create_candidate(
         self,

@@ -65,6 +65,14 @@ def main() -> None:
         default="WARNING",
         help="level for the theogony loggers; INFO shows each flush and compaction with its cost",
     )
+    ap.add_argument(
+        "--naming-guard",
+        choices=["v2", "names", "names_entities"],
+        default="v2",
+        help="which evidence admits a link onto an existing node: v2 (PHX-1051, today's), "
+        "names (PHX-1122: the label must name the node), or names_entities (names for "
+        "entity mentions, v2 for paragraph concepts)",
+    )
     args = ap.parse_args()
     logging.basicConfig(format="%(asctime)s %(name)s %(message)s")
     logging.getLogger("theogony").setLevel(args.log_level.upper())
@@ -108,6 +116,7 @@ def main() -> None:
             accrue_descriptions=args.accrue_descriptions,
             accrue_unnamed=args.accrue_unnamed,
             revise_identity_vector=not args.keep_identity_vector,
+            naming_guard=args.naming_guard,
         )
     )
     pruned = runtime.compact()

@@ -21,7 +21,7 @@ from theogony.config.settings import Settings
 from theogony.extraction.embedding import EmbeddingProvider
 from theogony.mesh import frames
 from theogony.mesh.ingestion.concept_resolver import ConceptResolver
-from theogony.mesh.ingestion.linker import EagerLinker
+from theogony.mesh.ingestion.linker import EagerLinker, NamingGuard
 from theogony.mesh.ingestion.reading_schemas import (
     LLMConcept,
     ParagraphReadingOutput,
@@ -285,6 +285,7 @@ class MeshParagraphReader:
         accrue_descriptions: bool = False,
         accrue_unnamed: bool = False,
         revise_identity_vector: bool = True,
+        naming_guard: NamingGuard = "v2",
     ) -> None:
         self.mesh = mesh
         self.llm = llm
@@ -331,6 +332,8 @@ class MeshParagraphReader:
             semantic_dim=self.semantic_dim,
             frame_dim=self.frame_dim,
             registry=self.registry,
+            # Which evidence admits a link onto an existing node (PHX-1122).
+            naming_guard=naming_guard,
         )
         self.vectorizer = MeshTextVectorizer(
             semantic_dim=self.semantic_dim,
@@ -1069,6 +1072,7 @@ class MeshParagraphReader:
                 "accrue_descriptions": self.accrue_descriptions,
                 "accrue_unnamed": self.accrue_unnamed,
                 "revise_identity_vector": self.revise_identity_vector,
+                "naming_guard": self.linker.naming_guard,
                 "descriptions_revised": tally.descriptions_revised,
                 "descriptions_declined_unnamed": tally.descriptions_declined_unnamed,
             },
@@ -1553,6 +1557,7 @@ class MeshParagraphReader:
                         "accrue_descriptions": self.accrue_descriptions,
                         "accrue_unnamed": self.accrue_unnamed,
                         "revise_identity_vector": self.revise_identity_vector,
+                        "naming_guard": self.linker.naming_guard,
                         "descriptions_revised": tally.descriptions_revised,
                         "descriptions_declined_unnamed": tally.descriptions_declined_unnamed,
                     },

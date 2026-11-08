@@ -37,6 +37,7 @@ from theogony.mesh.ingestion.kadmos_v2 import (
     MeshParagraphReader,
     _split_paragraphs,
 )
+from theogony.mesh.ingestion.linker import NamingGuard
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 
 # Shorter than the reader's own cut-off would be pointless: the reader skips
@@ -198,6 +199,7 @@ async def replay_text(
     accrue_descriptions: bool = False,
     accrue_unnamed: bool = False,
     revise_identity_vector: bool = True,
+    naming_guard: NamingGuard = "v2",
 ) -> ReplayReport:
     """Write ``text`` into a mesh through the shipped reader, readings replayed.
 
@@ -219,6 +221,7 @@ async def replay_text(
         accrue_descriptions=accrue_descriptions,
         accrue_unnamed=accrue_unnamed,
         revise_identity_vector=revise_identity_vector,
+        naming_guard=naming_guard,
     )
     report = await reader.read_text(
         text=text,
