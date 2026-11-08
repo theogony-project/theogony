@@ -1548,8 +1548,13 @@ class MeshParagraphReader:
                         "paragraphs": len(tally.paragraph_units),
                         "mentions": tally.total_mentions,
                         "relations_buffered": tally.total_relations_written,
+                        # the arm that wrote the partial workspace, as the success
+                        # row names it (PHX-1118, PHX-1121)
                         "accrue_descriptions": self.accrue_descriptions,
+                        "accrue_unnamed": self.accrue_unnamed,
+                        "revise_identity_vector": self.revise_identity_vector,
                         "descriptions_revised": tally.descriptions_revised,
+                        "descriptions_declined_unnamed": tally.descriptions_declined_unnamed,
                     },
                 )
             else:

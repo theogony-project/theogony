@@ -252,6 +252,32 @@ def split_moves(
     return moved, stayed
 
 
+def select_mentions(
+    dec_a: dict[tuple[int, str, int], dict[str, Any]],
+    dec_b: dict[tuple[int, str, int], dict[str, Any]],
+    nodes_a: dict[str, Any],
+    nodes_b: dict[str, Any],
+    *,
+    same_name: bool,
+    control: int,
+    seed: int,
+) -> tuple[
+    list[tuple[int, str, int]], list[tuple[int, str, int]], list[tuple[int, str, int]], int, int
+]:
+    """The mentions to judge: moved by name; moved to another node of the same
+    name (with ``same_name``); and a seeded sample of those that did not move,
+    drawn after the same-name moves are taken out. Also the size of that
+    population, and how many mentions sat on a node no link decision minted."""
+    moved, stayed = split_moves(dec_a, dec_b, nodes_a, nodes_b)
+    same: list[tuple[int, str, int]] = []
+    unknown = 0
+    if same_name:
+        same, stayed, unknown = split_same_name(stayed, dec_a, dec_b)
+    rng = random.Random(seed)
+    sample = sorted(rng.sample(stayed, min(control, len(stayed))))
+    return moved, same, sample, len(stayed), unknown
+
+
 def collect(args: argparse.Namespace) -> None:
     data = load_dataset(args.dataset, args.cache_dir, max_questions=1000, seed=0)
     readings_path = args.readings or (args.cache_dir / f"kadmos_readings_{args.dataset}.jsonl")
@@ -286,17 +312,21 @@ def collect(args: argparse.Namespace) -> None:
                 }
         return {"label": label, "entity_type": None, "description": ""}
 
-    moved, stayed = split_moves(dec_a, dec_b, nodes_a, nodes_b)
-    same_name: list[tuple[int, str, int]] = []
+    moved, same_name, control, stayed, unknown = select_mentions(
+        dec_a,
+        dec_b,
+        nodes_a,
+        nodes_b,
+        same_name=args.same_name,
+        control=args.control,
+        seed=args.seed,
+    )
     if args.same_name:
-        same_name, stayed, unknown = split_same_name(stayed, dec_a, dec_b)
         print(
             f"moved to another node of the same name: {len(same_name)} "
             f"({unknown} on a node no link decision minted, counted as not moved)"
         )
-    rng = random.Random(args.seed)
-    control = sorted(rng.sample(stayed, min(args.control, len(stayed))))
-    print(f"moved: {len(moved)}; did not move: {len(stayed)}; control sample: {len(control)}")
+    print(f"moved: {len(moved)}; did not move: {stayed}; control sample: {len(control)}")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8") as fh:

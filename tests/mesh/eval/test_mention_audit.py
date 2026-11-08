@@ -211,3 +211,87 @@ def test_moves_by_name_and_to_a_namesake_are_reported_apart_and_together() -> No
     assert one["same_name_outcomes"] == {"worse": 1}
     assert one["all_moves_outcomes"] == {"worse": 2, "better": 1}
     assert one["control_verdicts"] == {"same": 1}
+
+
+def test_the_control_sample_is_drawn_without_the_same_name_moves() -> None:
+    nodes_a = {"city": _node("Paris"), "prince": _node("Paris")}
+    nodes_b = {"city2": _node("Paris"), "prince2": _node("Paris")}
+    dec_a = {
+        (173, "Paris", 0): {"node_id": "prince", "signal": "emergent"},
+        (511, "Paris", 0): {"node_id": "city", "signal": "emergent"},
+        (520, "Paris", 0): {"node_id": "city", "signal": "description"},
+    }
+    dec_b = {
+        (173, "Paris", 0): {"node_id": "prince2", "signal": "emergent"},
+        (511, "Paris", 0): {"node_id": "prince2", "signal": "description"},
+        (520, "Paris", 0): {"node_id": "city2", "signal": "emergent"},
+    }
+    moved, same, control, stayed, _ = audit.select_mentions(
+        dec_a, dec_b, nodes_a, nodes_b, same_name=True, control=400, seed=0
+    )
+    assert moved == [] and same == [(511, "Paris", 0), (520, "Paris", 0)]
+    assert control == [(173, "Paris", 0)] and stayed == 1
+    # without the flag, the PHX-1120 population: every mention that kept its name
+    _, same, control, stayed, _ = audit.select_mentions(
+        dec_a, dec_b, nodes_a, nodes_b, same_name=False, control=400, seed=0
+    )
+    assert same == [] and stayed == 3 and len(control) == 3
+
+
+def test_two_judges_agree_on_same_name_moves_apart_and_with_the_others(tmp_path: Path) -> None:
+    import json
+    from argparse import Namespace
+
+    items = [
+        {
+            "id": "m1",
+            "group": "moved",
+            "a": {"signal": "tag"},
+            "b": {"signal": "description", "revised": False},
+        },
+        {
+            "id": "s1",
+            "group": "moved_same_name",
+            "a": {"signal": "emergent"},
+            "b": {"signal": "description", "revised": True},
+        },
+        {
+            "id": "s2",
+            "group": "moved_same_name",
+            "a": {"signal": "emergent"},
+            "b": {"signal": "description", "revised": True},
+        },
+        {"id": "c1", "group": "control", "a": {"signal": "tag"}, "b": {"signal": "tag"}},
+    ]
+    first = {
+        ("m1", "a"): "same",
+        ("m1", "b"): "different",
+        ("s1", "a"): "same",
+        ("s1", "b"): "different",
+        ("s2", "a"): "different",
+        ("s2", "b"): "same",
+        ("c1", "a"): "same",
+    }
+    second = dict(first)
+    second[("s2", "a")] = "same"  # the judges disagree on s2: it counts for neither
+    paths = {}
+    for name, rows in (("items", items), ("first", first), ("second", second)):
+        path = tmp_path / f"{name}.jsonl"
+        if name == "items":
+            path.write_text("".join(json.dumps(i) + "\n" for i in rows))
+        else:
+            path.write_text(
+                "".join(
+                    json.dumps({"item_id": k[0], "side": k[1], "verdict": v}) + "\n"
+                    for k, v in rows.items()
+                )
+            )
+        paths[name] = path
+    out = tmp_path / "summary.json"
+    audit.summarise(
+        Namespace(items=paths["items"], judgments=paths["first"], second=paths["second"], json=out)
+    )
+    summary = json.loads(out.read_text())
+    assert summary["agreed_outcomes"] == {"worse": 1}
+    assert summary["agreed_outcomes_same_name"] == {"worse": 1}
+    assert summary["agreed_outcomes_all_moves"] == {"worse": 2}
