@@ -319,6 +319,10 @@ def test_paired_comparison_and_sign_test() -> None:
     assert sign_test_p(0, 0) == 1.0
     assert sign_test_p(5, 5) == pytest.approx(1.0)
     assert sign_test_p(10, 0) == pytest.approx(2 / 1024)
+    # past 1,023 discordant pairs float(2**n) overflowed; the exact ratio does not
+    assert sign_test_p(600, 600) == pytest.approx(1.0)
+    assert 0.0 <= sign_test_p(2000, 0) < 1e-300
+    assert sign_test_p(1100, 1000) == pytest.approx(sign_test_p(1000, 1100))
 
 
 def test_the_sources_arm_lays_the_paragraphs_beside_the_constellation(tmp_path) -> None:
