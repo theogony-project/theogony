@@ -60,6 +60,22 @@ def main() -> None:
         va, vb = a.get(key, defaults.get(key)), b.get(key, defaults.get(key))
         if va != vb:
             sys.exit(f"{key} differs: {va} vs {vb}; the two runs are not one sitting")
+    # A run that names one model and was answered by another is not a run of
+    # the named model (PHX-1123); runs written before 2026-11-08 do not say
+    # who answered, and cannot be checked.
+    for name, run in (("A", a), ("B", b)):
+        named = str(run["model"]).split("/", 1)[-1]
+        others = {
+            m: n for m, n in (run.get("answered_by") or {}).items() if m not in (named, "none")
+        }
+        if others:
+            sys.exit(f"{name} names {named} but was answered by {others}; not a run of {named}")
+        failed = (run.get("answered_by") or {}).get("none", 0)
+        if failed:
+            print(
+                f"warning: {failed} calls of {name} failed and score as empty answers",
+                file=sys.stderr,
+            )
     qids_a, qids_b = ({x["qid"] for x in run["answers"]} for run in (a, b))
     if qids_a != qids_b:
         sys.exit(

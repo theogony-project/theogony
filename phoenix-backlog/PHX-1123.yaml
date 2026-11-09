@@ -1,0 +1,56 @@
+id: PHX-1123
+category: evaluation-integrity
+priority: high
+status: done
+generation_target: QA harness and mention audit (scripts/mesh_qa_constellation.py, scripts/mesh_mention_audit.py)
+title: "A measurement answered with a model it did not name"
+filed_by: Claude Code (2026-11-08, from the PHX-1121 answer runs)
+created_at: 2026-11-08
+description: >
+  The four PHX-1121 answer runs (off, PHX-1118's accrual, and the two guarded
+  arms; deepseek-chat, five arms, 1,000 questions each) started at 21:16 UTC on
+  2026-11-08 into a DeepSeek account whose balance ran out. Each call that
+  failed was handed by the project's default fallback provider to
+  claude-sonnet-4-6: the four logs hold 10,732 such hand-overs (10,708 for HTTP
+  402 Insufficient Balance, 24 rate-limited) in the 70 minutes before the runs
+  were stopped by hand at 22:26 UTC, while each run's header named
+  deepseek-chat. How many calls the primary answered first is not in the
+  WARNING-level logs. The answers did not record who gave them, so nothing in an
+  output file could have told the runs apart from clean ones, and the pairing
+  script compares only the runs' named models. The runs wrote no output and
+  were discarded. PHX-1118's two answer runs, the last ones on record, had no
+  fallback (no such line in their logs). The mention audit's judge records the
+  model per judgment, so a fallback there is visible, but it would still put a
+  second model's verdicts in the first one's file.
+acceptance: >
+  A measurement answers with the model it names or not at all: the
+  measurement scripts and the scripts that record readings build their
+  provider without the fallback; in the answer harnesses every answer records
+  the model that gave it, the run file counts them (`answered_by`) and a
+  failed call is an empty answer that the summary counts and a warning names;
+  the pairing script refuses a run answered by a model other than the one it
+  names. Tests for each.
+resolution: >
+  Done on branch fix/qa-no-silent-fallback (2026-11-08).
+  agents.factory.build_named_llm builds the provider the settings name and
+  only that one; the four measurement scripts (mesh_qa_constellation,
+  mesh_qa_answers, mesh_corpus_answers, the mention audit's judge) and the two
+  that record readings (mesh_qa_kadmos, record_demo_readings) use it, which a
+  static test pins. QAAnswerResult carries `model`, taken from the provider's
+  result, in both answer paths; both answer harnesses write it per answer and
+  `answered_by` per run, and mesh_qa_constellation warns when another model
+  answered or calls failed. The judge leaves a failed call to its next,
+  resumable run; mesh_corpus_answers stops at the first failed call, as it
+  did. mesh_qa_pair_runs.py exits when a run names one model and was answered
+  by another, warns of failed calls, and pairs older runs, which record
+  nothing, as before. mesh_qa_kadmos.py imports again. The PHX-1121 and
+  PHX-1122 answer runs are made with it once the DeepSeek balance allows.
+relates_to:
+  - PHX-1121   # whose answer runs were contaminated
+  - PHX-1122   # whose answer runs wait on it
+linked_scripts:
+  - scripts/mesh_qa_constellation.py
+  - scripts/mesh_qa_pair_runs.py
+  - scripts/mesh_mention_audit.py
+  - src/theogony/mesh/eval/qa_answers.py
+  - src/theogony/mesh/eval/qa_mesh.py

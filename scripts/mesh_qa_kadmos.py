@@ -40,7 +40,7 @@ import torch
 from pydantic import BaseModel, ConfigDict, Field
 from ulid import ULID
 
-from theogony.agents.factory import build_llm_from_settings
+from theogony.agents.factory import build_named_llm
 from theogony.agents.llm import LLMProvider
 from theogony.config.settings import Settings
 from theogony.mesh.eval.qa_datasets import DATASETS, load_dataset, subsample_corpus
@@ -61,10 +61,12 @@ from theogony.mesh.eval.qa_retrieval import (
     density_sweep,
     evaluate_methods,
     graph_inputs_from_extractions,
-    normalize_reading_payload,
 )
 from theogony.mesh.ingestion.kadmos_v2 import SYSTEM_PROMPT
-from theogony.mesh.ingestion.reading_schemas import ParagraphReadingOutput
+from theogony.mesh.ingestion.reading_schemas import (
+    ParagraphReadingOutput,
+    normalize_reading_payload,
+)
 
 # Providers differ in how strictly they honour a JSON schema; DeepSeek in
 # particular returns `name`/`wikidata_id`/`subject`/`object`. Naming the exact keys
@@ -333,7 +335,9 @@ def main() -> None:
 
     # --- Kadmos-grade extraction (the only paid step) ----------------------
     settings = Settings()
-    llm = build_llm_from_settings(settings)
+    # The cache is keyed by passage text alone and records no model: a fallback
+    # would put another model's readings into it unmarked (PHX-1123).
+    llm = build_named_llm(settings)
     cache_path = args.cache_dir / f"kadmos_readings_{args.dataset}.jsonl"
     print(f"extracting with {getattr(llm, 'model_id', '?')} (cache: {cache_path})")
     readings, ex_stats = asyncio.run(

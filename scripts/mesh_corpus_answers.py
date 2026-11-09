@@ -26,7 +26,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from theogony.agents.factory import build_llm_from_settings
+from theogony.agents.factory import build_named_llm
 from theogony.config.settings import Settings
 from theogony.mesh.eval.corpus_answers import (
     ARMS,
@@ -66,7 +66,7 @@ def main() -> None:
     settings = Settings()
     runtime = MeshRuntime.open(args.root)
     embedder = BGESmallEnEmbedder()
-    llm = build_llm_from_settings(settings)
+    llm = build_named_llm(settings)  # the model the run names, no fallback (PHX-1123)
 
     gold = load_gold()
     if args.limit:

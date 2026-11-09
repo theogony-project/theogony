@@ -496,3 +496,112 @@ def test_the_harness_passes_the_accrual_switch_to_the_reader(tmp_path) -> None:
         "father of Marie" in george.description and "son of Ernest Augustus" in george.description
     )
     assert len(george.description_source_chunks) == 1
+
+
+# --------------------------------------------------------------------------
+# PHX-1123: a measurement answers with the model it names, and says so
+# --------------------------------------------------------------------------
+
+
+class _AnsweredBy:
+    """A provider that answers as another model would: what a fallback looks
+    like from the harness."""
+
+    model_id = "deepseek-chat|fallback:claude-sonnet-4-6"
+
+    def __init__(self, model: str, *, fail: bool = False) -> None:
+        self.model, self.fail = model, fail
+
+    async def complete(self, prompt: str, **_: object):  # type: ignore[no-untyped-def]
+        from theogony.agents.llm import LLMResult
+
+        if self.fail:
+            raise RuntimeError("402 Insufficient Balance")
+        return LLMResult(text="George V of Hanover", model_id=self.model)
+
+
+def _one_question() -> list[QAQuestion]:
+    return [
+        QAQuestion(
+            qid="q1",
+            question="Who was the father of Marie of Hanover?",
+            answer="George V of Hanover",
+            gold_idxs={0},
+        )
+    ]
+
+
+def test_each_answer_records_the_model_that_gave_it(tmp_path, monkeypatch) -> None:
+    from theogony.mesh.eval import qa_mesh
+    from theogony.mesh.eval.qa_answers import models_that_answered
+
+    runtime, _ = _ingest(tmp_path)
+    vectors = unit_rows(np.asarray([_embed(paragraph_of(p)) for p in PASSAGES], dtype=np.float32))
+
+    def run(llm):  # type: ignore[no-untyped-def]
+        return asyncio.run(
+            answer_qa_set(
+                runtime, _embed, llm, _one_question(), PASSAGES, vectors,
+                arms=("closed_book", "passages"), top_k=10, passage_k=2, concurrency=2,
+            )
+        )  # fmt: skip
+
+    answered = run(_AnsweredBy("claude-sonnet-4-6"))
+    assert {r.model for r in answered} == {"claude-sonnet-4-6"}
+    assert models_that_answered(answered) == {"claude-sonnet-4-6": 2}
+
+    async def no_wait(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(qa_mesh.asyncio, "sleep", no_wait)
+    failed = run(_AnsweredBy("deepseek-chat", fail=True))
+    assert all(r.answer == "" and r.model is None for r in failed)
+    assert models_that_answered(failed) == {"none": 2}
+
+
+def _run_file(path, *, answered_by):  # type: ignore[no-untyped-def]
+    run = {
+        "model": "deepseek/deepseek-chat",
+        "mesh": "m",
+        "dataset": "2wikimultihopqa",
+        "questions": 1,
+        "top_k": 10,
+        "passage_k": 5,
+        "k_seeds": 1,
+        "seed": 0,
+        "answered_by": answered_by,
+        "summary": {"passages": {"exact_match": 1.0, "f1": 1.0}},
+        "answers": [
+            {"qid": "q1", "arm": "passages", "question": "?", "gold": "x", "answer": "x",
+             "em": 1.0, "f1": 1.0, "gold_in_context": True, "attached_passages": None}
+        ],
+    }  # fmt: skip
+    path.write_text(json.dumps(run), encoding="utf-8")
+    return path
+
+
+def test_the_pairing_refuses_a_run_another_model_answered(tmp_path, monkeypatch, capsys) -> None:
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[3] / "scripts" / "mesh_qa_pair_runs.py"
+    spec = importlib.util.spec_from_file_location("mesh_qa_pair_runs", script)
+    assert spec is not None and spec.loader is not None
+    pairing = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pairing)
+    clean = _run_file(tmp_path / "a.json", answered_by={"deepseek-chat": 1})
+    mixed = _run_file(tmp_path / "b.json", answered_by={"deepseek-chat": 1, "claude-sonnet-4-6": 1})
+    monkeypatch.setattr(sys, "argv", ["pair", "--a", str(clean), "--b", str(mixed)])
+    with pytest.raises(SystemExit, match="answered by .*claude-sonnet-4-6"):
+        pairing.main()
+    older = _run_file(tmp_path / "c.json", answered_by=None)
+    run = json.loads(older.read_text(encoding="utf-8"))
+    del run["answered_by"]  # a run written before the record has no such key at all
+    older.write_text(json.dumps(run), encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["pair", "--a", str(clean), "--b", str(older)])
+    pairing.main()  # a run that predates the record cannot be checked, and is paired
+    failed = _run_file(tmp_path / "d.json", answered_by={"deepseek-chat": 1, "none": 4})
+    monkeypatch.setattr(sys, "argv", ["pair", "--a", str(clean), "--b", str(failed)])
+    pairing.main()
+    assert "4 calls of B failed" in capsys.readouterr().err

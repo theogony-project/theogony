@@ -283,11 +283,13 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def judge(args: argparse.Namespace) -> None:
-    from theogony.agents.factory import build_llm_from_settings
+    from theogony.agents.factory import build_named_llm
     from theogony.config.settings import Settings
 
     settings = Settings()
-    llm = build_llm_from_settings(settings)
+    # The judge is the model this run names, or none: a fallback provider would
+    # put a second judge's verdicts under the first one's file (PHX-1123).
+    llm = build_named_llm(settings)
     items = _read_jsonl(args.items)
     done = {(j["item_id"], j["side"]) for j in _read_jsonl(args.out)}
     todo = [

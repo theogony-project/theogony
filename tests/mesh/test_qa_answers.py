@@ -148,3 +148,44 @@ def test_any_acceptable_form_of_the_answer_counts() -> None:
     assert best_over_golds("carpenter", golds)[0] == 0.0
     assert best_over_golds("", golds) == (0.0, 0.0)
     assert best_over_golds("anything", []) == (0.0, 0.0)
+
+
+def test_each_answer_records_the_model_that_gave_it(monkeypatch) -> None:
+    """PHX-1123: a provider reports its model on the result; the answer keeps it,
+    and a call that failed three times is an empty answer from no model."""
+    from theogony.agents.llm import LLMResult
+    from theogony.mesh.eval import qa_answers
+    from theogony.mesh.eval.qa_answers import models_that_answered
+
+    class _Answers:
+        model_id = "provider-id"
+
+        def __init__(self, fail: bool) -> None:
+            self.fail = fail
+
+        async def complete(self, prompt: str, **_: object) -> LLMResult:
+            if self.fail:
+                raise RuntimeError("402 Insufficient Balance")
+            return LLMResult(text="x", model_id="claude-sonnet-4-6")
+
+    async def no_wait(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(qa_answers.asyncio, "sleep", no_wait)
+    questions = [QAQuestion(qid="1", question="Who?", answer="x", gold_idxs={0})]
+    passages = [QAPassage(idx=0, title="T", text="body")]
+    rankings = {"knn": [[0]]}
+
+    def run(fail: bool) -> list[QAAnswerResult]:
+        return asyncio.run(
+            answer_dataset(
+                _Answers(fail), questions, passages, rankings, arms=("closed_book", "knn"), top_k=1
+            )
+        )
+
+    answered = run(fail=False)
+    assert [r.model for r in answered] == ["claude-sonnet-4-6"] * 2
+    assert models_that_answered(answered) == {"claude-sonnet-4-6": 2}
+    failed = run(fail=True)
+    assert [(r.answer, r.model) for r in failed] == [("", None)] * 2
+    assert models_that_answered(failed) == {"none": 2}

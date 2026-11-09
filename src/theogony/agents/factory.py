@@ -267,4 +267,20 @@ def build_llm_from_settings(settings: Settings) -> LLMProvider:
     return _FallbackLLMProvider(primary=primary, fallback=fallback)
 
 
-__all__ = ["build_llm_from_settings"]
+def build_named_llm(settings: Settings) -> LLMProvider:
+    """The provider ``settings`` name, and only that one: no fallback.
+
+    For a measurement or a recording, whose results are attributed to the model
+    the run names. With the fallback, a failing primary is answered by another
+    model under the first one's name — 10,522 of 20,000 answers of four runs,
+    once the DeepSeek balance ran out (PHX-1123). Without it, a failed call
+    fails, and the caller counts it.
+    """
+    return build_llm_from_settings(
+        settings.model_copy(
+            update={"llm": settings.llm.model_copy(update={"fallback_provider": None})}
+        )
+    )
+
+
+__all__ = ["build_llm_from_settings", "build_named_llm"]
