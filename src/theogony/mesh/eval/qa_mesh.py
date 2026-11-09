@@ -568,7 +568,9 @@ def sign_test_p(better: int, worse: int) -> float:
     if n == 0:
         return 1.0
     k = min(better, worse)
-    tail = float(sum(math.comb(n, i) for i in range(k + 1))) / float(2**n)
+    # Integer over integer: Python divides big ints exactly and rounds once, where
+    # float(2**n) overflows past n = 1,023 (a mention audit of 2,000 moves did).
+    tail = sum(math.comb(n, i) for i in range(k + 1)) / 2**n
     return float(min(1.0, 2.0 * tail))
 
 
