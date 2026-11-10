@@ -8,8 +8,8 @@ on, and the one attractor this substrate has had (PHX-1051) absorbed entities
 into generic hubs through exactly that surface. So the same counts are read on
 both arms before the answers are compared: how many entity nodes there are and
 how many are candidates, how mentions distribute over them, how long the
-descriptions are, how many carry provenance, and how many distinct nodes carry
-each gold answer's name.
+descriptions are, how many carry provenance, how many distinct nodes carry
+each gold answer's name, and where the paragraphs' concepts landed.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from pathlib import Path
 
 from theogony.mesh.eval.qa_datasets import load_dataset
 from theogony.mesh.eval.qa_mesh import answer_kind
+from theogony.mesh.runtime.consolidation import PARAGRAPH_CONCEPT_TAG
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 from theogony.mesh.storage.nodes import _normalize_label  # the label index's own normaliser
 
@@ -29,6 +30,48 @@ from theogony.mesh.storage.nodes import _normalize_label  # the label index's ow
 def _label(node) -> str:
     text = node.description or ""
     return text.split(" — ", 1)[0][:60] if text else (node.tags[0] if node.tags else str(node.id))
+
+
+def paragraph_concept_placement(nodes_by_id: dict, edges) -> dict:
+    """Where each paragraph's concept landed (PHX-1122): alone on a node of its
+    own, on a paragraph-concept node it shares with other paragraphs, or on a
+    node that is no paragraph concept — an entity's.
+
+    A paragraph concept writes no link-decision row, so the mention audit does
+    not see where it went; its node is the target of the paragraph's
+    ``summarised_as`` edge.
+    """
+    target_of = {
+        str(e.source_id): str(e.target_id)
+        for e in edges
+        if e.relation_descriptor == "summarised_as"
+    }
+    paragraphs_on = Counter(target_of.values())
+
+    def is_paragraph_concept(node_id: str) -> bool:
+        node = nodes_by_id.get(node_id)
+        return node is not None and PARAGRAPH_CONCEPT_TAG in node.tags
+
+    placed = Counter()
+    for target in target_of.values():
+        if target not in nodes_by_id:
+            placed["on_a_node_not_in_the_store"] += 1
+        elif not is_paragraph_concept(target):
+            placed["on_an_entity_node"] += 1
+        elif paragraphs_on[target] > 1:
+            placed["on_a_shared_paragraph_concept_node"] += 1
+        else:
+            placed["alone_on_its_own_node"] += 1
+    shared = [t for t, k in paragraphs_on.items() if k > 1 and is_paragraph_concept(t)]
+    return {
+        "paragraphs_with_a_concept": len(target_of),
+        "alone_on_its_own_node": placed["alone_on_its_own_node"],
+        "on_a_shared_paragraph_concept_node": placed["on_a_shared_paragraph_concept_node"],
+        "on_an_entity_node": placed["on_an_entity_node"],
+        "on_a_node_not_in_the_store": placed["on_a_node_not_in_the_store"],
+        "shared_paragraph_concept_nodes": len(shared),
+        "largest_shared": max((paragraphs_on[t] for t in shared), default=0),
+    }
 
 
 def controls(root: Path, dataset: str | None, cache_dir: Path) -> dict:
@@ -76,6 +119,7 @@ def controls(root: Path, dataset: str | None, cache_dir: Path) -> dict:
             {"label": _label(by_id[nid]) if nid in by_id else nid, "mentions": k}
             for nid, k in in_degree.most_common(20)
         ],
+        "paragraph_concepts": paragraph_concept_placement(by_id, edges),
         "ticks": runtime.tick_count(),
     }
     if dataset:
