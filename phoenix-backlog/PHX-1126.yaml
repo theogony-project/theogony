@@ -1,0 +1,27 @@
+id: PHX-1126
+category: evaluation-integrity
+priority: medium
+status: open
+generation_target: scripts/mesh_emergent_judge.py, scripts/mesh_contradictions.py, scripts/mesh_consolidate.py, theogony mesh ingest
+title: "Four paid paths run without the spend limit, and three with the fallback"
+filed_by: Claude Code (2026-11-10, from the PHX-1124 review)
+created_at: 2026-11-10
+description: >
+  PHX-1124 put the six scripts that build their provider with build_named_llm
+  behind a spend limit and a preflight. Four paths that call a paid model do
+  not: scripts/mesh_emergent_judge.py, an LLM-as-judge measurement, calls
+  anthropic.Anthropic() directly; scripts/mesh_contradictions.py and
+  scripts/mesh_consolidate.py adjudicate through build_llm_from_settings, so
+  with the default fallback; and `theogony mesh ingest` (src/theogony/mesh/cli.py)
+  builds the only reader with a live model the same way. None asks the account
+  before its first call, none stops at a limit, and none stops at a refusal to
+  pay.
+acceptance: >
+  Each of the four either runs behind agents.spend.SpendLimitedLLM, with a
+  --spend-limit-usd and a stop that ends the run with its reason, or says in
+  its docstring why it does not (an interactive path, a free provider); the
+  static test of tests/test_measurements_name_their_model.py lists every
+  script that calls a paid model, so a new one cannot be left out by hand.
+relates_to:
+  - PHX-1124   # the limit these paths lack
+  - PHX-1123   # the fallback three of them still use

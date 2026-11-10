@@ -13,46 +13,62 @@ description: >
   10,732 failed calls to claude-sonnet-4-6 in 70 minutes and the runs wrote
   nothing (PHX-1123). PHX-1123 took the fallback out of measurements. Left
   open: nothing asked the account before a run whether it could pay, nothing
-  stopped a run whose spending ran away, a run without the fallback would
-  still have failed its 20,000 calls one by one and finished on empty answers,
-  and the cost every run logged came from a table of 0.14 / 0.28 USD per 1M
-  input / output tokens for deepseek-chat. DeepSeek bills, since 2026-08-16,
-  cache hits and cache misses apart and at a peak rate (01:00-04:00 and
-  06:00-10:00 UTC, Monday to Friday) twice the off-peak one, and a
+  stopped a run whose spending ran away, the four runs without the fallback
+  would still have failed their calls one by one and finished on empty
+  answers, and the cost every run logged came from a table of 0.14 / 0.28 USD
+  per 1M input / output tokens for deepseek-chat. DeepSeek bills cache hits and
+  cache misses apart and, since 2026-08-16 16:00 UTC, at a peak rate (01:00-04:00
+  and 06:00-10:00 UTC, Monday to Friday) twice the off-peak one, and a
   deepseek-chat call is served by deepseek-flash (0.15 / 0.30 per 1M missed
   input tokens and 0.60 / 1.20 per 1M output tokens, off-peak / peak), so the
   logged costs were off by a factor that depends on the hour and the cache.
 acceptance: >
-  Every measurement and recording script that calls a paid model runs behind a
+  The six measurement and recording scripts that build their provider with
+  build_named_llm (mesh_qa_constellation, mesh_qa_answers, mesh_corpus_answers,
+  the mention audit's judge, mesh_qa_kadmos, record_demo_readings) run behind a
   per-run spend limit (default 5 USD, THEOGONY_LLM__SPEND_LIMIT_USD,
-  --spend-limit-usd): a call that could take the run past it is refused before
-  it is made, under concurrency too, and the run stops with its reason. The
-  first refusal to pay (HTTP 402) stops the run instead of failing every call
-  after it; the answer harnesses, the judge, the reader and the extraction
-  re-raise a stop instead of scoring it as an empty answer or caching it as an
-  empty reading. Before its first paid call a run asks the account (for
-  DeepSeek, GET /user/balance) and does not start when it holds less than the
-  limit, then makes one probe call of one output token. The spend is printed
-  as it crosses each tenth of the limit and recorded in the run files. DeepSeek
-  calls are priced from the published table by the model the response names,
-  cache split and hour kept apart. Tests for each, none touching the network.
+  --spend-limit-usd): an attempt that could take the run past it is refused
+  before it is made, under concurrency too, and the run stops with its reason.
+  The first refusal to pay stops the run instead of failing every call after
+  it; the answer harnesses, the judge, the reader and the extraction re-raise a
+  stop instead of scoring it as an empty answer or caching it as an empty
+  reading. Before its first paid call a run asks the account (for DeepSeek,
+  GET /user/balance) and does not start when it holds less than the limit,
+  then makes one probe call of one output token; a run with nothing to pay for
+  asks nothing. The spend is printed as it crosses each tenth of the limit and
+  recorded in the run files. DeepSeek calls are priced from the published table
+  by the model the response names, cache split and hour kept apart. Tests for
+  each, none touching the network.
 resolution: >
   Done on branch feat/phx-1124-spend-limit (2026-11-10). agents.spend holds
-  SpendLimitedLLM (reserve the worst case before a call, settle with the
-  actual cost; latch on the first stop), preflight, after_preflight and
-  run_paid; build_named_llm returns the named provider behind it. The DeepSeek
-  provider prices from PRICES_USD (deepseek-flash, deepseek-v4-pro; aliases
-  resolved, an unknown name priced at the dearest row, a Chinese public
-  holiday at the peak rate), records cost_usd and the served model on
-  LLMResult, and reads its balance. The six scripts take --spend-limit-usd and
-  run the preflight in their own event loop; the answer run files record
-  spent_usd, spend_limit_usd and served_by. Costs logged before this change
-  are approximate.
+  SpendLimitedLLM and preflight. Before each attempt the limiter reserves the
+  attempt's worst case — every input token a cache miss, the output at the cap
+  it sends (8,192 tokens when the caller names none), at the peak rate — and
+  settles it with the actual cost; an attempt that failed in a way the
+  provider may still bill (a timeout, a dropped connection, a 5xx) is charged
+  at its reservation, a 4xx refusal is not. It makes the retries the SDK made,
+  each reserved and counted, and build_named_llm turns the DeepSeek client's
+  own retries off. It runs the preflight at the first paid attempt, and a
+  failed probe stops the run once. A provider that cannot price its worst case
+  is refused: build_named_llm limits DeepSeek and the free stub, not OpenAI,
+  Anthropic or Gemini, whose tables price every model at one rate or not at
+  all. The DeepSeek provider prices from PRICES_USD (deepseek-flash,
+  deepseek-v4-pro; aliases resolved, a name the table does not know priced at
+  its dearest row, a Chinese public holiday at the peak rate), records cost_usd
+  and the served model on LLMResult, and reads its balance. The review found
+  that mesh_corpus_answers, which ran each call in an event loop of its own,
+  sent every answer after the first to DeepSeek twice — the client carried its
+  connection into the next loop, wrote the request on the dead socket and
+  resent it — and counted it once; it now makes every call in one loop. The
+  answer run files record spent_usd, spend_limit_usd and served_by. Costs
+  logged before this change are approximate. Four paid paths are not under the
+  limit (PHX-1126).
 relates_to:
   - PHX-1123   # the fallback this follows
   - PHX-1121   # whose answer sitting waits on it
   - PHX-1122   # likewise
   - PHX-1125   # the alias the price table resolves
+  - PHX-1126   # the paid paths not under the limit
 linked_scripts:
   - src/theogony/agents/spend.py
   - src/theogony/agents/llm_deepseek.py
