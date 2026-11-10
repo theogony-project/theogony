@@ -466,3 +466,210 @@ def test_a_failing_flush_keeps_edges_and_audit_rows_and_records_the_failure(
     assert (
         hedin.description == "Sven Hedin — Swedish explorer known for expeditions in Central Asia"
     )
+
+
+# --------------------------------------------------------------------------
+# PHX-1121: only a mention that calls the node by its name accrues
+# --------------------------------------------------------------------------
+
+
+def test_name_key_compares_names_not_spellings() -> None:
+    from theogony.mesh.ingestion.kadmos_v2 import name_key
+
+    assert name_key("Rhône") == name_key("rhone")
+    assert name_key("St. Maurice's Abbey") == name_key("St Maurice Abbey")
+    assert name_key("Ζεύς") == name_key("ζεύς") != ""
+    assert name_key("Spain") != name_key("Spanish Empire")
+    assert name_key("Hugh of Italy") != name_key("Hugh, King of Italy")
+    assert name_key("...") == ""
+
+
+_P2_BY_SURNAME = {
+    "label": "Hedin",
+    "entity_type": "person",
+    "tags": ["Sven Hedin", "explorer"],
+    "description": "Born in Stockholm in 1865",
+}
+
+
+@pytest.mark.parametrize("unnamed", [False, True])
+def test_a_mention_that_names_the_node_otherwise_links_but_does_not_accrue(
+    mesh_runtime: MeshRuntime, tmp_path: Path, unnamed: bool
+) -> None:
+    """'Hedin' resolves onto 'Sven Hedin' by its tags, as before; with the guard
+    its text stays out of the node, and `accrue_unnamed` restores PHX-1118's
+    arm, where it went in."""
+    responses = {
+        f"PARAGRAPH:\n{_P1}": _RESPONSES[f"PARAGRAPH:\n{_P1}"],
+        f"PARAGRAPH:\n{_P2}": _reading(_P2_BY_SURNAME, _PLATEAU),
+        f"PARAGRAPH:\n{_P3}": _RESPONSES[f"PARAGRAPH:\n{_P3}"],
+    }
+    reader = MeshParagraphReader(
+        mesh_runtime,
+        llm=StubLLMProvider(responses=responses),
+        max_paragraphs=10,
+        accrue_descriptions=True,
+        accrue_unnamed=unnamed,
+    )
+    result = asyncio.run(
+        reader.read_text(
+            text=_TEXT,
+            source_type="test",
+            source_identifier="hedin",
+            title="Hedin",
+            anchor=str(tmp_path / "hedin.txt"),
+        )
+    )
+    hedin = _hedin(mesh_runtime)
+    decisions = _audit_rows(mesh_runtime, "mesh_ingest_link_decision")
+    by_surname = [d for d in decisions if d["label"] == "Hedin"]
+    assert [d["node_id"] for d in by_surname] == [str(hedin.id)], "the link itself stands"
+    if unnamed:
+        assert result["descriptions_revised"] == 2
+        assert result["descriptions_declined_unnamed"] == 0
+        assert "Born in Stockholm in 1865" in (hedin.description or "")
+    else:
+        assert result["descriptions_revised"] == 1
+        assert result["descriptions_declined_unnamed"] == 1
+        assert hedin.description == (
+            "Sven Hedin — Swedish explorer known for expeditions in Central Asia. "
+            "Mapped the course of the Brahmaputra River"
+        )
+    [run] = _audit_rows(mesh_runtime, "mesh_ingest_run")
+    assert run["accrue_unnamed"] is unnamed
+    assert run["descriptions_declined_unnamed"] == result["descriptions_declined_unnamed"]
+
+
+def test_with_the_identity_vector_kept_only_the_semantic_vector_follows_the_text(
+    mesh_runtime: MeshRuntime, tmp_path: Path
+) -> None:
+    """PHX-1121: the linker matches on `description_vector`, retrieval seeds on
+    `semantic_vector`; kept, the first stays as the node was created."""
+    from theogony.mesh.ingestion.vectorizer import MeshTextVectorizer
+
+    _, reader = _read(
+        mesh_runtime, tmp_path, accrue_descriptions=True, revise_identity_vector=False
+    )
+    hedin = _hedin(mesh_runtime)
+    assert hedin.description == _EXPECTED
+    vectorizer = MeshTextVectorizer(semantic_dim=8, frame_dim=4)
+    created = asyncio.run(
+        vectorizer.description(
+            "Sven Hedin — Swedish explorer known for expeditions in Central Asia"
+        )
+    )
+    assert hedin.description_vector == pytest.approx(created)
+    assert hedin.semantic_vector == pytest.approx(asyncio.run(vectorizer.description(_EXPECTED)))
+    [run] = _audit_rows(mesh_runtime, "mesh_ingest_run")
+    assert run["revise_identity_vector"] is False
+
+
+_RHONE = (
+    "Lyon is the prefecture of the Rhône department.",
+    {
+        "label": "Rhône",
+        "entity_type": "place",
+        "tags": ["France"],
+        "description": "Department in France where Lyon is located",
+    },
+)
+_FRANCE = (
+    "The station of Montluçon serves the Allier department, France.",
+    {
+        "label": "France",
+        "entity_type": "place",
+        "tags": [],
+        "description": "Country where the station is located",
+    },
+)
+
+
+def test_a_tag_that_names_the_mention_is_not_the_nodes_name(
+    mesh_runtime: MeshRuntime, tmp_path: Path
+) -> None:
+    """The case behind the guard (PHX-1120): the Rhône node carries the tag
+    'France', so a France mention links onto it, and with any-tag naming
+    France's text would accrue into Rhône. The name is the first tag only."""
+    responses = {f"PARAGRAPH:\n{text}": _reading(concept) for text, concept in (_RHONE, _FRANCE)}
+    reader = MeshParagraphReader(
+        mesh_runtime,
+        llm=StubLLMProvider(responses=responses),
+        max_paragraphs=10,
+        accrue_descriptions=True,
+    )
+    result = asyncio.run(
+        reader.read_text(
+            text=f"{_RHONE[0]}\n\n{_FRANCE[0]}",
+            source_type="test",
+            source_identifier="rhone",
+            title="Rhône",
+            anchor=str(tmp_path / "rhone.txt"),
+        )
+    )
+    [rhone] = [
+        n for n in mesh_runtime.nodes.load_all_consolidated() if n.tags and n.tags[0] == "Rhône"
+    ]
+    [france] = [
+        d for d in _audit_rows(mesh_runtime, "mesh_ingest_link_decision") if d["label"] == "France"
+    ]
+    assert france["node_id"] == str(rhone.id) and france["signal"] != "emergent", (
+        "the linker puts France on Rhône, as v2 does"
+    )
+    assert result["descriptions_declined_unnamed"] == 1
+    assert result["descriptions_revised"] == 0
+    assert rhone.description == "Rhône — Department in France where Lyon is located"
+
+
+@pytest.mark.parametrize(("unnamed", "kept"), [(True, False), (False, True)])
+def test_the_switches_reach_the_reader_through_the_replay_and_the_harness(
+    tmp_path: Path, unnamed: bool, kept: bool
+) -> None:
+    """The arms are built through scripts/mesh_qa_mesh_ingest.py, which calls
+    ingest_cached_readings, which calls replay_text: a switch dropped on the way
+    would build the other arm with every other test green."""
+    from theogony.mesh.eval.qa_mesh import ingest_cached_readings
+    from theogony.mesh.eval.qa_retrieval import QAPassage
+    from theogony.mesh.ingestion.replay import reading_key
+
+    passages = [QAPassage(idx=k, title="Hedin", text=p) for k, p in enumerate((_P1, _P2, _P3))]
+    readings = {reading_key(p): json.loads(_RESPONSES[f"PARAGRAPH:\n{p}"]) for p in (_P1, _P2, _P3)}
+    runtime = MeshRuntime(tmp_path / "ws", semantic_dim=8, frame_dim=4)
+    asyncio.run(
+        ingest_cached_readings(
+            runtime,
+            passages,
+            readings,
+            source_identifier="hedin",
+            accrue_descriptions=True,
+            accrue_unnamed=unnamed,
+            revise_identity_vector=not kept,
+        )
+    )
+    [run] = _audit_rows(runtime, "mesh_ingest_run")
+    assert run["accrue_descriptions"] is True
+    assert run["accrue_unnamed"] is unnamed
+    assert run["revise_identity_vector"] is (not kept)
+
+
+def test_a_failed_read_says_which_accrual_arm_wrote_what_it_kept(
+    mesh_runtime: MeshRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failed read keeps its revisions; its run row is the only record of the
+    arm that wrote them (PHX-1116, PHX-1121)."""
+    from theogony.mesh.ingestion.vectorizer import MeshTextVectorizer
+
+    original = MeshTextVectorizer.semantic
+
+    async def semantic(self, value):  # type: ignore[no-untyped-def]
+        if value == _P3:
+            raise RuntimeError("embedder down")
+        return await original(self, value)
+
+    monkeypatch.setattr(MeshTextVectorizer, "semantic", semantic)
+    with pytest.raises(RuntimeError, match="embedder down"):
+        _read(mesh_runtime, tmp_path, accrue_descriptions=True, revise_identity_vector=False)
+    [run] = _audit_rows(mesh_runtime, "mesh_ingest_run")
+    assert run["status"] == "failed"
+    assert run["accrue_unnamed"] is False
+    assert run["revise_identity_vector"] is False
+    assert run["descriptions_declined_unnamed"] == 0

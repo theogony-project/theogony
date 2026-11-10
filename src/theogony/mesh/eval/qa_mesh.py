@@ -119,6 +119,8 @@ async def ingest_cached_readings(
     compact_every: int = 200,
     on_call: Callable[[int], None] | None = None,
     accrue_descriptions: bool = False,
+    accrue_unnamed: bool = False,
+    revise_identity_vector: bool = True,
 ) -> ReplayIngestReport:
     """Write a corpus into a mesh through the shipped reader, readings replayed.
 
@@ -148,6 +150,8 @@ async def ingest_cached_readings(
         compact_every=compact_every,
         on_call=on_call,
         accrue_descriptions=accrue_descriptions,
+        accrue_unnamed=accrue_unnamed,
+        revise_identity_vector=revise_identity_vector,
     )
     return ReplayIngestReport(
         paragraphs=len(passages) if not max_paragraphs else min(len(passages), max_paragraphs),

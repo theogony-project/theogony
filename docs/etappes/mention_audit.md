@@ -392,6 +392,7 @@ THEOGONY_LLM__PROVIDER=deepseek THEOGONY_LLM__MODEL_ID=deepseek-chat \
 
 The two meshes are rebuilt from the cached readings by the commands in
 [`description_accrual.md`](description_accrual.md) (two replays of about 150
-minutes on a quiet machine, no key). The first pass's items came from the
+minutes on a quiet machine, no key; since PHX-1121 the accrual arm's command
+carries `--accrue-unnamed`). The first pass's items came from the
 same `collect` before it cut descriptions to their creation, so they are not
 reproduced by this code; its files are kept under the same directory.

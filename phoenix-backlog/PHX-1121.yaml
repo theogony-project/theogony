@@ -42,20 +42,22 @@ acceptance: >
   name are counted for each arm by matching nodes on the link decision that
   minted them. A null result, recorded, closes it too.
 remaining: >
-  The measurement. Both guards are built on branch
-  feat/phx-1121-accrual-names-the-node; the 2Wiki mesh is being rebuilt with
-  each from the same readings (data/mesh-2wiki-named, data/mesh-2wiki-named-kept).
-  Left: the identity controls, the four answer runs in one sitting, the
-  pairings, the PHX-1120 audit of both arms -- deepseek-chat and the second
-  judge's blind batches -- with their same-name moves counted; the guard-2
-  code comment restated on PHX-1120's second pass (it cites the first pass's
-  81 of 252); the etappe.
+  The answer sitting: the five answer arms on off, PHX-1118's accrual and the
+  two guarded builds, deepseek-chat, one sitting, paired. It ran on 2026-11-08
+  into an exhausted DeepSeek balance; the default fallback answered part of
+  its calls with another model, and the runs were discarded (PHX-1123). The
+  identity half is measured (docs/etappes/accrual_guards.md): with both guards
+  every link decision is the one the build without accrual made, while 4,145
+  descriptions accrue; with the first guard alone 312 losses against 118
+  gains where the judges agree, against PHX-1118's 381 and 135 counted the
+  same way.
 relates_to:
   - PHX-1118   # the accrual this guards
   - PHX-1120   # the audit that found the need
   - PHX-1119   # the default, which waits on this
 linked_docs:
   - docs/etappes/mention_audit.md
+  - docs/etappes/accrual_guards.md
 linked_scripts:
   - src/theogony/mesh/ingestion/kadmos_v2.py
   - scripts/mesh_mention_audit.py
