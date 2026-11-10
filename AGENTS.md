@@ -105,6 +105,7 @@ The single most dangerous failure mode is a green CI hiding a real problem. PR #
 - Live integration tests against real services are gated by env vars (`THEOGONY_RUN_CHARACTERIZATION=1`, `THEOGONY_TEST_SERVE=1`, etc.) but they are **not optional discipline** — when in doubt, run them locally.
 - A failed run produces a report with `verdict="failed"` and a structured reason, not an exception swallowed somewhere up the stack.
 - An anomaly that you cannot fix in scope becomes a **Phoenix Backlog ticket**, not a silent shrug.
+- A run that calls a paid model names that model and nothing else (`build_named_llm`, PHX-1123), states what it may spend (`--spend-limit-usd`, default 5 USD) and asks the account before its first call (`agents.spend.preflight`, PHX-1124). The scripts make the check themselves, so a chain that starts a paid step hours after it was launched is checked when the step starts — the 2026-11-08 chain waited twenty hours for its replays and then sent 20,000 calls to an empty account.
 
 **Honest-failure is not pre-validation.** It is the requirement that a failed run produces a structured failure report, not that every input is validated before insertion. A pipeline that ingested seven million imperfect items and emitted a structured `IngestRunReport` is doctrine-conformant. A pipeline that refuses to ingest anything because some items might be wrong is doctrine-violating. See [`docs/BUILD_DOCTRINE.md`](docs/BUILD_DOCTRINE.md) for the binding statement of the current Function-First Phase.
 
