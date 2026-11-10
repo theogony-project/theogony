@@ -47,23 +47,22 @@ remaining: >
   The second judge and the answers. The identity half is measured
   (docs/etappes/naming_guard.md): a names guard, built as a switch beside v2
   (naming_guard "names", and "names_entities" for entity mentions only), on
-  the 2Wiki mesh rebuilt from the same readings. Of 400 random links under
-  names, 2 sit on a node of another name, both right, against v2's 60; of a
-  seeded sample of 2,000 of the 6,249 mentions that moved by name, 1,607 left a
-  wrong node for the right one and 9 the other way, and 327 were right on both
-  sides -- about 1,000 mentions on a second node of their entity; entity
-  nodes +20%, gold
-  names on two or more nodes 10 -> 30. One judge so far, Claude Opus 5.5.
-  Left: deepseek-chat on the same items once its balance allows (PHX-1123) and
-  the agreed counts; the answer arms of scripts/mesh_qa_constellation.py on
-  v2, names and names_entities in one sitting, paired. The default stays v2:
-  replacing it changes the linker's identity rule (PHX-1051) and is for human
-  review.
+  the 2Wiki mesh rebuilt from the same readings. Of the 43,118 links, 351
+  (0.8%) sit on an existing node of another name, against v2's 6,450 (15.0%);
+  of 400 random links 2 do, both right. Of a seeded sample of 2,000 of the
+  6,249 mentions that moved by name, 1,607 left a wrong node for the right one
+  and 9 the other way; about 875 of all the moves leave an entity with a second
+  node; entity nodes +14%, most of it corrections. One judge so far, Claude
+  Opus 5.5. Left: deepseek-chat on the sample and on the base rate once its
+  balance allows, and the agreed counts; the answer arms of
+  scripts/mesh_qa_constellation.py on v2, names and names_entities in one
+  sitting, paired. The default stays v2: replacing it changes the linker's
+  identity rule (PHX-1051) and is for human review.
 relates_to:
   - PHX-1051   # the guard this tightens
   - PHX-1120   # the audit that measured it
   - PHX-1121   # the same-name extension of the audit, and the answer sitting it shares
-  - PHX-1123   # the balance both answer sittings wait on
+  - PHX-1123   # the fallback fix; both answer sittings wait on the DeepSeek balance it met
 linked_docs:
   - docs/etappes/mention_audit.md
   - docs/etappes/naming_guard.md
