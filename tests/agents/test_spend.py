@@ -479,6 +479,16 @@ def test_the_provider_prices_the_model_that_served_the_call(
     assert result.model_id == "deepseek-chat" and result.served_model_id == "deepseek-v4-pro"
 
 
+def test_a_model_the_table_does_not_know_stops_the_run_after_the_call_it_paid_for() -> None:
+    inner = _Paid(served="deepseek-v5")
+    inner.knows_price_of = lambda served: served != "deepseek-v5"  # type: ignore[attr-defined]
+    llm = _limited(inner, 5.0)
+    assert asyncio.run(llm.complete("a")).text == "OK", "the paid answer is kept"
+    with pytest.raises(spend.PriceUnknown):
+        asyncio.run(llm.complete("b"))
+    assert len(inner.calls) == 1
+
+
 def test_a_served_name_the_table_does_not_know_is_priced_at_the_dearest_row(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

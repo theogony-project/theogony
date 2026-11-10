@@ -53,8 +53,9 @@ resolution: >
   is refused: build_named_llm limits DeepSeek and the free stub, not OpenAI,
   Anthropic or Gemini, whose tables price every model at one rate or not at
   all. The DeepSeek provider prices from PRICES_USD (deepseek-flash,
-  deepseek-v4-pro; aliases resolved, a name the table does not know priced at
-  its dearest row, a Chinese public holiday at the peak rate), records cost_usd
+  deepseek-v4-pro; aliases resolved, a model the table does not know priced at
+  its dearest row and the run stopped after that call, a Chinese public holiday
+  at the peak rate), records cost_usd
   and the served model on LLMResult, and reads its balance. The review found
   that mesh_corpus_answers, which ran each call in an event loop of its own,
   sent every answer after the first to DeepSeek twice — the client carried its

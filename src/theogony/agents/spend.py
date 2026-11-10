@@ -72,6 +72,10 @@ class AccountCannotPay(RunMustStop):
     """The provider refused to be paid: no balance, or not enough for the limit."""
 
 
+class PriceUnknown(RunMustStop):
+    """The provider answered with a model its price table does not know."""
+
+
 class PreflightFailed(RunMustStop):
     """The probe before the run's first paid call failed: a wrong key, an unknown model."""
 
@@ -301,6 +305,17 @@ class SpendLimitedLLM:
             if result is not None:
                 self._settle(_call_cost_usd(result))
                 self.calls += 1
+                knows = getattr(self.inner, "knows_price_of", None)
+                if callable(knows) and not knows(result.served_model_id):
+                    # Paid, so returned; but no further call is priced by a guess:
+                    # the worst case of a model the table does not know is unknown.
+                    self.halt(
+                        PriceUnknown(
+                            f"the provider answered with {result.served_model_id!r}, which its "
+                            f"price table does not know; add it before the next run "
+                            f"({self.summary()})"
+                        )
+                    )
                 return result
             assert failure is not None
             if is_payment_refusal(failure):
@@ -412,6 +427,7 @@ __all__ = [
     "AccountCannotPay",
     "PreflightFailed",
     "PreflightReport",
+    "PriceUnknown",
     "RunMustStop",
     "SpendLimitReached",
     "SpendLimitedLLM",

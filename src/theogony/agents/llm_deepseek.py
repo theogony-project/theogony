@@ -126,6 +126,11 @@ class DeepSeekLLMProvider(LLMProvider):
         self._client = self._client.with_options(max_retries=0)
         return self
 
+    def knows_price_of(self, served_model_id: str) -> bool:
+        """Whether the table prices the model a response named; an empty name
+        is priced by the requested one."""
+        return not served_model_id or served_model_id in PRICES_USD or served_model_id in SERVED_BY
+
     def worst_case_cost_usd(self, input_tokens: int, output_tokens: int) -> float:
         """The most a call of this size can cost: every input token a cache
         miss, at the peak rate of the model the requested name resolves to."""
@@ -206,9 +211,10 @@ class DeepSeekLLMProvider(LLMProvider):
         if cache_hit + cache_miss != input_tokens:
             cache_hit, cache_miss = 0, input_tokens
         served = str(getattr(response, "model", "") or "")
-        if served and served not in PRICES_USD and served not in SERVED_BY:
-            # A name the table does not know is priced at its dearest row, the
-            # safe side of a spend limit, until the table learns it.
+        if not self.knows_price_of(served):
+            # Priced at the table's dearest row, which may still be cheaper than
+            # the model that answered: a spend limit stops the run after this
+            # call (SpendLimitedLLM), so no second one is priced by a guess.
             if served not in _WARNED:
                 _WARNED.add(served)
                 log.warning("DeepSeek served %s, which the price table does not know", served)
