@@ -43,8 +43,9 @@ def main() -> None:
     ap.add_argument(
         "--accrue-descriptions",
         action="store_true",
-        help="fold later mentions into existing descriptions (PHX-1118); default off = "
-        "today's write path",
+        help="fold later mentions into existing descriptions (PHX-1118), only from a mention "
+        "that calls the node by its name (PHX-1121; --accrue-unnamed for every mention); "
+        "default off = today's write path",
     )
     ap.add_argument(
         "--accrue-unnamed",

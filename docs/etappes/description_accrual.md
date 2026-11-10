@@ -293,7 +293,7 @@ co-firing, after it ([`plan_from_the_vision_2026-09.md`](plan_from_the_vision_20
 
 ```bash
 .venv/bin/python scripts/mesh_qa_mesh_ingest.py --dataset 2wikimultihopqa --root data/mesh-2wiki-off --fresh
-.venv/bin/python scripts/mesh_qa_mesh_ingest.py --dataset 2wikimultihopqa --root data/mesh-2wiki-on --fresh --accrue-descriptions
+.venv/bin/python scripts/mesh_qa_mesh_ingest.py --dataset 2wikimultihopqa --root data/mesh-2wiki-on --fresh --accrue-descriptions --accrue-unnamed
 .venv/bin/python scripts/mesh_identity_controls.py --root data/mesh-2wiki-off --json data/run_reports/phx1118/controls_off.json
 .venv/bin/python scripts/mesh_identity_controls.py --root data/mesh-2wiki-on --json data/run_reports/phx1118/controls_on.json
 .venv/bin/python scripts/mesh_identity_controls.py --root data/mesh-2wiki-off --against data/mesh-2wiki-on --dataset '' --json data/run_reports/phx1118/controls_diff.json
@@ -304,3 +304,8 @@ THEOGONY_LLM__PROVIDER=deepseek THEOGONY_LLM__MODEL_ID=deepseek-chat .venv/bin/p
 
 Two replays of about 150 minutes each, no key; two answer runs of about 23
 minutes each, about one euro each on deepseek-chat.
+
+*Since 2026-11-09 (PHX-1121) `--accrue-descriptions` alone accrues only from
+a mention whose label is the node's name; this arm, which accrued from every
+re-mention, needs `--accrue-unnamed` as well, as the line above now says
+([`accrual_guards.md`](accrual_guards.md)).*
