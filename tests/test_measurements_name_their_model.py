@@ -37,7 +37,9 @@ def test_a_measurement_states_its_spend_limit_and_asks_before_it_spends(path: st
     text = (ROOT / path).read_text(encoding="utf-8")
     assert "spend_limit_usd=args.spend_limit_usd" in text, path
     assert '"--spend-limit-usd"' in text, path
-    assert "run_paid(" in text or "preflight(llm)" in text, f"{path} spends without a preflight"
+    # The limiter runs the preflight at the first paid call; the script must end
+    # on a stop instead of carrying on (run_paid does both).
+    assert "run_paid(" in text or "except RunMustStop" in text, f"{path} would carry on past a stop"
 
 
 @pytest.mark.parametrize("path", ("scripts/mesh_qa_constellation.py", "scripts/mesh_qa_answers.py"))

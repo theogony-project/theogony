@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any
 
 from theogony.agents.factory import build_named_llm
-from theogony.agents.spend import RunMustStop, preflight
+from theogony.agents.spend import RunMustStop
 from theogony.config.settings import Settings
 from theogony.mesh.ingestion.kadmos_v2 import SYSTEM_PROMPT, paragraph_prompt
 from theogony.mesh.ingestion.reading_schemas import (
@@ -97,7 +97,6 @@ async def main() -> int:
     # failed paragraph is a miss on the record instead of another model's
     # reading (PHX-1123).
     llm = build_named_llm(settings, spend_limit_usd=args.spend_limit_usd)
-    print((await preflight(llm)).line(), flush=True)  # can the account pay (PHX-1124)
     text = args.corpus.read_text(encoding="utf-8")
     paragraphs = paragraphs_of(text)
     print(f"{len(paragraphs)} paragraphs; provider {getattr(llm, 'model_id', '?')}")

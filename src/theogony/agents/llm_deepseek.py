@@ -19,6 +19,9 @@ from theogony.agents.llm import (
     ResearchPlannerCost,
 )
 from theogony.agents.spend import AccountBalance
+from theogony.config.logging import get_logger
+
+log = get_logger(__name__)
 
 # DeepSeek's published prices in USD per 1M tokens, (off-peak, peak), read from
 # https://api-docs.deepseek.com/quick_start/pricing on 2026-11-10. Off-peak is
@@ -49,6 +52,7 @@ SERVED_BY: dict[str, str] = {
     "deepseek-v4-flash-vision-exp": "deepseek-flash",
 }
 _PEAK_HOURS_UTC = ((1, 4), (6, 10))
+_WARNED: set[str] = set()
 # A model the table does not know is priced at its dearest row.
 _DEAREST = "deepseek-v4-pro"
 
@@ -114,6 +118,13 @@ class DeepSeekLLMProvider(LLMProvider):
     @property
     def model_id(self) -> str:
         return self._model_id
+
+    def without_sdk_retries(self) -> DeepSeekLLMProvider:
+        """Leave retries to the caller. The SDK resends a timed-out or failed
+        request up to twice inside one call; behind a spend limit each attempt
+        must be reserved and counted, so the limiter makes them (PHX-1124)."""
+        self._client = self._client.with_options(max_retries=0)
+        return self
 
     def worst_case_cost_usd(self, input_tokens: int, output_tokens: int) -> float:
         """The most a call of this size can cost: every input token a cache
@@ -195,8 +206,17 @@ class DeepSeekLLMProvider(LLMProvider):
         if cache_hit + cache_miss != input_tokens:
             cache_hit, cache_miss = 0, input_tokens
         served = str(getattr(response, "model", "") or "")
+        if served and served not in PRICES_USD and served not in SERVED_BY:
+            # A name the table does not know is priced at its dearest row, the
+            # safe side of a spend limit, until the table learns it.
+            if served not in _WARNED:
+                _WARNED.add(served)
+                log.warning("DeepSeek served %s, which the price table does not know", served)
+            priced_as = _DEAREST
+        else:
+            priced_as = served or self._model_id
         usd = cost_usd(
-            served if served in PRICES_USD else self._model_id,
+            priced_as,
             cache_hit_tokens=cache_hit,
             cache_miss_tokens=cache_miss,
             output_tokens=output_tokens,

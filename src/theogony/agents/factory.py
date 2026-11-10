@@ -278,15 +278,22 @@ def build_named_llm(settings: Settings, *, spend_limit_usd: float | None = None)
     (PHX-1123). Without it, a failed call fails, and the caller counts it.
 
     The run may spend at most ``spend_limit_usd`` (default
-    ``settings.llm.spend_limit_usd``); before its first paid call it runs
-    :func:`theogony.agents.spend.preflight` (PHX-1124).
+    ``settings.llm.spend_limit_usd``), and before its first paid call the
+    limiter runs :func:`theogony.agents.spend.preflight` (PHX-1124). Raises
+    ``ValueError`` for a provider that cannot price the most a call may cost —
+    today every one but DeepSeek and the stub — because a limit it cannot
+    bound would only look like one.
     """
     provider = build_llm_from_settings(
         settings.model_copy(
             update={"llm": settings.llm.model_copy(update={"fallback_provider": None})}
         )
     )
+    if isinstance(provider, DeepSeekLLMProvider):
+        provider.without_sdk_retries()
     limit = spend_limit_usd if spend_limit_usd is not None else settings.llm.spend_limit_usd
+    # Raises for a provider that cannot price the most a call may cost: a limit
+    # it cannot bound would only look like one (PHX-1124).
     return SpendLimitedLLM(provider, limit_usd=limit, on_spend=print_spend)
 
 

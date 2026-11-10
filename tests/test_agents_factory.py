@@ -24,6 +24,7 @@ def _settings(
     gemini_key: str | None = None,
     openai_key: str | None = None,
     anthropic_key: str | None = None,
+    deepseek_key: str | None = None,
 ) -> Settings:
     llm_kw: dict[str, object] = {"provider": provider}
     if model_id is not None:
@@ -32,6 +33,7 @@ def _settings(
         OPENAI_API_KEY=SecretStr(openai_key) if openai_key else None,  # type: ignore[arg-type]
         ANTHROPIC_API_KEY=SecretStr(anthropic_key) if anthropic_key else None,  # type: ignore[arg-type]
         GEMINI_API_KEY=SecretStr(gemini_key) if gemini_key else None,  # type: ignore[arg-type]
+        DEEPSEEK_API_KEY=SecretStr(deepseek_key) if deepseek_key else None,  # type: ignore[arg-type]
         GOOGLE_API_KEY=None,
         llm=LLMSettings(**llm_kw),  # type: ignore[arg-type]
     )
@@ -243,13 +245,17 @@ class TestNamedProvider:
 
     def test_the_default_wraps_a_fallback_and_the_named_provider_does_not(self) -> None:
         from theogony.agents.factory import _FallbackLLMProvider, build_named_llm
+        from theogony.agents.llm_deepseek import DeepSeekLLMProvider
 
         s = _settings(
-            provider="openai", openai_key="sk-x", anthropic_key="sk-ant-x", model_id="gpt-5.4-mini"
+            provider="deepseek",
+            deepseek_key="sk-ds-x",
+            anthropic_key="sk-ant-x",
+            model_id="deepseek-chat",
         )
         assert isinstance(build_llm_from_settings(s), _FallbackLLMProvider)
         named = build_named_llm(s)
-        assert isinstance(named.inner, OpenAILLMProvider) and named.model_id == "gpt-5.4-mini"
+        assert isinstance(named.inner, DeepSeekLLMProvider) and named.model_id == "deepseek-chat"
         assert s.llm.fallback_provider == "anthropic", "the settings themselves are unchanged"
 
     def test_the_named_provider_comes_behind_the_run_spend_limit(self) -> None:
@@ -257,8 +263,19 @@ class TestNamedProvider:
         from theogony.agents.factory import build_named_llm
         from theogony.agents.spend import SpendLimitedLLM
 
-        s = _settings(provider="openai", openai_key="sk-x", model_id="gpt-5.4-mini")
+        s = _settings(provider="deepseek", deepseek_key="sk-ds-x", model_id="deepseek-chat")
         named = build_named_llm(s)
         assert isinstance(named, SpendLimitedLLM)
         assert named.limit_usd == s.llm.spend_limit_usd == 5.0
         assert build_named_llm(s, spend_limit_usd=0.5).limit_usd == 0.5
+        assert named.inner._client.max_retries == 0, "the limiter makes the retries"
+
+    def test_a_provider_the_limit_cannot_price_is_refused(self) -> None:
+        """A limit counted at a table that does not fit the model would only
+        look like one: OpenAI prices every model at one rate (PHX-1124)."""
+        from theogony.agents.factory import build_named_llm
+
+        s = _settings(provider="openai", openai_key="sk-x", model_id="gpt-5.4-mini")
+        with pytest.raises(ValueError, match="cannot price"):
+            build_named_llm(s)
+        assert build_named_llm(_settings(provider="stub")).model_id == "stub-llm"

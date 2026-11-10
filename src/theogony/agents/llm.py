@@ -58,13 +58,14 @@ class LLMResult(BaseModel):
     cost_eur: float = Field(default=0.0, ge=0.0)
     latency_ms: int = Field(default=0, ge=0)
     model_id: str = ""
-    #: What the call cost in the provider's own currency, where the provider
-    #: prices in dollars; 0.0 where it does not say. A spend limit counts this
-    #: (PHX-1124), so it is not converted back from ``cost_eur``.
+    #: What the call cost in dollars, from a provider that prices in dollars
+    #: (DeepSeek); 0.0 where the provider sets only ``cost_eur``. A spend limit
+    #: counts this, and ``cost_eur`` converted back where it is 0.0 (PHX-1124).
     cost_usd: float = Field(default=0.0, ge=0.0)
-    #: The model the provider's response says served the call, when it says:
-    #: a requested name can be an alias (DeepSeek answers ``deepseek-chat``
-    #: with ``deepseek-flash``). Empty when the response names none.
+    #: The model the provider's response says served the call: a requested
+    #: name can be an alias (DeepSeek answers ``deepseek-chat`` with
+    #: ``deepseek-flash``). Set by the providers that read it (DeepSeek);
+    #: empty otherwise.
     served_model_id: str = ""
 
 
@@ -150,6 +151,10 @@ class StubLLMProvider:
     @property
     def model_id(self) -> str:
         return self._model_id
+
+    def worst_case_cost_usd(self, input_tokens: int, output_tokens: int) -> float:
+        """Nothing: the stub is free, so a spend limit never stops it (PHX-1124)."""
+        return 0.0
 
     def add_response(self, prompt_prefix: str, response: str) -> None:
         """Register a canned response. Tests can build the script up incrementally."""
