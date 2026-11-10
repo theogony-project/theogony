@@ -20,7 +20,15 @@ description: >
   default was left as it was so the measurement's two arms were the only
   difference and the demo's recorded numbers (about 720 nodes, 17,500
   edges) stayed true. Switching it on is one default and a re-recording of
-  what the documents say about the demo.
+  what the documents say about the demo. The reader now holds two name keys
+  that fold differently: kadmos_v2.name_key, which decides whether a
+  re-mention accrues (PHX-1121), drops a possessive 's and the accents,
+  turns the vowel signs of scripts such as Devanagari into spaces ("सीता"
+  becomes "स त") and reads "U.S." as "u s"; concept_resolver.name_key, which
+  decides a link under PHX-1122's names guard, keeps the possessive and the
+  marks of scripts other than Latin, Greek and Cyrillic and reads "U.S." as
+  "US". Each is the one its measurement ran with; a default that ships either
+  guard is the moment to make them one.
 acceptance: >
   After PHX-1121: if a guarded arm passes, MeshParagraphReader, replay_text and
   ingest_cached_readings default to accrue_descriptions=True with that guard; `theogony mesh demo` rebuilt from the bundled
@@ -38,6 +46,7 @@ relates_to:
   - PHX-1120   # the audit that found the moves net worse
   - PHX-1121   # the guards this waits on
   - PHX-1112   # the demo whose recorded numbers move
+  - PHX-1122   # the names guard, whose name key differs from accrual's
 linked_docs:
   - docs/etappes/description_accrual.md
 linked_scripts:
