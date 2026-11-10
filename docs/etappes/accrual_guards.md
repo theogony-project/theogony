@@ -15,8 +15,8 @@
 > builds in one sitting, paired. *Result.* With both guards each of the 43,118
 > link decisions is the one the build without accrual made — same node, same
 > signal, same score — while 4,145 nodes carry accrued text (6,986 revisions,
-> against PHX-1118's 12,154). With the first guard alone 714 mentions still
-> move, and where the judges agree the arm is net worse, 312 losses against 118
+> against PHX-1118's 12,154). With the first guard alone at least 714 mentions
+> still move, and where the judges agree the arm is net worse, 312 losses against 118
 > gains; it takes 129 of PHX-1118's 381 losses away and makes 60 of its own.
 > What a name test cannot reach is left: the right node's drift was possible in
 > 184 of the 312, and 42 went to *Paris* the Trojan prince, whose name a mention
@@ -40,7 +40,9 @@ gives PHX-1118's arm) built `data/mesh-2wiki-named` and
 and its blind batches; `scripts/mesh_identity_controls.py`. Reports: the
 `IngestRunReport`s `01M6YF1GNT0B6H1PSA64BGMQJ5` (named) and
 `01M6YF3ESHM039MNBPF876JWF2` (named-kept); the controls, the audit items,
-both judges' verdicts and their summaries under `data/run_reports/phx1121/`.
+both judges' verdicts and their summaries for the on and named arms, and
+deepseek-chat's on named-kept's 400 control mentions (it has no moves), under
+`data/run_reports/phx1121/`.
 Code: the PHX-1121 change at commits `0d3794e` (named) and `91f1d0d`
 (named-kept) equals this branch's except for two comments; their base,
 `efb798e`, predates the PHX-1116 review fixes, PHX-1120 and PHX-1123, which
@@ -64,8 +66,11 @@ describe France.
 
 **Guard 1 — accrue only from a name.** A re-mention's text is folded into the
 node only if the mention's label is the node's name — the label the node was
-created with, its first tag — once case, accents and punctuation are set
-aside. The link itself is unchanged: the guard decides what the node learns,
+created with, which the reader puts first in its tags (for a node a paragraph
+concept created, that concept's first tag, which is seldom its label) — once
+case, accents and a possessive 's are set aside and punctuation is read as a
+space (so *St. Maurice's Abbey* names *St Maurice Abbey*, and *U.S.* does not
+name *US*). The link itself is unchanged: the guard decides what the node learns,
 not where the mention goes. Rhône carries the tag "France", so a France
 mention still links onto it, as v2's linker decides; its text no longer
 reaches Rhône's description. `accrue_unnamed=True` restores PHX-1118's arm.
@@ -139,10 +144,11 @@ included. Meanwhile 4,145 nodes carry accrued text.
 
 ### The audit
 
-Both judges, each node shown as it was created; κ = 0.94 on each arm (2,554
-judgments for PHX-1118's arm, 1,953 of them PHX-1120's own, identical unit for
-unit; 1,828 fresh ones for the named arm, Claude's in blind batches under
-opaque ids). Where they agree:
+Both judges, each node shown as it was created; κ = 0.94 on each arm. Of the
+2,554 judgments per judge for PHX-1118's arm, 1,953 are PHX-1120's own on
+identical units; the rest judge the 115 same-name moves and a control sample
+redrawn without them (371 of its 400 units new). The named arm's 1,828 are
+fresh, Claude's in blind batches under opaque ids. Where they agree:
 
 | | on (PHX-1118) | named | named-kept |
 |---|---:|---:|---:|
@@ -199,6 +205,9 @@ arms, one model, paired.
   describe their own entity is not shown.
 - **One reading, one answering model.** The readings are deepseek-chat's, as in
   PHX-1118.
+- **One corpus.** 2Wiki names its entities by their article titles; on an
+  epithet-heavy text such as the shipped Theogony demo, guard 1 would decline
+  more re-mentions that do name the right entity.
 - **Mentions of one label move together**, so the per-mention counts overstate
   the evidence; the per-label count is the one to quote. The same-name moves are
   a lower bound: a node no link decision minted cannot be matched.
