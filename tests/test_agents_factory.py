@@ -249,5 +249,16 @@ class TestNamedProvider:
         )
         assert isinstance(build_llm_from_settings(s), _FallbackLLMProvider)
         named = build_named_llm(s)
-        assert isinstance(named, OpenAILLMProvider) and named.model_id == "gpt-5.4-mini"
+        assert isinstance(named.inner, OpenAILLMProvider) and named.model_id == "gpt-5.4-mini"
         assert s.llm.fallback_provider == "anthropic", "the settings themselves are unchanged"
+
+    def test_the_named_provider_comes_behind_the_run_spend_limit(self) -> None:
+        """PHX-1124: the settings' limit by default, the script's when it passes one."""
+        from theogony.agents.factory import build_named_llm
+        from theogony.agents.spend import SpendLimitedLLM
+
+        s = _settings(provider="openai", openai_key="sk-x", model_id="gpt-5.4-mini")
+        named = build_named_llm(s)
+        assert isinstance(named, SpendLimitedLLM)
+        assert named.limit_usd == s.llm.spend_limit_usd == 5.0
+        assert build_named_llm(s, spend_limit_usd=0.5).limit_usd == 0.5

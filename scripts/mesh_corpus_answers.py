@@ -24,9 +24,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import sys
 from pathlib import Path
 
 from theogony.agents.factory import build_named_llm
+from theogony.agents.spend import RunMustStop, preflight
 from theogony.config.settings import Settings
 from theogony.mesh.eval.corpus_answers import (
     ARMS,
@@ -61,12 +63,23 @@ def main() -> None:
     )
     ap.add_argument("--out", type=Path, help="Write per-answer detail as JSON here.")
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument(
+        "--spend-limit-usd",
+        type=float,
+        default=None,
+        help="the most this run may spend; default THEOGONY_LLM__SPEND_LIMIT_USD or 5 (PHX-1124)",
+    )
     args = ap.parse_args()
 
     settings = Settings()
     runtime = MeshRuntime.open(args.root)
     embedder = BGESmallEnEmbedder()
-    llm = build_named_llm(settings)  # the model the run names, no fallback (PHX-1123)
+    # the model the run names, no fallback (PHX-1123), behind its spend limit (PHX-1124)
+    llm = build_named_llm(settings, spend_limit_usd=args.spend_limit_usd)
+    try:
+        print(asyncio.run(preflight(llm)).line(), flush=True)
+    except RunMustStop as stop:
+        sys.exit(f"STOPPED: {stop}")
 
     gold = load_gold()
     if args.limit:
@@ -81,16 +94,20 @@ def main() -> None:
     # an argparse flag that reaches nothing is indistinguishable, from the
     # outside, from one that works (PHX-1097).
     retrieve_kwargs = {"k_seeds": args.seeds} if args.seeds is not None else {}
-    results = answer_gold_set(
-        runtime,
-        embed,
-        llm,
-        arms=arms,
-        gold=gold,
-        top_k=args.top_k,
-        repeat=args.repeat,
-        **retrieve_kwargs,
-    )
+    try:
+        results = answer_gold_set(
+            runtime,
+            embed,
+            llm,
+            arms=arms,
+            gold=gold,
+            top_k=args.top_k,
+            repeat=args.repeat,
+            **retrieve_kwargs,
+        )
+    except RunMustStop as stop:
+        sys.exit(f"STOPPED: {stop}")
+    print(f"spend: {llm.summary()}", flush=True)
     summary = summarise_answers(results)
 
     print(

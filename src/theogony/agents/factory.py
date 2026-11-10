@@ -37,6 +37,7 @@ from theogony.agents.llm_anthropic import AnthropicLLMProvider
 from theogony.agents.llm_deepseek import DeepSeekLLMProvider
 from theogony.agents.llm_gemini import GeminiLLMProvider
 from theogony.agents.llm_openai import OpenAILLMProvider
+from theogony.agents.spend import SpendLimitedLLM, print_spend
 from theogony.config.logging import get_logger
 from theogony.config.settings import LLMSettings, Settings
 
@@ -267,20 +268,26 @@ def build_llm_from_settings(settings: Settings) -> LLMProvider:
     return _FallbackLLMProvider(primary=primary, fallback=fallback)
 
 
-def build_named_llm(settings: Settings) -> LLMProvider:
-    """The provider ``settings`` name, and only that one: no fallback.
+def build_named_llm(settings: Settings, *, spend_limit_usd: float | None = None) -> SpendLimitedLLM:
+    """The provider ``settings`` name, and only that one, behind a spend limit.
 
     For a measurement or a recording, whose results are attributed to the model
     the run names. With the fallback, a failing primary is answered by another
-    model under the first one's name — 10,522 of 20,000 answers of four runs,
-    once the DeepSeek balance ran out (PHX-1123). Without it, a failed call
-    fails, and the caller counts it.
+    model under the first one's name — 10,732 failed calls of four runs handed
+    to claude-sonnet-4-6 in 70 minutes, once the DeepSeek balance ran out
+    (PHX-1123). Without it, a failed call fails, and the caller counts it.
+
+    The run may spend at most ``spend_limit_usd`` (default
+    ``settings.llm.spend_limit_usd``); before its first paid call it runs
+    :func:`theogony.agents.spend.preflight` (PHX-1124).
     """
-    return build_llm_from_settings(
+    provider = build_llm_from_settings(
         settings.model_copy(
             update={"llm": settings.llm.model_copy(update={"fallback_provider": None})}
         )
     )
+    limit = spend_limit_usd if spend_limit_usd is not None else settings.llm.spend_limit_usd
+    return SpendLimitedLLM(provider, limit_usd=limit, on_spend=print_spend)
 
 
 __all__ = ["build_llm_from_settings", "build_named_llm"]

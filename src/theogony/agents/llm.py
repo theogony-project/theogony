@@ -58,6 +58,14 @@ class LLMResult(BaseModel):
     cost_eur: float = Field(default=0.0, ge=0.0)
     latency_ms: int = Field(default=0, ge=0)
     model_id: str = ""
+    #: What the call cost in the provider's own currency, where the provider
+    #: prices in dollars; 0.0 where it does not say. A spend limit counts this
+    #: (PHX-1124), so it is not converted back from ``cost_eur``.
+    cost_usd: float = Field(default=0.0, ge=0.0)
+    #: The model the provider's response says served the call, when it says:
+    #: a requested name can be an alias (DeepSeek answers ``deepseek-chat``
+    #: with ``deepseek-flash``). Empty when the response names none.
+    served_model_id: str = ""
 
 
 @runtime_checkable

@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import Any
 
 from theogony.agents.factory import build_named_llm
+from theogony.agents.spend import RunMustStop, preflight
 from theogony.config.settings import Settings
 from theogony.mesh.ingestion.kadmos_v2 import SYSTEM_PROMPT, paragraph_prompt
 from theogony.mesh.ingestion.reading_schemas import (
@@ -65,6 +66,8 @@ async def read_one(
             model_id = str(getattr(result, "model_id", "") or "")
             payload = normalize_reading_payload(json.loads(result.text))
             return ParagraphReadingOutput.model_validate(payload).model_dump(), model_id, cost
+        except RunMustStop:
+            raise  # the run cannot pay for the next reading (PHX-1124)
         except Exception as exc:  # noqa: BLE001 - retried, then recorded as a miss
             print(
                 f"  attempt {attempt + 1} failed: {type(exc).__name__}: {str(exc)[:120]}",
@@ -79,6 +82,12 @@ async def main() -> int:
     ap.add_argument("corpus", type=Path, help="plain text; paragraphs separated by blank lines")
     ap.add_argument("--out", type=Path, required=True, help="readings file (.jsonl or .jsonl.gz)")
     ap.add_argument("--concurrency", type=int, default=6)
+    ap.add_argument(
+        "--spend-limit-usd",
+        type=float,
+        default=None,
+        help="the most this run may spend; default THEOGONY_LLM__SPEND_LIMIT_USD or 5 (PHX-1124)",
+    )
     ap.add_argument("--title", default="", help="recorded in the meta row")
     ap.add_argument("--source", default="", help="recorded in the meta row")
     args = ap.parse_args()
@@ -87,7 +96,8 @@ async def main() -> int:
     # Every row records the model that answered it; without the fallback, a
     # failed paragraph is a miss on the record instead of another model's
     # reading (PHX-1123).
-    llm = build_named_llm(settings)
+    llm = build_named_llm(settings, spend_limit_usd=args.spend_limit_usd)
+    print((await preflight(llm)).line(), flush=True)  # can the account pay (PHX-1124)
     text = args.corpus.read_text(encoding="utf-8")
     paragraphs = paragraphs_of(text)
     print(f"{len(paragraphs)} paragraphs; provider {getattr(llm, 'model_id', '?')}")
@@ -127,6 +137,9 @@ async def main() -> int:
         "recorded_at": datetime.now(UTC).isoformat(),
         "provider": getattr(llm, "model_id", "?"),
         "model_ids": dict(models),
+        # the model the provider says served the name, and what the recording cost (PHX-1124)
+        "served_by": llm.preflight.served_model_id if llm.preflight else "",
+        "spent_usd": round(llm.spent_usd, 4),
         "paragraphs": len(paragraphs),
         "readings": len(kept),
         "concepts": sum(len(reading["concepts"]) for _, reading, _ in kept),
@@ -153,4 +166,7 @@ async def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    try:
+        sys.exit(asyncio.run(main()))
+    except RunMustStop as stop:
+        sys.exit(f"STOPPED: {stop}")

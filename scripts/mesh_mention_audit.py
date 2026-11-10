@@ -383,12 +383,13 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 def judge(args: argparse.Namespace) -> None:
     from theogony.agents.factory import build_named_llm
+    from theogony.agents.spend import RunMustStop, run_paid
     from theogony.config.settings import Settings
 
     settings = Settings()
     # The judge is the model this run names, or none: a fallback provider would
     # put a second judge's verdicts under the first one's file (PHX-1123).
-    llm = build_named_llm(settings)
+    llm = build_named_llm(settings, spend_limit_usd=args.spend_limit_usd)
     items = _read_jsonl(args.items)
     done = {(j["item_id"], j["side"]) for j in _read_jsonl(args.out)}
     todo = [
@@ -417,6 +418,8 @@ def judge(args: argparse.Namespace) -> None:
                     timeout_s=60,
                 )
                 text, model, cost = result.text, result.model_id, result.cost_eur
+            except RunMustStop:
+                raise  # the run cannot pay for the next judgment (PHX-1124)
             except Exception as exc:  # noqa: BLE001 - recorded, the next run retries it
                 print(f"failed {item['id']} {side}: {exc}", flush=True)
                 return "error"
@@ -443,7 +446,9 @@ def judge(args: argparse.Namespace) -> None:
             verdicts = await asyncio.gather(*(one(item, side, fh) for item, side in todo))
         return Counter(verdicts)
 
-    counts = asyncio.run(run())
+    # A stop ends the run with its reason; what was judged stays written, and a
+    # rerun resumes from it (PHX-1124).
+    counts = run_paid(llm, run)
     print(f"{dict(counts)} in {(time.monotonic() - started) / 60:.1f} min; written: {args.out}")
 
 
@@ -713,6 +718,12 @@ def main() -> None:
     j.add_argument("--items", type=Path, required=True)
     j.add_argument("--out", type=Path, required=True, help="judgments, appended and resumable")
     j.add_argument("--concurrency", type=int, default=16)
+    j.add_argument(
+        "--spend-limit-usd",
+        type=float,
+        default=None,
+        help="the most this run may spend; default THEOGONY_LLM__SPEND_LIMIT_USD or 5 (PHX-1124)",
+    )
     j.set_defaults(func=judge)
 
     e = sub.add_parser("export-blind", help="write blind batches for a second judge")

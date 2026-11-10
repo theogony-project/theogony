@@ -46,6 +46,7 @@ from typing import Any
 
 import numpy as np
 
+from theogony.agents.spend import RunMustStop
 from theogony.mesh.eval.corpus_answers import _vector_context
 from theogony.mesh.eval.qa_answers import (
     QAAnswerResult,
@@ -469,6 +470,8 @@ async def _ask(
                     prompt, system=system, max_output_tokens=max_output_tokens, temperature=0.0
                 )
                 return (getattr(raw, "text", None) or str(raw)).strip(), answered_by(raw, llm)
+            except RunMustStop:
+                raise  # the run cannot pay for the next call: no answer, no retry (PHX-1124)
             except Exception:  # noqa: BLE001 - a transient provider error is not a result
                 if attempt == 2:
                     return "", None

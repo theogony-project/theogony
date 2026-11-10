@@ -41,6 +41,7 @@ from typing import Any
 import numpy as np
 
 from theogony.agents.factory import build_named_llm
+from theogony.agents.spend import run_paid
 from theogony.config.settings import Settings
 from theogony.mesh.eval.qa_answers import models_that_answered, summarise_qa_answers
 from theogony.mesh.eval.qa_datasets import load_dataset
@@ -88,6 +89,12 @@ def main() -> None:
     ap.add_argument("--passage-k", type=int, default=DEFAULT_PASSAGE_K)
     ap.add_argument("--seeds", type=int, default=None, help="k_seeds for the constellation arm")
     ap.add_argument("--concurrency", type=int, default=8)
+    ap.add_argument(
+        "--spend-limit-usd",
+        type=float,
+        default=None,
+        help="the most this run may spend; default THEOGONY_LLM__SPEND_LIMIT_USD or 5 (PHX-1124)",
+    )
     ap.add_argument("--passage-vectors", type=Path, help="default: <root>/passage_vectors.npy")
     ap.add_argument("--out", type=Path)
     args = ap.parse_args()
@@ -131,7 +138,7 @@ def main() -> None:
     # answered about half of four runs with claude-sonnet-4-6 while their
     # headers said deepseek-chat, after the DeepSeek balance ran out (PHX-1123).
     # A failed call scores as an empty answer, which the summary counts.
-    llm = build_named_llm(settings)
+    llm = build_named_llm(settings, spend_limit_usd=args.spend_limit_usd)
     k_seeds = args.seeds if args.seeds is not None else DEFAULT_K_SEEDS
     retrieve_kwargs = {"k_seeds": args.seeds} if args.seeds is not None else {}
     print(
@@ -141,8 +148,11 @@ def main() -> None:
         f"-> {len(questions) * len(arms)} calls"
     )
     t = time.perf_counter()
-    results = asyncio.run(
-        answer_qa_set(
+    # One event loop for the preflight and the run; a stop ends the run with its
+    # reason (PHX-1124).
+    results = run_paid(
+        llm,
+        lambda: answer_qa_set(
             runtime,
             embed,
             llm,
@@ -154,7 +164,7 @@ def main() -> None:
             passage_k=args.passage_k,
             concurrency=args.concurrency,
             **retrieve_kwargs,
-        )
+        ),
     )
     elapsed = time.perf_counter() - t
     summary = summarise_qa_answers(results)
@@ -252,6 +262,10 @@ def main() -> None:
                     "seed": args.seed,
                     # who actually answered, per model (PHX-1123)
                     "answered_by": answered,
+                    # what it cost, and the model the provider says served the name (PHX-1124)
+                    "spent_usd": round(llm.spent_usd, 4),
+                    "spend_limit_usd": llm.limit_usd,
+                    "served_by": llm.preflight.served_model_id if llm.preflight else "",
                     "summary": summary,
                     "by_kind": by_kind,
                     "paired": paired,

@@ -20,7 +20,6 @@ prints the model and the arm count before it starts.
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
 import time
 from pathlib import Path
@@ -30,6 +29,7 @@ import torch
 from sentence_transformers import SentenceTransformer
 
 from theogony.agents.factory import build_named_llm
+from theogony.agents.spend import run_paid
 from theogony.config.settings import Settings
 from theogony.mesh.eval.qa_answers import (
     ARMS,
@@ -69,6 +69,12 @@ def main() -> None:
     ap.add_argument("--seed-mode", choices=("passage", "entity", "hybrid"), default="passage")
     ap.add_argument("--arms", default=",".join(ARMS))
     ap.add_argument("--concurrency", type=int, default=12)
+    ap.add_argument(
+        "--spend-limit-usd",
+        type=float,
+        default=None,
+        help="the most this run may spend; default THEOGONY_LLM__SPEND_LIMIT_USD or 5 (PHX-1124)",
+    )
     ap.add_argument("--embedder", default="BAAI/bge-small-en-v1.5")
     ap.add_argument("--spacy-model", default="en_core_web_sm")
     ap.add_argument("--batch-size", type=int, default=64)
@@ -142,17 +148,20 @@ def main() -> None:
     timing["rank_s"] = time.perf_counter() - t
 
     t = time.perf_counter()
-    results = asyncio.run(
-        answer_dataset(
-            # the model the run names, without a fallback (PHX-1123)
-            build_named_llm(settings),
+    # the model the run names, without a fallback (PHX-1123), behind the run's
+    # spend limit, after a preflight (PHX-1124)
+    llm = build_named_llm(settings, spend_limit_usd=args.spend_limit_usd)
+    results = run_paid(
+        llm,
+        lambda: answer_dataset(
+            llm,
             questions,
             passages,
             rankings,
             arms=arms,
             top_k=args.top_k,
             concurrency=args.concurrency,
-        )
+        ),
     )
     timing["answer_s"] = time.perf_counter() - t
     summary = summarise_qa_answers(results)
@@ -182,6 +191,10 @@ def main() -> None:
                     "timing_s": timing,
                     # who actually answered, per model (PHX-1123)
                     "answered_by": models_that_answered(results),
+                    # what it cost, and the model the provider says served the name (PHX-1124)
+                    "spent_usd": round(llm.spent_usd, 4),
+                    "spend_limit_usd": llm.limit_usd,
+                    "served_by": llm.preflight.served_model_id if llm.preflight else "",
                     "summary": summary,
                     "answers": [
                         {

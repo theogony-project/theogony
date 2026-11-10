@@ -27,8 +27,17 @@ MEASUREMENTS = (
 @pytest.mark.parametrize("path", MEASUREMENTS)
 def test_a_measurement_builds_its_provider_without_the_fallback(path: str) -> None:
     text = (ROOT / path).read_text(encoding="utf-8")
-    assert "build_named_llm(settings)" in text, path
+    assert "build_named_llm(settings" in text, path
     assert "build_llm_from_settings(" not in text, f"{path} would fall back to another model"
+
+
+@pytest.mark.parametrize("path", MEASUREMENTS)
+def test_a_measurement_states_its_spend_limit_and_asks_before_it_spends(path: str) -> None:
+    """PHX-1124: every paid run takes a limit and runs the preflight first."""
+    text = (ROOT / path).read_text(encoding="utf-8")
+    assert "spend_limit_usd=args.spend_limit_usd" in text, path
+    assert '"--spend-limit-usd"' in text, path
+    assert "run_paid(" in text or "preflight(llm)" in text, f"{path} spends without a preflight"
 
 
 @pytest.mark.parametrize("path", ("scripts/mesh_qa_constellation.py", "scripts/mesh_qa_answers.py"))
