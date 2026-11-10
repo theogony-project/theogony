@@ -313,7 +313,8 @@ Not yet. The answer sitting — the arms of `scripts/mesh_qa_constellation.py`
 on v2, names and names_entities, deepseek-chat, 1,000 questions, one sitting,
 paired with PHX-1121's builds — waits on the DeepSeek balance that stopped
 PHX-1121's sitting (PHX-1123). It is the measurement that weighs about 5,000
-corrected placements against about 1,000 fragmented entities.
+corrected placements against about 1,000 mentions on a second node of
+their entity.
 
 ## Against the acceptance
 
@@ -337,7 +338,7 @@ corrected placements against about 1,000 fragmented entities.
   the margins given. The base rates are 400 links each, from different draws on
   different builds.
 - **No answers.** Whether the corrected placements gain more than the
-  fragmented entities cost is the answer sitting's question.
+  fragmentation costs is the answer sitting's question.
 - **Paragraph concepts are counted, not judged.** That 99 careers on one node
   are wrong is a reading of the table, not a verdict.
 - **Exact names.** Every variant of a name fragments, and the fragments wait
@@ -400,6 +401,8 @@ The demo's builds come from the shipped readings, no key:
 
 ```python
 import asyncio
+from pathlib import Path
+
 from theogony.config.settings import Settings
 from theogony.mesh import frames
 from theogony.mesh.ingestion.replay import load_readings, replay_text
@@ -410,7 +413,7 @@ settings = Settings()
 text = demo_corpus_path().read_text(encoding="utf-8")
 readings = load_readings(demo_readings_path())
 for guard in ("v2", "names", "names_entities"):
-    runtime = MeshRuntime(f"data/demo-{guard}", semantic_dim=settings.embedding.dim,
+    runtime = MeshRuntime(Path(f"data/demo-{guard}"), semantic_dim=settings.embedding.dim,
                           frame_dim=frames.DEFAULT_FRAME_DIM)
     asyncio.run(replay_text(runtime, text, readings, source_type=DEMO_CORPUS.source_type,
                             source_identifier=DEMO_CORPUS.source_identifier, title=DEMO_CORPUS.title,
