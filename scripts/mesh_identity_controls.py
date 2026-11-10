@@ -34,12 +34,17 @@ def _label(node) -> str:
 
 def paragraph_concept_placement(nodes_by_id: dict, edges) -> dict:
     """Where each paragraph's concept landed (PHX-1122): alone on a node of its
-    own, on a paragraph-concept node it shares with other paragraphs, or on a
-    node that is no paragraph concept — an entity's.
+    own, on a paragraph-concept node it shares with other paragraphs' concepts,
+    or on a node that is no paragraph concept — an entity's.
 
     A paragraph concept writes no link-decision row, so the mention audit does
     not see where it went; its node is the target of the paragraph's
-    ``summarised_as`` edge.
+    ``summarised_as`` edge. *Alone* and *shared* count paragraph concepts only:
+    under PHX-1051's v2 guard an entity mention can link onto a
+    paragraph-concept node too, and the nodes that hold one are counted beside
+    them. A paragraph is its chunk, so a workspace that read one text twice
+    counts it twice, as the script's other counts do; a ``--fresh`` build reads
+    each paragraph once.
     """
     target_of = {
         str(e.source_id): str(e.target_id)
@@ -63,6 +68,7 @@ def paragraph_concept_placement(nodes_by_id: dict, edges) -> dict:
         else:
             placed["alone_on_its_own_node"] += 1
     shared = [t for t, k in paragraphs_on.items() if k > 1 and is_paragraph_concept(t)]
+    mentioned = {str(e.target_id) for e in edges if e.creation_context == "kadmos_mentions"}
     return {
         "paragraphs_with_a_concept": len(target_of),
         "alone_on_its_own_node": placed["alone_on_its_own_node"],
@@ -71,6 +77,9 @@ def paragraph_concept_placement(nodes_by_id: dict, edges) -> dict:
         "on_a_node_not_in_the_store": placed["on_a_node_not_in_the_store"],
         "shared_paragraph_concept_nodes": len(shared),
         "largest_shared": max((paragraphs_on[t] for t in shared), default=0),
+        "paragraph_concept_nodes_an_entity_mention_links_onto": sum(
+            is_paragraph_concept(t) for t in mentioned
+        ),
     }
 
 
