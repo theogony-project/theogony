@@ -163,9 +163,10 @@ The bundled demo is 95 paragraphs of Hesiod's Theogony, replayed from recorded
 readings. It is the corpus where the names guard should cost most: Hesiod names
 a god by epithet as often as by name. Under v2 the demo holds 723 consolidated
 nodes, 539 of them entities; under names 752 and 569 (+5.6%). `names_entities`
-is the same within one edge, because the demo's paragraph concepts carry
-almost no tags and v2 links them onto nothing either. No name stands on two
-entity nodes in either build.
+is the same within one edge: 93 of the demo's 95 paragraph concepts carry no
+tag but the reader's marker, and with no shared tag that names the label v2
+admits such a link only by a remembered label. No name stands on two entity
+nodes in any of the three builds.
 
 53 mentions sit on a node of another name under names than under v2. Both
 judges saw each mention with one of its two nodes at a time, blind to the
