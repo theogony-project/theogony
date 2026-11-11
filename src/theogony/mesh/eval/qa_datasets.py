@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import random
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +27,27 @@ DATASETS: dict[str, tuple[str, str]] = {
     "musique": ("musique.json", "musique_corpus.json"),
     "hotpotqa": ("hotpotqa.json", "hotpotqa_corpus.json"),
     "popqa": ("popqa.json", "popqa_corpus.json"),
+}
+
+# The releases' question types pooled by whether the question names its answer
+# (PHX-1127). `answer_unnamed`: the answer is an entity or a date that is not in
+# the question — none of the 521 such golds of 2Wiki is. `answer_named`: the
+# question names two entities and the answer is one of them, or yes or no —
+# all 369 entity golds of 2Wiki's are in their question, and a model with no
+# material gets 58% of the pool right, where it gets 11% of the other. Not
+# pooled by how many passages the answer takes: bridge_comparison takes a hop
+# from each named entity and behaves as a comparison. The 2Wiki pooling was
+# chosen after its four types had been read; HotpotQA's was written down before
+# any answer run on it (PHX-1128).
+POOLED_TYPES: dict[str, dict[str, tuple[str, ...]]] = {
+    "2wikimultihopqa": {
+        "answer_unnamed": ("compositional", "inference"),
+        "answer_named": ("comparison", "bridge_comparison"),
+    },
+    "hotpotqa": {
+        "answer_unnamed": ("bridge",),
+        "answer_named": ("comparison",),
+    },
 }
 
 
@@ -153,6 +174,7 @@ def load_dataset(
                 answer=answer,
                 gold_idxs=gold,
                 answer_aliases=aliases,
+                question_type=str(q["type"]) if q.get("type") else None,
             )
         )
     if max_questions and len(questions) > max_questions:
@@ -168,6 +190,27 @@ def load_dataset(
         questions=questions,
         gold_coverage=matched_gold / max(1, total_gold),
     )
+
+
+def question_types(name: str, cache_dir: Path) -> dict[str, str]:
+    """Question id -> the release's question type, read from the cached query file.
+
+    For answer runs written before the rows carried their type (PHX-1127).
+    Reads only what is on disk: a tool that re-reads a finished run does not
+    fetch a dataset to do it. Empty when the file is not there, the dataset is
+    unknown, or the release labels no types.
+    """
+    if name not in DATASETS:
+        return {}
+    path = cache_dir / DATASETS[name][0]
+    if not path.exists():
+        return {}
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    return {
+        str(row.get("_id") or row.get("id") or ""): str(row["type"])
+        for row in rows
+        if row.get("type")
+    }
 
 
 def subsample_corpus(
@@ -212,13 +255,7 @@ def subsample_corpus(
         for p in data.passages
         if p.idx in old_to_new
     ]
-    questions = [
-        QAQuestion(
-            qid=q.qid,
-            question=q.question,
-            answer=q.answer,
-            gold_idxs={old_to_new[g] for g in q.gold_idxs},
-        )
-        for q in data.questions
-    ]
+    # `replace`, so that a field added to the question travels with it: the copy
+    # written out by hand here had dropped `answer_aliases`.
+    questions = [replace(q, gold_idxs={old_to_new[g] for g in q.gold_idxs}) for q in data.questions]
     return QADataset(passages=passages, questions=questions, gold_coverage=data.gold_coverage)

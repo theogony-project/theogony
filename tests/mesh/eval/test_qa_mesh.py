@@ -481,6 +481,259 @@ def test_the_pairing_is_read_by_answer_kind() -> None:
     assert table["date"]["em_equal"] == 1.0
 
 
+def _typed_rows() -> list:
+    from theogony.mesh.eval.qa_answers import QAAnswerResult
+
+    rows = []
+    for qid, qtype, a_em, b_em in (
+        ("c1", "compositional", 1.0, 0.0),
+        ("c2", "compositional", 1.0, 0.0),
+        ("i1", "inference", 1.0, 1.0),
+        ("m1", "comparison", 0.0, 1.0),
+        ("u1", None, 1.0, 0.0),
+    ):
+        for arm, em in (("a", a_em), ("b", b_em)):
+            rows.append(
+                QAAnswerResult(
+                    qid=qid,
+                    arm=arm,
+                    question="",
+                    gold="x",
+                    answer="",
+                    em=em,
+                    # arm a found the answer of the first compositional question only
+                    gold_in_context=(arm, qid) == ("a", "c1"),
+                    question_type=qtype,
+                )
+            )
+    return rows
+
+
+_POOLED = {
+    "answer_unnamed": ("compositional", "inference"),
+    "answer_named": ("comparison", "bridge_comparison"),
+}
+
+
+def test_answers_are_read_by_the_datasets_question_type() -> None:
+    """One total averaged a gain where the question does not name its answer
+    against a loss on plain comparisons (PHX-1127)."""
+    from theogony.mesh.eval.qa_mesh import by_type_lines, summarise_by_type
+
+    rows = _typed_rows()
+    table = summarise_by_type(rows, pooled=_POOLED)
+    # the types, most questions first, then the pools that hold any of them
+    assert list(table) == [
+        "compositional",
+        "comparison",
+        "inference",
+        "answer_unnamed",
+        "answer_named",
+    ]
+    assert table["answer_unnamed"]["a"] == {
+        "questions": 3.0,
+        "exact_match": 1.0,
+        "f1": 0.0,
+        "gold_in_context": pytest.approx(1 / 3),
+        # what was found, and how much of the found was read out
+        "exact_match_where_found": 1.0,
+    }
+    assert table["answer_unnamed"]["b"]["exact_match"] == pytest.approx(1 / 3)
+    assert "exact_match_where_found" not in table["answer_unnamed"]["b"], (
+        "an arm that found nothing has no rate at which it read, and zero would be one"
+    )
+    assert table["answer_named"]["a"]["exact_match"] == 0.0
+    # the question the dataset gave no type is in no row, a pool included
+    assert table["compositional"]["a"]["questions"] + table["inference"]["a"]["questions"] == 3.0
+    assert set(summarise_by_type(rows)) == {"compositional", "comparison", "inference"}
+
+    lines = by_type_lines(table, ["a", "b"])
+    assert lines[0].split() == list(table), "one column per type and pool, named in full"
+    assert lines[1].split() == ["questions", "2", "1", "1", "3", "1"]
+    assert lines[2].split() == ["a", "100.0%", "0.0%", "100.0%", "100.0%", "0.0%"]
+    # a dash where there is no figure: b found nothing, a only on compositional
+    read = by_type_lines(table, ["a", "b", "absent"], metric="exact_match_where_found")
+    assert read[2].split() == ["a", "100.0%", "-", "-", "100.0%", "-"]
+    assert read[3].split() == ["b", "-", "-", "-", "-", "-"]
+    assert read[4].split() == ["absent", "-", "-", "-", "-", "-"]
+    # the count is the group's, not the first arm's: a is one row short here
+    short = [r for r in rows if (r.arm, r.qid) != ("a", "c2")]
+    assert by_type_lines(summarise_by_type(short), ["a", "b"])[1].split()[1] == "2"
+
+    # a run without types has nothing to report, which is not a table of zeros
+    assert summarise_by_type([r for r in rows if r.question_type is None]) == {}
+    # a pool named like a type would put two sets of questions under one name
+    with pytest.raises(ValueError, match="bears the name"):
+        summarise_by_type(rows, pooled={"comparison": ("compositional",)})
+    # ... refused also when this slice of the run happens to hold no such question
+    no_inference = [r for r in rows if r.question_type != "inference"]
+    with pytest.raises(ValueError, match="bears the name"):
+        summarise_by_type(
+            no_inference, pooled={"inference": ("compositional",), "rest": ("inference",)}
+        )
+
+
+def test_the_pairing_is_read_by_question_type() -> None:
+    from theogony.mesh.eval.qa_mesh import paired_by_type
+
+    rows = _typed_rows()
+    table = paired_by_type(rows, arm="a", baseline="b", pooled=_POOLED)
+    assert list(table) == [
+        "compositional",
+        "comparison",
+        "inference",
+        "answer_unnamed",
+        "answer_named",
+    ]
+    unnamed = table["answer_unnamed"]
+    assert (unnamed["em_better"], unnamed["em_worse"], unnamed["em_equal"]) == (2.0, 0.0, 1.0)
+    assert (table["answer_named"]["em_better"], table["answer_named"]["em_worse"]) == (0.0, 1.0)
+    assert table["answer_named"] == table["comparison"], "a pool of one type is that type"
+    untyped = [r for r in rows if r.question_type is None]
+    assert paired_by_type(untyped, arm="a", baseline="b", pooled=_POOLED) == {}
+    # an arm that did not run pairs with nothing: no rows, rather than rows of zeros
+    assert paired_by_type(rows, arm="a", baseline="absent", pooled=_POOLED) == {}
+
+
+def test_the_pairing_is_split_by_which_arm_found_the_answer() -> None:
+    """Two arms' reading rates are over different questions; where both found
+    the answer they are over the same ones (PHX-1127)."""
+    from theogony.mesh.eval.qa_answers import QAAnswerResult
+    from theogony.mesh.eval.qa_mesh import paired_by_found
+
+    rows = []
+    for qid, a_found, b_found, a_em, b_em in (
+        ("both1", True, True, 1.0, 1.0),
+        ("both2", True, True, 0.0, 1.0),
+        ("a1", True, False, 1.0, 0.0),
+        ("a2", True, False, 1.0, 0.0),
+        ("b1", False, True, 0.0, 1.0),
+        ("none1", False, False, 0.0, 1.0),
+        ("only_a_ran", True, False, 1.0, None),
+    ):
+        rows.append(
+            QAAnswerResult(
+                qid=qid, arm="a", question="", gold="x", answer="", em=a_em, gold_in_context=a_found
+            )
+        )
+        if b_em is not None:
+            rows.append(
+                QAAnswerResult(
+                    qid=qid,
+                    arm="b",
+                    question="",
+                    gold="x",
+                    answer="",
+                    em=b_em,
+                    gold_in_context=b_found,
+                )
+            )
+    table = paired_by_found(rows, arm="a", baseline="b")
+    assert list(table) == ["both", "arm_only", "baseline_only", "neither"]
+    assert (table["both"]["questions"], table["both"]["em_worse"]) == (2.0, 1.0)
+    assert (table["arm_only"]["em_better"], table["arm_only"]["em_worse"]) == (2.0, 0.0)
+    assert (table["baseline_only"]["em_better"], table["baseline_only"]["em_worse"]) == (0.0, 1.0)
+    # where neither material holds the answer, an arm scores from the model's own knowledge
+    assert (table["neither"]["questions"], table["neither"]["em_worse"]) == (1.0, 1.0)
+    assert sum(t["questions"] for t in table.values()) == 6.0, "the unpaired question is in no cell"
+    # a cell nobody is in is left out, as a type nobody asked is
+    found_by_a = [r for r in rows if r.qid in ("a1", "a2")]
+    assert list(paired_by_found(found_by_a, arm="a", baseline="b")) == ["arm_only"]
+
+
+def test_a_run_is_reported_by_type_in_one_place() -> None:
+    """The harness writes this with a run and the script reads it out of a
+    finished one; both through `by_type_report`, so the two cannot drift."""
+    from theogony.mesh.eval.qa_mesh import by_type_report, pair_by_type_lines
+
+    rows = _typed_rows()
+    report = by_type_report(rows, pooled=_POOLED, pairs=(("a", "b"), ("a", "absent")))
+    assert set(report) == {"by_type", "paired_by_type", "paired_in_pool"}
+    assert list(report["paired_by_type"]) == ["a_vs_b"], "a pair needs both its arms"
+    assert list(report["paired_by_type"]["a_vs_b"]) == list(report["by_type"])
+    in_pool = report["paired_in_pool"]["a_vs_b"]
+    assert list(in_pool) == ["answer_unnamed", "answer_named"], "the pools, not the single types"
+    unnamed = in_pool["answer_unnamed"]
+    # arm a found c1 only: the other two answers it has from somewhere else
+    assert (
+        unnamed["by_found"]["arm_only"]["questions"],
+        unnamed["by_found"]["neither"]["questions"],
+    ) == (1.0, 2.0)
+    assert unnamed["by_kind"]["entity"]["questions"] == 3.0
+    lines = pair_by_type_lines(report["paired_by_type"]["a_vs_b"], in_pool)
+    assert lines[0].startswith("    by type: compositional 2/0 (p=0.5)")
+    assert "    answer_unnamed, by where the answer stood: arm_only 1/0 · neither 1/0" in lines
+    assert any(line.startswith("    answer_named, by answer kind: entity 0/1") for line in lines)
+
+    untyped = [r for r in rows if r.question_type is None]
+    assert by_type_report(untyped, pooled=_POOLED, pairs=(("a", "b"),)) == {
+        "by_type": {},
+        "paired_by_type": {},
+        "paired_in_pool": {},
+    }
+
+
+def test_a_finished_run_is_read_back_with_its_question_types() -> None:
+    """Runs written before PHX-1127 carry no type; the dataset file gives it."""
+    from theogony.mesh.eval.qa_mesh import results_from_run
+
+    run = {
+        "answers": [
+            {
+                "qid": "q1",
+                "arm": "passages",
+                "question": "?",
+                "gold": "x",
+                "answer": "x",
+                "em": 1.0,
+                "f1": 1.0,
+                "gold_in_context": True,
+            },
+            {
+                "qid": "q2",
+                "arm": "passages",
+                "question": "?",
+                "gold": "y",
+                "answer": "",
+                "em": 0.0,
+                "f1": 0.0,
+                "gold_in_context": False,
+                "attached_passages": 2,
+                "model": "m",
+                "question_type": "inference",
+            },
+        ]
+    }
+    types = {"q1": "comparison", "q2": "comparison"}
+    rows = results_from_run(run, question_types=types, arm_suffix="@a")
+    assert [r.arm for r in rows] == ["passages@a", "passages@a"]
+    assert rows[0].question_type == "comparison", "an older row takes it from the dataset"
+    assert rows[1].question_type == "inference", "a row's own type is the one it was asked with"
+    assert (rows[0].em, rows[0].gold_in_context) == (1.0, True)
+    assert (rows[1].model, rows[1].attached_passages) == ("m", 2)
+    assert [r.question_type for r in results_from_run(run)] == [None, "inference"]
+    # ids are strings in the dataset's keys; a file that holds a number still joins
+    numbered = {"answers": [{**run["answers"][0], "qid": 7}]}
+    (row,) = results_from_run(numbered, question_types={"7": "bridge"})
+    assert (row.qid, row.question_type) == ("7", "bridge")
+
+
+def test_the_question_type_travels_from_the_question_to_its_answers(tmp_path) -> None:
+    runtime, _ = _ingest(tmp_path)
+    q = QAQuestion(
+        qid="t",
+        question="Who was the father of Marie of Hanover?",
+        answer="George V of Hanover",
+        gold_idxs={0},
+        question_type="compositional",
+    )
+    vectors = unit_rows(np.asarray([_embed(paragraph_of(p)) for p in PASSAGES], dtype=np.float32))
+    jobs = build_qa_jobs(
+        runtime, _embed, [q], PASSAGES, vectors, arms=("closed_book", "passages"), passage_k=2
+    )
+    assert [j.result.question_type for j in jobs] == ["compositional", "compositional"]
+
+
 def test_the_harness_passes_the_accrual_switch_to_the_reader(tmp_path) -> None:
     """PHX-1118: both arms of the measurement are built through this helper."""
     off = MeshRuntime(tmp_path / "off", semantic_dim=8, frame_dim=8)

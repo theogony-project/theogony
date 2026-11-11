@@ -75,6 +75,11 @@ class QAQuestion:
     # string against a model that picked a synonym reports a failure that is not
     # one (PHX-1089).
     answer_aliases: list[str] = field(default_factory=list)
+    # The reasoning type the release assigns to the question — 2Wiki:
+    # compositional, inference, comparison, bridge_comparison; HotpotQA: bridge,
+    # comparison — or None where it assigns none. One total over all of them
+    # averaged a gain of eleven points against a loss of four (PHX-1127).
+    question_type: str | None = None
 
     @property
     def acceptable(self) -> list[str]:
