@@ -122,14 +122,18 @@ def test_closed_book_is_an_arm_and_gets_no_context() -> None:
             seen.append(prompt)
             return "x"
 
-    questions = [QAQuestion(qid="1", question="Who?", answer="x", gold_idxs={0})]
+    questions = [
+        QAQuestion(qid="1", question="Who?", answer="x", gold_idxs={0}, question_type="bridge")
+    ]
     passages = [QAPassage(idx=0, title="T", text="body")]
     rankings = {"knn": [[0]]}
-    asyncio.run(
+    results = asyncio.run(
         answer_dataset(
             _Recorder(), questions, passages, rankings, arms=("closed_book", "knn"), top_k=1
         )
     )
+    # every answer keeps the question's type, so a run can be read by it (PHX-1127)
+    assert [r.question_type for r in results] == ["bridge", "bridge"]
     assert not any("Passages:" in p for p in seen if "Who?" in p and "body" not in p)
     assert any("body" in p for p in seen), "the retrieval arm must see its passages"
     assert any("Passages:" not in p for p in seen), "closed_book must see none"

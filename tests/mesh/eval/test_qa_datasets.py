@@ -8,7 +8,15 @@ possible failure for a measurement harness.
 
 from __future__ import annotations
 
-from theogony.mesh.eval.qa_datasets import QADataset, subsample_corpus
+import json
+
+from theogony.mesh.eval.qa_datasets import (
+    POOLED_TYPES,
+    QADataset,
+    load_dataset,
+    question_types,
+    subsample_corpus,
+)
 from theogony.mesh.eval.qa_retrieval import QAPassage, QAQuestion
 
 
@@ -55,3 +63,62 @@ def test_subsampling_is_deterministic_for_a_seed() -> None:
     a = subsample_corpus(_dataset(), corpus_size=6, seed=42)
     b = subsample_corpus(_dataset(), corpus_size=6, seed=42)
     assert [p.title for p in a.passages] == [p.title for p in b.passages]
+
+
+def test_subsampling_keeps_what_the_question_carries() -> None:
+    """The copy used to be written out field by field and had lost the aliases."""
+    data = _dataset()
+    data.questions[0] = QAQuestion(
+        qid="q0",
+        question="?",
+        answer="a",
+        gold_idxs={2, 7},
+        answer_aliases=["A"],
+        question_type="inference",
+    )
+    out = subsample_corpus(data, corpus_size=5, seed=0)
+    assert out.questions[0].question_type == "inference"
+    assert out.questions[0].answer_aliases == ["A"]
+    assert data.questions[0].gold_idxs == {2, 7}, "the dataset handed in is left as it was"
+
+
+def _write_release(tmp_path, rows: list[dict]) -> None:
+    corpus = [{"title": "T0", "text": "t"}, {"title": "T1", "text": "t"}]
+    (tmp_path / "2wikimultihopqa_corpus.json").write_text(json.dumps(corpus), encoding="utf-8")
+    (tmp_path / "2wikimultihopqa.json").write_text(json.dumps(rows), encoding="utf-8")
+
+
+def test_the_releases_question_type_is_read_with_the_question(tmp_path) -> None:
+    """PHX-1127: what reaching the answer takes, as the dataset labels it."""
+    _write_release(
+        tmp_path,
+        [
+            {
+                "_id": "a",
+                "type": "compositional",
+                "question": "?",
+                "answer": "x",
+                "supporting_facts": [["T0", 0]],
+            },
+            {"_id": "b", "question": "?", "answer": "y", "supporting_facts": [["T1", 0]]},
+        ],
+    )
+    data = load_dataset("2wikimultihopqa", tmp_path)
+    assert [q.question_type for q in data.questions] == ["compositional", None]
+    assert question_types("2wikimultihopqa", tmp_path) == {"a": "compositional"}
+
+
+def test_question_types_reads_only_what_is_on_disk(tmp_path) -> None:
+    """Re-reading a finished run must not fetch a dataset to do it."""
+    assert question_types("2wikimultihopqa", tmp_path) == {}
+    assert question_types("no_such_dataset", tmp_path) == {}
+    assert not list(tmp_path.iterdir())
+
+
+def test_no_question_type_sits_in_two_pools_and_no_pool_is_named_like_one() -> None:
+    """A collision would raise after an answer run had been paid for and before
+    it was written, so the table is held to it here."""
+    for pools in POOLED_TYPES.values():
+        held = [t for members in pools.values() for t in members]
+        assert len(held) == len(set(held))
+        assert not set(pools) & set(held)

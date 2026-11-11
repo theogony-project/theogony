@@ -1,0 +1,93 @@
+id: PHX-1127
+category: evaluation
+priority: high
+status: done
+generation_target: MESH — answer instrument (how an answer run is read)
+title: "One total over 2Wiki's questions averaged two populations with opposite signs"
+filed_by: Claude Code (2026-11-11, from a recap of the measurement record)
+created_at: 2026-11-11
+description: >
+  PHX-1110 reported the answer arm on 2WikiMultihopQA as totals over 1,000
+  questions -- the edges of the mesh worth +3.6 exact match over the same
+  entities without them, the typed Constellation a tie with five retrieved
+  passages -- and broke them down by the shape of the gold answer (entity,
+  yes/no, date). The dataset also labels every question with a type:
+  compositional (413), inference (108), comparison (244), bridge_comparison
+  (235). No run had been read by that label, and the two repairs (PHX-1113,
+  PHX-1114) and the accrual measurement (PHX-1118) were each judged on the
+  total and on the answer kinds.
+acceptance: >
+  The harness reports every run by question type; the runs on record are
+  re-read that way without calling a model; the totals of PHX-1110 are
+  reproduced from the same rows; the reading is written up with what it does
+  not show. A reading that finds nothing by type, recorded, closes it.
+resolution: >
+  Done, 2026-11-11 (docs/etappes/question_types.md). No new run:
+  scripts/mesh_qa_by_type.py joins the answer rows of five runs from three
+  sittings to the dataset's `type` by question id, and reproduces PHX-1110's
+  totals (42.7, 44.1, 33.8). Pooled by whether the question names its answer:
+  answer_unnamed (compositional + inference, 521 questions, none of whose
+  golds stands in its question, prior 11.3%) and answer_named (comparison +
+  bridge_comparison, 479, whose 369 entity or date golds all stand in their
+  question and whose other 110 are yes or no, prior 58.2%). On the
+  unnamed-answer questions the typed Constellation, with no source text, beats
+  five passages in every sitting: 29.6% against 23.0% on 2026-09-16 (100
+  better / 66 worse, p = 0.010), 30.3% against 21.3% on 2026-10-19 (107 / 60,
+  p = 0.0003), 108 / 62 on the rebuilt mesh. The lead is on the pool's 469
+  entity answers (103 / 44) and reverses on its 52 dates (4 / 16). The edges
+  are worth +10.9 and +11.7 on that pool (93 / 36 and 96 / 35, p < 1e-6); on
+  the other they are -4.4, not significantly (p = 0.08, 0.07), inside which
+  plain comparisons lose ten points (13 / 39, p = 0.0004) and comparison
+  chains gain two. Weighted, +3.6 and +4.0, the published figures. The lead
+  is one of finding: split by which arm's material holds the gold, the
+  Constellation and the passages are even where both hold it (17 / 19 of
+  118), and the lead is the 178 questions only the Constellation holds it for
+  against the 65 only the passages do; the edges' gain is 159 against 39.
+  In the one sitting that measured the prior, the Constellation scored below
+  it where its material lacked the answer (4 / 18 of 225, p = 0.004), the
+  passages did not (13 / 14).
+  The yes/no sentence acts on the named-answer questions only, the source
+  paragraphs on the others only (+7.3, 53 / 15, and they remove the reversal
+  on dates), the structural edges' cost is on the named-answer ones
+  (51 / 18), accrual's gain is 61 / 27 on the unnamed-answer ones. The
+  passages arm, the control for the model's drift, moved +6.9 on the
+  named-answer questions between September and October (57 / 24) and -1.7 on
+  the others (5 / 14). Limits, as the etappe states them: the pools were
+  chosen after the four types had been read, and more than a hundred paired
+  tests were looked at, of which only the edges' effect stands clear of a
+  bound for that count; one dataset, one question set, one mesh, one model
+  name; the
+  passages arm is top-5 by cosine, not a multi-hop retriever; 2Wiki's
+  questions are generated from Wikidata relations. An independent
+  recomputation of every figure and a code review preceded the PR. The
+  recomputation confirmed every number and raised fourteen points on the
+  first write-up and seven on the second, all on the reading; it was
+  rewritten on them -- chiefly: the pools are divided by whether the question
+  names its answer, not by how many paragraphs it takes; the lead does not
+  hold on dates; the loss on the second pool is not significant; reading
+  rates are compared where both arms hold the answer, not across each arm's
+  own questions.
+  Shipped: QAQuestion and QAAnswerResult carry `question_type`;
+  qa_mesh.summarise_by_type, paired_by_type, paired_by_found, by_type_report
+  and results_from_run; qa_datasets.POOLED_TYPES and question_types;
+  mesh_qa_constellation.py writes `by_type`, `paired_by_type` and
+  `paired_in_pool` and the type on every answer row; mesh_qa_pair_runs.py
+  pairs two runs by type. In passing, subsample_corpus now copies the question
+  with dataclasses.replace: the hand-written copy had dropped `answer_aliases`
+  (no caller of it reads answers). Follow-up filed: PHX-1128, the same reading
+  on HotpotQA with its decision rules written first.
+relates_to:
+  - PHX-1110   # the totals this reads apart
+  - PHX-1113   # the yes/no sentence, by pool
+  - PHX-1114   # the source paragraphs, by pool
+  - PHX-1118   # accrual, by pool
+  - PHX-1089   # the kNN passages arm this is measured against
+  - PHX-1128   # the same reading on HotpotQA
+linked_docs:
+  - docs/etappes/question_types.md
+linked_scripts:
+  - scripts/mesh_qa_by_type.py
+  - scripts/mesh_qa_constellation.py
+  - scripts/mesh_qa_pair_runs.py
+  - src/theogony/mesh/eval/qa_mesh.py
+  - src/theogony/mesh/eval/qa_datasets.py
