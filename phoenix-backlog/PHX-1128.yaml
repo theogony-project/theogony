@@ -1,0 +1,84 @@
+id: PHX-1128
+category: evaluation
+priority: high
+status: open
+generation_target: MESH — answer instrument (a second corpus for the by-type reading)
+title: "The answer arm by question type has been read on one dataset"
+filed_by: Claude Code (2026-11-11, from PHX-1127)
+created_at: 2026-11-11
+description: >
+  PHX-1127 read the answer arm on 2WikiMultihopQA by question type: on the
+  521 questions that do not name their answer the typed Constellation beats
+  five passages by 6.5 to 9.0 points of exact match and the edges are worth
+  11, and the lead is one of finding -- where both materials hold the gold
+  the two arms are even (17 better / 19 worse), and the Constellation holds
+  it on 178 questions where the passages do not, against 65 the other way.
+  That is one dataset, one question set, pools chosen after the fact, and the
+  ground a graph of entities is best on: questions generated from Wikidata
+  relations over a corpus of one paragraph per article.
+  HotpotQA is a different construction (questions written by people over
+  Wikipedia introductions), and everything but the answer run is on disk:
+  data/raw/qa_bench/kadmos_readings_hotpotqa.jsonl holds a Kadmos reading of
+  each of its 9,811 passages since 2026-08-15, scripts/mesh_qa_mesh_ingest.py
+  replays readings into a mesh without a key, and scripts/mesh_qa_constellation.py
+  takes --dataset. The Constellation has never been asked a question there;
+  PHX-1089 ran passage arms and measured the kNN passages' ceiling at 77.1%
+  over all questions, against 59.0% on 2Wiki by the same looser string match
+  -- so the passages may well be the arm that holds the answer more often
+  here.
+  HotpotQA labels its questions `bridge` (811 of the 1,000) and `comparison`
+  (189). qa_datasets.POOLED_TYPES maps bridge to answer_unnamed and comparison
+  to answer_named; that mapping was written on 2026-11-11, before any answer
+  from a mesh of this corpus existed.
+  What the account of PHX-1127 implies for this run, written the same day,
+  each with the figure that contradicts it. Tests are the exact two-sided
+  paired sign test on exact match; "holds" is gold_in_context. Three of the
+  five expect no difference, which a test with too few questions grants for
+  nothing: such an expectation counts as met only where the cell it is
+  judged on has at least fifty discordant pairs, and is recorded as undecided
+  below that.
+  (1) The edges find. On the unnamed-answer questions constellation_typed
+  holds the gold at least five points more often than vector_only and is
+  ahead of it at p < 0.05. Contradicted if either fails.
+  (2) No difference in reading. On the unnamed-answer questions whose gold
+  both constellation_typed and passages hold, neither arm is ahead at
+  p < 0.05. Contradicted if one is; undecided under fifty discordant pairs
+  (2Wiki had 36 in that cell).
+  (3) The lead follows the finding. Of constellation_typed and passages, the
+  arm that holds the gold more often on the unnamed-answer questions, by five
+  points or more, is not behind the other on those questions at p < 0.05.
+  Contradicted if it is. If the two hold it within five points of each other,
+  the expectation is that neither is ahead at p < 0.05 (undecided under fifty
+  discordant pairs).
+  (4) Not finding costs the prior. On the unnamed-answer questions whose gold
+  constellation_typed does not hold, it is worse than closed_book more often
+  than better. Contradicted if it is better at least as often.
+  (5) On the named-answer questions constellation_typed is not ahead of
+  passages at p < 0.05. Contradicted if it is; undecided under fifty
+  discordant pairs (the pool is 189 questions here).
+  If (1) is contradicted, the reading of PHX-1127 is a property of 2Wiki's
+  construction, and the documents that quote it say so. If (2) or (3) is, the
+  account that the lead is one of finding is incomplete. If (4) is, the fall
+  below the prior was that one sitting's. If (5) is, the deficit on the
+  named-answer questions is 2Wiki's. In each case the etappe of PHX-1127 gets
+  a dated note.
+acceptance: >
+  A HotpotQA mesh built by replay from the cached readings, with its
+  IngestRunReport and the identity controls of PHX-1051; one answer sitting on
+  the sampled 1,000 questions with the arms closed_book, passages,
+  vector_only, constellation_typed and constellation_sources, by one named
+  model, read by type and pool (scripts/mesh_qa_constellation.py writes
+  by_type, paired_by_type and paired_in_pool); an etappe that marks each of
+  the five expectations as met, contradicted or undecided by its stated
+  figure. A null or a contradiction, recorded, closes it. Costs about what one 2Wiki sitting
+  costs; needs a key for the answering model only.
+relates_to:
+  - PHX-1127   # the reading this repeats on a second corpus
+  - PHX-1110   # the harness
+  - PHX-1089   # the passage arms and their ceiling on this dataset
+linked_docs:
+  - docs/etappes/question_types.md
+linked_scripts:
+  - scripts/mesh_qa_mesh_ingest.py
+  - scripts/mesh_qa_constellation.py
+  - scripts/mesh_qa_by_type.py
