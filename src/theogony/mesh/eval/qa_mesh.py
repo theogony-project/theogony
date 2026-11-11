@@ -40,7 +40,7 @@ from __future__ import annotations
 import asyncio
 import math
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -77,6 +77,28 @@ QA_ARMS = ("closed_book", "passages", "vector_only", "constellation", "constella
 EXTRA_ARMS = ("constellation_typed_yn", "constellation_sources", "constellation_sources_yn")
 ALL_ARMS = QA_ARMS + EXTRA_ARMS
 DEFAULT_PASSAGE_K = 5
+# The comparisons a run is read by, (arm, baseline): what the edges add, what
+# the rendering is worth against plain retrieval and against the prior, and the
+# two repairs. Here and not in the script, so that a finished run is re-read
+# through the same pairs it was written with (PHX-1127).
+QA_PAIRS: tuple[tuple[str, str], ...] = (
+    ("constellation", "vector_only"),
+    ("constellation", "passages"),
+    ("constellation", "closed_book"),
+    ("constellation_typed", "constellation"),
+    ("constellation_typed", "vector_only"),
+    ("constellation_typed", "passages"),
+    ("constellation_typed", "closed_book"),
+    ("vector_only", "closed_book"),
+    ("passages", "closed_book"),
+    # PHX-1113 / PHX-1114
+    ("constellation_typed_yn", "constellation_typed"),
+    ("constellation_sources", "constellation_typed"),
+    ("constellation_sources", "passages"),
+    ("constellation_sources_yn", "constellation_typed"),
+    ("constellation_sources_yn", "constellation_sources"),
+    ("constellation_sources_yn", "passages"),
+)
 
 # ---------------------------------------------------------------------------
 # Replay ingestion — the provider and the key live in `mesh.ingestion.replay`
@@ -451,6 +473,7 @@ def build_qa_jobs(
                         answer="",
                         gold_in_context=bool(context) and _contains_any(context, golds),
                         attached_passages=attached,
+                        question_type=q.question_type,
                     ),
                     system=system,
                     prompt=prompt,
@@ -550,21 +573,282 @@ def summarise_by_kind(results: Sequence[QAAnswerResult]) -> dict[str, dict[str, 
     the ceiling (how often the answer stood in the material) beside the score,
     because PHX-1114 asks whether an arm fails to find or fails to read.
     """
+    table = _rows_by_group(results, lambda r: (answer_kind(r.gold),))
+    return {kind: {arm: _stats(rows) for arm, rows in arms.items()} for kind, arms in table.items()}
+
+
+def _rows_by_group(
+    results: Sequence[QAAnswerResult], groups_of: Callable[[QAAnswerResult], Sequence[str]]
+) -> dict[str, dict[str, list[QAAnswerResult]]]:
     table: dict[str, dict[str, list[QAAnswerResult]]] = {}
     for r in results:
-        table.setdefault(answer_kind(r.gold), {}).setdefault(r.arm, []).append(r)
+        for group in groups_of(r):
+            table.setdefault(group, {}).setdefault(r.arm, []).append(r)
+    return table
+
+
+def _stats(rows: Sequence[QAAnswerResult]) -> dict[str, float]:
     return {
-        kind: {
-            arm: {
-                "questions": float(len(rows)),
-                "exact_match": sum(r.em for r in rows) / len(rows),
-                "f1": sum(r.f1 for r in rows) / len(rows),
-                "gold_in_context": sum(1.0 for r in rows if r.gold_in_context) / len(rows),
-            }
-            for arm, rows in arms.items()
-        }
-        for kind, arms in table.items()
+        "questions": float(len(rows)),
+        "exact_match": sum(r.em for r in rows) / len(rows),
+        "f1": sum(r.f1 for r in rows) / len(rows),
+        "gold_in_context": sum(1.0 for r in rows if r.gold_in_context) / len(rows),
     }
+
+
+def _type_groups(
+    results: Sequence[QAAnswerResult], pooled: Mapping[str, Collection[str]] | None
+) -> dict[str, tuple[str, ...]]:
+    """Group name -> the question types it holds: every type on its own, most
+    questions first, then the pools.
+
+    A pool named like a type would put two sets of questions under one row and
+    report neither, so it is refused — against the types the pools name as well
+    as the ones these results hold, so that a slice of a run which happens to
+    lack the type does not pass what the whole run would refuse.
+    """
+    counts: dict[str, set[str]] = {}
+    for r in results:
+        if r.question_type:
+            counts.setdefault(r.question_type, set()).add(r.qid)
+    types = sorted(counts, key=lambda t: (-len(counts[t]), t))
+    groups: dict[str, tuple[str, ...]] = {t: (t,) for t in types}
+    pools = dict(pooled or {})
+    named = set(types) | {t for members in pools.values() for t in members}
+    for name, members in pools.items():
+        if name in named:
+            raise ValueError(f"the pool {name!r} bears the name of a question type")
+        held = tuple(t for t in types if t in members)
+        if held:
+            groups[name] = held
+    return groups
+
+
+def summarise_by_type(
+    results: Sequence[QAAnswerResult], *, pooled: Mapping[str, Collection[str]] | None = None
+) -> dict[str, dict[str, dict[str, float]]]:
+    """`summarise_by_kind`, by the dataset's question type instead of the gold's shape.
+
+    The kind says what the answer looks like; the type says what the question
+    asks for. On 2WikiMultihopQA the edges of the mesh were worth eleven points
+    where the question does not name its answer and cost ten on plain
+    comparisons, and the one total, +3.6, said neither (PHX-1127).
+    `pooled` adds rows that hold several types (`qa_datasets.POOLED_TYPES`).
+    Results without a type are left out; a run with none returns ``{}``.
+
+    One figure more than by kind: `exact_match_where_found`, the exact match on
+    the questions whose answer stood in the material. It is left out where the
+    answer stood in none — the prior's arm has no material — because an arm
+    that found nothing has no rate at which it read, and a zero would say it
+    had one. The rate is over each arm's own found questions, so two arms'
+    rates are not over the same questions; `paired_by_found` compares them
+    where both found the answer.
+    """
+    groups = _type_groups(results, pooled)
+    table = _rows_by_group(
+        results,
+        lambda r: [name for name, held in groups.items() if r.question_type in held],
+    )
+    return {
+        name: {arm: _stats_where_found(rows) for arm, rows in table[name].items()}
+        for name in groups
+    }
+
+
+def _stats_where_found(rows: Sequence[QAAnswerResult]) -> dict[str, float]:
+    stats = _stats(rows)
+    found = [r for r in rows if r.gold_in_context]
+    if found:
+        stats["exact_match_where_found"] = sum(r.em for r in found) / len(found)
+    return stats
+
+
+#: The three tables a run is printed in by question type: the score, how often
+#: the answer was found, and how much of the found was read out.
+BY_TYPE_TABLES: tuple[tuple[str, str], ...] = (
+    ("exact_match", "exact match by question type"),
+    ("gold_in_context", "answer in the material, by question type"),
+    ("exact_match_where_found", "exact match where the answer was in the material"),
+)
+
+
+def by_type_lines(
+    by_type: Mapping[str, Mapping[str, Mapping[str, float]]],
+    arms: Sequence[str],
+    *,
+    metric: str = "exact_match",
+) -> list[str]:
+    """`summarise_by_type` as text: one row per arm, one column per type or pool.
+
+    Arms as rows: four of the eight share their first fourteen letters, and a
+    column header cut to fit no longer told them apart. A dash where an arm has
+    no such figure — no rows in the group, or nothing found to be read out.
+    """
+    names = list(by_type)
+    width = max((len(a) for a in (*arms, "questions")), default=0) + 2
+    # the most any arm answered: one arm short of rows must not shrink the count
+    counts = [max(int(stats["questions"]) for stats in by_type[name].values()) for name in names]
+
+    def cell(name: str, arm: str) -> str:
+        value = by_type[name].get(arm, {}).get(metric)
+        return f"{'-':>17s}" if value is None else f"{value:>17.1%}"
+
+    return [
+        " " * width + " ".join(f"{name:>17s}" for name in names),
+        f"{'questions':<{width}}" + " ".join(f"{n:>17d}" for n in counts),
+        *(f"{arm:<{width}}" + " ".join(cell(name, arm) for name in names) for arm in arms),
+    ]
+
+
+def paired_by_type(
+    results: Sequence[QAAnswerResult],
+    *,
+    arm: str,
+    baseline: str,
+    pooled: Mapping[str, Collection[str]] | None = None,
+) -> dict[str, dict[str, float]]:
+    """`paired_qa` on each question type, then on each pool of them."""
+    out: dict[str, dict[str, float]] = {}
+    for name, held in _type_groups(results, pooled).items():
+        subset = [r for r in results if r.question_type in held]
+        pair = paired_qa(subset, arm=arm, baseline=baseline)
+        if pair["questions"]:
+            out[name] = pair
+    return out
+
+
+_FOUND_CELLS = ("both", "arm_only", "baseline_only", "neither")
+
+
+def paired_by_found(
+    results: Sequence[QAAnswerResult], *, arm: str, baseline: str
+) -> dict[str, dict[str, float]]:
+    """`paired_qa`, split by which of the two arms had the answer in its material.
+
+    Two arms' reading rates are each over the questions that arm found, which
+    are not the same questions; where both found the answer they can be
+    compared. On 2Wiki's questions that do not name their answer the typed
+    Constellation and five passages are even there (17 better, 19 worse), and
+    the Constellation's lead is the 178 questions only it found against the 65
+    only the passages did (PHX-1127). `neither` is where both materials lack
+    the answer: what an arm scores there it has from the model's own
+    knowledge, or has lost of it.
+    """
+    by = {(r.qid, r.arm): r for r in results}
+    cells: dict[str, list[QAAnswerResult]] = {}
+    for qid in sorted({r.qid for r in results}):
+        a, b = by.get((qid, arm)), by.get((qid, baseline))
+        if a is None or b is None:
+            continue
+        if a.gold_in_context:
+            cell = "both" if b.gold_in_context else "arm_only"
+        else:
+            cell = "baseline_only" if b.gold_in_context else "neither"
+        cells.setdefault(cell, []).extend((a, b))
+    return {
+        cell: paired_qa(cells[cell], arm=arm, baseline=baseline)
+        for cell in _FOUND_CELLS
+        if cell in cells
+    }
+
+
+def by_type_report(
+    results: Sequence[QAAnswerResult],
+    *,
+    pooled: Mapping[str, Collection[str]] | None = None,
+    pairs: Sequence[tuple[str, str]] = QA_PAIRS,
+) -> dict[str, Any]:
+    """A run read by question type: what the harness writes with a run, and what
+    `scripts/mesh_qa_by_type.py` reads out of a finished one.
+
+    `by_type` is `summarise_by_type`. `paired_by_type` is `paired_by_type` for
+    every pair both of whose arms ran. `paired_in_pool` reads each pool once
+    more, by which arm found the answer (`paired_by_found`) and by the shape
+    of the gold (`paired_by_kind`): a pool is itself a total, and the first
+    one drawn here hid that the lead on its entity answers reverses on its 52
+    dates. Empty tables for a run without question types.
+    """
+    arms = {r.arm for r in results}
+    pools = {
+        name: held for name, held in _type_groups(results, pooled).items() if name in (pooled or {})
+    }
+    paired: dict[str, dict[str, dict[str, float]]] = {}
+    in_pool: dict[str, dict[str, dict[str, dict[str, dict[str, float]]]]] = {}
+    for arm, base in pairs:
+        if arm not in arms or base not in arms:
+            continue
+        by_type = paired_by_type(results, arm=arm, baseline=base, pooled=pooled)
+        if not by_type:
+            continue
+        key = f"{arm}_vs_{base}"
+        paired[key] = by_type
+        in_pool[key] = {}
+        for name, held in pools.items():
+            subset = [r for r in results if r.question_type in held]
+            in_pool[key][name] = {
+                "by_found": paired_by_found(subset, arm=arm, baseline=base),
+                "by_kind": paired_by_kind(subset, arm=arm, baseline=base),
+            }
+    return {
+        "by_type": summarise_by_type(results, pooled=pooled),
+        "paired_by_type": paired,
+        "paired_in_pool": in_pool,
+    }
+
+
+def pair_by_type_lines(
+    by_type: Mapping[str, Mapping[str, float]],
+    in_pool: Mapping[str, Mapping[str, Mapping[str, Mapping[str, float]]]],
+) -> list[str]:
+    """One pair of `by_type_report` as text: the types and pools, then each
+    pool by where the answer stood and by the shape of the gold. Exact match,
+    better / worse."""
+
+    def cells(table: Mapping[str, Mapping[str, float]], *, p: bool) -> str:
+        return " · ".join(
+            f"{name} {t['em_better']:.0f}/{t['em_worse']:.0f}"
+            + (f" (p={t['p_em']:.2g})" if p else "")
+            for name, t in table.items()
+        )
+
+    lines = [f"    by type: {cells(by_type, p=True)}"]
+    for pool, splits in in_pool.items():
+        lines.append(f"    {pool}, by where the answer stood: {cells(splits['by_found'], p=False)}")
+        lines.append(f"    {pool}, by answer kind: {cells(splits['by_kind'], p=False)}")
+    return lines
+
+
+def results_from_run(
+    run: Mapping[str, Any],
+    *,
+    question_types: Mapping[str, str] | None = None,
+    arm_suffix: str = "",
+) -> list[QAAnswerResult]:
+    """The answer rows of a run file of `scripts/mesh_qa_constellation.py`, as results.
+
+    A row's own `question_type` is used where it has one; a run written before
+    PHX-1127 has none and takes it from `question_types` (question id -> type,
+    `qa_datasets.question_types`). `arm_suffix` tells the arms of two runs apart
+    when they are paired question for question. Question ids are read as
+    strings, as the dataset loader keys them, whatever the file holds.
+    """
+    types = question_types or {}
+    return [
+        QAAnswerResult(
+            qid=str(a["qid"]),
+            arm=f"{a['arm']}{arm_suffix}",
+            question=a["question"],
+            gold=a["gold"],
+            answer=a["answer"],
+            em=a["em"],
+            f1=a["f1"],
+            gold_in_context=a["gold_in_context"],
+            attached_passages=a.get("attached_passages"),
+            model=a.get("model"),
+            question_type=a.get("question_type") or types.get(str(a["qid"])),
+        )
+        for a in run["answers"]
+    ]
 
 
 def sign_test_p(better: int, worse: int) -> float:
@@ -636,9 +920,11 @@ def paired_qa(
 
 __all__ = [
     "ALL_ARMS",
+    "BY_TYPE_TABLES",
     "DEFAULT_PASSAGE_K",
     "EXTRA_ARMS",
     "QA_ARMS",
+    "QA_PAIRS",
     "QAJob",
     "SourceIndex",
     "ReplayIngestReport",
@@ -646,17 +932,24 @@ __all__ = [
     "answer_kind",
     "answer_qa_set",
     "build_qa_jobs",
+    "by_type_lines",
+    "by_type_report",
     "ingest_cached_readings",
     "load_readings",
     "nearest_passages",
+    "pair_by_type_lines",
+    "paired_by_found",
     "paired_by_kind",
+    "paired_by_type",
     "paired_qa",
     "paragraph_of",
     "reading_key",
     "readings_by_paragraph",
+    "results_from_run",
     "seed_touching_entities",
     "sign_test_p",
     "sources_text",
     "summarise_by_kind",
+    "summarise_by_type",
     "unit_rows",
 ]

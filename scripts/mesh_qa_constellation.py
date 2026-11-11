@@ -25,6 +25,13 @@ PHX-1114):
 `passages` it is whether the substrate's rendering competes with plain RAG at
 all. The founding corpus could not ask either question (PHX-1098: prior 86%).
 
+The run is also read by the dataset's question type and by two pools of the
+types — whether the question names its answer (`answer_named`) or not
+(`answer_unnamed`): one total over 2Wiki averaged a gain of eleven points on
+the questions that do not name their answer against a loss of ten on plain
+comparisons (PHX-1127). `scripts/mesh_qa_by_type.py` reads a finished run the
+same way.
+
 Costs real money. Prints the model, the tick count and every setting with the
 results, because none of it is reproducible without them.
 """
@@ -44,14 +51,19 @@ from theogony.agents.factory import build_named_llm
 from theogony.agents.spend import run_paid
 from theogony.config.settings import Settings
 from theogony.mesh.eval.qa_answers import models_that_answered, summarise_qa_answers
-from theogony.mesh.eval.qa_datasets import load_dataset
+from theogony.mesh.eval.qa_datasets import POOLED_TYPES, load_dataset
 from theogony.mesh.eval.qa_mesh import (
     ALL_ARMS,
+    BY_TYPE_TABLES,
     DEFAULT_PASSAGE_K,
     EXTRA_ARMS,
     QA_ARMS,
+    QA_PAIRS,
     answer_kind,
     answer_qa_set,
+    by_type_lines,
+    by_type_report,
+    pair_by_type_lines,
     paired_by_kind,
     paired_qa,
     paragraph_of,
@@ -199,25 +211,17 @@ def main() -> None:
                 )
                 print(f"{kind + f' (n={n})':28s} {cells}")
 
+    # By what the question asks for, not only by what the answer looks like
+    # (PHX-1127). Empty tables when the dataset labels no types.
+    typed = by_type_report(results, pooled=POOLED_TYPES.get(args.dataset))
+    if typed["by_type"]:
+        for metric, label in BY_TYPE_TABLES:
+            print(f"\n{label}")
+            print("\n".join(by_type_lines(typed["by_type"], arms, metric=metric)))
+
     paired: dict[str, dict[str, float]] = {}
     paired_by_kind_tables: dict[str, dict[str, dict[str, float]]] = {}
-    for arm, base in (
-        ("constellation", "vector_only"),
-        ("constellation", "passages"),
-        ("constellation", "closed_book"),
-        ("constellation_typed", "constellation"),
-        ("constellation_typed", "vector_only"),
-        ("constellation_typed", "passages"),
-        ("vector_only", "closed_book"),
-        ("passages", "closed_book"),
-        # PHX-1113 / PHX-1114
-        ("constellation_typed_yn", "constellation_typed"),
-        ("constellation_sources", "constellation_typed"),
-        ("constellation_sources", "passages"),
-        ("constellation_sources_yn", "constellation_typed"),
-        ("constellation_sources_yn", "constellation_sources"),
-        ("constellation_sources_yn", "passages"),
-    ):
+    for arm, base in QA_PAIRS:
         if arm in summary and base in summary:
             p = paired_qa(results, arm=arm, baseline=base)
             paired[f"{arm}_vs_{base}"] = p
@@ -244,6 +248,15 @@ def main() -> None:
                         f"better/worse {pk['em_better']:.0f}/{pk['em_worse']:.0f} "
                         f"(p={pk['p_em']:.3g})"
                     )
+            key = f"{arm}_vs_{base}"
+            if key in typed["paired_by_type"]:
+                print(
+                    "\n".join(
+                        pair_by_type_lines(
+                            typed["paired_by_type"][key], typed["paired_in_pool"][key]
+                        )
+                    )
+                )
     print(f"\n{elapsed / 60:.1f} min")
 
     if args.out:
@@ -270,10 +283,13 @@ def main() -> None:
                     "by_kind": by_kind,
                     "paired": paired,
                     "paired_by_kind": paired_by_kind_tables,
+                    # by_type, paired_by_type, paired_in_pool (PHX-1127)
+                    **typed,
                     "answers": [
                         {
                             "qid": r.qid,
                             "arm": r.arm,
+                            "question_type": r.question_type,
                             "question": r.question,
                             "gold": r.gold,
                             "answer": r.answer,

@@ -105,6 +105,9 @@ class QAAnswerResult:
     #: no call succeeded. A run names one model, and an answer from another is
     #: not a measurement of it (PHX-1123).
     model: str | None = None
+    #: The question's reasoning type as the dataset labels it, None where it
+    #: labels none; the answers are read by it (PHX-1127).
+    question_type: str | None = None
 
 
 def build_context(passages: list[QAPassage], indices: list[int], *, top_k: int) -> str:
@@ -186,6 +189,7 @@ async def answer_dataset(
                 gold=question.answer,
                 answer="",
                 gold_in_context=in_context,
+                question_type=question.question_type,
             )
             jobs.append((result, _ask(llm, system, prompt, semaphore), question.acceptable))
 
