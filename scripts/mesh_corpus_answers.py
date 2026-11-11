@@ -24,9 +24,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import sys
 from pathlib import Path
 
 from theogony.agents.factory import build_named_llm
+from theogony.agents.spend import RunMustStop
 from theogony.config.settings import Settings
 from theogony.mesh.eval.corpus_answers import (
     ARMS,
@@ -61,12 +63,19 @@ def main() -> None:
     )
     ap.add_argument("--out", type=Path, help="Write per-answer detail as JSON here.")
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument(
+        "--spend-limit-usd",
+        type=float,
+        default=None,
+        help="the most this run may spend; default THEOGONY_LLM__SPEND_LIMIT_USD or 5 (PHX-1124)",
+    )
     args = ap.parse_args()
 
     settings = Settings()
     runtime = MeshRuntime.open(args.root)
     embedder = BGESmallEnEmbedder()
-    llm = build_named_llm(settings)  # the model the run names, no fallback (PHX-1123)
+    # the model the run names, no fallback (PHX-1123), behind its spend limit (PHX-1124)
+    llm = build_named_llm(settings, spend_limit_usd=args.spend_limit_usd)
 
     gold = load_gold()
     if args.limit:
@@ -81,16 +90,25 @@ def main() -> None:
     # an argparse flag that reaches nothing is indistinguishable, from the
     # outside, from one that works (PHX-1097).
     retrieve_kwargs = {"k_seeds": args.seeds} if args.seeds is not None else {}
-    results = answer_gold_set(
-        runtime,
-        embed,
-        llm,
-        arms=arms,
-        gold=gold,
-        top_k=args.top_k,
-        repeat=args.repeat,
-        **retrieve_kwargs,
-    )
+    # Every call in one event loop: the provider's client must not carry a
+    # connection from one loop into the next (PHX-1124 review). The limiter
+    # runs the preflight at the first paid call.
+    try:
+        with asyncio.Runner() as runner:
+            results = answer_gold_set(
+                runtime,
+                embed,
+                llm,
+                arms=arms,
+                gold=gold,
+                top_k=args.top_k,
+                repeat=args.repeat,
+                call_in_loop=runner.run,
+                **retrieve_kwargs,
+            )
+    except RunMustStop as stop:
+        sys.exit(f"STOPPED: {stop}")
+    print(f"spend: {llm.summary()}", flush=True)
     summary = summarise_answers(results)
 
     print(
@@ -161,6 +179,10 @@ def main() -> None:
             json.dumps(
                 {
                     "model": f"{settings.llm.provider}/{settings.llm.model_id or 'default'}",
+                    # what it cost, and the model the provider says served the name (PHX-1124)
+                    "spent_usd": round(llm.spent_usd, 4),
+                    "spend_limit_usd": llm.limit_usd,
+                    "served_by": llm.preflight.served_model_id if llm.preflight else "",
                     "ticks": runtime.tick_count(),
                     "top_k": args.top_k,
                     "summary": summary,

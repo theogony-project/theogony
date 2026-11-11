@@ -86,6 +86,16 @@ class LLMSettings(BaseModel):
         default="",
         description="Optional model id for fallback_provider; empty => provider default.",
     )
+    spend_limit_usd: float = Field(
+        default=5.0,
+        gt=0.0,
+        description=(
+            "The most one run of a measurement or recording script may spend, in USD "
+            "(PHX-1124). The run stops when its next call could cross it, and does not "
+            "start when the provider says the account holds less. A script's "
+            "--spend-limit-usd overrides it for that run."
+        ),
+    )
     offline_top_n_citations: int = Field(
         default=6,
         ge=1,
