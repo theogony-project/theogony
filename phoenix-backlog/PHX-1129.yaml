@@ -14,8 +14,10 @@ description: >
   edges in the workspace, 137 buffered edges written after the failure, 118
   audit rows unwritten. The pass had selected 71,009 pairs (172,069 more
   dropped by the cap of twelve neighbours) and had written the audit row of
-  61,306 of them, so 9,703 pairs were never linked and the mesh was
-  incomplete; it was removed and has to be rebuilt.
+  61,306 of them. The append that failed was the next pair's, whose two
+  edges were already in the buffer the failure path wrote, so 9,702 pairs
+  were never linked and the mesh was incomplete; it was removed and has to
+  be rebuilt.
 
   The cause is the sixth instance of the defect AGENTS.md contract 7 names.
   Each pair's row went through `MeshAuditLog.append`, one Lance transaction:
@@ -48,6 +50,14 @@ resolution: >
   is written differently. `tests/mesh/test_audit_batching.py` reads four
   paragraphs that share an entity and asserts that the six pairs' rows arrive
   in one transaction; it fails on the code before (six).
+
+  What the change costs. Nothing compacts inside the pass still, so the
+  manifests keep the same growth law over 278 transactions where there were
+  71,009. And a process killed inside the pass now loses up to 255 staged
+  rows, as it always lost up to 511 buffered edges: the store can then hold
+  a pair's edges without its row, where before it could hold the row
+  without the edges. An exception still flushes both on the way out
+  (PHX-1116).
 
   The rebuild, from a snapshot of commit c190137 on the machine the first
   replay failed on: all 9,811 paragraphs, exit 0, the same 71,009 pairs kept

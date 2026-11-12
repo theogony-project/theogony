@@ -159,7 +159,7 @@ def test_the_cross_paragraph_pass_writes_its_rows_with_the_batch(
     paragraphs once the last one is read — so the manifests grow with the square
     of the pairs. On a replay of HotpotQA's 9,811 passages the pass had written
     61,306 of its 71,009 rows, and 152 GB of manifests with them, when the disk
-    was full; the read failed with 9,703 pairs unlinked (PHX-1129).
+    was full; the read failed with 9,702 pairs unlinked (PHX-1129).
     """
     paragraphs = [f"Sven Hedin set out on journey number {n} across Asia." for n in range(1, 5)]
     reading = json.dumps(
@@ -202,6 +202,8 @@ def test_the_cross_paragraph_pass_writes_its_rows_with_the_batch(
     carrying = [actions for actions in writes if link in actions]
     assert len(carrying) == 1, "the pairs' rows share one transaction"
     assert carrying[0].count(link) == pairs
+    # Before any read of the log: a read flushes, and would hide a row the
+    # reader's own last flush had left staged.
+    assert mesh_runtime.audit.pending() == 0
     written = [r for r in mesh_runtime.audit.list_recent(limit=1000) if r["action"] == link]
     assert len(written) == pairs
-    assert mesh_runtime.audit.pending() == 0

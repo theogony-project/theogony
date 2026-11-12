@@ -998,7 +998,7 @@ class MeshParagraphReader:
             # inside this pass, so the manifests grow with the square of the
             # pairs: on a replay of HotpotQA's 9,811 passages, 61,306 of 71,009
             # pairs had written 152 GB of manifests when the disk was full, and
-            # the read failed with 9,703 pairs unlinked (PHX-1129).
+            # the read failed with 9,702 pairs unlinked (PHX-1129).
             self._stage_audit(
                 "mesh_ingest_cross_paragraph_link",
                 {
