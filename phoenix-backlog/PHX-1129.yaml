@@ -1,7 +1,7 @@
 id: PHX-1129
 category: substrate-performance
 priority: high
-status: in_progress
+status: done
 generation_target: Kadmos v2 reader (src/theogony/mesh/ingestion/kadmos_v2.py)
 title: "The pass that links paragraphs wrote one audit transaction per pair, and its manifests grew with the square of the pairs"
 filed_by: Claude Code (2026-11-12, from the PHX-1128 replay of HotpotQA)
@@ -40,15 +40,32 @@ acceptance: >
   report gives the pass's duration and the workspace's size before the final
   compaction.
 resolution: >
-  In progress on branch feat/phx-1128-question-types-hotpotqa (2026-11-12),
-  because PHX-1128 cannot build its mesh without it. The pass stages each
-  pair's row (`_stage_audit`), so 256 rows share a transaction and the read's
-  last flush writes the rest: 71,009 rows in 278 transactions. Row ids and
+  Done 2026-11-12 on branch feat/phx-1128-question-types-hotpotqa, because
+  PHX-1128 could not build its mesh without it. The pass stages each pair's
+  row (`_stage_audit`), so 256 rows share a transaction and the read's last
+  flush writes the rest: 71,009 rows in 278 transactions. Row ids and
   `recorded_at` are stamped when the row is staged, as before. No node or edge
   is written differently. `tests/mesh/test_audit_batching.py` reads four
   paragraphs that share an entity and asserts that the six pairs' rows arrive
-  in one transaction; it fails on the code before (six). The rebuild's figures
-  follow.
+  in one transaction; it fails on the code before (six).
+
+  The rebuild, from a snapshot of commit c190137 on the machine the first
+  replay failed on: all 9,811 paragraphs, exit 0, the same 71,009 pairs kept
+  and 172,069 dropped. The pairs' rows are stamped within 17.8 seconds of each
+  other (17:46:35.9 to 17:46:53.7 UTC), which is the pass. The workspace,
+  measured with `du` once a minute over the whole run, was never larger than
+  1.15 GB (the minute before the last compaction inside the read); the sample
+  between the pass and the final compaction reads 1.13 GB, against 153 GB when
+  the first replay died. After the final compaction (1,680 versions removed
+  over all tables) the audit table is 158,443 rows in one fragment and one
+  version, 12.6 MB, and the workspace 1.1 GB. The duration and the sizes are
+  read from the audit rows and from a size log kept beside the run
+  (`data/run_reports/phx1128/workspace_size.log`); the IngestRunReport does
+  not carry them. The replay ran about 273 minutes; another 192 it stood
+  stopped while the laptop was on battery.
+
+  Not done here: 2WikiMultihopQA was not rebuilt, so the 17 to 47 minutes its
+  pass took are not re-measured; by the figures above they are seconds.
 relates_to:
   - PHX-1128   # whose replay found it
   - PHX-1061   # the audit log's batching, which this pass was left out of
