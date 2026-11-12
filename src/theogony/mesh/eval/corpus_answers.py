@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Coroutine, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -171,6 +171,7 @@ def answer_gold_set(
     top_k: int = DEFAULT_TOP_K,
     max_output_tokens: int = 120,
     repeat: int = 1,
+    call_in_loop: Callable[[Coroutine[Any, Any, Any]], Any] = asyncio.run,
     **retrieve_kwargs: Any,
 ) -> list[AnswerResult]:
     """Ask every gold question once per arm and score what comes back.
@@ -193,6 +194,12 @@ def answer_gold_set(
     Contexts are built once and reused across repeats, so a repeat measures the
     *model's* variance and nothing else. Retrieval is deterministic here; paying
     for it again would only add noise to the measurement of noise.
+
+    ``call_in_loop`` runs each call. ``asyncio.run`` gives each its own loop; a
+    script that pays passes one loop's ``asyncio.Runner.run`` instead, because
+    the provider's client keeps its connection from the last loop and, in the
+    next, sends the request on the dead socket and again on a fresh one — every
+    answer reached DeepSeek twice and was counted once (PHX-1124 review).
     """
     questions = gold if gold is not None else load_gold()
     runtime.rebuild_csr()
@@ -216,7 +223,7 @@ def answer_gold_set(
     results: list[AnswerResult] = []
     for run in range(max(1, repeat)):
         for gq, arm, system, prompt in asked:
-            raw = asyncio.run(
+            raw = call_in_loop(
                 llm.complete(
                     prompt,
                     system=system,

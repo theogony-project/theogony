@@ -29,6 +29,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
+from theogony.agents.spend import RunMustStop
 from theogony.mesh.eval.qa_retrieval import QAPassage, QAQuestion
 
 ARMS = ("closed_book", "bm25", "knn", "sa_ppr")
@@ -127,6 +128,8 @@ async def _ask(
                     prompt, system=system, max_output_tokens=48, temperature=0.0
                 )
                 return (getattr(raw, "text", None) or str(raw)).strip(), answered_by(raw, llm)
+            except RunMustStop:
+                raise  # the run cannot pay for the next call: no answer, no retry (PHX-1124)
             except Exception:  # noqa: BLE001 - a transient provider error is not a result
                 if attempt == 2:
                     return "", None

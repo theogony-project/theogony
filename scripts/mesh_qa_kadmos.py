@@ -42,6 +42,7 @@ from ulid import ULID
 
 from theogony.agents.factory import build_named_llm
 from theogony.agents.llm import LLMProvider
+from theogony.agents.spend import RunMustStop, run_paid
 from theogony.config.settings import Settings
 from theogony.mesh.eval.qa_datasets import DATASETS, load_dataset, subsample_corpus
 from theogony.mesh.eval.qa_features import (
@@ -202,6 +203,11 @@ async def extract_readings(
                     stats.cost_eur += float(result.cost_eur)
                     payload = normalize_reading_payload(json.loads(result.text))
                     reading = ParagraphReadingOutput.model_validate(payload).model_dump()
+                except RunMustStop:
+                    # The run cannot pay for this passage: nothing goes into the
+                    # cache for it, so a rerun reads it instead of keeping a
+                    # stop as an empty reading (PHX-1124).
+                    raise
                 except Exception:  # noqa: BLE001 — any failure degrades to an empty reading
                     stats.failures += 1
                 stats.llm_calls += 1
@@ -304,6 +310,12 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--spacy-model", default="en_core_web_sm")
     parser.add_argument("--concurrency", type=int, default=16)
+    parser.add_argument(
+        "--spend-limit-usd",
+        type=float,
+        default=None,
+        help="the most this run may spend; default THEOGONY_LLM__SPEND_LIMIT_USD or 5 (PHX-1124)",
+    )
     parser.add_argument("--llm-timeout", type=float, default=90.0)
     parser.add_argument("--densities", default="0.0,0.25,0.5,1.0")
     parser.add_argument("--seed", type=int, default=0)
@@ -337,17 +349,18 @@ def main() -> None:
     settings = Settings()
     # The cache is keyed by passage text alone and records no model: a fallback
     # would put another model's readings into it unmarked (PHX-1123).
-    llm = build_named_llm(settings)
+    llm = build_named_llm(settings, spend_limit_usd=args.spend_limit_usd)
     cache_path = args.cache_dir / f"kadmos_readings_{args.dataset}.jsonl"
     print(f"extracting with {getattr(llm, 'model_id', '?')} (cache: {cache_path})")
-    readings, ex_stats = asyncio.run(
-        extract_readings(
+    readings, ex_stats = run_paid(
+        llm,
+        lambda: extract_readings(
             data.passages,
             llm,
             cache_path=cache_path,
             concurrency=args.concurrency,
             timeout_s=args.llm_timeout,
-        )
+        ),
     )
     timing["extract_s"] = ex_stats.wall_s
     print(

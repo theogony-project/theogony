@@ -1,0 +1,82 @@
+id: PHX-1124
+category: evaluation-integrity
+priority: high
+status: done
+generation_target: Measurement and recording scripts, agents.factory.build_named_llm, the DeepSeek provider
+title: "A paid run had no spend limit and asked nobody whether the account could pay"
+filed_by: Claude Code (2026-11-10, at the account holder's request, from the 2026-11-08 incident)
+created_at: 2026-11-10
+description: >
+  On 2026-11-08 a chain started from a Claude Code session waited 20.5 hours
+  for its replays, then started four answer runs of 5,000 calls each against a
+  DeepSeek account whose balance had run out; the default fallback handed
+  10,732 failed calls to claude-sonnet-4-6 in 70 minutes and the runs wrote
+  nothing (PHX-1123). PHX-1123 took the fallback out of measurements. Left
+  open: nothing asked the account before a run whether it could pay, nothing
+  stopped a run whose spending ran away, the four runs without the fallback
+  would still have failed their calls one by one and finished on empty
+  answers, and the cost every run logged came from a table of 0.14 / 0.28 USD
+  per 1M input / output tokens for deepseek-chat. DeepSeek bills cache hits and
+  cache misses apart and, since 2026-08-16 16:00 UTC, at a peak rate (01:00-04:00
+  and 06:00-10:00 UTC, Monday to Friday) twice the off-peak one, and a
+  deepseek-chat call is served by deepseek-flash (0.15 / 0.30 per 1M missed
+  input tokens and 0.60 / 1.20 per 1M output tokens, off-peak / peak), so the
+  logged costs were off by a factor that depends on the hour and the cache.
+acceptance: >
+  The six measurement and recording scripts that build their provider with
+  build_named_llm (mesh_qa_constellation, mesh_qa_answers, mesh_corpus_answers,
+  the mention audit's judge, mesh_qa_kadmos, record_demo_readings) run behind a
+  per-run spend limit (default 5 USD, THEOGONY_LLM__SPEND_LIMIT_USD,
+  --spend-limit-usd): an attempt that could take the run past it is refused
+  before it is made, under concurrency too, and the run stops with its reason.
+  The first refusal to pay stops the run instead of failing every call after
+  it; the answer harnesses, the judge, the reader and the extraction re-raise a
+  stop instead of scoring it as an empty answer or caching it as an empty
+  reading. Before its first paid call a run asks the account (for DeepSeek,
+  GET /user/balance) and does not start when it holds less than the limit,
+  then makes one probe call of one output token; a run with nothing to pay for
+  asks nothing. The spend is printed as it crosses each tenth of the limit and
+  recorded in the run files. DeepSeek calls are priced from the published table
+  by the model the response names, cache split and hour kept apart. Tests for
+  each, none touching the network.
+resolution: >
+  Done on branch feat/phx-1124-spend-limit (2026-11-10). agents.spend holds
+  SpendLimitedLLM and preflight. Before each attempt the limiter reserves the
+  attempt's worst case — every input token a cache miss, the output at the cap
+  it sends (8,192 tokens when the caller names none), at the peak rate — and
+  settles it with the actual cost; an attempt that failed in a way the
+  provider may still bill (a timeout, a dropped connection, a 5xx) is charged
+  at its reservation, a 4xx refusal is not. It makes the retries the SDK made,
+  each reserved and counted, and build_named_llm turns the DeepSeek client's
+  own retries off. It runs the preflight at the first paid attempt, and a
+  failed probe stops the run once. A provider that cannot price its worst case
+  is refused: build_named_llm limits DeepSeek and the free stub, not OpenAI,
+  Anthropic or Gemini, whose tables price every model at one rate or not at
+  all. The DeepSeek provider prices from PRICES_USD (deepseek-flash,
+  deepseek-v4-pro; aliases resolved, a model the table does not know priced at
+  its dearest row and the run stopped after that call, a Chinese public holiday
+  at the peak rate), records cost_usd
+  and the served model on LLMResult, and reads its balance. The review found
+  that mesh_corpus_answers, which ran each call in an event loop of its own,
+  sent every answer after the first to DeepSeek twice — the client carried its
+  connection into the next loop, wrote the request on the dead socket and
+  resent it — and counted it once; it now makes every call in one loop. The
+  answer run files record spent_usd, spend_limit_usd and served_by. Costs
+  logged before this change are approximate. Four paid paths are not under the
+  limit (PHX-1126).
+relates_to:
+  - PHX-1123   # the fallback this follows
+  - PHX-1121   # whose answer sitting waits on it
+  - PHX-1122   # likewise
+  - PHX-1125   # the alias the price table resolves
+  - PHX-1126   # the paid paths not under the limit
+linked_scripts:
+  - src/theogony/agents/spend.py
+  - src/theogony/agents/llm_deepseek.py
+  - src/theogony/agents/factory.py
+  - scripts/mesh_qa_constellation.py
+  - scripts/mesh_qa_answers.py
+  - scripts/mesh_corpus_answers.py
+  - scripts/mesh_mention_audit.py
+  - scripts/mesh_qa_kadmos.py
+  - scripts/record_demo_readings.py

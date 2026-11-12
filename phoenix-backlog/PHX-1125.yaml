@@ -1,0 +1,37 @@
+id: PHX-1125
+category: evaluation-integrity
+priority: high
+status: open
+generation_target: Answer harnesses, the mention audit's judge, the measurement record (docs/etappes/)
+title: "deepseek-chat is a name, not a model: what answered under it changed between measurements"
+filed_by: Claude Code (2026-11-10, while building PHX-1124)
+created_at: 2026-11-10
+description: >
+  Every answer, judgment and reading in the 2Wiki measurement record names
+  deepseek-chat. DeepSeek's change log says the name pointed to DeepSeek-V3.2's
+  non-thinking mode from 2025-12-01, and from 2026-04-24 to the non-thinking
+  mode of deepseek-v4-flash, with the name to be discontinued on 2026-07-24.
+  V4-Flash was re-trained on 2026-07-31; on 2026-09-10 V4.1-Flash replaced it
+  and deepseek-v4-flash was routed to V4.1-Flash; on 2026-10-17 V4.1-Flash
+  was upgraded to V4.1-Flash-1017. On 2026-11-10 a call to deepseek-chat came
+  back with deepseek-flash as the response's model. The change log does not
+  say where deepseek-chat itself was routed after 2026-07-24, and the record
+  cannot: the providers stored the requested name as the answering model, so
+  PHX-1123's answered_by counts names. A comparison within one sitting is of
+  one model; a comparison across sittings, and an etappe's "one model", are
+  of one name, behind which the model may have changed.
+acceptance: >
+  The answer harnesses and the judge record per answer the model the response
+  names (LLMResult.served_model_id, added by PHX-1124), and the pairing script
+  pairs on it. The etappes that state a model say which dates their runs fall
+  between and what the change log says served deepseek-chat then; a sentence
+  that compares figures across sittings says the model behind the name may
+  differ. A decision, recorded, whether measurements name deepseek-flash from
+  now on.
+relates_to:
+  - PHX-1123   # whose answered_by records the requested name
+  - PHX-1124   # which records the served model and prices by it
+linked_scripts:
+  - src/theogony/agents/llm_deepseek.py
+  - src/theogony/mesh/eval/qa_answers.py
+  - scripts/mesh_qa_pair_runs.py

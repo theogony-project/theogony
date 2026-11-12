@@ -16,6 +16,7 @@ from typing import Any, Literal
 from ulid import ULID
 
 from theogony.agents.llm import LLMProvider
+from theogony.agents.spend import RunMustStop
 from theogony.config.logging import get_logger
 from theogony.config.settings import Settings
 from theogony.extraction.embedding import EmbeddingProvider
@@ -1175,6 +1176,8 @@ class MeshParagraphReader:
                 "failed": False,
                 "schema_failed": False,
             }
+        except RunMustStop:
+            raise  # the run cannot pay for the next paragraph; the read fails, reported (PHX-1124)
         except Exception as exc:  # noqa: BLE001
             log.warning("LLM paragraph reading failed: %s", exc)
             return None, {
