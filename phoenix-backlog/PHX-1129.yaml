@@ -1,0 +1,60 @@
+id: PHX-1129
+category: substrate-performance
+priority: high
+status: in_progress
+generation_target: Kadmos v2 reader (src/theogony/mesh/ingestion/kadmos_v2.py)
+title: "The pass that links paragraphs wrote one audit transaction per pair, and its manifests grew with the square of the pairs"
+filed_by: Claude Code (2026-11-12, from the PHX-1128 replay of HotpotQA)
+created_at: 2026-11-12
+description: >
+  The replay of HotpotQA's 9,811 passages for PHX-1128 (started 2026-11-11
+  12:57 UTC, code 9013df6) read every paragraph and then failed in the pass
+  that links paragraphs sharing entities, with "No space left on device". The
+  reader's failure report (PHX-1116) was written: 72,703 nodes and 1,234,662
+  edges in the workspace, 137 buffered edges written after the failure, 118
+  audit rows unwritten. The pass had selected 71,009 pairs (172,069 more
+  dropped by the cap of twelve neighbours) and had written the audit row of
+  61,306 of them, so 9,703 pairs were never linked and the mesh was
+  incomplete; it was removed and has to be rebuilt.
+
+  The cause is the sixth instance of the defect AGENTS.md contract 7 names.
+  Each pair's row went through `MeshAuditLog.append`, one Lance transaction:
+  one fragment, and one manifest that lists every fragment before it. The
+  reader compacts between paragraphs (PHX-1110), but the pass runs after the
+  last paragraph and nothing compacts inside it. At the failure the audit
+  table held 61,309 manifests, the newest 5.3 MB, 152 GB in all, of a
+  workspace of 153 GB whose other seven tables took 1.1 GB and had 83
+  versions at most. The bytes grow with the square of the pairs, about 43
+  bytes times the square: a complete pass over 71,009 pairs would have needed
+  about 200 GB.
+
+  The same pass on 2WikiMultihopQA links 29,277 pairs, which by the same
+  arithmetic is about 37 GB of manifests that the script's final compaction
+  then reclaims; it took 17 minutes in the build of 2026-09-16 and 47 minutes
+  on 2026-11-08, when three builds ran side by side. Nobody saw it because the
+  workspace is 615 MB once the run has ended.
+acceptance: >
+  The pass writes its audit rows with the batch, as the link decisions have
+  been since PHX-1061; a test fails when a pair's row is a transaction of its
+  own; a replay of HotpotQA completes on the machine it failed on, and its
+  report gives the pass's duration and the workspace's size before the final
+  compaction.
+resolution: >
+  In progress on branch feat/phx-1128-question-types-hotpotqa (2026-11-12),
+  because PHX-1128 cannot build its mesh without it. The pass stages each
+  pair's row (`_stage_audit`), so 256 rows share a transaction and the read's
+  last flush writes the rest: 71,009 rows in 278 transactions. Row ids and
+  `recorded_at` are stamped when the row is staged, as before. No node or edge
+  is written differently. `tests/mesh/test_audit_batching.py` reads four
+  paragraphs that share an entity and asserts that the six pairs' rows arrive
+  in one transaction; it fails on the code before (six). The rebuild's figures
+  follow.
+relates_to:
+  - PHX-1128   # whose replay found it
+  - PHX-1061   # the audit log's batching, which this pass was left out of
+  - PHX-1110   # compaction inside the read, which does not reach this pass
+  - PHX-1116   # the failure report that said what had landed
+linked_scripts:
+  - src/theogony/mesh/ingestion/kadmos_v2.py
+  - tests/mesh/test_audit_batching.py
+  - scripts/mesh_qa_mesh_ingest.py

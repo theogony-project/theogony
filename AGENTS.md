@@ -152,11 +152,12 @@ The architecture is decided by the MESH triplet ([`docs/MESH_SUBSTRATE.md`](docs
 
 ### 7. One transaction per item is the recurring defect of this substrate
 
-Five separate performance collapses in the mesh have had the same shape: code that
+Six separate performance collapses in the mesh have had the same shape: code that
 writes or queries once **per item** where it could do so once **per batch**. Edges
 (PHX-1050, PHX-1057), index coverage (PHX-1059), node version pile-up (PHX-1060),
-and the audit log (PHX-1061). Each was found only after it had already cost hours
-of wall-clock on real reads.
+the audit log (PHX-1061), and the one pass that fix left out, which filled a disk
+(PHX-1129). Each was found only after it had already cost hours of wall-clock on
+real reads.
 
 Two habits follow.
 

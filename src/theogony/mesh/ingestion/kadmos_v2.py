@@ -992,7 +992,14 @@ class MeshParagraphReader:
                 )
                 tally.edges_upserted += 1
             tally.cross_pass_link_count += 2
-            self._append_audit(
+            # Staged, not appended: one row per pair is a per-item row, and a
+            # direct append is one Lance transaction — one fragment, and one
+            # manifest that lists every fragment before it. Nothing compacts
+            # inside this pass, so the manifests grow with the square of the
+            # pairs: on a replay of HotpotQA's 9,811 passages, 61,306 of 71,009
+            # pairs had written 152 GB of manifests when the disk was full, and
+            # the read failed with 9,703 pairs unlinked (PHX-1129).
+            self._stage_audit(
                 "mesh_ingest_cross_paragraph_link",
                 {
                     "left_paragraph": left_unit.paragraph_number,
