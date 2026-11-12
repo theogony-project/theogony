@@ -63,6 +63,12 @@ sitting, behind the spend limit of PHX-1124 at its default) and
 `data/run_reports/phx1128/`. Fifty entities grown from one seed, five
 passages, SQuAD exact match and token F1, `gold_in_context` as each arm's
 ceiling, the exact paired sign test: the settings of every 2Wiki sitting.
+**Checked:** every figure below that is read from the run file was computed
+a second time by a script that imports nothing from this repository and
+scores the answers itself (`data/run_reports/phx1128/recompute/`). It
+disagrees with the harness on none of the 5,000 rows' exact match or F1 and
+with none of the figures. The controls and the split by node name need the
+mesh and were computed once.
 
 ## How the five expectations are judged
 

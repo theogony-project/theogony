@@ -106,7 +106,9 @@ resolution: >
   README.md, llms.txt and AGENTS.md say so where they quote it. Exact match
   over all questions: closed_book 34.3%, passages 53.9% (53.9% and 54.1% in
   PHX-1089), vector_only 42.7%, constellation_typed 43.9%,
-  constellation_sources 47.5%. One sitting, not repeated.
+  constellation_sources 47.5%. One sitting, not repeated. The figures read
+  from the run file were recomputed by a script that imports nothing from
+  the repository, with no disagreement.
 relates_to:
   - PHX-1127   # the reading this repeats on a second corpus
   - PHX-1110   # the harness
