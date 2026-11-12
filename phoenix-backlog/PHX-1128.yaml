@@ -1,7 +1,7 @@
 id: PHX-1128
 category: evaluation
 priority: high
-status: open
+status: done
 generation_target: MESH — answer instrument (a second corpus for the by-type reading)
 title: "The answer arm by question type has been read on one dataset"
 filed_by: Claude Code (2026-11-11, from PHX-1127)
@@ -72,12 +72,49 @@ acceptance: >
   the five expectations as met, contradicted or undecided by its stated
   figure. A null or a contradiction, recorded, closes it. Costs about what one 2Wiki sitting
   costs; needs a key for the answering model only.
+resolution: >
+  Done 2026-11-12 (docs/etappes/question_types_hotpotqa.md). The description
+  above stands as written on 2026-11-11; how each expectation is read from
+  the run file was committed the same day, before a mesh of the corpus was
+  complete (137d10c).
+
+  The mesh is a replay of the 9,811 cached readings through the shipped
+  reader: 53,080 entity nodes, 87,431 mentions, 1,262,612 edges;
+  IngestRunReport 01M78DZ3R0NNFNF0F9Q85F2HZF, status partial because seven
+  cached readings are empty (none of them a supporting passage of a sampled
+  question). A first replay failed on a full disk (PHX-1129, fixed on the
+  same branch) and the mesh was rebuilt. Identity controls: 448 of the 812
+  entity golds are the name of a node, against 715 of 836 on 2Wiki. One
+  sitting on the sampled 1,000 questions, five arms, deepseek-chat named,
+  no fallback, behind the spend limit: 5,000 answers, none failed, 0.79 USD.
+
+  (1) Contradicted. On the 811 bridge questions constellation_typed holds
+  the gold on 48.8% and vector_only on 52.9%, 33 questions fewer where 41
+  more were expected, and it is not ahead (85 better, 75 worse, p = 0.48).
+  (2) Undecided. Where both constellation_typed and passages hold the gold,
+  338 questions, 21 better and 26 worse (p = 0.56): 47 discordant pairs.
+  (3) Met. The passages hold the gold on 77.1% against 48.8% and are not
+  behind; they lead, 155 to 68 (49.7% against 39.0%, p = 5e-9).
+  (4) Met. On the 415 questions whose gold constellation_typed does not
+  hold it is 18 better and 42 worse than closed_book (p = 0.003).
+  (5) Undecided. On the 189 comparison questions constellation_typed is not
+  ahead of passages, it is behind, 10 to 23 (p = 0.035), on 33 discordant
+  pairs.
+
+  By the consequence written for (1), the reading of PHX-1127 is a property
+  of 2Wiki's construction: question_types.md carries dated notes, and
+  README.md, llms.txt and AGENTS.md say so where they quote it. Exact match
+  over all questions: closed_book 34.3%, passages 53.9% (53.9% and 54.1% in
+  PHX-1089), vector_only 42.7%, constellation_typed 43.9%,
+  constellation_sources 47.5%. One sitting, not repeated.
 relates_to:
   - PHX-1127   # the reading this repeats on a second corpus
   - PHX-1110   # the harness
   - PHX-1089   # the passage arms and their ceiling on this dataset
+  - PHX-1129   # the defect that failed the first replay
 linked_docs:
   - docs/etappes/question_types.md
+  - docs/etappes/question_types_hotpotqa.md
 linked_scripts:
   - scripts/mesh_qa_mesh_ingest.py
   - scripts/mesh_qa_constellation.py

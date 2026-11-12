@@ -39,6 +39,21 @@
 > first; the same reading of HotpotQA is PHX-1128, with decision rules written
 > down before the run.
 
+*Read on HotpotQA 2026-11-12 (PHX-1128,
+[`question_types_hotpotqa.md`](question_types_hotpotqa.md)): the same reading
+on a corpus built another way, with five expectations written into the
+ticket before the run. That the edges find did not carry. On HotpotQA's 811
+questions that do not name their answer the typed Constellation holds the
+gold less often than the entities without edges (48.8% against 52.9%) and is
+not ahead of them (85 / 75), and the passages, which hold it on 77.1%, lead
+by 10.7 points (155 / 68, p = 5 × 10⁻⁹). By the ticket's rule the lead
+reported here is a property of 2Wiki's construction. Two things did carry:
+the lead went to the arm whose material held the answer, and where the
+Constellation did not hold it, it scored below the prior again (18 / 42).
+Whether the two arms are read alike where both hold the answer stayed
+undecided (21 / 26, on 47 discordant pairs against a floor of fifty), and so
+did the named-answer questions (10 / 23, on 33).*
+
 **Status:** 2026-11-11, read from runs on record; no model was called.
 **Instrument:** `scripts/mesh_qa_by_type.py` over run files of
 `scripts/mesh_qa_constellation.py` under `data/run_reports/qa_constellation/` —
@@ -266,6 +281,11 @@ too. The advantage is not there wherever a hop is needed: a comparison chain
 takes two and shows none. And it stops at the entity: on the dates of the
 same questions the passages lead four to one.
 
+*Read on HotpotQA 2026-11-12 (PHX-1128): not there. Five passages by cosine
+hold the answer on 77% of HotpotQA's such questions, against 35% here, and
+the typed Constellation on 49%; the passages lead. The advantage was in what
+plain retrieval misses on 2Wiki.*
+
 **Two of the project's headline figures were means over opposite signs.** The
 tie with passages and the 3.6 points of the edges are both correct, and both
 describe a population that does not exist: 521 questions on which the edges
@@ -275,6 +295,10 @@ and 479 on which plain comparisons lose and comparison chains do not move.
 **Not finding may cost more than the absence of a gain.** In the one sitting
 that can show it, the Constellation fell below the prior where it did not hold
 the answer. That is a single figure at p = 0.004; PHX-1128 asks it again.
+
+*Read on HotpotQA 2026-11-12 (PHX-1128): it did again, 18 better and 42
+worse than the prior on the 415 questions whose answer the typed
+Constellation did not hold (p = 0.003).*
 
 **The named-answer half is a poor instrument for this substrate.** Its prior
 is 58%, the best arm clears it by six points in September, and it carries the
@@ -352,6 +376,9 @@ questions `bridge` (811 of 1,000, pooled as `answer_unnamed`) and `comparison`
 (189, `answer_named`); that pooling and five expectations, each with the
 figure that would contradict it, are in the ticket, written before any answer
 from a mesh of that corpus exists.
+
+*Done 2026-11-12 (PHX-1128): one expectation contradicted, two met, two
+undecided ([`question_types_hotpotqa.md`](question_types_hotpotqa.md)).*
 
 ## How to re-run
 
