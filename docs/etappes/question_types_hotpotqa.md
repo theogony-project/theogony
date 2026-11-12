@@ -81,5 +81,91 @@ question here has exactly two supporting passages (on 2Wiki 765 have two and
 are spans a person marked — *Finnmark county,*, *the Queen's gaoler* — so exact
 match is harsher here and token F1 is given beside it.
 
-Tickets: [`PHX-1128`](../../phoenix-backlog/PHX-1128.yaml); from
+## The mesh and its controls
+
+The mesh is the replay of the readings cached on 2026-08-15, through the
+shipped reader and with no model call (`scripts/mesh_qa_mesh_ingest.py`):
+9,811 paragraphs, 53,080 entity nodes, 87,431 mentions, 81,029 typed
+relations, 1,262,612 edges, one connected component. Three things about the
+build belong to the record.
+
+**The first replay failed.** It read every paragraph and then filled the disk
+in the pass that links paragraphs sharing entities: one audit transaction per
+pair, 152 GB of manifests for 61,306 of 71,009 pairs
+([`PHX-1129`](../../phoenix-backlog/PHX-1129.yaml), fixed on this branch). The
+incomplete mesh was removed. The mesh read here is the rebuild from the fixed
+code, in which the same pass took 18 seconds and the workspace stayed under
+1.15 GB. Both builds count 72,703 nodes; the first stopped 9,702 pairs short
+of its links.
+
+**Its run report says `partial`.** Seven of the cached readings are empty
+(passages 238, 634, 2469, 5139, 6821, 7375 and 9530, counted from zero: *Ken
+Riley*, *Queenie Ashton*, *ISS year long mission*, *Hands on in Between*, *Pan
+Wenshi*, *Trik Turner*, *Black Nativity*). The replay hands the reader an
+empty completion for each, the reader counts a failed reading, and the
+`IngestRunReport` carries status `partial` and verdict `failed`. The seven are
+in the mesh as paragraphs without entities. None of them is one of the 1,988
+supporting passages of the sampled questions. They were not read again, which
+would have been a paid extraction; 2Wiki's cache has no empty reading.
+
+**The linker's known defect is in this mesh as it is in 2Wiki's.**
+[`PHX-1122`](../../phoenix-backlog/PHX-1122.yaml) estimates that 15% of the
+2Wiki mesh's mentions sit on a node that does not bear their name. Counted
+here by string — does the paragraph that mentions a node carry the node's
+label — 14.9% of this mesh's 81,853 paragraph-and-node pairs do not, against
+13.7% of the 2Wiki mesh's by the same count. The count is not the audit: an
+alias fails it and is right. But among the twenty-five most-mentioned nodes
+are *University of British Columbia* (106 paragraphs, 4 of which carry the
+name), *Walt Disney Productions* (92, 17), *Aberdeenshire* (57, 8), *Times
+Square* (57, 1) and *Northern Iowa* (55, 1).
+
+The identity controls of PHX-1118 (`scripts/mesh_identity_controls.py`),
+beside the 2Wiki mesh built by the same reader (`data/mesh-2wiki-off`):
+
+| | 2Wiki | HotpotQA |
+|---|---|---|
+| paragraphs | 6,119 | 9,811 |
+| entity nodes | 29,786 | 53,080 |
+| mentions | 43,118 | 87,431 |
+| entity nodes mentioned from two paragraphs or more | 5,725 | 10,535 |
+| description, median characters | 79 | 85 |
+| entity golds that are the name of a node | 715 of 836 | 448 of 812 |
+| — of which the name of two nodes or more | 10 | 15 |
+
+The last two rows are the ones that bear on the answers. On 2Wiki six entity
+golds in seven are the name of a node; here 364 of 812 are the name of none.
+A gold on this dataset is often a span and not an entity's name — *guitarist*,
+*US$13 billion*, *the State House in Augusta*, a full name such as *Vincent
+Anthony Guaraldi* — and a Constellation holds such a gold only where some
+node's description carries the words.
+
+## How to re-run
+
+The mesh needs no key: it is a replay of `kadmos_readings_hotpotqa.jsonl`, about
+four and a half hours on a laptop and 1.1 GB. The sitting is 5,000 calls and
+needs a DeepSeek key; it runs behind the spend limit of PHX-1124 at its
+default of 5 USD. The reading needs neither.
+
+```bash
+python scripts/mesh_qa_mesh_ingest.py --dataset hotpotqa --root data/mesh-hotpotqa
+python scripts/mesh_identity_controls.py --root data/mesh-hotpotqa --dataset hotpotqa \
+    --json data/run_reports/phx1128/controls_hotpotqa.json
+
+THEOGONY_LLM__PROVIDER=deepseek THEOGONY_LLM__MODEL_ID=deepseek-chat \
+python scripts/mesh_qa_constellation.py --root data/mesh-hotpotqa --dataset hotpotqa \
+    --arms closed_book,passages,vector_only,constellation_typed,constellation_sources \
+    --out data/run_reports/qa_constellation/hotpotqa_1000.json
+
+python scripts/mesh_qa_by_type.py data/run_reports/qa_constellation/hotpotqa_1000.json \
+    --json data/run_reports/phx1128/by_type.json
+```
+
+The first prints the replay's counts and the path of its `IngestRunReport`
+(status `partial`, for the seven empty readings). The third prints the run by
+type and pool and writes the run file with `by_type`, `paired_by_type` and
+`paired_in_pool`; the five expectations are read from the cells named in the
+table above. The last re-reads the file without calling a model.
+
+Tickets: [`PHX-1128`](../../phoenix-backlog/PHX-1128.yaml),
+[`PHX-1129`](../../phoenix-backlog/PHX-1129.yaml); from
 [`PHX-1127`](../../phoenix-backlog/PHX-1127.yaml).
