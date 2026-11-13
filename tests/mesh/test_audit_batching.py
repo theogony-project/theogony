@@ -14,6 +14,15 @@ a staged row is never invisible: reads flush first.
 
 from __future__ import annotations
 
+import asyncio
+import json
+from pathlib import Path
+
+import pytest
+
+from theogony.agents.llm import StubLLMProvider
+from theogony.config.settings import Settings
+from theogony.mesh.ingestion.kadmos_v2 import MeshParagraphReader
 from theogony.mesh.runtime.oneiros_tick import MeshRuntime
 
 
@@ -138,3 +147,63 @@ def test_the_tick_prunes_the_audit_log_too(mesh_runtime: MeshRuntime) -> None:
 
     assert "mesh_audit" in result.versions_pruned
     assert result.versions_pruned["mesh_audit"] > 0
+
+
+def test_the_cross_paragraph_pass_writes_its_rows_with_the_batch(
+    mesh_runtime: MeshRuntime, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One audit row per linked pair of paragraphs, and not one transaction each.
+
+    A direct append is a Lance version of its own, whose manifest lists every
+    fragment before it, and nothing compacts inside the pass that links the
+    paragraphs once the last one is read — so the manifests grow with the square
+    of the pairs. On a replay of HotpotQA's 9,811 passages the pass had written
+    61,306 of its 71,009 rows, and 152 GB of manifests with them, when the disk
+    was full; the read failed with 9,702 pairs unlinked (PHX-1129).
+    """
+    paragraphs = [f"Sven Hedin set out on journey number {n} across Asia." for n in range(1, 5)]
+    reading = json.dumps(
+        {
+            "concepts": [
+                {"label": "Sven Hedin", "entity_type": "person", "tags": ["explorer"], "qids": []}
+            ],
+            "relations": [],
+            "paragraph_concept": None,
+        }
+    )
+    reader = MeshParagraphReader(
+        mesh_runtime,
+        llm=StubLLMProvider(responses={f"PARAGRAPH:\n{p}": reading for p in paragraphs}),
+        max_paragraphs=10,
+        settings=Settings(_env_file=None, data_dir=tmp_path / "data"),  # type: ignore[call-arg]
+        compact_every=0,
+    )
+    writes: list[list[str]] = []
+    original_add = mesh_runtime.audit._table.add
+
+    def recording_add(rows):  # type: ignore[no-untyped-def]
+        writes.append([row["action"] for row in rows])
+        return original_add(rows)
+
+    monkeypatch.setattr(mesh_runtime.audit._table, "add", recording_add)
+    result = asyncio.run(
+        reader.read_text(
+            text="\n\n".join(paragraphs),
+            source_type="test",
+            source_identifier="hedin",
+            title="Hedin",
+            anchor=str(tmp_path / "hedin.txt"),
+        )
+    )
+
+    link = "mesh_ingest_cross_paragraph_link"
+    pairs = 6  # four paragraphs that share one entity
+    assert result["cross_paragraph_links"] == 2 * pairs
+    carrying = [actions for actions in writes if link in actions]
+    assert len(carrying) == 1, "the pairs' rows share one transaction"
+    assert carrying[0].count(link) == pairs
+    # Before any read of the log: a read flushes, and would hide a row the
+    # reader's own last flush had left staged.
+    assert mesh_runtime.audit.pending() == 0
+    written = [r for r in mesh_runtime.audit.list_recent(limit=1000) if r["action"] == link]
+    assert len(written) == pairs

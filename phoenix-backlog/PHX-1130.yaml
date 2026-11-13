@@ -1,0 +1,36 @@
+id: PHX-1130
+category: evaluation-integrity
+priority: low
+status: open
+generation_target: tests/mesh/test_audit_batching.py (and any code that reads chronology off a row id)
+title: "A test asserts that two audit rows staged in a row have ids in order; about one run in 4,400 they do not"
+filed_by: Claude Code (2026-11-12, from the review of the PHX-1129 fix)
+created_at: 2026-11-12
+description: >
+  tests/mesh/test_audit_batching.py::test_rows_are_stamped_when_staged_not_when_written
+  stages two audit rows and asserts `first < second` on their ids, with the
+  comment "ULIDs are time-ordered, so staging order survives the batched
+  write". A ULID is ordered by its millisecond, and within one millisecond by
+  random bits. With python-ulid 3.1.0, two ids minted one after the other
+  compared out of order 454 times in 2,000,000 (2.3e-4), so the assertion
+  fails about once in 4,400 runs of the test, and CI runs it on every push. It
+  has not failed in CI yet as far as the record shows.
+  The same holds for the rows themselves: in the linking pass, which stages a
+  row every quarter of a millisecond, the review of PHX-1129 simulated 19
+  inversions among 71,009 ids. `recorded_at` stays in order and the log's own
+  read (`list_recent`) orders by it, so no behaviour found depends on the id's
+  order today; the comment in the test, and the sentence in
+  `MeshAuditLog.stage` that the id records when the event happened, promise
+  more than a ULID gives.
+acceptance: >
+  The test asserts the order on what carries it (`recorded_at`, or ids minted
+  by a monotonic factory if the log is given one) and passes 100,000 times in
+  a loop; the docstring of `MeshAuditLog.stage` says what the id does and
+  does not order. No change to what is written to the log unless a caller
+  that sorts by id is found.
+relates_to:
+  - PHX-1061   # the test and the staging it covers
+  - PHX-1129   # whose review found it
+linked_scripts:
+  - tests/mesh/test_audit_batching.py
+  - src/theogony/mesh/storage/audit.py
